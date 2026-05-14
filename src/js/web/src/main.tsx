@@ -5,6 +5,7 @@ import React from "react"
 import ReactDOM from "react-dom/client"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { usePublicConfig } from "@/hooks/use-public-config"
+import { setAccessToken, useAuthStore } from "@/lib/auth"
 import { client } from "@/lib/generated/api/client.gen"
 import { ThemeProvider } from "@/lib/theme-context"
 
@@ -68,6 +69,17 @@ const processQueue = (error: Error | null) => {
   failedQueue = []
 }
 
+const clearClientAuthState = () => {
+  setAccessToken(null)
+  useAuthStore.setState({
+    user: null,
+    currentTeam: null,
+    teams: [],
+    isLoading: false,
+    isAuthenticated: false,
+  })
+}
+
 // Response interceptor for silent token refresh
 // Using error interceptor with the new client API
 client.interceptors.error.use(async (error, response, request, options) => {
@@ -97,7 +109,12 @@ client.interceptors.error.use(async (error, response, request, options) => {
 
     try {
       // Attempt to refresh the token
-      await client.post({ url: "/api/access/refresh" })
+      const refreshResponse = await client.post({ url: "/api/access/refresh" })
+      const accessToken = (refreshResponse.data as { access_token?: string } | undefined)?.access_token
+      if (!accessToken) {
+        throw new Error("Refresh response did not include an access token")
+      }
+      setAccessToken(accessToken)
       processQueue(null)
       // Retry the original request
       const method = options.method ?? "GET"
@@ -106,6 +123,7 @@ client.interceptors.error.use(async (error, response, request, options) => {
       processQueue(refreshError as Error)
       // Refresh failed - clear auth state and redirect to login
       // But only if we're not already on the login page
+      clearClientAuthState()
       queryClient.clear()
       if (window.location.pathname !== "/login") {
         window.location.href = "/login"

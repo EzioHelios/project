@@ -4,9 +4,9 @@ import { persist } from "zustand/middleware"
 import type { Team, User } from "@/lib/generated/api"
 import { accountLogin, accountLogout, accountProfile } from "@/lib/generated/api"
 
-const ACCESS_TOKEN_KEY = "access_token"
+export const ACCESS_TOKEN_KEY = "access_token"
 
-const setAccessToken = (token: string | null) => {
+export const setAccessToken = (token: string | null) => {
   if (typeof window === "undefined") {
     return
   }

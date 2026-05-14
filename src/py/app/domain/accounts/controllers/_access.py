@@ -13,6 +13,7 @@ from litestar.di import Provide
 from litestar.enums import RequestEncodingType
 from litestar.exceptions import ClientException, NotAuthorizedException
 from litestar.params import Body, Dependency, Parameter
+from litestar.security.jwt import OAuth2Login
 from litestar.security.jwt import Token as JWTToken
 from sqlalchemy.orm import selectinload
 
@@ -34,7 +35,6 @@ from app.domain.accounts.schemas import (
     PasswordResetSent,
     ResetPasswordRequest,
     ResetTokenValidation,
-    TokenRefresh,
     User,
 )
 from app.domain.accounts.services import RefreshTokenService
@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 
     from advanced_alchemy.filters import FilterTypes
     from advanced_alchemy.service.pagination import OffsetPagination
-    from litestar.security.jwt import OAuth2Login, Token
+    from litestar.security.jwt import Token
 
     from app.domain.accounts.services import (
         PasswordResetService,
@@ -216,7 +216,7 @@ class AccessController(Controller):
         refresh_token_service: RefreshTokenService,
         users_service: UserService,
         settings: AppSettings,
-    ) -> Response[TokenRefresh]:
+    ) -> Response[OAuth2Login]:
         """Refresh access token using refresh token.
 
         Implements token rotation - the old refresh token is revoked
@@ -229,7 +229,7 @@ class AccessController(Controller):
             settings: Application settings
 
         Returns:
-            New access token with rotated refresh token
+            New access token with rotated refresh token cookie
 
         Raises:
             NotAuthorizedException: If refresh token is invalid or expired
