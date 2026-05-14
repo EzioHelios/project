@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { DataCard } from "@/components/carbon/data-view"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
 import { Card, CardContent } from "@/components/ui/card"
+import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
 
 type ApiResponse<T> = {
   code: number
@@ -31,11 +31,7 @@ function CompanyPage() {
 
   return (
     <PageContainer className="flex-1 space-y-6">
-      <PageHeader
-        eyebrow="数据管理"
-        title="企业基本信息"
-        description="展示仓库企业基础档案信息，数据来源于 EnterpriseInfo 表（与原系统保持一致）。"
-      />
+      <PageHeader eyebrow="数据管理" title="企业基本信息" description="展示仓库企业基础档案信息，数据来源于 EnterpriseInfo 表（与原系统保持一致）。" />
 
       <PageSection>
         {isLoading && (
@@ -46,17 +42,12 @@ function CompanyPage() {
 
         {isError && (
           <Card>
-            <CardContent className="py-10 text-sm text-destructive">
-              企业信息加载失败，请检查后端接口 /api/page1/ckxxgk 是否可用。
-            </CardContent>
+            <CardContent className="py-10 text-sm text-destructive">企业信息加载失败，请检查后端接口 /api/page1/ckxxgk 是否可用。</CardContent>
           </Card>
         )}
 
-        {!isLoading && !isError && (
-          <DataCard title="企业信息详情" data={info} prefer="kv" rawTitle="原始返回值（ckxxgk）" />
-        )}
+        {!isLoading && !isError && <DataCard title="企业信息详情" data={info} prefer="kv" rawTitle="原始返回值（ckxxgk）" />}
       </PageSection>
     </PageContainer>
   )
 }
-

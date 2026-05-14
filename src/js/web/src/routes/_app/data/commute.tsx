@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
 
+import { PaginationBar, requestPage } from "@/components/platform/data-admin-pages"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -42,6 +43,8 @@ function CommutePage() {
   const [keyword, setKeyword] = useState("")
   const [category, setCategory] = useState<string>("all")
   const [createOpen, setCreateOpen] = useState(false)
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
 
   const [form, setForm] = useState({
     name: "",
@@ -51,24 +54,19 @@ function CommutePage() {
     unit_consumption: "",
   })
 
-  const listQuery = useQuery<ApiResponse<EmployeeCommute[]>>({
-    queryKey: ["data", "commute", "list"],
-    queryFn: async () => {
-      const res = await fetch("/api/data/employee-commute")
-      return res.json()
-    },
+  const listQuery = useQuery({
+    queryKey: ["data", "commute", "list", keyword, category, pageIndex, pageSize],
+    queryFn: async () =>
+      requestPage<EmployeeCommute>("/api/data/employee-commute", {
+        search: keyword.trim() || undefined,
+        keyword: keyword.trim() || undefined,
+        category: category === "all" ? undefined : category,
+        limit: pageSize,
+        offset: pageIndex * pageSize,
+      }),
   })
 
-  const items = useMemo(() => {
-    const raw = listQuery.data?.data ?? []
-    const kw = keyword.trim().toLowerCase()
-    return raw.filter((r) => {
-      const okCategory = category === "all" ? true : (r.category ?? "") === category
-      const hay = `${r.name ?? ""} ${r.category ?? ""}`.toLowerCase()
-      const okKw = kw.length === 0 ? true : hay.includes(kw)
-      return okCategory && okKw
-    })
-  }, [category, keyword, listQuery.data?.data])
+  const items = listQuery.data?.items ?? []
 
   const createMut = useMutation({
     mutationFn: async () => {
@@ -122,11 +120,7 @@ function CommutePage() {
 
   return (
     <PageContainer className="flex-1 space-y-6">
-      <PageHeader
-        eyebrow="数据管理"
-        title="员工通勤"
-        description="管理员工通勤方式与里程等基础数据，为碳排放计算提供基础参数。"
-      />
+      <PageHeader eyebrow="数据管理" title="员工通勤" description="管理员工通勤方式与里程等基础数据，为碳排放计算提供基础参数。" />
 
       <PageSection>
         <Card>
@@ -167,19 +161,11 @@ function CommutePage() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="grid gap-2">
                           <Label>平均单次里程（km）</Label>
-                          <Input
-                            value={form.mileage}
-                            onChange={(e) => setForm((s) => ({ ...s, mileage: e.target.value }))}
-                            placeholder="可选，例如：15"
-                          />
+                          <Input value={form.mileage} onChange={(e) => setForm((s) => ({ ...s, mileage: e.target.value }))} placeholder="可选，例如：15" />
                         </div>
                         <div className="grid gap-2">
                           <Label>单位油耗（L/100km）</Label>
-                          <Input
-                            value={form.unit_consumption}
-                            onChange={(e) => setForm((s) => ({ ...s, unit_consumption: e.target.value }))}
-                            placeholder="可选，例如：8.5"
-                          />
+                          <Input value={form.unit_consumption} onChange={(e) => setForm((s) => ({ ...s, unit_consumption: e.target.value }))} placeholder="可选，例如：8.5" />
                         </div>
                       </div>
                     </div>
@@ -187,10 +173,7 @@ function CommutePage() {
                       <Button variant="outline" onClick={() => setCreateOpen(false)}>
                         取消
                       </Button>
-                      <Button
-                        onClick={() => createMut.mutate()}
-                        disabled={!form.name.trim() || createMut.isPending}
-                      >
+                      <Button onClick={() => createMut.mutate()} disabled={!form.name.trim() || createMut.isPending}>
                         保存
                       </Button>
                     </DialogFooter>
@@ -260,16 +243,11 @@ function CommutePage() {
                     <TableRow key={r.id}>
                       <TableCell>{r.name}</TableCell>
                       <TableCell>{r.category ?? "-"}</TableCell>
-                      <TableCell>{r.car_power_type != null ? carPowerTypeLabels[r.car_power_type] ?? r.car_power_type : "-"}</TableCell>
+                      <TableCell>{r.car_power_type != null ? (carPowerTypeLabels[r.car_power_type] ?? r.car_power_type) : "-"}</TableCell>
                       <TableCell className="text-right">{r.mileage ?? "-"}</TableCell>
                       <TableCell className="text-right">{r.unit_consumption ?? "-"}</TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deleteMut.mutate(r.id)}
-                          disabled={deleteMut.isPending}
-                        >
+                        <Button variant="outline" size="sm" onClick={() => deleteMut.mutate(r.id)} disabled={deleteMut.isPending}>
                           删除
                         </Button>
                       </TableCell>
@@ -278,10 +256,19 @@ function CommutePage() {
                 </TableBody>
               </Table>
             )}
+            <PaginationBar
+              page={listQuery.data ?? { items: [], total: 0, limit: pageSize, offset: pageIndex * pageSize }}
+              pageIndex={pageIndex}
+              pageSize={pageSize}
+              onPageChange={setPageIndex}
+              onPageSizeChange={(size) => {
+                setPageSize(size)
+                setPageIndex(0)
+              }}
+            />
           </CardContent>
         </Card>
       </PageSection>
     </PageContainer>
   )
 }
-

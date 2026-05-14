@@ -9,6 +9,7 @@ import datetime
 import re
 from typing import Any
 
+from advanced_alchemy.filters import LimitOffset, OrderBy, SearchFilter
 from dateutil.relativedelta import MO, relativedelta
 from litestar import Controller, delete, get, patch, post
 from litestar.params import Body
@@ -993,6 +994,36 @@ def _slice_rows(rows: list[dict[str, Any]], limit: int = 200, offset: int = 0) -
     }
 
 
+def _paged_payload(items: list[dict[str, Any]], total: int, limit: int, offset: int) -> dict[str, Any]:
+    return {"items": items, "total": total, "limit": limit, "offset": offset, "code": 200, "data": items}
+
+
+async def _list_page(
+    service: Any,
+    model: Any,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+    search: str | None = None,
+    keyword: str | None = None,
+    search_fields: list[str] | None = None,
+    sort_field: str = "id",
+    sort_order: str = "desc",
+    conditions: list[Any] | None = None,
+) -> dict[str, Any]:
+    limit_clamped = max(1, min(limit, 100))
+    offset_clamped = max(0, offset)
+    filters: list[Any] = [LimitOffset(limit_clamped, offset_clamped)]
+    order = "asc" if sort_order == "asc" else "desc"
+    if sort_field and hasattr(model, sort_field):
+        filters.append(OrderBy(getattr(model, sort_field), order))
+    search_value = (search or keyword or "").strip()
+    if search_value and search_fields:
+        filters.append(SearchFilter(field_name=set(search_fields), value=search_value, ignore_case=True))
+    rows, total = await service.list_and_count(*(conditions or []), *filters)
+    return _paged_payload([model_to_dict(row) for row in rows], total, limit_clamped, offset_clamped)
+
+
 class CarbonCRUDController(Controller):
     """Scope 1/2/3 碳数据 CRUD 与审核（参考 xtck_deploy 与 PRD 5）。"""
     tags = ["CarbonCRUD"]
@@ -1047,10 +1078,30 @@ class CarbonCRUDController(Controller):
     # ---------- Scope1 移动源 ----------
     @get("/api/carbon/scope1-mobile-combustion", exclude_from_auth=True)
     async def list_scope1_mobile(
-        self, scope1_mobile_service: services.Scope1MobileCombustionService
+        self,
+        scope1_mobile_service: services.Scope1MobileCombustionService,
+        limit: int = 20,
+        offset: int = 0,
+        search: str | None = None,
+        keyword: str | None = None,
+        status: str | None = None,
+        sort_field: str = "id",
+        sort_order: str = "desc",
     ) -> Response[dict]:
-        items = await scope1_mobile_service.list()
-        return Response(content={"code": 200, "data": [model_to_dict(i) for i in items]})
+        conditions = [m.Scope1MobileCombustion.status == status] if status else []
+        page = await _list_page(
+            scope1_mobile_service,
+            m.Scope1MobileCombustion,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["asset_id", "asset_name", "fuel_type", "unit", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=page)
 
     @get("/api/carbon/scope1-mobile-combustion/{record_id:int}", exclude_from_auth=True)
     async def get_scope1_mobile(
@@ -1189,10 +1240,30 @@ class CarbonCRUDController(Controller):
     # ---------- Scope1 固定源 ----------
     @get("/api/carbon/scope1-stationary-combustion", exclude_from_auth=True)
     async def list_scope1_stationary(
-        self, scope1_stationary_service: services.Scope1StationaryCombustionService
+        self,
+        scope1_stationary_service: services.Scope1StationaryCombustionService,
+        limit: int = 20,
+        offset: int = 0,
+        search: str | None = None,
+        keyword: str | None = None,
+        status: str | None = None,
+        sort_field: str = "id",
+        sort_order: str = "desc",
     ) -> Response[dict]:
-        items = await scope1_stationary_service.list()
-        return Response(content={"code": 200, "data": [model_to_dict(i) for i in items]})
+        conditions = [m.Scope1StationaryCombustion.status == status] if status else []
+        page = await _list_page(
+            scope1_stationary_service,
+            m.Scope1StationaryCombustion,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["facility_name", "fuel_type", "unit", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=page)
 
     @get("/api/carbon/scope1-stationary-combustion/{record_id:int}", exclude_from_auth=True)
     async def get_scope1_stationary(
@@ -1854,38 +1925,143 @@ class CarbonCRUDController(Controller):
     # ---------- Scope1 逸散 / Scope2 / Scope3：列表 + 待审核汇总 ----------
     @get("/api/carbon/scope1-refrigerant-leak", exclude_from_auth=True)
     async def list_scope1_refrigerant(
-        self, scope1_refrigerant_service: services.Scope1RefrigerantLeakService
+        self,
+        scope1_refrigerant_service: services.Scope1RefrigerantLeakService,
+        limit: int = 20,
+        offset: int = 0,
+        search: str | None = None,
+        keyword: str | None = None,
+        status: str | None = None,
+        sort_field: str = "id",
+        sort_order: str = "desc",
     ) -> Response[dict]:
-        items = await scope1_refrigerant_service.list()
-        return Response(content={"code": 200, "data": [model_to_dict(i) for i in items]})
+        conditions = [m.Scope1RefrigerantLeak.status == status] if status else []
+        page = await _list_page(
+            scope1_refrigerant_service,
+            m.Scope1RefrigerantLeak,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["device_id", "device_name", "refrigerant_type", "leak_type", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=page)
 
     @get("/api/carbon/scope2-electricity-bill", exclude_from_auth=True)
     async def list_scope2_bill(
-        self, scope2_bill_service: services.Scope2ElectricityBillService
+        self,
+        scope2_bill_service: services.Scope2ElectricityBillService,
+        limit: int = 20,
+        offset: int = 0,
+        search: str | None = None,
+        keyword: str | None = None,
+        status: str | None = None,
+        sort_field: str = "id",
+        sort_order: str = "desc",
     ) -> Response[dict]:
-        items = await scope2_bill_service.list()
-        return Response(content={"code": 200, "data": [model_to_dict(i) for i in items]})
+        conditions = [m.Scope2ElectricityBill.status == status] if status else []
+        page = await _list_page(
+            scope2_bill_service,
+            m.Scope2ElectricityBill,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["account_number", "billing_month", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=page)
 
     @get("/api/carbon/scope3-waste-disposal", exclude_from_auth=True)
     async def list_scope3_waste(
-        self, scope3_waste_service: services.Scope3WasteDisposalService
+        self,
+        scope3_waste_service: services.Scope3WasteDisposalService,
+        limit: int = 20,
+        offset: int = 0,
+        search: str | None = None,
+        keyword: str | None = None,
+        status: str | None = None,
+        sort_field: str = "id",
+        sort_order: str = "desc",
     ) -> Response[dict]:
-        items = await scope3_waste_service.list()
-        return Response(content={"code": 200, "data": [model_to_dict(i) for i in items]})
+        conditions = [m.Scope3WasteDisposal.status == status] if status else []
+        page = await _list_page(
+            scope3_waste_service,
+            m.Scope3WasteDisposal,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["category", "treatment_method", "vendor_name", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=page)
 
     @get("/api/carbon/scope3-third-party-transport", exclude_from_auth=True)
     async def list_scope3_transport(
-        self, scope3_transport_service: services.Scope3ThirdPartyTransportService
+        self,
+        scope3_transport_service: services.Scope3ThirdPartyTransportService,
+        limit: int = 20,
+        offset: int = 0,
+        search: str | None = None,
+        keyword: str | None = None,
+        status: str | None = None,
+        sort_field: str = "id",
+        sort_order: str = "desc",
     ) -> Response[dict]:
-        items = await scope3_transport_service.list()
-        return Response(content={"code": 200, "data": [model_to_dict(i) for i in items]})
+        conditions = [m.Scope3ThirdPartyTransport.status == status] if status else []
+        page = await _list_page(
+            scope3_transport_service,
+            m.Scope3ThirdPartyTransport,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["waybill_no", "origin", "destination", "vehicle_type", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=page)
 
     @get("/api/carbon/emission-factors", exclude_from_auth=True)
     async def list_emission_factors(
-        self, emission_factor_service: services.EmissionFactorService
+        self,
+        emission_factor_service: services.EmissionFactorService,
+        limit: int = 20,
+        offset: int = 0,
+        search: str | None = None,
+        keyword: str | None = None,
+        scope: str | None = None,
+        is_active: bool | None = None,
+        sort_field: str = "id",
+        sort_order: str = "desc",
     ) -> Response[dict]:
-        items = await emission_factor_service.list()
-        return Response(content={"code": 200, "data": [model_to_dict(i) for i in items]})
+        conditions = []
+        if scope:
+            conditions.append(m.EmissionFactor.scope == scope)
+        if is_active is not None:
+            conditions.append(m.EmissionFactor.is_active == is_active)
+        page = await _list_page(
+            emission_factor_service,
+            m.EmissionFactor,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["scope", "category", "sub_category", "unit", "factor_unit", "source", "source_system"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=page)
 
     @get("/api/carbon/factor-library/overview", exclude_from_auth=True)
     async def get_factor_library_overview(self, db_session: AsyncSession) -> Response[dict]:
@@ -2138,24 +2314,35 @@ class CarbonCRUDController(Controller):
     @get("/api/carbon/audit-logs", exclude_from_auth=True)
     async def list_carbon_audit_logs(
         self,
-        db_session: AsyncSession,
+        audit_log_service: services.CarbonAuditLogService,
         record_type: str | None = None,
         action: str | None = None,
-        limit: int = 200,
+        limit: int = 20,
+        offset: int = 0,
+        search: str | None = None,
+        keyword: str | None = None,
+        sort_field: str = "created_at",
+        sort_order: str = "desc",
     ) -> Response[dict]:
         """碳业务审核操作日志列表（按时间倒序）。"""
-        filters = []
-        model = m.CarbonAuditLog
+        conditions = []
         if record_type:
-            filters.append(model.record_type == record_type)
+            conditions.append(m.CarbonAuditLog.record_type == record_type)
         if action:
-            filters.append(model.action == action)
-        limit_clamped = max(10, min(limit, 1000))
-        stmt = select(model).order_by(model.created_at.desc()).limit(limit_clamped)
-        if filters:
-            stmt = stmt.where(*filters)
-        items = (await db_session.execute(stmt)).scalars().all()
-        return Response(content={"code": 200, "data": [model_to_dict(i) for i in items]})
+            conditions.append(m.CarbonAuditLog.action == action)
+        page = await _list_page(
+            audit_log_service,
+            m.CarbonAuditLog,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["record_type", "action", "comment"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=page)
 
     @get("/api/carbon/pending", exclude_from_auth=True)
     async def list_pending(
@@ -2166,38 +2353,72 @@ class CarbonCRUDController(Controller):
         scope2_bill_service: services.Scope2ElectricityBillService,
         scope3_waste_service: services.Scope3WasteDisposalService,
         scope3_transport_service: services.Scope3ThirdPartyTransportService,
+        limit: int = 20,
+        offset: int = 0,
     ) -> Response[dict]:
         """待审核列表：汇总所有类型中 status=pending 的记录（审核工作台用）。"""
         out: list[dict] = []
-        for name, svc in [
-            ("Scope1MobileCombustion", scope1_mobile_service),
-            ("Scope1StationaryCombustion", scope1_stationary_service),
-            ("Scope1RefrigerantLeak", scope1_refrigerant_service),
-            ("Scope2ElectricityBill", scope2_bill_service),
-            ("Scope3WasteDisposal", scope3_waste_service),
-            ("Scope3ThirdPartyTransport", scope3_transport_service),
+        for name, svc, model in [
+            ("Scope1MobileCombustion", scope1_mobile_service, m.Scope1MobileCombustion),
+            ("Scope1StationaryCombustion", scope1_stationary_service, m.Scope1StationaryCombustion),
+            ("Scope1RefrigerantLeak", scope1_refrigerant_service, m.Scope1RefrigerantLeak),
+            ("Scope2ElectricityBill", scope2_bill_service, m.Scope2ElectricityBill),
+            ("Scope3WasteDisposal", scope3_waste_service, m.Scope3WasteDisposal),
+            ("Scope3ThirdPartyTransport", scope3_transport_service, m.Scope3ThirdPartyTransport),
         ]:
-            items = await svc.list()
+            items = await svc.list(model.status == STATUS_PENDING, LimitOffset(limit + offset, 0), OrderBy(model.id, "desc"))
             for i in items:
-                if getattr(i, "status", None) == STATUS_PENDING:
-                    out.append({"record_type": name, "record_id": i.id, **model_to_dict(i)})
-        return Response(content={"code": 200, "data": out})
+                out.append({"record_type": name, "record_id": i.id, **model_to_dict(i)})
+        out.sort(key=lambda row: int(row.get("record_id") or 0), reverse=True)
+        limit_clamped = max(1, min(limit, 100))
+        offset_clamped = max(0, offset)
+        return Response(content=_paged_payload(out[offset_clamped : offset_clamped + limit_clamped], len(out), limit_clamped, offset_clamped))
 
     # ---------- 数据管理: 区域 / 终端 / 视频 / 规则配置 ----------
     @get("/api/data/monitor-sectors", exclude_from_auth=True)
-    async def list_monitor_sectors(self, db_session: AsyncSession, keyword: str | None = None) -> Response[dict]:
-        sectors = (await db_session.execute(select(m.MonitorSector).options(selectinload(m.MonitorSector.photos)).order_by(m.MonitorSector.id.desc()))).scalars().all()
-        equipment_counts = dict(
-            (await db_session.execute(select(m.MonitorEquipment.sector_id, func.count()).group_by(m.MonitorEquipment.sector_id))).all()
+    async def list_monitor_sectors(
+        self,
+        db_session: AsyncSession,
+        monitor_sector_service: services.MonitorSectorService,
+        keyword: str | None = None,
+        search: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        sort_field: str = "id",
+        sort_order: str = "desc",
+    ) -> Response[dict]:
+        page = await _list_page(
+            monitor_sector_service,
+            m.MonitorSector,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["code", "name", "area", "description"],
+            sort_field=sort_field,
+            sort_order=sort_order,
         )
-        rows = []
-        for sector in sectors:
-            row = model_to_dict(sector)
-            row["photos"] = [model_to_dict(photo) for photo in sector.photos]
-            row["equipment_count"] = equipment_counts.get(sector.id, 0)
-            if _matches_keyword(row, keyword, ["code", "name", "area", "description"]):
-                rows.append(row)
-        return Response(content={"code": 200, "msg": "获取成功", "data": rows})
+        sector_ids = [row["id"] for row in page["items"] if row.get("id") is not None]
+        if sector_ids:
+            photos = (
+                await db_session.execute(select(m.MonitorSectorPhoto).where(m.MonitorSectorPhoto.sector_id.in_(sector_ids)).order_by(m.MonitorSectorPhoto.id.desc()))
+            ).scalars().all()
+            photos_by_sector: dict[int, list[dict[str, Any]]] = {}
+            for photo in photos:
+                if photo.sector_id is not None:
+                    photos_by_sector.setdefault(photo.sector_id, []).append(model_to_dict(photo))
+            equipment_counts = dict(
+                (
+                    await db_session.execute(
+                        select(m.MonitorEquipment.sector_id, func.count()).where(m.MonitorEquipment.sector_id.in_(sector_ids)).group_by(m.MonitorEquipment.sector_id)
+                    )
+                ).all()
+            )
+            for row in page["items"]:
+                sector_id = row.get("id")
+                row["photos"] = photos_by_sector.get(sector_id, [])
+                row["equipment_count"] = equipment_counts.get(sector_id, 0)
+        return Response(content=page)
 
     @post("/api/data/monitor-sectors", exclude_from_auth=True)
     async def create_monitor_sector(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
@@ -2247,23 +2468,40 @@ class CarbonCRUDController(Controller):
     async def list_monitor_equipments(
         self,
         db_session: AsyncSession,
+        monitor_equipment_service: services.MonitorEquipmentService,
         keyword: str | None = None,
+        search: str | None = None,
         sector_id: int | None = None,
         category: int | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        sort_field: str = "id",
+        sort_order: str = "desc",
     ) -> Response[dict]:
-        stmt = select(m.MonitorEquipment).options(selectinload(m.MonitorEquipment.sector)).order_by(m.MonitorEquipment.id.desc())
+        conditions = []
         if sector_id:
-            stmt = stmt.where(m.MonitorEquipment.sector_id == sector_id)
+            conditions.append(m.MonitorEquipment.sector_id == sector_id)
         if category is not None:
-            stmt = stmt.where(m.MonitorEquipment.category == category)
-        items = (await db_session.execute(stmt)).scalars().all()
-        rows = []
-        for item in items:
-            row = model_to_dict(item)
-            row["sector_name"] = item.sector.name if item.sector else None
-            if _matches_keyword(row, keyword, ["code", "name", "code2", "supplier", "location", "sector_name"]):
-                rows.append(row)
-        return Response(content={"code": 200, "msg": "获取成功", "data": rows})
+            conditions.append(m.MonitorEquipment.category == category)
+        page = await _list_page(
+            monitor_equipment_service,
+            m.MonitorEquipment,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["code", "name", "code2", "supplier", "location"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        sector_ids = [row["sector_id"] for row in page["items"] if row.get("sector_id") is not None]
+        if sector_ids:
+            sectors = (await db_session.execute(select(m.MonitorSector.id, m.MonitorSector.name).where(m.MonitorSector.id.in_(sector_ids)))).all()
+            sector_names = dict(sectors)
+            for row in page["items"]:
+                row["sector_name"] = sector_names.get(row.get("sector_id"))
+        return Response(content=page)
 
     @post("/api/data/monitor-equipments", exclude_from_auth=True)
     async def create_monitor_equipment(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
@@ -2295,14 +2533,33 @@ class CarbonCRUDController(Controller):
         return Response(content={"code": 200, "msg": "已删除"})
 
     @get("/api/data/video-monitors", exclude_from_auth=True)
-    async def list_video_monitors(self, db_session: AsyncSession, keyword: str | None = None, status: int | None = None) -> Response[dict]:
-        stmt = select(m.VideoMonitor).order_by(m.VideoMonitor.id.desc())
+    async def list_video_monitors(
+        self,
+        video_monitor_service: services.VideoMonitorService,
+        keyword: str | None = None,
+        search: str | None = None,
+        status: int | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        sort_field: str = "id",
+        sort_order: str = "desc",
+    ) -> Response[dict]:
+        conditions = []
         if status is not None:
-            stmt = stmt.where(m.VideoMonitor.status == status)
-        items = (await db_session.execute(stmt)).scalars().all()
-        rows = [model_to_dict(item) for item in items]
-        rows = [row for row in rows if _matches_keyword(row, keyword, ["location", "f_area", "ip_address", "brand", "b_model"])]
-        return Response(content={"code": 200, "msg": "获取成功", "data": rows})
+            conditions.append(m.VideoMonitor.status == status)
+        page = await _list_page(
+            video_monitor_service,
+            m.VideoMonitor,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["location", "f_area", "ip_address", "brand", "b_model"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=page)
 
     @post("/api/data/video-monitors", exclude_from_auth=True)
     async def create_video_monitor(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
@@ -2332,13 +2589,33 @@ class CarbonCRUDController(Controller):
         return Response(content={"code": 200, "msg": "已删除"})
 
     @get("/api/data/warning-rules", exclude_from_auth=True)
-    async def list_warning_rules(self, db_session: AsyncSession, keyword: str | None = None, event_type: int | None = None) -> Response[dict]:
-        stmt = select(m.WarningRule).order_by(m.WarningRule.id.desc())
+    async def list_warning_rules(
+        self,
+        warning_rule_service: services.WarningRuleService,
+        keyword: str | None = None,
+        search: str | None = None,
+        event_type: int | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        sort_field: str = "id",
+        sort_order: str = "desc",
+    ) -> Response[dict]:
+        conditions = []
         if event_type is not None:
-            stmt = stmt.where(m.WarningRule.event_type == event_type)
-        rows = [model_to_dict(item) for item in (await db_session.execute(stmt)).scalars().all()]
-        rows = [row for row in rows if _matches_keyword(row, keyword, ["name", "description", "table_name"])]
-        return Response(content={"code": 200, "msg": "获取成功", "data": rows})
+            conditions.append(m.WarningRule.event_type == event_type)
+        page = await _list_page(
+            warning_rule_service,
+            m.WarningRule,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["name", "description", "table_name"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=page)
 
     @post("/api/data/warning-rules", exclude_from_auth=True)
     async def create_warning_rule(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
@@ -2368,10 +2645,28 @@ class CarbonCRUDController(Controller):
         return Response(content={"code": 200, "msg": "已删除"})
 
     @get("/api/data/api-result-key-mappings", exclude_from_auth=True)
-    async def list_api_result_key_mappings(self, db_session: AsyncSession, keyword: str | None = None) -> Response[dict]:
-        rows = [model_to_dict(item) for item in (await db_session.execute(select(m.ApiResultKeyMapping).order_by(m.ApiResultKeyMapping.id.desc()))).scalars().all()]
-        rows = [row for row in rows if _matches_keyword(row, keyword, ["key_name", "cn_name"])]
-        return Response(content={"code": 200, "msg": "获取成功", "data": rows})
+    async def list_api_result_key_mappings(
+        self,
+        api_result_key_mapping_service: services.ApiResultKeyMappingService,
+        keyword: str | None = None,
+        search: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        sort_field: str = "id",
+        sort_order: str = "desc",
+    ) -> Response[dict]:
+        page = await _list_page(
+            api_result_key_mapping_service,
+            m.ApiResultKeyMapping,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["key_name", "cn_name"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+        )
+        return Response(content=page)
 
     @post("/api/data/api-result-key-mappings", exclude_from_auth=True)
     async def create_api_result_key_mapping(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
@@ -2422,19 +2717,34 @@ class CarbonCRUDController(Controller):
     @get("/api/data/alarm-events", exclude_from_auth=True)
     async def list_alarm_events(
         self,
-        db_session: AsyncSession,
+        alarm_event_service: services.AlarmEventService,
         keyword: str | None = None,
+        search: str | None = None,
         event_type: int | None = None,
         is_handle: bool | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        sort_field: str = "event_time",
+        sort_order: str = "desc",
     ) -> Response[dict]:
-        stmt = select(m.AlarmEvent).order_by(m.AlarmEvent.event_time.desc().nullslast(), m.AlarmEvent.id.desc())
+        conditions = []
         if event_type is not None:
-            stmt = stmt.where(m.AlarmEvent.event_type == event_type)
+            conditions.append(m.AlarmEvent.event_type == event_type)
         if is_handle is not None:
-            stmt = stmt.where(m.AlarmEvent.is_handle == is_handle)
-        rows = [model_to_dict(item) for item in (await db_session.execute(stmt)).scalars().all()]
-        rows = [row for row in rows if _matches_keyword(row, keyword, ["event_desc"])]
-        return Response(content={"code": 200, "msg": "获取成功", "data": rows})
+            conditions.append(m.AlarmEvent.is_handle == is_handle)
+        page = await _list_page(
+            alarm_event_service,
+            m.AlarmEvent,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["event_desc"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=page)
 
     @post("/api/data/alarm-events/{record_id:int}/handle", exclude_from_auth=True)
     async def handle_alarm_event(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
@@ -2460,19 +2770,34 @@ class CarbonCRUDController(Controller):
     @get("/api/data/video-alarm-events", exclude_from_auth=True)
     async def list_video_alarm_events(
         self,
-        db_session: AsyncSession,
+        vedio_alarm_event_service: services.VedioAlarmEventService,
         keyword: str | None = None,
+        search: str | None = None,
         event_type: int | None = None,
         is_handle: bool | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        sort_field: str = "event_time",
+        sort_order: str = "desc",
     ) -> Response[dict]:
-        stmt = select(m.VedioAlarmEvent).order_by(m.VedioAlarmEvent.event_time.desc().nullslast(), m.VedioAlarmEvent.id.desc())
+        conditions = []
         if event_type is not None:
-            stmt = stmt.where(m.VedioAlarmEvent.event_type == event_type)
+            conditions.append(m.VedioAlarmEvent.event_type == event_type)
         if is_handle is not None:
-            stmt = stmt.where(m.VedioAlarmEvent.is_handle == is_handle)
-        rows = [model_to_dict(item) for item in (await db_session.execute(stmt)).scalars().all()]
-        rows = [row for row in rows if _matches_keyword(row, keyword, ["event_desc"])]
-        return Response(content={"code": 200, "msg": "获取成功", "data": rows})
+            conditions.append(m.VedioAlarmEvent.is_handle == is_handle)
+        page = await _list_page(
+            vedio_alarm_event_service,
+            m.VedioAlarmEvent,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["event_desc"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=page)
 
     @post("/api/data/video-alarm-events/{record_id:int}/handle", exclude_from_auth=True)
     async def handle_video_alarm_event(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
@@ -2496,45 +2821,113 @@ class CarbonCRUDController(Controller):
         return Response(content={"code": 200, "msg": "已批量处理", "data": {"count": len(items)}})
 
     @get("/api/data/in-money", exclude_from_auth=True)
-    async def list_in_money(self, db_session: AsyncSession, keyword: str | None = None, limit: int = 200, offset: int = 0) -> Response[dict]:
-        rows = [model_to_dict(item) for item in (await db_session.execute(select(m.InMoney).order_by(m.InMoney.add_time.desc()))).scalars().all()]
-        rows = [row for row in rows if _matches_keyword(row, keyword, ["rkdbh", "gysmc", "gysbm", "wlbh", "wlms", "ckmc"])]
-        return Response(content={"code": 200, "msg": "获取成功", "data": _slice_rows(rows, limit, offset)})
+    async def list_in_money(
+        self,
+        in_money_service: services.InMoneyService,
+        keyword: str | None = None,
+        search: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        sort_field: str = "add_time",
+        sort_order: str = "desc",
+    ) -> Response[dict]:
+        page = await _list_page(
+            in_money_service,
+            m.InMoney,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["rkdbh", "gysmc", "gysbm", "wlbh", "wlms", "ckmc"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+        )
+        return Response(content=page)
 
     @get("/api/data/out-money", exclude_from_auth=True)
-    async def list_out_money(self, db_session: AsyncSession, keyword: str | None = None, limit: int = 200, offset: int = 0) -> Response[dict]:
-        rows = [model_to_dict(item) for item in (await db_session.execute(select(m.OutMoney).order_by(m.OutMoney.add_time.desc()))).scalars().all()]
-        rows = [row for row in rows if _matches_keyword(row, keyword, ["ckdbh", "xmmc", "wlbm", "wlms", "gysmc", "ckdd"])]
-        return Response(content={"code": 200, "msg": "获取成功", "data": _slice_rows(rows, limit, offset)})
+    async def list_out_money(
+        self,
+        out_money_service: services.OutMoneyService,
+        keyword: str | None = None,
+        search: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        sort_field: str = "add_time",
+        sort_order: str = "desc",
+    ) -> Response[dict]:
+        page = await _list_page(
+            out_money_service,
+            m.OutMoney,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["ckdbh", "xmmc", "wlbm", "wlms", "gysmc", "ckdd"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+        )
+        return Response(content=page)
 
     @get("/api/data/ammeter-values", exclude_from_auth=True)
     async def list_ammeter_values(
         self,
-        db_session: AsyncSession,
+        ammeter_index_value_service: services.AmmeterIndexValueService,
         keyword: str | None = None,
+        search: str | None = None,
         area_id: str | None = None,
         ammeter_id: str | None = None,
-        limit: int = 200,
+        limit: int = 20,
         offset: int = 0,
+        sort_field: str = "reading_time",
+        sort_order: str = "desc",
     ) -> Response[dict]:
-        stmt = select(m.AmmeterIndexValue).order_by(m.AmmeterIndexValue.reading_time.desc().nullslast(), m.AmmeterIndexValue.id.desc())
+        conditions = []
         if area_id:
-            stmt = stmt.where(m.AmmeterIndexValue.area_id == area_id)
+            conditions.append(m.AmmeterIndexValue.area_id == area_id)
         if ammeter_id:
-            stmt = stmt.where(m.AmmeterIndexValue.ammeter_id == ammeter_id)
-        rows = [model_to_dict(item) for item in (await db_session.execute(stmt)).scalars().all()]
-        rows = [row for row in rows if _matches_keyword(row, keyword, ["ammeter_id", "ammeter_name", "address", "area_name"])]
-        return Response(content={"code": 200, "msg": "获取成功", "data": _slice_rows(rows, limit, offset)})
+            conditions.append(m.AmmeterIndexValue.ammeter_id == ammeter_id)
+        page = await _list_page(
+            ammeter_index_value_service,
+            m.AmmeterIndexValue,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["ammeter_id", "ammeter_name", "address", "area_name"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=page)
 
     # ---------- 数据管理：员工通勤 ----------
     @get("/api/data/employee-commute", exclude_from_auth=True)
     async def list_employee_commute(
         self,
         employee_commute_service: services.EmployeeCommuteService,
+        keyword: str | None = None,
+        search: str | None = None,
+        category: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        sort_field: str = "id",
+        sort_order: str = "desc",
     ) -> Response[dict]:
         """员工通勤列表（与原系统 EmployeeCommute 对应）。"""
-        items = await employee_commute_service.list()
-        return Response(content={"code": 200, "data": [model_to_dict(i) for i in items]})
+        conditions = [m.EmployeeCommute.category == category] if category else []
+        page = await _list_page(
+            employee_commute_service,
+            m.EmployeeCommute,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["name", "category"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=page)
 
     @post("/api/data/employee-commute", exclude_from_auth=True)
     async def create_employee_commute(

@@ -4,9 +4,11 @@
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
-
+import { CarbonRecordActions } from "@/components/carbon/record-actions"
+import { CarbonStatusBadge } from "@/components/carbon/status-badge"
+import { PaginationBar, requestPage } from "@/components/platform/data-admin-pages"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -16,8 +18,6 @@ import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-lay
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import { CarbonStatusBadge } from "@/components/carbon/status-badge"
-import { CarbonRecordActions } from "@/components/carbon/record-actions"
 
 type Scope1Mobile = {
   id: number
@@ -47,6 +47,8 @@ function Scope1MobilePage() {
   const [keyword, setKeyword] = useState("")
   const [status, setStatus] = useState<string>("all")
   const [createOpen, setCreateOpen] = useState(false)
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
 
   const [form, setForm] = useState({
     record_date: "",
@@ -57,24 +59,19 @@ function Scope1MobilePage() {
     remark: "",
   })
 
-  const listQuery = useQuery<ApiResponse<Scope1Mobile[]>>({
-    queryKey: ["carbon-mgmt", "scope1-mobile", "list"],
-    queryFn: async () => {
-      const res = await fetch("/api/carbon/scope1-mobile-combustion")
-      return res.json()
-    },
+  const listQuery = useQuery({
+    queryKey: ["carbon-mgmt", "scope1-mobile", "list", keyword, status, pageIndex, pageSize],
+    queryFn: async () =>
+      requestPage<Scope1Mobile>("/api/carbon/scope1-mobile-combustion", {
+        search: keyword.trim() || undefined,
+        keyword: keyword.trim() || undefined,
+        status: status === "all" ? undefined : status,
+        limit: pageSize,
+        offset: pageIndex * pageSize,
+      }),
   })
 
-  const items = useMemo(() => {
-    const raw = listQuery.data?.data ?? []
-    const kw = keyword.trim().toLowerCase()
-    return raw.filter((r) => {
-      const okStatus = status === "all" ? true : (r.status ?? "draft") === status
-      const hay = `${r.asset_name ?? ""} ${r.asset_id ?? ""} ${r.fuel_type ?? ""} ${r.unit ?? ""}`.toLowerCase()
-      const okKw = kw.length === 0 ? true : hay.includes(kw)
-      return okStatus && okKw
-    })
-  }, [keyword, listQuery.data?.data, status])
+  const items = listQuery.data?.items ?? []
 
   const createMut = useMutation({
     mutationFn: async () => {
@@ -175,7 +172,14 @@ function Scope1MobilePage() {
                   </DialogContent>
                 </Dialog>
 
-                <Button variant="outline" onClick={() => (setKeyword(""), setStatus("all"))}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setKeyword("")
+                    setStatus("all")
+                    setPageIndex(0)
+                  }}
+                >
                   重置
                 </Button>
               </div>
@@ -183,10 +187,23 @@ function Scope1MobilePage() {
 
             <div className="flex flex-wrap items-center gap-3">
               <div className="min-w-[260px] flex-1">
-                <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="搜索：资产名称/燃料类型/单位…" />
+                <Input
+                  value={keyword}
+                  onChange={(e) => {
+                    setKeyword(e.target.value)
+                    setPageIndex(0)
+                  }}
+                  placeholder="搜索：资产名称/燃料类型/单位…"
+                />
               </div>
               <div className="w-[160px]">
-                <Select value={status} onValueChange={setStatus}>
+                <Select
+                  value={status}
+                  onValueChange={(value) => {
+                    setStatus(value)
+                    setPageIndex(0)
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="状态" />
                   </SelectTrigger>
@@ -251,10 +268,19 @@ function Scope1MobilePage() {
                 </TableBody>
               </Table>
             )}
+            <PaginationBar
+              page={listQuery.data ?? { items: [], total: 0, limit: pageSize, offset: pageIndex * pageSize }}
+              pageIndex={pageIndex}
+              pageSize={pageSize}
+              onPageChange={setPageIndex}
+              onPageSizeChange={(size) => {
+                setPageSize(size)
+                setPageIndex(0)
+              }}
+            />
           </CardContent>
         </Card>
       </PageSection>
     </PageContainer>
   )
 }
-

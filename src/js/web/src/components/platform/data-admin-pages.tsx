@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
@@ -16,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea"
 
 type ApiResponse<T> = { code: number; msg?: string; data: T }
+export type PageResult<T> = { items: T[]; total: number; limit: number; offset: number }
 type Row = Record<string, unknown> & { id?: number | string }
 
 type Option = { label: string; value: string }
@@ -28,7 +30,7 @@ type Field = {
 }
 type Column = { key: string; label: string; align?: "right"; render?: (row: Row) => string }
 
-const emptyData = { code: 200, data: [] }
+const emptyPage: PageResult<Row> = { items: [], total: 0, limit: 20, offset: 0 }
 
 function display(value: unknown) {
   if (value === null || value === undefined || value === "") return "-"
@@ -49,6 +51,115 @@ async function request<T>(url: string, init?: RequestInit) {
     return { code: 200, msg: "获取成功", data: raw.items } as ApiResponse<T>
   }
   return { code: 200, msg: "操作成功", data: raw } as ApiResponse<T>
+}
+
+export function normalizePageResponse<T>(raw: unknown): PageResult<T> {
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>
+    if (Array.isArray(obj.items)) {
+      return {
+        items: obj.items as T[],
+        total: Number(obj.total ?? obj.items.length),
+        limit: Number(obj.limit ?? obj.items.length ?? 20),
+        offset: Number(obj.offset ?? 0),
+      }
+    }
+    if ("code" in obj && "data" in obj) {
+      const data = obj.data
+      if (data && typeof data === "object" && Array.isArray((data as Record<string, unknown>).items)) return normalizePageResponse<T>(data)
+      if (Array.isArray(data)) return { items: data as T[], total: data.length, limit: data.length || 20, offset: 0 }
+    }
+  }
+  if (Array.isArray(raw)) return { items: raw as T[], total: raw.length, limit: raw.length || 20, offset: 0 }
+  return { items: [], total: 0, limit: 20, offset: 0 }
+}
+
+export async function requestPage<T>(endpoint: string, params: Record<string, string | number | boolean | null | undefined> = {}) {
+  const qs = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== null && value !== undefined && value !== "") qs.set(key, String(value))
+  }
+  const res = await fetch(`${endpoint}?${qs.toString()}`)
+  const text = await res.text()
+  const raw = text ? JSON.parse(text) : {}
+  if (!res.ok || (raw.code && raw.code >= 400)) throw new Error(raw.msg || raw.detail || `HTTP ${res.status}`)
+  return normalizePageResponse<T>(raw)
+}
+
+function usePagedResource<T extends Row>({
+  endpoint,
+  queryKey,
+  keyword,
+  extraParams,
+}: {
+  endpoint: string
+  queryKey: string[]
+  keyword: string
+  extraParams?: Record<string, string | number | boolean | null | undefined>
+}) {
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
+  const query = useQuery<PageResult<T>>({
+    queryKey: [...queryKey, { keyword, pageIndex, pageSize, extraParams }],
+    queryFn: async () =>
+      requestPage<T>(endpoint, {
+        search: keyword.trim() || undefined,
+        keyword: keyword.trim() || undefined,
+        limit: pageSize,
+        offset: pageIndex * pageSize,
+        ...extraParams,
+      }),
+    placeholderData: (previous) => previous ?? ({ ...emptyPage, limit: pageSize } as PageResult<T>),
+  })
+  return { query, pageIndex, setPageIndex, pageSize, setPageSize }
+}
+
+export function PaginationBar({
+  page,
+  pageIndex,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  page: PageResult<unknown>
+  pageIndex: number
+  pageSize: number
+  onPageChange: (pageIndex: number) => void
+  onPageSizeChange: (pageSize: number) => void
+}) {
+  const pageCount = Math.max(1, Math.ceil(page.total / pageSize))
+  const start = page.total === 0 ? 0 : page.offset + 1
+  const end = Math.min(page.offset + page.items.length, page.total)
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm">
+      <div className="text-muted-foreground">
+        {start}-{end} / 共 {page.total} 条
+      </div>
+      <div className="flex items-center gap-2">
+        <Select value={String(pageSize)} onValueChange={(value) => onPageSizeChange(Number(value))}>
+          <SelectTrigger className="w-[104px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[20, 50, 100].map((size) => (
+              <SelectItem key={size} value={String(size)}>
+                {size} 条/页
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button variant="outline" size="sm" onClick={() => onPageChange(Math.max(0, pageIndex - 1))} disabled={pageIndex === 0}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="w-20 text-center text-muted-foreground">
+          {pageIndex + 1} / {pageCount}
+        </div>
+        <Button variant="outline" size="sm" onClick={() => onPageChange(Math.min(pageCount - 1, pageIndex + 1))} disabled={pageIndex + 1 >= pageCount}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 function toPayload(fields: Field[], form: Record<string, string>) {
@@ -159,6 +270,7 @@ export function CrudDataPage({
   const [editing, setEditing] = useState<Row | null>(null)
   const [detail, setDetail] = useState<Row | null>(null)
   const [form, setForm] = useState<Record<string, string>>(makeInitial(fields))
+  const { query: listQuery, pageIndex, setPageIndex, pageSize, setPageSize } = usePagedResource<Row>({ endpoint, queryKey, keyword })
 
   function startCreate() {
     setEditing(null)
@@ -170,12 +282,6 @@ export function CrudDataPage({
     setForm(makeInitial(fields, row))
     setOpen(true)
   }
-
-  const listQuery = useQuery<ApiResponse<Row[]>>({
-    queryKey,
-    queryFn: async () => request<Row[]>(`${endpoint}?keyword=${encodeURIComponent(keyword)}`),
-    placeholderData: emptyData,
-  })
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -244,13 +350,21 @@ export function CrudDataPage({
               </Dialog>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Input className="min-w-[260px] flex-1" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder={searchPlaceholder} />
+              <Input
+                className="min-w-[260px] flex-1"
+                value={keyword}
+                onChange={(event) => {
+                  setKeyword(event.target.value)
+                  setPageIndex(0)
+                }}
+                placeholder={searchPlaceholder}
+              />
               <Button variant="secondary" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>
                 查询
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -263,14 +377,14 @@ export function CrudDataPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(listQuery.data?.data ?? []).length === 0 && (
+                {(listQuery.data?.items ?? []).length === 0 && (
                   <TableRow>
                     <TableCell colSpan={columns.length + 1} className="h-24 text-center text-muted-foreground">
                       暂无数据
                     </TableCell>
                   </TableRow>
                 )}
-                {(listQuery.data?.data ?? []).map((row) => (
+                {(listQuery.data?.items ?? []).map((row) => (
                   <TableRow key={String(row.id)}>
                     {columns.map((column) => (
                       <TableCell key={column.key} className={column.align === "right" ? "text-right" : undefined}>
@@ -292,6 +406,7 @@ export function CrudDataPage({
                 ))}
               </TableBody>
             </Table>
+            <PaginationBar page={listQuery.data ?? emptyPage} pageIndex={pageIndex} pageSize={pageSize} onPageChange={setPageIndex} onPageSizeChange={setPageSize} />
           </CardContent>
         </Card>
       </PageSection>
@@ -567,17 +682,9 @@ export function EventWorkbenchPage({ title, endpoint, queryKey, video = false }:
   const qc = useQueryClient()
   const [keyword, setKeyword] = useState("")
   const [handled, setHandled] = useState("all")
-  const query = useQuery<ApiResponse<Row[]>>({
-    queryKey,
-    queryFn: async () => {
-      const params = new URLSearchParams()
-      if (keyword) params.set("keyword", keyword)
-      if (handled !== "all") params.set("is_handle", handled)
-      return request<Row[]>(`${endpoint}?${params.toString()}`)
-    },
-    placeholderData: emptyData,
-  })
-  const unhandledIds = (query.data?.data ?? [])
+  const eventParams = useMemo(() => ({ is_handle: handled === "all" ? undefined : handled }), [handled])
+  const { query, pageIndex, setPageIndex, pageSize, setPageSize } = usePagedResource<Row>({ endpoint, queryKey, keyword, extraParams: eventParams })
+  const unhandledIds = (query.data?.items ?? [])
     .filter((row) => row.is_handle !== true)
     .map((row) => row.id)
     .filter(Boolean)
@@ -608,8 +715,22 @@ export function EventWorkbenchPage({ title, endpoint, queryKey, video = false }:
               </Button>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Input className="min-w-[260px] flex-1" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索事件说明" />
-              <Select value={handled} onValueChange={setHandled}>
+              <Input
+                className="min-w-[260px] flex-1"
+                value={keyword}
+                onChange={(event) => {
+                  setKeyword(event.target.value)
+                  setPageIndex(0)
+                }}
+                placeholder="搜索事件说明"
+              />
+              <Select
+                value={handled}
+                onValueChange={(value) => {
+                  setHandled(value)
+                  setPageIndex(0)
+                }}
+              >
                 <SelectTrigger className="w-[160px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -624,7 +745,7 @@ export function EventWorkbenchPage({ title, endpoint, queryKey, video = false }:
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -636,14 +757,14 @@ export function EventWorkbenchPage({ title, endpoint, queryKey, video = false }:
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(query.data?.data ?? []).length === 0 && (
+                {(query.data?.items ?? []).length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                       暂无事件
                     </TableCell>
                   </TableRow>
                 )}
-                {(query.data?.data ?? []).map((row) => (
+                {(query.data?.items ?? []).map((row) => (
                   <TableRow key={String(row.id)}>
                     <TableCell>{display(row.event_type)}</TableCell>
                     <TableCell className="max-w-[520px] whitespace-normal">{display(row.event_desc)}</TableCell>
@@ -660,6 +781,7 @@ export function EventWorkbenchPage({ title, endpoint, queryKey, video = false }:
                 ))}
               </TableBody>
             </Table>
+            <PaginationBar page={query.data ?? emptyPage} pageIndex={pageIndex} pageSize={pageSize} onPageChange={setPageIndex} onPageSizeChange={setPageSize} />
           </CardContent>
         </Card>
       </PageSection>
@@ -682,11 +804,8 @@ export function ReadonlyLedgerPage({
 }) {
   const [keyword, setKeyword] = useState("")
   const [detail, setDetail] = useState<Row | null>(null)
-  const query = useQuery<ApiResponse<{ items: Row[]; total: number }>>({
-    queryKey,
-    queryFn: async () => request<{ items: Row[]; total: number }>(`${endpoint}?keyword=${encodeURIComponent(keyword)}&limit=200`),
-  })
-  const items = query.data?.data.items ?? []
+  const { query, pageIndex, setPageIndex, pageSize, setPageSize } = usePagedResource<Row>({ endpoint, queryKey, keyword })
+  const items = query.data?.items ?? []
   return (
     <PageContainer className="flex-1 space-y-6">
       <PageHeader eyebrow="数据管理" title={title} description={description} />
@@ -695,13 +814,21 @@ export function ReadonlyLedgerPage({
           <CardHeader className="space-y-3">
             <CardTitle>{title}台账</CardTitle>
             <div className="flex flex-wrap gap-3">
-              <Input className="min-w-[260px] flex-1" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索关键字" />
+              <Input
+                className="min-w-[260px] flex-1"
+                value={keyword}
+                onChange={(event) => {
+                  setKeyword(event.target.value)
+                  setPageIndex(0)
+                }}
+                placeholder="搜索关键字"
+              />
               <Button variant="secondary" onClick={() => query.refetch()} disabled={query.isFetching}>
                 查询
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -733,6 +860,7 @@ export function ReadonlyLedgerPage({
                 ))}
               </TableBody>
             </Table>
+            <PaginationBar page={query.data ?? emptyPage} pageIndex={pageIndex} pageSize={pageSize} onPageChange={setPageIndex} onPageSizeChange={setPageSize} />
           </CardContent>
         </Card>
       </PageSection>

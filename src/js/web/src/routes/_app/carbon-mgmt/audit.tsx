@@ -4,8 +4,9 @@
  */
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 
+import { PaginationBar, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -23,8 +24,6 @@ type AuditRow = {
   created_at: string
 }
 
-type ApiResponse<T> = { code: number; msg: string; data: T }
-
 export const Route = createFileRoute("/_app/carbon-mgmt/audit")({
   component: AuditPage,
 })
@@ -33,27 +32,22 @@ function AuditPage() {
   const [recordType, setRecordType] = useState<string>("all")
   const [action, setAction] = useState<string>("all")
   const [keyword, setKeyword] = useState("")
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
 
-  const { data, isLoading, isError, refetch } = useQuery<ApiResponse<AuditRow[]>>({
-    queryKey: ["carbon-mgmt", "audit", recordType, action],
-    queryFn: async () => {
-      const params = new URLSearchParams()
-      if (recordType !== "all") params.set("record_type", recordType)
-      if (action !== "all") params.set("action", action)
-      const res = await fetch(`/api/carbon/audit-logs?${params.toString()}`)
-      return res.json()
-    },
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["carbon-mgmt", "audit", recordType, action, keyword, pageIndex, pageSize],
+    queryFn: async () =>
+      requestPage<AuditRow>("/api/carbon/audit-logs", {
+        record_type: recordType === "all" ? undefined : recordType,
+        action: action === "all" ? undefined : action,
+        search: keyword.trim() || undefined,
+        keyword: keyword.trim() || undefined,
+        limit: pageSize,
+        offset: pageIndex * pageSize,
+      }),
   })
-
-  const rows = useMemo(() => {
-    const raw = data?.data ?? []
-    const kw = keyword.trim().toLowerCase()
-    return raw.filter((r) => {
-      if (!kw) return true
-      const hay = `${r.record_type} ${r.record_id} ${r.comment ?? ""}`.toLowerCase()
-      return hay.includes(kw)
-    })
-  }, [data?.data, keyword])
+  const rows = data?.items ?? []
 
   return (
     <PageContainer className="flex-1 space-y-6">
@@ -64,7 +58,13 @@ function AuditPage() {
             <CardTitle>日志列表</CardTitle>
             <div className="flex flex-wrap items-center gap-3">
               <div className="w-[200px]">
-                <Select value={recordType} onValueChange={setRecordType}>
+                <Select
+                  value={recordType}
+                  onValueChange={(value) => {
+                    setRecordType(value)
+                    setPageIndex(0)
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="记录类型" />
                   </SelectTrigger>
@@ -80,7 +80,13 @@ function AuditPage() {
                 </Select>
               </div>
               <div className="w-[160px]">
-                <Select value={action} onValueChange={setAction}>
+                <Select
+                  value={action}
+                  onValueChange={(value) => {
+                    setAction(value)
+                    setPageIndex(0)
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="操作" />
                   </SelectTrigger>
@@ -93,7 +99,14 @@ function AuditPage() {
                 </Select>
               </div>
               <div className="min-w-[260px] flex-1">
-                <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="搜索：记录ID/说明…" />
+                <Input
+                  value={keyword}
+                  onChange={(e) => {
+                    setKeyword(e.target.value)
+                    setPageIndex(0)
+                  }}
+                  placeholder="搜索：记录ID/说明…"
+                />
               </div>
               <button
                 type="button"
@@ -105,7 +118,7 @@ function AuditPage() {
               </button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             {isLoading && <div className="text-sm text-muted-foreground">正在加载…</div>}
             {isError && <div className="text-sm text-destructive">加载失败，请检查后端接口。</div>}
             {!isLoading && !isError && (
@@ -144,10 +157,19 @@ function AuditPage() {
                 </TableBody>
               </Table>
             )}
+            <PaginationBar
+              page={data ?? { items: [], total: 0, limit: pageSize, offset: pageIndex * pageSize }}
+              pageIndex={pageIndex}
+              pageSize={pageSize}
+              onPageChange={setPageIndex}
+              onPageSizeChange={(size) => {
+                setPageSize(size)
+                setPageIndex(0)
+              }}
+            />
           </CardContent>
         </Card>
       </PageSection>
     </PageContainer>
   )
 }
-
