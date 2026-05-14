@@ -1,11 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { PlaceholderPage } from "@/components/platform/placeholder-page"
+import { RolesPage } from "@/components/platform/data-admin-pages"
 
 export const Route = createFileRoute("/_app/auth/roles")({
-  component: RolesManagePage,
+  component: RolesPage,
 })
-
-function RolesManagePage() {
-  return <PlaceholderPage eyebrow="权限管理" title="角色管理" />
-}
-

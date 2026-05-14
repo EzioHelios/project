@@ -1,11 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { PlaceholderPage } from "@/components/platform/placeholder-page"
+import { EnergyStoragePage } from "@/components/platform/data-admin-pages"
 
 export const Route = createFileRoute("/_app/data/energy-storage")({
   component: EnergyStoragePage,
 })
-
-function EnergyStoragePage() {
-  return <PlaceholderPage eyebrow="数据管理" title="储能数值设置" />
-}
-

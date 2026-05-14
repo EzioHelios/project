@@ -1,11 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { PlaceholderPage } from "@/components/platform/placeholder-page"
+import { TasksPage } from "@/components/platform/data-admin-pages"
 
 export const Route = createFileRoute("/_app/tasks/interval")({
   component: IntervalPage,
 })
 
 function IntervalPage() {
-  return <PlaceholderPage eyebrow="定时任务" title="时间间隔设置" />
+  return <TasksPage mode="interval" />
 }
-

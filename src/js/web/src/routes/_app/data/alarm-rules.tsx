@@ -1,11 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { PlaceholderPage } from "@/components/platform/placeholder-page"
+import { WarningRulesPage } from "@/components/platform/data-admin-pages"
 
 export const Route = createFileRoute("/_app/data/alarm-rules")({
-  component: AlarmRulesPage,
+  component: WarningRulesPage,
 })
-
-function AlarmRulesPage() {
-  return <PlaceholderPage eyebrow="数据管理" title="预警规则" />
-}
-

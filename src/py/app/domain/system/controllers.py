@@ -108,3 +108,53 @@ class SystemController(Controller):
             short_name=settings.SHORT_NAME,
             description=settings.DESCRIPTION,
         )
+
+    @get(
+        operation_id="SystemTasks",
+        name="system:tasks",
+        path="/api/system/tasks",
+        summary="Get configured background tasks",
+        exclude_from_auth=True,
+        security=[],
+    )
+    async def get_system_tasks(self, settings: AppSettings) -> dict:
+        """Return SAQ task and cron configuration for read-only admin pages."""
+        config = settings.saq.get_config()
+        queues = []
+        for queue in config.queue_configs:
+            queue_name = getattr(queue, "name", "background-tasks")
+            tasks = [
+                {
+                    "queue": queue_name,
+                    "kind": "task",
+                    "name": getattr(task, "__name__", str(task)),
+                    "module": getattr(task, "__module__", None),
+                    "cron": None,
+                    "timeout": None,
+                    "ttl": None,
+                    "enabled": True,
+                }
+                for task in (getattr(queue, "tasks", []) or [])
+            ]
+            scheduled_tasks = [
+                {
+                    "queue": queue_name,
+                    "kind": "cron",
+                    "name": getattr(getattr(job, "function", None), "__name__", str(getattr(job, "function", None))),
+                    "module": getattr(getattr(job, "function", None), "__module__", None),
+                    "cron": getattr(job, "cron", None),
+                    "timeout": getattr(job, "timeout", None),
+                    "ttl": getattr(job, "ttl", None),
+                    "enabled": True,
+                }
+                for job in (getattr(queue, "scheduled_tasks", []) or [])
+            ]
+            queues.append(
+                {
+                    "name": queue_name,
+                    "concurrency": getattr(queue, "concurrency", None),
+                    "tasks": tasks,
+                    "scheduled_tasks": scheduled_tasks,
+                }
+            )
+        return {"code": 200, "msg": "获取成功", "data": queues}

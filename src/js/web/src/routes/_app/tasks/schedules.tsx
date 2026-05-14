@@ -1,11 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { PlaceholderPage } from "@/components/platform/placeholder-page"
+import { TasksPage } from "@/components/platform/data-admin-pages"
 
 export const Route = createFileRoute("/_app/tasks/schedules")({
   component: SchedulesPage,
 })
 
 function SchedulesPage() {
-  return <PlaceholderPage eyebrow="定时任务" title="定时任务设置" />
+  return <TasksPage mode="schedules" />
 }
-

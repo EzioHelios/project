@@ -21,14 +21,19 @@ from sqlalchemy.orm import selectinload
 from app.db import models as m
 from app.domain.carbon.deps import (
     provide_alarm_event_service,
+    provide_ammeter_index_value_service,
     provide_api_result_key_mapping_service,
     provide_carbon_audit_log_service,
     provide_emission_factor_service,
     provide_employee_commute_service,
+    provide_energy_storage_value_service,
     provide_enterprise_info_service,
+    provide_in_money_service,
     provide_iot_telemetry_service,
     provide_monitor_equipment_service,
+    provide_monitor_sector_photo_service,
     provide_monitor_sector_service,
+    provide_out_money_service,
     provide_scope1_mobile_combustion_service,
     provide_scope1_refrigerant_leak_service,
     provide_scope1_stationary_combustion_service,
@@ -37,6 +42,7 @@ from app.domain.carbon.deps import (
     provide_scope3_waste_disposal_service,
     provide_vedio_alarm_event_service,
     provide_video_monitor_service,
+    provide_warning_rule_service,
 )
 
 from . import services
@@ -923,6 +929,8 @@ STATUS_REJECTED = "rejected"
 AUDIT_ACTION_SUBMIT = "submit"
 AUDIT_ACTION_APPROVE = "approve"
 AUDIT_ACTION_REJECT = "reject"
+ADMIN_BODY = Body()
+ADMIN_OPTIONAL_BODY = Body(default={})
 
 
 def _coerce_date_fields(data: dict[str, Any], fields: list[str]) -> None:
@@ -947,6 +955,44 @@ def _carbon_defaults() -> dict:
     }
 
 
+def _payload_without_none(data: dict[str, Any]) -> dict[str, Any]:
+    """Drop client-side empty values before writing simple admin records."""
+    return {k: v for k, v in data.items() if v is not None}
+
+
+def _coerce_datetime_fields(data: dict[str, Any], fields: list[str]) -> None:
+    for field in fields:
+        val = data.get(field)
+        if isinstance(val, str) and val:
+            try:
+                data[field] = datetime.datetime.fromisoformat(val)
+            except ValueError:
+                try:
+                    data[field] = datetime.datetime.combine(datetime.date.fromisoformat(val), datetime.time.min)
+                except ValueError:
+                    pass
+
+
+def _matches_keyword(row: dict[str, Any], keyword: str | None, fields: list[str]) -> bool:
+    if not keyword:
+        return True
+    needle = keyword.strip().lower()
+    if not needle:
+        return True
+    return any(needle in str(row.get(field) or "").lower() for field in fields)
+
+
+def _slice_rows(rows: list[dict[str, Any]], limit: int = 200, offset: int = 0) -> dict[str, Any]:
+    limit_clamped = max(10, min(limit, 1000))
+    offset_clamped = max(0, offset)
+    return {
+        "items": rows[offset_clamped : offset_clamped + limit_clamped],
+        "total": len(rows),
+        "limit": limit_clamped,
+        "offset": offset_clamped,
+    }
+
+
 class CarbonCRUDController(Controller):
     """Scope 1/2/3 碳数据 CRUD 与审核（参考 xtck_deploy 与 PRD 5）。"""
     tags = ["CarbonCRUD"]
@@ -962,6 +1008,18 @@ class CarbonCRUDController(Controller):
         "employee_commute_service": provide_employee_commute_service,
         "iot_telemetry_service": provide_iot_telemetry_service,
         "audit_log_service": provide_carbon_audit_log_service,
+        "monitor_sector_service": provide_monitor_sector_service,
+        "monitor_sector_photo_service": provide_monitor_sector_photo_service,
+        "monitor_equipment_service": provide_monitor_equipment_service,
+        "video_monitor_service": provide_video_monitor_service,
+        "warning_rule_service": provide_warning_rule_service,
+        "alarm_event_service": provide_alarm_event_service,
+        "vedio_alarm_event_service": provide_vedio_alarm_event_service,
+        "api_result_key_mapping_service": provide_api_result_key_mapping_service,
+        "energy_storage_value_service": provide_energy_storage_value_service,
+        "ammeter_index_value_service": provide_ammeter_index_value_service,
+        "in_money_service": provide_in_money_service,
+        "out_money_service": provide_out_money_service,
     }
 
     async def _safe_create_audit_log(
@@ -2124,6 +2182,349 @@ class CarbonCRUDController(Controller):
                 if getattr(i, "status", None) == STATUS_PENDING:
                     out.append({"record_type": name, "record_id": i.id, **model_to_dict(i)})
         return Response(content={"code": 200, "data": out})
+
+    # ---------- 数据管理: 区域 / 终端 / 视频 / 规则配置 ----------
+    @get("/api/data/monitor-sectors", exclude_from_auth=True)
+    async def list_monitor_sectors(self, db_session: AsyncSession, keyword: str | None = None) -> Response[dict]:
+        sectors = (await db_session.execute(select(m.MonitorSector).options(selectinload(m.MonitorSector.photos)).order_by(m.MonitorSector.id.desc()))).scalars().all()
+        equipment_counts = dict(
+            (await db_session.execute(select(m.MonitorEquipment.sector_id, func.count()).group_by(m.MonitorEquipment.sector_id))).all()
+        )
+        rows = []
+        for sector in sectors:
+            row = model_to_dict(sector)
+            row["photos"] = [model_to_dict(photo) for photo in sector.photos]
+            row["equipment_count"] = equipment_counts.get(sector.id, 0)
+            if _matches_keyword(row, keyword, ["code", "name", "area", "description"]):
+                rows.append(row)
+        return Response(content={"code": 200, "msg": "获取成功", "data": rows})
+
+    @post("/api/data/monitor-sectors", exclude_from_auth=True)
+    async def create_monitor_sector(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        obj = m.MonitorSector(**_payload_without_none(data))
+        db_session.add(obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
+
+    @patch("/api/data/monitor-sectors/{record_id:int}", exclude_from_auth=True)
+    async def update_monitor_sector(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        obj = await db_session.get(m.MonitorSector, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        for field, value in _payload_without_none(data).items():
+            setattr(obj, field, value)
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "更新成功"})
+
+    @delete("/api/data/monitor-sectors/{record_id:int}", exclude_from_auth=True, status_code=200)
+    async def delete_monitor_sector(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+        obj = await db_session.get(m.MonitorSector, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        await db_session.delete(obj)
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "已删除"})
+
+    @post("/api/data/monitor-sector-photos", exclude_from_auth=True)
+    async def create_monitor_sector_photo(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        obj = m.MonitorSectorPhoto(**_payload_without_none(data))
+        db_session.add(obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
+
+    @delete("/api/data/monitor-sector-photos/{record_id:int}", exclude_from_auth=True, status_code=200)
+    async def delete_monitor_sector_photo(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+        obj = await db_session.get(m.MonitorSectorPhoto, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        await db_session.delete(obj)
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "已删除"})
+
+    @get("/api/data/monitor-equipments", exclude_from_auth=True)
+    async def list_monitor_equipments(
+        self,
+        db_session: AsyncSession,
+        keyword: str | None = None,
+        sector_id: int | None = None,
+        category: int | None = None,
+    ) -> Response[dict]:
+        stmt = select(m.MonitorEquipment).options(selectinload(m.MonitorEquipment.sector)).order_by(m.MonitorEquipment.id.desc())
+        if sector_id:
+            stmt = stmt.where(m.MonitorEquipment.sector_id == sector_id)
+        if category is not None:
+            stmt = stmt.where(m.MonitorEquipment.category == category)
+        items = (await db_session.execute(stmt)).scalars().all()
+        rows = []
+        for item in items:
+            row = model_to_dict(item)
+            row["sector_name"] = item.sector.name if item.sector else None
+            if _matches_keyword(row, keyword, ["code", "name", "code2", "supplier", "location", "sector_name"]):
+                rows.append(row)
+        return Response(content={"code": 200, "msg": "获取成功", "data": rows})
+
+    @post("/api/data/monitor-equipments", exclude_from_auth=True)
+    async def create_monitor_equipment(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        _coerce_datetime_fields(data, ["install_time"])
+        obj = m.MonitorEquipment(**_payload_without_none(data))
+        db_session.add(obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
+
+    @patch("/api/data/monitor-equipments/{record_id:int}", exclude_from_auth=True)
+    async def update_monitor_equipment(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        obj = await db_session.get(m.MonitorEquipment, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        _coerce_datetime_fields(data, ["install_time"])
+        for field, value in _payload_without_none(data).items():
+            setattr(obj, field, value)
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "更新成功"})
+
+    @delete("/api/data/monitor-equipments/{record_id:int}", exclude_from_auth=True, status_code=200)
+    async def delete_monitor_equipment(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+        obj = await db_session.get(m.MonitorEquipment, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        await db_session.delete(obj)
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "已删除"})
+
+    @get("/api/data/video-monitors", exclude_from_auth=True)
+    async def list_video_monitors(self, db_session: AsyncSession, keyword: str | None = None, status: int | None = None) -> Response[dict]:
+        stmt = select(m.VideoMonitor).order_by(m.VideoMonitor.id.desc())
+        if status is not None:
+            stmt = stmt.where(m.VideoMonitor.status == status)
+        items = (await db_session.execute(stmt)).scalars().all()
+        rows = [model_to_dict(item) for item in items]
+        rows = [row for row in rows if _matches_keyword(row, keyword, ["location", "f_area", "ip_address", "brand", "b_model"])]
+        return Response(content={"code": 200, "msg": "获取成功", "data": rows})
+
+    @post("/api/data/video-monitors", exclude_from_auth=True)
+    async def create_video_monitor(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        obj = m.VideoMonitor(**_payload_without_none(data))
+        db_session.add(obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
+
+    @patch("/api/data/video-monitors/{record_id:int}", exclude_from_auth=True)
+    async def update_video_monitor(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        obj = await db_session.get(m.VideoMonitor, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        for field, value in _payload_without_none(data).items():
+            setattr(obj, field, value)
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "更新成功"})
+
+    @delete("/api/data/video-monitors/{record_id:int}", exclude_from_auth=True, status_code=200)
+    async def delete_video_monitor(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+        obj = await db_session.get(m.VideoMonitor, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        await db_session.delete(obj)
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "已删除"})
+
+    @get("/api/data/warning-rules", exclude_from_auth=True)
+    async def list_warning_rules(self, db_session: AsyncSession, keyword: str | None = None, event_type: int | None = None) -> Response[dict]:
+        stmt = select(m.WarningRule).order_by(m.WarningRule.id.desc())
+        if event_type is not None:
+            stmt = stmt.where(m.WarningRule.event_type == event_type)
+        rows = [model_to_dict(item) for item in (await db_session.execute(stmt)).scalars().all()]
+        rows = [row for row in rows if _matches_keyword(row, keyword, ["name", "description", "table_name"])]
+        return Response(content={"code": 200, "msg": "获取成功", "data": rows})
+
+    @post("/api/data/warning-rules", exclude_from_auth=True)
+    async def create_warning_rule(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        obj = m.WarningRule(**_payload_without_none(data))
+        db_session.add(obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
+
+    @patch("/api/data/warning-rules/{record_id:int}", exclude_from_auth=True)
+    async def update_warning_rule(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        obj = await db_session.get(m.WarningRule, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        for field, value in _payload_without_none(data).items():
+            setattr(obj, field, value)
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "更新成功"})
+
+    @delete("/api/data/warning-rules/{record_id:int}", exclude_from_auth=True, status_code=200)
+    async def delete_warning_rule(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+        obj = await db_session.get(m.WarningRule, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        await db_session.delete(obj)
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "已删除"})
+
+    @get("/api/data/api-result-key-mappings", exclude_from_auth=True)
+    async def list_api_result_key_mappings(self, db_session: AsyncSession, keyword: str | None = None) -> Response[dict]:
+        rows = [model_to_dict(item) for item in (await db_session.execute(select(m.ApiResultKeyMapping).order_by(m.ApiResultKeyMapping.id.desc()))).scalars().all()]
+        rows = [row for row in rows if _matches_keyword(row, keyword, ["key_name", "cn_name"])]
+        return Response(content={"code": 200, "msg": "获取成功", "data": rows})
+
+    @post("/api/data/api-result-key-mappings", exclude_from_auth=True)
+    async def create_api_result_key_mapping(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        obj = m.ApiResultKeyMapping(**_payload_without_none(data))
+        db_session.add(obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
+
+    @patch("/api/data/api-result-key-mappings/{record_id:int}", exclude_from_auth=True)
+    async def update_api_result_key_mapping(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        obj = await db_session.get(m.ApiResultKeyMapping, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        for field, value in _payload_without_none(data).items():
+            setattr(obj, field, value)
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "更新成功"})
+
+    @delete("/api/data/api-result-key-mappings/{record_id:int}", exclude_from_auth=True, status_code=200)
+    async def delete_api_result_key_mapping(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+        obj = await db_session.get(m.ApiResultKeyMapping, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        await db_session.delete(obj)
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "已删除"})
+
+    @get("/api/data/energy-storage", exclude_from_auth=True)
+    async def get_energy_storage_setting(self, db_session: AsyncSession) -> Response[dict]:
+        obj = (await db_session.execute(select(m.EnergyStorageValue).order_by(m.EnergyStorageValue.id.desc()).limit(1))).scalars().first()
+        return Response(content={"code": 200, "msg": "获取成功", "data": model_to_dict(obj) if obj else None})
+
+    @post("/api/data/energy-storage", exclude_from_auth=True)
+    async def save_energy_storage_setting(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        obj = (await db_session.execute(select(m.EnergyStorageValue).order_by(m.EnergyStorageValue.id.desc()).limit(1))).scalars().first()
+        if obj is None:
+            obj = m.EnergyStorageValue(**_payload_without_none(data))
+            db_session.add(obj)
+        else:
+            for field, value in _payload_without_none(data).items():
+                setattr(obj, field, value)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        return Response(content={"code": 200, "msg": "保存成功", "data": model_to_dict(obj)})
+
+    # ---------- 数据管理: 事件处理 / 流水只读 ----------
+    @get("/api/data/alarm-events", exclude_from_auth=True)
+    async def list_alarm_events(
+        self,
+        db_session: AsyncSession,
+        keyword: str | None = None,
+        event_type: int | None = None,
+        is_handle: bool | None = None,
+    ) -> Response[dict]:
+        stmt = select(m.AlarmEvent).order_by(m.AlarmEvent.event_time.desc().nullslast(), m.AlarmEvent.id.desc())
+        if event_type is not None:
+            stmt = stmt.where(m.AlarmEvent.event_type == event_type)
+        if is_handle is not None:
+            stmt = stmt.where(m.AlarmEvent.is_handle == is_handle)
+        rows = [model_to_dict(item) for item in (await db_session.execute(stmt)).scalars().all()]
+        rows = [row for row in rows if _matches_keyword(row, keyword, ["event_desc"])]
+        return Response(content={"code": 200, "msg": "获取成功", "data": rows})
+
+    @post("/api/data/alarm-events/{record_id:int}/handle", exclude_from_auth=True)
+    async def handle_alarm_event(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+        obj = await db_session.get(m.AlarmEvent, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        obj.is_handle = True
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "已处理"})
+
+    @post("/api/data/alarm-events/handle-batch", exclude_from_auth=True)
+    async def handle_alarm_events_batch(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_OPTIONAL_BODY) -> Response[dict]:
+        ids = data.get("ids") or []
+        stmt = select(m.AlarmEvent).where(m.AlarmEvent.is_handle.is_(False))
+        if ids:
+            stmt = stmt.where(m.AlarmEvent.id.in_(ids))
+        items = (await db_session.execute(stmt)).scalars().all()
+        for item in items:
+            item.is_handle = True
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "已批量处理", "data": {"count": len(items)}})
+
+    @get("/api/data/video-alarm-events", exclude_from_auth=True)
+    async def list_video_alarm_events(
+        self,
+        db_session: AsyncSession,
+        keyword: str | None = None,
+        event_type: int | None = None,
+        is_handle: bool | None = None,
+    ) -> Response[dict]:
+        stmt = select(m.VedioAlarmEvent).order_by(m.VedioAlarmEvent.event_time.desc().nullslast(), m.VedioAlarmEvent.id.desc())
+        if event_type is not None:
+            stmt = stmt.where(m.VedioAlarmEvent.event_type == event_type)
+        if is_handle is not None:
+            stmt = stmt.where(m.VedioAlarmEvent.is_handle == is_handle)
+        rows = [model_to_dict(item) for item in (await db_session.execute(stmt)).scalars().all()]
+        rows = [row for row in rows if _matches_keyword(row, keyword, ["event_desc"])]
+        return Response(content={"code": 200, "msg": "获取成功", "data": rows})
+
+    @post("/api/data/video-alarm-events/{record_id:int}/handle", exclude_from_auth=True)
+    async def handle_video_alarm_event(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+        obj = await db_session.get(m.VedioAlarmEvent, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        obj.is_handle = True
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "已处理"})
+
+    @post("/api/data/video-alarm-events/handle-batch", exclude_from_auth=True)
+    async def handle_video_alarm_events_batch(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_OPTIONAL_BODY) -> Response[dict]:
+        ids = data.get("ids") or []
+        stmt = select(m.VedioAlarmEvent).where(m.VedioAlarmEvent.is_handle.is_(False))
+        if ids:
+            stmt = stmt.where(m.VedioAlarmEvent.id.in_(ids))
+        items = (await db_session.execute(stmt)).scalars().all()
+        for item in items:
+            item.is_handle = True
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "已批量处理", "data": {"count": len(items)}})
+
+    @get("/api/data/in-money", exclude_from_auth=True)
+    async def list_in_money(self, db_session: AsyncSession, keyword: str | None = None, limit: int = 200, offset: int = 0) -> Response[dict]:
+        rows = [model_to_dict(item) for item in (await db_session.execute(select(m.InMoney).order_by(m.InMoney.add_time.desc()))).scalars().all()]
+        rows = [row for row in rows if _matches_keyword(row, keyword, ["rkdbh", "gysmc", "gysbm", "wlbh", "wlms", "ckmc"])]
+        return Response(content={"code": 200, "msg": "获取成功", "data": _slice_rows(rows, limit, offset)})
+
+    @get("/api/data/out-money", exclude_from_auth=True)
+    async def list_out_money(self, db_session: AsyncSession, keyword: str | None = None, limit: int = 200, offset: int = 0) -> Response[dict]:
+        rows = [model_to_dict(item) for item in (await db_session.execute(select(m.OutMoney).order_by(m.OutMoney.add_time.desc()))).scalars().all()]
+        rows = [row for row in rows if _matches_keyword(row, keyword, ["ckdbh", "xmmc", "wlbm", "wlms", "gysmc", "ckdd"])]
+        return Response(content={"code": 200, "msg": "获取成功", "data": _slice_rows(rows, limit, offset)})
+
+    @get("/api/data/ammeter-values", exclude_from_auth=True)
+    async def list_ammeter_values(
+        self,
+        db_session: AsyncSession,
+        keyword: str | None = None,
+        area_id: str | None = None,
+        ammeter_id: str | None = None,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> Response[dict]:
+        stmt = select(m.AmmeterIndexValue).order_by(m.AmmeterIndexValue.reading_time.desc().nullslast(), m.AmmeterIndexValue.id.desc())
+        if area_id:
+            stmt = stmt.where(m.AmmeterIndexValue.area_id == area_id)
+        if ammeter_id:
+            stmt = stmt.where(m.AmmeterIndexValue.ammeter_id == ammeter_id)
+        rows = [model_to_dict(item) for item in (await db_session.execute(stmt)).scalars().all()]
+        rows = [row for row in rows if _matches_keyword(row, keyword, ["ammeter_id", "ammeter_name", "address", "area_name"])]
+        return Response(content={"code": 200, "msg": "获取成功", "data": _slice_rows(rows, limit, offset)})
 
     # ---------- 数据管理：员工通勤 ----------
     @get("/api/data/employee-commute", exclude_from_auth=True)

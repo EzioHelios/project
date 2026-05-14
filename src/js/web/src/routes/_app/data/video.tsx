@@ -1,11 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { PlaceholderPage } from "@/components/platform/placeholder-page"
+import { VideoPage } from "@/components/platform/data-admin-pages"
 
 export const Route = createFileRoute("/_app/data/video")({
   component: VideoPage,
 })
-
-function VideoPage() {
-  return <PlaceholderPage eyebrow="数据管理" title="视频监控" />
-}
-
