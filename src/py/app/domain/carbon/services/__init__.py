@@ -161,6 +161,16 @@ class Scope2ElectricityBillService(CompositeServiceMixin, service.SQLAlchemyAsyn
     repository_type = Repo
 
 
+class Scope2MeterAggregateService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.Scope2MeterAggregate]):
+    """Handles database operations for Scope2MeterAggregate."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.Scope2MeterAggregate]):
+        """Scope2MeterAggregate SQLAlchemy Repository."""
+        model_type = m.Scope2MeterAggregate
+
+    repository_type = Repo
+
+
 class Scope3WasteDisposalService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.Scope3WasteDisposal]):
     """Handles database operations for Scope3WasteDisposal."""
 

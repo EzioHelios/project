@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { useRouterState } from "@tanstack/react-router"
-import { AlarmClock, Database, Home, ShieldCheck, Users } from "lucide-react"
+import { AlarmClock, BellRing, BookOpen, Database, Factory, Home, ShieldCheck, Users } from "lucide-react"
 import type * as React from "react"
 import { useEffect, useMemo } from "react"
 import { NavMain } from "@/components/nav-main"
@@ -59,42 +59,85 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ],
       },
       {
-        title: "数据管理",
+        title: "数据台账",
         to: "/data/company",
         icon: Database,
-        isActive: pathname.startsWith("/data"),
+        isActive:
+          pathname.startsWith("/data/company") ||
+          pathname.startsWith("/data/commute") ||
+          pathname.startsWith("/data/inbound") ||
+          pathname.startsWith("/data/outbound") ||
+          pathname.startsWith("/data/api-key-mapping") ||
+          pathname.startsWith("/data/energy-storage"),
         items: [
           { title: "企业基本信息", to: "/data/company" },
           { title: "员工通勤", to: "/data/commute" },
-          { title: "监测区域", to: "/data/monitor-area" },
           { title: "入库管理", to: "/data/inbound" },
           { title: "出库管理", to: "/data/outbound" },
-          { title: "监控终端", to: "/data/terminals" },
-          { title: "电表电量", to: "/data/meter" },
-          { title: "视频监控", to: "/data/video" },
-          { title: "预警规则", to: "/data/alarm-rules" },
-          { title: "预警事件", to: "/data/alarm-events" },
-          { title: "视频监控预警事件", to: "/data/video-alarm-events" },
-          { title: "储能数值设置", to: "/data/energy-storage" },
           { title: "接口结果key映射", to: "/data/api-key-mapping" },
+          { title: "储能数值设置", to: "/data/energy-storage" },
         ],
       },
       {
-        title: "碳排放管理",
+        title: "监控运维",
+        to: "/data/monitor-area",
+        icon: Factory,
+        isActive:
+          pathname.startsWith("/data/monitor-area") ||
+          pathname.startsWith("/data/terminals") ||
+          pathname.startsWith("/data/meter") ||
+          pathname.startsWith("/data/video") ||
+          pathname.startsWith("/carbon-mgmt/iot"),
+        items: [
+          { title: "监测区域", to: "/data/monitor-area" },
+          { title: "监控终端", to: "/data/terminals" },
+          { title: "电表电量", to: "/data/meter" },
+          { title: "视频监控", to: "/data/video" },
+          { title: "IoT时序数据", to: "/carbon-mgmt/iot" },
+        ],
+      },
+      {
+        title: "预警中心",
+        to: "/data/alarm-rules",
+        icon: BellRing,
+        isActive: pathname.startsWith("/data/alarm-rules") || pathname.startsWith("/data/alarm-events") || pathname.startsWith("/data/video-alarm-events"),
+        items: [
+          { title: "预警规则", to: "/data/alarm-rules" },
+          { title: "预警事件", to: "/data/alarm-events" },
+          { title: "视频监控预警事件", to: "/data/video-alarm-events" },
+        ],
+      },
+      {
+        title: "碳核算模型",
         to: "/carbon-mgmt/scope1-mobile",
         icon: ShieldCheck,
-        isActive: pathname.startsWith("/carbon-mgmt") || pathname.startsWith("/carbon"),
+        isActive:
+          pathname.startsWith("/carbon-mgmt/scope1-") ||
+          pathname.startsWith("/carbon-mgmt/scope2-") ||
+          pathname.startsWith("/carbon-mgmt/scope3-") ||
+          pathname.startsWith("/carbon-mgmt/pending") ||
+          pathname.startsWith("/carbon-mgmt/audit"),
         items: [
           { title: "[范围1] 移动源燃烧", to: "/carbon-mgmt/scope1-mobile" },
           { title: "[范围1] 固定源燃烧", to: "/carbon-mgmt/scope1-stationary" },
           { title: "[范围1] 制冷剂逸散", to: "/carbon-mgmt/scope1-refrigerant" },
           { title: "[范围2] 电费账单", to: "/carbon-mgmt/scope2-bill" },
+          { title: "Scope2 核算记录", to: "/carbon-mgmt/scope2-records" },
+          { title: "Scope2 对账", to: "/carbon-mgmt/scope2-reconciliation" },
           { title: "[范围3] 废弃物处理", to: "/carbon-mgmt/scope3-waste" },
           { title: "[范围3] 外购运输", to: "/carbon-mgmt/scope3-transport" },
+          { title: "待审核工作台", to: "/carbon-mgmt/pending" },
+          { title: "审核操作日志", to: "/carbon-mgmt/audit" },
+        ],
+      },
+      {
+        title: "因子数据库",
+        to: "/carbon-mgmt/factors",
+        icon: BookOpen,
+        isActive: pathname.startsWith("/carbon-mgmt/factors") || pathname.startsWith("/carbon-mgmt/calculation-factors"),
+        items: [
           { title: "排放因子库", to: "/carbon-mgmt/factors" },
           { title: "计算因子库", to: "/carbon-mgmt/calculation-factors" },
-          { title: "IoT时序数据", to: "/carbon-mgmt/iot" },
-          { title: "审核操作日志", to: "/carbon-mgmt/audit" },
         ],
       },
       {
@@ -139,7 +182,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </div>
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
             <div className="truncate text-sm font-semibold">{config.displayName}</div>
-            <div className="truncate text-xs text-muted-foreground">数据管理</div>
+            <div className="truncate text-xs text-muted-foreground">仓库碳管理</div>
           </div>
         </div>
         <TeamSwitcher teams={teamOptions} currentTeam={currentTeam} onTeamSelect={setCurrentTeam} />

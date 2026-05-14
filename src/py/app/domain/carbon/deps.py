@@ -20,6 +20,7 @@ provide_scope1_mobile_combustion_service = create_service_provider(services.Scop
 provide_scope1_stationary_combustion_service = create_service_provider(services.Scope1StationaryCombustionService)
 provide_scope1_refrigerant_leak_service = create_service_provider(services.Scope1RefrigerantLeakService)
 provide_scope2_electricity_bill_service = create_service_provider(services.Scope2ElectricityBillService)
+provide_scope2_meter_aggregate_service = create_service_provider(services.Scope2MeterAggregateService)
 provide_scope3_waste_disposal_service = create_service_provider(services.Scope3WasteDisposalService)
 provide_scope3_third_party_transport_service = create_service_provider(services.Scope3ThirdPartyTransportService)
 provide_emission_factor_service = create_service_provider(services.EmissionFactorService)
@@ -56,6 +57,7 @@ __all__ = (
     "provide_scope1_refrigerant_leak_service",
     "provide_scope1_stationary_combustion_service",
     "provide_scope2_electricity_bill_service",
+    "provide_scope2_meter_aggregate_service",
     "provide_scope3_third_party_transport_service",
     "provide_scope3_waste_disposal_service",
     "provide_vedio_alarm_event_service",

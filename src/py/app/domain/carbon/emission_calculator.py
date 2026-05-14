@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
@@ -13,6 +14,49 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.carbon.models import EmissionFactor
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class EmissionComputation:
+    """Resolved factor plus computed CO2e payload."""
+
+    co2e: Decimal
+    scope: str
+    category: str
+    sub_category: str
+    activity_amount: Decimal
+    activity_unit: str
+    factor_value: Decimal
+    factor_unit: str
+    factor_year: int
+    factor_source: str
+
+
+async def resolve_emission_factor(
+    session: AsyncSession,
+    scope: str,
+    category: str,
+    sub_category: str,
+    unit: str,
+    year: int | None = None,
+) -> EmissionFactor | None:
+    """Resolve a matching emission factor row for the requested activity."""
+    stmt = (
+        select(EmissionFactor)
+        .where(
+            EmissionFactor.scope == scope,
+            EmissionFactor.category == category,
+            EmissionFactor.sub_category == sub_category,
+            EmissionFactor.unit == unit,
+            EmissionFactor.is_active == True,
+        )
+    )
+    if year is not None:
+        stmt = stmt.where(EmissionFactor.year == year)
+    else:
+        stmt = stmt.order_by(EmissionFactor.year.desc())
+    result = await session.execute(stmt)
+    return result.scalars().first()
 
 
 async def calc_co2e(
@@ -39,22 +83,7 @@ async def calc_co2e(
     Returns:
         CO₂e 数值（kg），未找到因子时返回 None
     """
-    stmt = (
-        select(EmissionFactor)
-        .where(
-            EmissionFactor.scope == scope,
-            EmissionFactor.category == category,
-            EmissionFactor.sub_category == sub_category,
-            EmissionFactor.unit == unit,
-            EmissionFactor.is_active == True,
-        )
-    )
-    if year is not None:
-        stmt = stmt.where(EmissionFactor.year == year)
-    else:
-        stmt = stmt.order_by(EmissionFactor.year.desc())
-    result = await session.execute(stmt)
-    factor = result.scalars().first()
+    factor = await resolve_emission_factor(session, scope, category, sub_category, unit, year)
     if factor is None:
         logger.warning(
             "未找到排放因子: scope=%s category=%s sub_category=%s unit=%s year=%s",
@@ -68,6 +97,35 @@ async def calc_co2e(
         activity_amount, unit, factor.factor_value, factor.factor_unit, co2e, factor.source,
     )
     return co2e
+
+
+async def compute_emission_result(
+    session: AsyncSession,
+    scope: str,
+    category: str,
+    sub_category: str,
+    activity_amount: float | Decimal | int,
+    unit: str,
+    year: int | None = None,
+) -> EmissionComputation | None:
+    """Resolve factor and return the full computation payload."""
+    factor = await resolve_emission_factor(session, scope, category, sub_category, unit, year)
+    if factor is None:
+        return None
+    amount = Decimal(str(activity_amount))
+    co2e = amount * factor.factor_value
+    return EmissionComputation(
+        co2e=co2e,
+        scope=scope,
+        category=category,
+        sub_category=sub_category,
+        activity_amount=amount,
+        activity_unit=unit,
+        factor_value=factor.factor_value,
+        factor_unit=factor.factor_unit,
+        factor_year=factor.year,
+        factor_source=factor.source,
+    )
 
 
 async def calc_scope1_fuel(

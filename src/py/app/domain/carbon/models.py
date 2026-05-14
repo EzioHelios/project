@@ -379,6 +379,33 @@ class Scope2ElectricityBill(CarbonAuditBase):
     remark: Mapped[str | None] = mapped_column(Text)
 
 
+class Scope2MeterAggregate(BigIntAuditBase):
+    """Scope2 电表月度聚合快照。"""
+
+    __tablename__ = "dataapp_scope2meteraggregate"
+    __table_args__ = (
+        UniqueConstraint("ammeter_id", "billing_month", name="uq_scope2_meter_aggregate_meter_month"),
+        Index("ix_scope2_meter_aggregate_month_area", "billing_month", "area_id"),
+    )
+
+    source_kind: Mapped[str] = mapped_column(String(24), default="meter_aggregate")
+    ammeter_id: Mapped[str] = mapped_column(String(20), index=True)
+    ammeter_name: Mapped[str | None] = mapped_column(String(30))
+    area_id: Mapped[str | None] = mapped_column(String(20), index=True)
+    area_name: Mapped[str | None] = mapped_column(String(50))
+    billing_month: Mapped[str] = mapped_column(String(7), index=True)
+    first_reading_time: Mapped[datetime | None] = mapped_column(DateTime)
+    last_reading_time: Mapped[datetime | None] = mapped_column(DateTime)
+    start_total_energy: Mapped[Numeric | None] = mapped_column(Numeric(16, 4))
+    end_total_energy: Mapped[Numeric | None] = mapped_column(Numeric(16, 4))
+    total_kwh: Mapped[Numeric | None] = mapped_column(Numeric(16, 4))
+    status: Mapped[str] = mapped_column(String(20), default="draft", index=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime)
+    reject_reason: Mapped[str | None] = mapped_column(Text)
+    calc_status: Mapped[str] = mapped_column(String(24), default="ready", index=True)
+    aggregation_note: Mapped[str | None] = mapped_column(Text)
+
+
 class Scope3WasteDisposal(CarbonAuditBase):
     """Scope3 废弃物处理。"""
 

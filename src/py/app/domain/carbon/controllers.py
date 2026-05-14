@@ -7,6 +7,7 @@
 
 import datetime
 import re
+from decimal import Decimal
 from typing import Any
 
 from advanced_alchemy.filters import LimitOffset, OrderBy, SearchFilter
@@ -39,6 +40,7 @@ from app.domain.carbon.deps import (
     provide_scope1_refrigerant_leak_service,
     provide_scope1_stationary_combustion_service,
     provide_scope2_electricity_bill_service,
+    provide_scope2_meter_aggregate_service,
     provide_scope3_third_party_transport_service,
     provide_scope3_waste_disposal_service,
     provide_vedio_alarm_event_service,
@@ -50,6 +52,7 @@ from . import services
 from .utils import _CKYQZMJ as CKYQZMJ
 
 # 排放因子与常量（根据 Django views.py 同步）
+from .emission_calculator import compute_emission_result
 from .utils import GF_CJPL_PFYZ, YD_CPFL_PFYZ, calc_day_ygtq_cpfl
 from .validation import (
     CarbonValidationError,
@@ -998,6 +1001,29 @@ def _paged_payload(items: list[dict[str, Any]], total: int, limit: int, offset: 
     return {"items": items, "total": total, "limit": limit, "offset": offset, "code": 200, "data": items}
 
 
+def _build_list_filters(
+    model: Any,
+    *,
+    limit: int,
+    offset: int,
+    search: str | None,
+    keyword: str | None,
+    search_fields: list[str] | None,
+    sort_field: str,
+    sort_order: str,
+) -> tuple[list[Any], int, int]:
+    limit_clamped = max(1, min(limit, 100))
+    offset_clamped = max(0, offset)
+    filters: list[Any] = [LimitOffset(limit_clamped, offset_clamped)]
+    order = "asc" if sort_order == "asc" else "desc"
+    if sort_field and hasattr(model, sort_field):
+        filters.append(OrderBy(getattr(model, sort_field), order))
+    search_value = (search or keyword or "").strip()
+    if search_value and search_fields:
+        filters.append(SearchFilter(field_name=set(search_fields), value=search_value, ignore_case=True))
+    return filters, limit_clamped, offset_clamped
+
+
 async def _list_page(
     service: Any,
     model: Any,
@@ -1011,17 +1037,156 @@ async def _list_page(
     sort_order: str = "desc",
     conditions: list[Any] | None = None,
 ) -> dict[str, Any]:
-    limit_clamped = max(1, min(limit, 100))
-    offset_clamped = max(0, offset)
-    filters: list[Any] = [LimitOffset(limit_clamped, offset_clamped)]
-    order = "asc" if sort_order == "asc" else "desc"
-    if sort_field and hasattr(model, sort_field):
-        filters.append(OrderBy(getattr(model, sort_field), order))
-    search_value = (search or keyword or "").strip()
-    if search_value and search_fields:
-        filters.append(SearchFilter(field_name=set(search_fields), value=search_value, ignore_case=True))
+    filters, limit_clamped, offset_clamped = _build_list_filters(
+        model,
+        limit=limit,
+        offset=offset,
+        search=search,
+        keyword=keyword,
+        search_fields=search_fields,
+        sort_field=sort_field,
+        sort_order=sort_order,
+    )
     rows, total = await service.list_and_count(*(conditions or []), *filters)
     return _paged_payload([model_to_dict(row) for row in rows], total, limit_clamped, offset_clamped)
+
+
+async def _list_rows(
+    service: Any,
+    model: Any,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+    search: str | None = None,
+    keyword: str | None = None,
+    search_fields: list[str] | None = None,
+    sort_field: str = "id",
+    sort_order: str = "desc",
+    conditions: list[Any] | None = None,
+) -> list[Any]:
+    filters, _, _ = _build_list_filters(
+        model,
+        limit=limit,
+        offset=offset,
+        search=search,
+        keyword=keyword,
+        search_fields=search_fields,
+        sort_field=sort_field,
+        sort_order=sort_order,
+    )
+    return await service.list(*(conditions or []), *filters)
+
+
+def _format_decimal(value: Decimal | float | int | None) -> float | None:
+    if value is None:
+        return None
+    return float(value if isinstance(value, Decimal) else Decimal(str(value)))
+
+
+def _compute_year_from_date(value: str | datetime.date | None) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime.date):
+        return value.year
+    if isinstance(value, str):
+        try:
+            if len(value) == 7:
+                return datetime.date.fromisoformat(f"{value}-01").year
+            return datetime.date.fromisoformat(value[:10]).year
+        except ValueError:
+            return None
+    return None
+
+
+async def _build_scope_record_computation(record: Any, session: AsyncSession, *, source_kind: str | None = None) -> dict[str, Any]:
+    model_type = type(record)
+    computation = None
+    note = ""
+    if model_type is m.Scope1MobileCombustion:
+        computation = await compute_emission_result(
+            session, "scope1", "fuel", record.fuel_type, record.amount, record.unit, _compute_year_from_date(record.record_date)
+        )
+        note = "按活动量与燃料排放因子计算。"
+    elif model_type is m.Scope1StationaryCombustion:
+        computation = await compute_emission_result(
+            session, "scope1", "fuel", record.fuel_type, record.amount, record.unit, _compute_year_from_date(record.period_start)
+        )
+        note = "按固定源燃料消耗量与因子计算。"
+    elif model_type is m.Scope1RefrigerantLeak:
+        computation = await compute_emission_result(
+            session, "scope1", "refrigerant", record.refrigerant_type, record.amount_kg, "kg", _compute_year_from_date(record.fill_date)
+        )
+        note = "按制冷剂用量与逸散因子计算。"
+    elif model_type is m.Scope2ElectricityBill:
+        computation = await compute_emission_result(
+            session, "scope2", "electricity", "grid_electricity", record.total_kwh, "kWh", _compute_year_from_date(record.billing_month)
+        )
+        note = "按人工电费账单总电量计算。"
+        source_kind = source_kind or "manual_bill"
+    elif model_type is m.Scope2MeterAggregate:
+        if record.calc_status != "ready":
+            return {
+                "source_kind": source_kind or "meter_aggregate",
+                "calc_status": record.calc_status,
+                "factor_source": None,
+                "factor_year": None,
+                "factor_unit": None,
+                "activity_amount": _format_decimal(record.total_kwh),
+                "activity_unit": "kWh",
+                "computed_co2e": None,
+                "computation_note": record.aggregation_note or "聚合结果不可核算，请先修复采样数据。",
+            }
+        computation = await compute_emission_result(
+            session, "scope2", "electricity", "grid_electricity", record.total_kwh or 0, "kWh", _compute_year_from_date(record.billing_month)
+        )
+        note = record.aggregation_note or "按月度电表首末读数差值聚合后计算。"
+        source_kind = source_kind or "meter_aggregate"
+    elif model_type is m.Scope3WasteDisposal:
+        computation = await compute_emission_result(
+            session, "scope3", "waste", record.category, record.weight_ton, "t", _compute_year_from_date(record.date)
+        )
+        note = "按废弃物重量与处置因子计算。"
+    elif model_type is m.Scope3ThirdPartyTransport:
+        ton_km = Decimal(str(record.distance_km)) * Decimal(str(record.load_ton))
+        computation = await compute_emission_result(
+            session, "scope3", "transport", record.vehicle_type, ton_km, "t·km", None
+        )
+        note = "按吨公里与运输因子计算。"
+
+    if computation is None:
+        raise CarbonValidationError("未找到匹配的排放因子，无法生成核算结果")
+
+    return {
+        "source_kind": source_kind or "activity_data",
+        "calc_status": "ready",
+        "factor_source": computation.factor_source,
+        "factor_year": computation.factor_year,
+        "factor_unit": computation.factor_unit,
+        "activity_amount": _format_decimal(computation.activity_amount),
+        "activity_unit": computation.activity_unit,
+        "computed_co2e": _format_decimal(computation.co2e),
+        "computation_note": note,
+    }
+
+
+async def _serialize_scope_record(record: Any, session: AsyncSession, *, source_kind: str | None = None) -> dict[str, Any]:
+    data = model_to_dict(record)
+    data.update(await _build_scope_record_computation(record, session, source_kind=source_kind))
+    return data
+
+
+async def _augment_page_items(
+    page: dict[str, Any], items: list[Any], session: AsyncSession, *, source_kind: str | None = None
+) -> dict[str, Any]:
+    page["items"] = [await _serialize_scope_record(item, session, source_kind=source_kind) for item in items]
+    page["data"] = page["items"]
+    return page
+
+
+def _month_window(billing_month: str) -> tuple[datetime.datetime, datetime.datetime]:
+    month_start = datetime.datetime.fromisoformat(f"{billing_month}-01T00:00:00")
+    month_end = month_start + relativedelta(months=1)
+    return month_start, month_end
 
 
 class CarbonCRUDController(Controller):
@@ -1033,6 +1198,7 @@ class CarbonCRUDController(Controller):
         "scope1_stationary_service": provide_scope1_stationary_combustion_service,
         "scope1_refrigerant_service": provide_scope1_refrigerant_leak_service,
         "scope2_bill_service": provide_scope2_electricity_bill_service,
+        "scope2_meter_aggregate_service": provide_scope2_meter_aggregate_service,
         "scope3_waste_service": provide_scope3_waste_disposal_service,
         "scope3_transport_service": provide_scope3_third_party_transport_service,
         "emission_factor_service": provide_emission_factor_service,
@@ -1053,27 +1219,13 @@ class CarbonCRUDController(Controller):
         "out_money_service": provide_out_money_service,
     }
 
-    async def _safe_create_audit_log(
+    async def _create_audit_log(
         self,
         audit_log_service: services.CarbonAuditLogService,
         data: dict[str, Any],
     ) -> None:
-        """创建审核日志的安全包装，避免因审计表问题导致业务接口 500。
-
-        当前审计表（dataapp_auditlog）可能不存在或结构与模型有差异，
-        直接 create() 会导致 session PendingRollbackError 传播到主业务。
-        这里先检查表是否存在，不存在则直接跳过。
-        """
-        try:
-            # 尝试写入审计日志；如果表不存在或字段不匹配，捕获后 rollback session
-            await audit_log_service.create(data, auto_commit=True)
-        except Exception:
-            # 表不存在 / 字段不匹配时需要显式 rollback，避免 session 处于 broken 状态
-            try:
-                session = audit_log_service.repository.session
-                await session.rollback()
-            except Exception:
-                pass
+        """Create an audit log entry and let failures abort the parent workflow."""
+        await audit_log_service.create(data, auto_commit=True)
 
     # ---------- Scope1 移动源 ----------
     @get("/api/carbon/scope1-mobile-combustion", exclude_from_auth=True)
@@ -1089,6 +1241,7 @@ class CarbonCRUDController(Controller):
         sort_order: str = "desc",
     ) -> Response[dict]:
         conditions = [m.Scope1MobileCombustion.status == status] if status else []
+        session = scope1_mobile_service.repository.session
         page = await _list_page(
             scope1_mobile_service,
             m.Scope1MobileCombustion,
@@ -1101,7 +1254,19 @@ class CarbonCRUDController(Controller):
             sort_order=sort_order,
             conditions=conditions,
         )
-        return Response(content=page)
+        rows = await _list_rows(
+            scope1_mobile_service,
+            m.Scope1MobileCombustion,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["asset_id", "asset_name", "fuel_type", "unit", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=await _augment_page_items(page, rows, session))
 
     @get("/api/carbon/scope1-mobile-combustion/{record_id:int}", exclude_from_auth=True)
     async def get_scope1_mobile(
@@ -1110,7 +1275,7 @@ class CarbonCRUDController(Controller):
         obj = await scope1_mobile_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        return Response(content={"code": 200, "data": model_to_dict(obj)})
+        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_mobile_service.repository.session)})
 
     @post("/api/carbon/scope1-mobile-combustion", exclude_from_auth=True)
     async def create_scope1_mobile(
@@ -1126,7 +1291,7 @@ class CarbonCRUDController(Controller):
         _coerce_date_fields(data, ["record_date"])
         payload = {**_carbon_defaults(), **{k: v for k, v in data.items() if v is not None}}
         obj = await scope1_mobile_service.create(payload, auto_commit=True)
-        return Response(content={"code": 200, "data": model_to_dict(obj), "msg": "创建成功"})
+        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_mobile_service.repository.session), "msg": "创建成功"})
 
     @patch("/api/carbon/scope1-mobile-combustion/{record_id:int}", exclude_from_auth=True)
     async def update_scope1_mobile(
@@ -1149,7 +1314,8 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
         _coerce_date_fields(data, ["record_date"])
         await scope1_mobile_service.update(item_id=record_id, data=data, auto_commit=True)
-        return Response(content={"code": 200, "msg": "更新成功"})
+        fresh = await scope1_mobile_service.get_one(id=record_id)
+        return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope1_mobile_service.repository.session)})
 
     @delete("/api/carbon/scope1-mobile-combustion/{record_id:int}", exclude_from_auth=True, status_code=200)
     async def delete_scope1_mobile(
@@ -1176,12 +1342,13 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status != STATUS_DRAFT:
             return Response(content={"code": 400, "msg": "仅草稿可提交"}, status_code=400)
+        await _build_scope_record_computation(obj, scope1_mobile_service.repository.session)
         await scope1_mobile_service.update(
             item_id=record_id,
             data={"status": STATUS_PENDING},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope1MobileCombustion", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
         )
@@ -1199,6 +1366,7 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status != STATUS_PENDING:
             return Response(content={"code": 400, "msg": "仅待审核可通过"}, status_code=400)
+        await _build_scope_record_computation(obj, scope1_mobile_service.repository.session)
         # 数据库字段为 TIMESTAMP WITHOUT TIME ZONE，这里去掉 tzinfo，避免 asyncpg 报错
         now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
         await scope1_mobile_service.update(
@@ -1206,7 +1374,7 @@ class CarbonCRUDController(Controller):
             data={"status": STATUS_APPROVED, "approved_at": now},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope1MobileCombustion", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
         )
@@ -1231,7 +1399,7 @@ class CarbonCRUDController(Controller):
             data={"status": STATUS_REJECTED, "reject_reason": reason},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope1MobileCombustion", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
         )
@@ -1251,6 +1419,7 @@ class CarbonCRUDController(Controller):
         sort_order: str = "desc",
     ) -> Response[dict]:
         conditions = [m.Scope1StationaryCombustion.status == status] if status else []
+        session = scope1_stationary_service.repository.session
         page = await _list_page(
             scope1_stationary_service,
             m.Scope1StationaryCombustion,
@@ -1263,7 +1432,19 @@ class CarbonCRUDController(Controller):
             sort_order=sort_order,
             conditions=conditions,
         )
-        return Response(content=page)
+        rows = await _list_rows(
+            scope1_stationary_service,
+            m.Scope1StationaryCombustion,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["facility_name", "fuel_type", "unit", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=await _augment_page_items(page, rows, session))
 
     @get("/api/carbon/scope1-stationary-combustion/{record_id:int}", exclude_from_auth=True)
     async def get_scope1_stationary(
@@ -1272,7 +1453,7 @@ class CarbonCRUDController(Controller):
         obj = await scope1_stationary_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        return Response(content={"code": 200, "data": model_to_dict(obj)})
+        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_stationary_service.repository.session)})
 
     @post("/api/carbon/scope1-stationary-combustion", exclude_from_auth=True)
     async def create_scope1_stationary(
@@ -1288,7 +1469,7 @@ class CarbonCRUDController(Controller):
         _coerce_date_fields(data, ["period_start", "period_end"])
         payload = {**_carbon_defaults(), **{k: v for k, v in data.items() if v is not None}}
         obj = await scope1_stationary_service.create(payload, auto_commit=True)
-        return Response(content={"code": 200, "data": model_to_dict(obj), "msg": "创建成功"})
+        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_stationary_service.repository.session), "msg": "创建成功"})
 
     @patch("/api/carbon/scope1-stationary-combustion/{record_id:int}", exclude_from_auth=True)
     async def update_scope1_stationary(
@@ -1309,8 +1490,10 @@ class CarbonCRUDController(Controller):
                 validate_period_start_end(data.get("period_start") or obj.period_start, data.get("period_end") or obj.period_end)
         except CarbonValidationError as e:
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
+        _coerce_date_fields(data, ["period_start", "period_end"])
         await scope1_stationary_service.update(item_id=record_id, data=data, auto_commit=True)
-        return Response(content={"code": 200, "msg": "更新成功"})
+        fresh = await scope1_stationary_service.get_one(id=record_id)
+        return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope1_stationary_service.repository.session)})
 
     @delete("/api/carbon/scope1-stationary-combustion/{record_id:int}", exclude_from_auth=True, status_code=200)
     async def delete_scope1_stationary(
@@ -1336,12 +1519,13 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status != STATUS_DRAFT:
             return Response(content={"code": 400, "msg": "仅草稿可提交"}, status_code=400)
+        await _build_scope_record_computation(obj, scope1_stationary_service.repository.session)
         await scope1_stationary_service.update(
             item_id=record_id,
             data={"status": STATUS_PENDING},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope1StationaryCombustion", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
         )
@@ -1359,13 +1543,14 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status != STATUS_PENDING:
             return Response(content={"code": 400, "msg": "仅待审核可通过"}, status_code=400)
+        await _build_scope_record_computation(obj, scope1_stationary_service.repository.session)
         now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
         await scope1_stationary_service.update(
             item_id=record_id,
             data={"status": STATUS_APPROVED, "approved_at": now},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope1StationaryCombustion", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
         )
@@ -1390,7 +1575,7 @@ class CarbonCRUDController(Controller):
             data={"status": STATUS_REJECTED, "reject_reason": reason},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope1StationaryCombustion", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
         )
@@ -1404,7 +1589,7 @@ class CarbonCRUDController(Controller):
         obj = await scope1_refrigerant_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        return Response(content={"code": 200, "data": model_to_dict(obj)})
+        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_refrigerant_service.repository.session)})
 
     @post("/api/carbon/scope1-refrigerant-leak", exclude_from_auth=True)
     async def create_scope1_refrigerant(
@@ -1420,7 +1605,7 @@ class CarbonCRUDController(Controller):
         _coerce_date_fields(data, ["fill_date"])
         payload = {**_carbon_defaults(), **{k: v for k, v in data.items() if v is not None}}
         obj = await scope1_refrigerant_service.create(payload, auto_commit=True)
-        return Response(content={"code": 200, "data": model_to_dict(obj), "msg": "创建成功"})
+        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_refrigerant_service.repository.session), "msg": "创建成功"})
 
     @patch("/api/carbon/scope1-refrigerant-leak/{record_id:int}", exclude_from_auth=True)
     async def update_scope1_refrigerant(
@@ -1441,8 +1626,10 @@ class CarbonCRUDController(Controller):
                 validate_date_not_future(data["fill_date"], "填充日期")
         except CarbonValidationError as e:
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
+        _coerce_date_fields(data, ["fill_date"])
         await scope1_refrigerant_service.update(item_id=record_id, data=data, auto_commit=True)
-        return Response(content={"code": 200, "msg": "更新成功"})
+        fresh = await scope1_refrigerant_service.get_one(id=record_id)
+        return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope1_refrigerant_service.repository.session)})
 
     @delete("/api/carbon/scope1-refrigerant-leak/{record_id:int}", exclude_from_auth=True, status_code=200)
     async def delete_scope1_refrigerant(
@@ -1468,12 +1655,13 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status != STATUS_DRAFT:
             return Response(content={"code": 400, "msg": "仅草稿可提交"}, status_code=400)
+        await _build_scope_record_computation(obj, scope1_refrigerant_service.repository.session)
         await scope1_refrigerant_service.update(
             item_id=record_id,
             data={"status": STATUS_PENDING},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope1RefrigerantLeak", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
         )
@@ -1491,13 +1679,14 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status != STATUS_PENDING:
             return Response(content={"code": 400, "msg": "仅待审核可通过"}, status_code=400)
+        await _build_scope_record_computation(obj, scope1_refrigerant_service.repository.session)
         now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
         await scope1_refrigerant_service.update(
             item_id=record_id,
             data={"status": STATUS_APPROVED, "approved_at": now},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope1RefrigerantLeak", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
         )
@@ -1522,7 +1711,7 @@ class CarbonCRUDController(Controller):
             data={"status": STATUS_REJECTED, "reject_reason": reason},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope1RefrigerantLeak", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
         )
@@ -1536,7 +1725,7 @@ class CarbonCRUDController(Controller):
         obj = await scope2_bill_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        return Response(content={"code": 200, "data": model_to_dict(obj)})
+        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope2_bill_service.repository.session, source_kind="manual_bill")})
 
     @post("/api/carbon/scope2-electricity-bill", exclude_from_auth=True)
     async def create_scope2_bill(
@@ -1551,7 +1740,7 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
         payload = {**_carbon_defaults(), **{k: v for k, v in data.items() if v is not None}}
         obj = await scope2_bill_service.create(payload, auto_commit=True)
-        return Response(content={"code": 200, "data": model_to_dict(obj), "msg": "创建成功"})
+        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope2_bill_service.repository.session, source_kind="manual_bill"), "msg": "创建成功"})
 
     @patch("/api/carbon/scope2-electricity-bill/{record_id:int}", exclude_from_auth=True)
     async def update_scope2_bill(
@@ -1573,7 +1762,8 @@ class CarbonCRUDController(Controller):
         except CarbonValidationError as e:
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
         await scope2_bill_service.update(item_id=record_id, data=data, auto_commit=True)
-        return Response(content={"code": 200, "msg": "更新成功"})
+        fresh = await scope2_bill_service.get_one(id=record_id)
+        return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope2_bill_service.repository.session, source_kind="manual_bill")})
 
     @delete("/api/carbon/scope2-electricity-bill/{record_id:int}", exclude_from_auth=True, status_code=200)
     async def delete_scope2_bill(
@@ -1599,12 +1789,13 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status != STATUS_DRAFT:
             return Response(content={"code": 400, "msg": "仅草稿可提交"}, status_code=400)
+        await _build_scope_record_computation(obj, scope2_bill_service.repository.session, source_kind="manual_bill")
         await scope2_bill_service.update(
             item_id=record_id,
             data={"status": STATUS_PENDING},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope2ElectricityBill", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
         )
@@ -1622,13 +1813,14 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status != STATUS_PENDING:
             return Response(content={"code": 400, "msg": "仅待审核可通过"}, status_code=400)
+        await _build_scope_record_computation(obj, scope2_bill_service.repository.session, source_kind="manual_bill")
         now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
         await scope2_bill_service.update(
             item_id=record_id,
             data={"status": STATUS_APPROVED, "approved_at": now},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope2ElectricityBill", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
         )
@@ -1653,7 +1845,7 @@ class CarbonCRUDController(Controller):
             data={"status": STATUS_REJECTED, "reject_reason": reason},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope2ElectricityBill", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
         )
@@ -1667,7 +1859,7 @@ class CarbonCRUDController(Controller):
         obj = await scope3_waste_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        return Response(content={"code": 200, "data": model_to_dict(obj)})
+        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope3_waste_service.repository.session)})
 
     @post("/api/carbon/scope3-waste-disposal", exclude_from_auth=True)
     async def create_scope3_waste(
@@ -1683,7 +1875,7 @@ class CarbonCRUDController(Controller):
         _coerce_date_fields(data, ["date"])
         payload = {**_carbon_defaults(), **{k: v for k, v in data.items() if v is not None}}
         obj = await scope3_waste_service.create(payload, auto_commit=True)
-        return Response(content={"code": 200, "data": model_to_dict(obj), "msg": "创建成功"})
+        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope3_waste_service.repository.session), "msg": "创建成功"})
 
     @patch("/api/carbon/scope3-waste-disposal/{record_id:int}", exclude_from_auth=True)
     async def update_scope3_waste(
@@ -1704,8 +1896,10 @@ class CarbonCRUDController(Controller):
                 validate_date_not_future(data["date"], "产生日期")
         except CarbonValidationError as e:
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
+        _coerce_date_fields(data, ["date"])
         await scope3_waste_service.update(item_id=record_id, data=data, auto_commit=True)
-        return Response(content={"code": 200, "msg": "更新成功"})
+        fresh = await scope3_waste_service.get_one(id=record_id)
+        return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope3_waste_service.repository.session)})
 
     @delete("/api/carbon/scope3-waste-disposal/{record_id:int}", exclude_from_auth=True, status_code=200)
     async def delete_scope3_waste(
@@ -1731,12 +1925,13 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status != STATUS_DRAFT:
             return Response(content={"code": 400, "msg": "仅草稿可提交"}, status_code=400)
+        await _build_scope_record_computation(obj, scope3_waste_service.repository.session)
         await scope3_waste_service.update(
             item_id=record_id,
             data={"status": STATUS_PENDING},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope3WasteDisposal", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
         )
@@ -1754,13 +1949,14 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status != STATUS_PENDING:
             return Response(content={"code": 400, "msg": "仅待审核可通过"}, status_code=400)
+        await _build_scope_record_computation(obj, scope3_waste_service.repository.session)
         now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
         await scope3_waste_service.update(
             item_id=record_id,
             data={"status": STATUS_APPROVED, "approved_at": now},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope3WasteDisposal", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
         )
@@ -1785,7 +1981,7 @@ class CarbonCRUDController(Controller):
             data={"status": STATUS_REJECTED, "reject_reason": reason},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope3WasteDisposal", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
         )
@@ -1799,7 +1995,7 @@ class CarbonCRUDController(Controller):
         obj = await scope3_transport_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        return Response(content={"code": 200, "data": model_to_dict(obj)})
+        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope3_transport_service.repository.session)})
 
     @post("/api/carbon/scope3-third-party-transport", exclude_from_auth=True)
     async def create_scope3_transport(
@@ -1814,7 +2010,7 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
         payload = {**_carbon_defaults(), **{k: v for k, v in data.items() if v is not None}}
         obj = await scope3_transport_service.create(payload, auto_commit=True)
-        return Response(content={"code": 200, "data": model_to_dict(obj), "msg": "创建成功"})
+        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope3_transport_service.repository.session), "msg": "创建成功"})
 
     @patch("/api/carbon/scope3-third-party-transport/{record_id:int}", exclude_from_auth=True)
     async def update_scope3_transport(
@@ -1836,7 +2032,8 @@ class CarbonCRUDController(Controller):
         except CarbonValidationError as e:
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
         await scope3_transport_service.update(item_id=record_id, data=data, auto_commit=True)
-        return Response(content={"code": 200, "msg": "更新成功"})
+        fresh = await scope3_transport_service.get_one(id=record_id)
+        return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope3_transport_service.repository.session)})
 
     @delete("/api/carbon/scope3-third-party-transport/{record_id:int}", exclude_from_auth=True, status_code=200)
     async def delete_scope3_transport(
@@ -1862,12 +2059,13 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status != STATUS_DRAFT:
             return Response(content={"code": 400, "msg": "仅草稿可提交"}, status_code=400)
+        await _build_scope_record_computation(obj, scope3_transport_service.repository.session)
         await scope3_transport_service.update(
             item_id=record_id,
             data={"status": STATUS_PENDING},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope3ThirdPartyTransport", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
         )
@@ -1885,13 +2083,14 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status != STATUS_PENDING:
             return Response(content={"code": 400, "msg": "仅待审核可通过"}, status_code=400)
+        await _build_scope_record_computation(obj, scope3_transport_service.repository.session)
         now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
         await scope3_transport_service.update(
             item_id=record_id,
             data={"status": STATUS_APPROVED, "approved_at": now},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope3ThirdPartyTransport", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
         )
@@ -1916,7 +2115,7 @@ class CarbonCRUDController(Controller):
             data={"status": STATUS_REJECTED, "reject_reason": reason},
             auto_commit=True,
         )
-        await self._safe_create_audit_log(
+        await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope3ThirdPartyTransport", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
         )
@@ -1936,6 +2135,7 @@ class CarbonCRUDController(Controller):
         sort_order: str = "desc",
     ) -> Response[dict]:
         conditions = [m.Scope1RefrigerantLeak.status == status] if status else []
+        session = scope1_refrigerant_service.repository.session
         page = await _list_page(
             scope1_refrigerant_service,
             m.Scope1RefrigerantLeak,
@@ -1948,7 +2148,19 @@ class CarbonCRUDController(Controller):
             sort_order=sort_order,
             conditions=conditions,
         )
-        return Response(content=page)
+        rows = await _list_rows(
+            scope1_refrigerant_service,
+            m.Scope1RefrigerantLeak,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["device_id", "device_name", "refrigerant_type", "leak_type", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=await _augment_page_items(page, rows, session))
 
     @get("/api/carbon/scope2-electricity-bill", exclude_from_auth=True)
     async def list_scope2_bill(
@@ -1963,6 +2175,7 @@ class CarbonCRUDController(Controller):
         sort_order: str = "desc",
     ) -> Response[dict]:
         conditions = [m.Scope2ElectricityBill.status == status] if status else []
+        session = scope2_bill_service.repository.session
         page = await _list_page(
             scope2_bill_service,
             m.Scope2ElectricityBill,
@@ -1975,7 +2188,19 @@ class CarbonCRUDController(Controller):
             sort_order=sort_order,
             conditions=conditions,
         )
-        return Response(content=page)
+        rows = await _list_rows(
+            scope2_bill_service,
+            m.Scope2ElectricityBill,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["account_number", "billing_month", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=await _augment_page_items(page, rows, session, source_kind="manual_bill"))
 
     @get("/api/carbon/scope3-waste-disposal", exclude_from_auth=True)
     async def list_scope3_waste(
@@ -1990,6 +2215,7 @@ class CarbonCRUDController(Controller):
         sort_order: str = "desc",
     ) -> Response[dict]:
         conditions = [m.Scope3WasteDisposal.status == status] if status else []
+        session = scope3_waste_service.repository.session
         page = await _list_page(
             scope3_waste_service,
             m.Scope3WasteDisposal,
@@ -2002,7 +2228,19 @@ class CarbonCRUDController(Controller):
             sort_order=sort_order,
             conditions=conditions,
         )
-        return Response(content=page)
+        rows = await _list_rows(
+            scope3_waste_service,
+            m.Scope3WasteDisposal,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["category", "treatment_method", "vendor_name", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=await _augment_page_items(page, rows, session))
 
     @get("/api/carbon/scope3-third-party-transport", exclude_from_auth=True)
     async def list_scope3_transport(
@@ -2017,6 +2255,7 @@ class CarbonCRUDController(Controller):
         sort_order: str = "desc",
     ) -> Response[dict]:
         conditions = [m.Scope3ThirdPartyTransport.status == status] if status else []
+        session = scope3_transport_service.repository.session
         page = await _list_page(
             scope3_transport_service,
             m.Scope3ThirdPartyTransport,
@@ -2029,7 +2268,19 @@ class CarbonCRUDController(Controller):
             sort_order=sort_order,
             conditions=conditions,
         )
-        return Response(content=page)
+        rows = await _list_rows(
+            scope3_transport_service,
+            m.Scope3ThirdPartyTransport,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["waybill_no", "origin", "destination", "vehicle_type", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=await _augment_page_items(page, rows, session))
 
     @get("/api/carbon/emission-factors", exclude_from_auth=True)
     async def list_emission_factors(
@@ -2351,6 +2602,7 @@ class CarbonCRUDController(Controller):
         scope1_stationary_service: services.Scope1StationaryCombustionService,
         scope1_refrigerant_service: services.Scope1RefrigerantLeakService,
         scope2_bill_service: services.Scope2ElectricityBillService,
+        scope2_meter_aggregate_service: services.Scope2MeterAggregateService,
         scope3_waste_service: services.Scope3WasteDisposalService,
         scope3_transport_service: services.Scope3ThirdPartyTransportService,
         limit: int = 20,
@@ -2358,21 +2610,307 @@ class CarbonCRUDController(Controller):
     ) -> Response[dict]:
         """待审核列表：汇总所有类型中 status=pending 的记录（审核工作台用）。"""
         out: list[dict] = []
-        for name, svc, model in [
-            ("Scope1MobileCombustion", scope1_mobile_service, m.Scope1MobileCombustion),
-            ("Scope1StationaryCombustion", scope1_stationary_service, m.Scope1StationaryCombustion),
-            ("Scope1RefrigerantLeak", scope1_refrigerant_service, m.Scope1RefrigerantLeak),
-            ("Scope2ElectricityBill", scope2_bill_service, m.Scope2ElectricityBill),
-            ("Scope3WasteDisposal", scope3_waste_service, m.Scope3WasteDisposal),
-            ("Scope3ThirdPartyTransport", scope3_transport_service, m.Scope3ThirdPartyTransport),
+        for name, svc, model, source_kind in [
+            ("Scope1MobileCombustion", scope1_mobile_service, m.Scope1MobileCombustion, "activity_data"),
+            ("Scope1StationaryCombustion", scope1_stationary_service, m.Scope1StationaryCombustion, "activity_data"),
+            ("Scope1RefrigerantLeak", scope1_refrigerant_service, m.Scope1RefrigerantLeak, "activity_data"),
+            ("Scope2ElectricityBill", scope2_bill_service, m.Scope2ElectricityBill, "manual_bill"),
+            ("Scope2MeterAggregate", scope2_meter_aggregate_service, m.Scope2MeterAggregate, "meter_aggregate"),
+            ("Scope3WasteDisposal", scope3_waste_service, m.Scope3WasteDisposal, "activity_data"),
+            ("Scope3ThirdPartyTransport", scope3_transport_service, m.Scope3ThirdPartyTransport, "activity_data"),
         ]:
             items = await svc.list(model.status == STATUS_PENDING, LimitOffset(limit + offset, 0), OrderBy(model.id, "desc"))
             for i in items:
-                out.append({"record_type": name, "record_id": i.id, **model_to_dict(i)})
+                out.append({"record_type": name, "record_id": i.id, **await _serialize_scope_record(i, svc.repository.session, source_kind=source_kind)})
         out.sort(key=lambda row: int(row.get("record_id") or 0), reverse=True)
         limit_clamped = max(1, min(limit, 100))
         offset_clamped = max(0, offset)
         return Response(content=_paged_payload(out[offset_clamped : offset_clamped + limit_clamped], len(out), limit_clamped, offset_clamped))
+
+    async def _rebuild_scope2_meter_aggregates(
+        self,
+        db_session: AsyncSession,
+        scope2_meter_aggregate_service: services.Scope2MeterAggregateService,
+        billing_month: str,
+        area_id: str | None = None,
+    ) -> list[m.Scope2MeterAggregate]:
+        month_start, month_end = _month_window(billing_month)
+        if area_id:
+            await db_session.execute(
+                m.Scope2MeterAggregate.__table__.delete().where(
+                    m.Scope2MeterAggregate.billing_month == billing_month,
+                    m.Scope2MeterAggregate.area_id == area_id,
+                )
+            )
+        else:
+            await db_session.execute(m.Scope2MeterAggregate.__table__.delete().where(m.Scope2MeterAggregate.billing_month == billing_month))
+
+        stmt = (
+            select(m.AmmeterIndexValue)
+            .where(
+                m.AmmeterIndexValue.reading_time >= month_start,
+                m.AmmeterIndexValue.reading_time < month_end,
+                m.AmmeterIndexValue.reading_time.is_not(None),
+                m.AmmeterIndexValue.ammeter_id.is_not(None),
+            )
+            .order_by(m.AmmeterIndexValue.ammeter_id.asc(), m.AmmeterIndexValue.reading_time.asc(), m.AmmeterIndexValue.id.asc())
+        )
+        if area_id:
+            stmt = stmt.where(m.AmmeterIndexValue.area_id == area_id)
+        rows = (await db_session.execute(stmt)).scalars().all()
+
+        grouped: dict[str, list[m.AmmeterIndexValue]] = {}
+        for row in rows:
+            if row.ammeter_id:
+                grouped.setdefault(row.ammeter_id, []).append(row)
+
+        created: list[m.Scope2MeterAggregate] = []
+        for ammeter_id, samples in grouped.items():
+            first = samples[0]
+            usable = [sample for sample in samples if sample.zygdn is not None]
+            note = None
+            status = "ready"
+            start_total = end_total = total_kwh = None
+            last = first
+            if len(usable) >= 2:
+                first_usable = usable[0]
+                last_usable = usable[-1]
+                start_total = Decimal(str(first_usable.zygdn))
+                end_total = Decimal(str(last_usable.zygdn))
+                total_kwh = end_total - start_total
+                last = last_usable
+                if total_kwh < 0:
+                    status = "invalid_delta"
+                    note = "月度末值小于初值，无法形成有效用电量。"
+                    total_kwh = None
+            else:
+                status = "insufficient_data"
+                note = "月内采样不足，无法形成首末差值。"
+
+            payload = {
+                "source_kind": "meter_aggregate",
+                "ammeter_id": ammeter_id,
+                "ammeter_name": first.ammeter_name,
+                "area_id": first.area_id,
+                "area_name": first.area_name,
+                "billing_month": billing_month,
+                "first_reading_time": first.reading_time,
+                "last_reading_time": last.reading_time,
+                "start_total_energy": start_total,
+                "end_total_energy": end_total,
+                "total_kwh": total_kwh,
+                "status": STATUS_DRAFT,
+                "approved_at": None,
+                "reject_reason": None,
+                "calc_status": status,
+                "aggregation_note": note,
+            }
+            created.append(await scope2_meter_aggregate_service.create(payload, auto_commit=False))
+
+        await db_session.commit()
+        return created
+
+    @post("/api/carbon/scope2-meter-aggregate/rebuild", exclude_from_auth=True)
+    async def rebuild_scope2_meter_aggregate(
+        self,
+        db_session: AsyncSession,
+        scope2_meter_aggregate_service: services.Scope2MeterAggregateService,
+        data: dict[str, Any] = Body(default={}),
+    ) -> Response[dict]:
+        billing_month = str(data.get("billing_month") or "").strip()
+        if not billing_month:
+            return Response(content={"code": 400, "msg": "billing_month 为必填，格式 YYYY-MM"}, status_code=400)
+        try:
+            validate_billing_month(billing_month)
+        except CarbonValidationError as e:
+            return Response(content={"code": 400, "msg": str(e)}, status_code=400)
+        area_id = str(data.get("area_id")).strip() if data.get("area_id") not in (None, "") else None
+        rows = await self._rebuild_scope2_meter_aggregates(db_session, scope2_meter_aggregate_service, billing_month, area_id)
+        return Response(
+            content={
+                "code": 200,
+                "msg": "重建成功",
+                "data": {
+                    "billing_month": billing_month,
+                    "rebuilt_count": len(rows),
+                    "ready_count": sum(1 for row in rows if row.calc_status == "ready"),
+                    "invalid_count": sum(1 for row in rows if row.calc_status != "ready"),
+                },
+            }
+        )
+
+    @delete("/api/carbon/scope2-meter-aggregate/{record_id:int}", exclude_from_auth=True, status_code=200)
+    async def delete_scope2_meter_aggregate(
+        self, record_id: int, scope2_meter_aggregate_service: services.Scope2MeterAggregateService
+    ) -> Response[dict]:
+        obj = await scope2_meter_aggregate_service.get_one_or_none(id=record_id)
+        if not obj:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        if obj.status == STATUS_APPROVED:
+            return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
+        await scope2_meter_aggregate_service.delete(obj, auto_commit=True)
+        return Response(content={"code": 200, "msg": "已删除"})
+
+    @post("/api/carbon/scope2-meter-aggregate/{record_id:int}/submit", exclude_from_auth=True)
+    async def submit_scope2_meter_aggregate(
+        self,
+        record_id: int,
+        scope2_meter_aggregate_service: services.Scope2MeterAggregateService,
+        audit_log_service: services.CarbonAuditLogService,
+    ) -> Response[dict]:
+        obj = await scope2_meter_aggregate_service.get_one_or_none(id=record_id)
+        if not obj:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        if obj.status != STATUS_DRAFT:
+            return Response(content={"code": 400, "msg": "仅草稿可提交"}, status_code=400)
+        await _build_scope_record_computation(obj, scope2_meter_aggregate_service.repository.session, source_kind="meter_aggregate")
+        await scope2_meter_aggregate_service.update(item_id=record_id, data={"status": STATUS_PENDING}, auto_commit=True)
+        await self._create_audit_log(
+            audit_log_service,
+            {"record_type": "Scope2MeterAggregate", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
+        )
+        return Response(content={"code": 200, "msg": "已提交审核"})
+
+    @post("/api/carbon/scope2-meter-aggregate/{record_id:int}/approve", exclude_from_auth=True)
+    async def approve_scope2_meter_aggregate(
+        self,
+        record_id: int,
+        scope2_meter_aggregate_service: services.Scope2MeterAggregateService,
+        audit_log_service: services.CarbonAuditLogService,
+    ) -> Response[dict]:
+        obj = await scope2_meter_aggregate_service.get_one_or_none(id=record_id)
+        if not obj:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        if obj.status != STATUS_PENDING:
+            return Response(content={"code": 400, "msg": "仅待审核可通过"}, status_code=400)
+        await _build_scope_record_computation(obj, scope2_meter_aggregate_service.repository.session, source_kind="meter_aggregate")
+        now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        await scope2_meter_aggregate_service.update(item_id=record_id, data={"status": STATUS_APPROVED, "approved_at": now}, auto_commit=True)
+        await self._create_audit_log(
+            audit_log_service,
+            {"record_type": "Scope2MeterAggregate", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
+        )
+        return Response(content={"code": 200, "msg": "已通过"})
+
+    @post("/api/carbon/scope2-meter-aggregate/{record_id:int}/reject", exclude_from_auth=True)
+    async def reject_scope2_meter_aggregate(
+        self,
+        record_id: int,
+        scope2_meter_aggregate_service: services.Scope2MeterAggregateService,
+        audit_log_service: services.CarbonAuditLogService,
+        data: dict[str, Any] = Body(default={}),
+    ) -> Response[dict]:
+        obj = await scope2_meter_aggregate_service.get_one_or_none(id=record_id)
+        if not obj:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        if obj.status != STATUS_PENDING:
+            return Response(content={"code": 400, "msg": "仅待审核可驳回"}, status_code=400)
+        reason = (data.get("reason") or data.get("reject_reason") or "管理员驳回，请修改后重新提交")[:500]
+        await scope2_meter_aggregate_service.update(item_id=record_id, data={"status": STATUS_REJECTED, "reject_reason": reason}, auto_commit=True)
+        await self._create_audit_log(
+            audit_log_service,
+            {"record_type": "Scope2MeterAggregate", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
+        )
+        return Response(content={"code": 200, "msg": "已驳回"})
+
+    @get("/api/carbon/scope2-records", exclude_from_auth=True)
+    async def list_scope2_records(
+        self,
+        db_session: AsyncSession,
+        scope2_bill_service: services.Scope2ElectricityBillService,
+        scope2_meter_aggregate_service: services.Scope2MeterAggregateService,
+        billing_month: str | None = None,
+        source_kind: str | None = None,
+        status: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> Response[dict]:
+        manual_conditions = [m.Scope2ElectricityBill.status == status] if status else []
+        if billing_month:
+            manual_conditions.append(m.Scope2ElectricityBill.billing_month == billing_month)
+        manual_rows = await scope2_bill_service.list(*(manual_conditions or []), LimitOffset(limit + offset, 0), OrderBy(m.Scope2ElectricityBill.id, "desc"))
+
+        aggregate_conditions = []
+        if billing_month:
+            aggregate_conditions.append(m.Scope2MeterAggregate.billing_month == billing_month)
+        if status:
+            aggregate_conditions.append(m.Scope2MeterAggregate.status == status)
+        if source_kind in (None, "", "all", "meter_aggregate"):
+            aggregate_rows = await scope2_meter_aggregate_service.list(
+                *(aggregate_conditions or []), LimitOffset(limit + offset, 0), OrderBy(m.Scope2MeterAggregate.id, "desc")
+            )
+        else:
+            aggregate_rows = []
+
+        records: list[dict[str, Any]] = []
+        if source_kind in (None, "", "all", "manual_bill"):
+            for row in manual_rows:
+                records.append(
+                    {
+                        "record_type": "Scope2ElectricityBill",
+                        "record_id": row.id,
+                        "display_name": row.account_number,
+                        **await _serialize_scope_record(row, scope2_bill_service.repository.session, source_kind="manual_bill"),
+                    }
+                )
+        for row in aggregate_rows:
+            records.append(
+                {
+                    "record_type": "Scope2MeterAggregate",
+                    "record_id": row.id,
+                    "display_name": row.ammeter_name or row.ammeter_id,
+                    **await _serialize_scope_record(row, scope2_meter_aggregate_service.repository.session, source_kind="meter_aggregate"),
+                }
+            )
+        records.sort(key=lambda item: (str(item.get("billing_month") or ""), int(item.get("record_id") or 0)), reverse=True)
+        limit_clamped = max(1, min(limit, 100))
+        offset_clamped = max(0, offset)
+        return Response(content=_paged_payload(records[offset_clamped : offset_clamped + limit_clamped], len(records), limit_clamped, offset_clamped))
+
+    @get("/api/carbon/scope2-reconciliation", exclude_from_auth=True)
+    async def get_scope2_reconciliation(
+        self,
+        db_session: AsyncSession,
+        billing_month: str,
+    ) -> Response[dict]:
+        try:
+            validate_billing_month(billing_month)
+        except CarbonValidationError as e:
+            return Response(content={"code": 400, "msg": str(e)}, status_code=400)
+
+        bill_total = await db_session.scalar(
+            select(func.coalesce(func.sum(m.Scope2ElectricityBill.total_kwh), 0)).where(m.Scope2ElectricityBill.billing_month == billing_month)
+        )
+        meter_total = await db_session.scalar(
+            select(func.coalesce(func.sum(m.Scope2MeterAggregate.total_kwh), 0)).where(
+                m.Scope2MeterAggregate.billing_month == billing_month,
+                m.Scope2MeterAggregate.calc_status == "ready",
+            )
+        )
+        missing_count = await db_session.scalar(
+            select(func.count()).select_from(m.Scope2MeterAggregate).where(
+                m.Scope2MeterAggregate.billing_month == billing_month,
+                m.Scope2MeterAggregate.calc_status != "ready",
+            )
+        )
+        bill_value = float(bill_total or 0)
+        meter_value = float(meter_total or 0)
+        diff = bill_value - meter_value
+        diff_rate = round((diff / bill_value) * 100, 2) if bill_value else None
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {
+                    "billing_month": billing_month,
+                    "manual_bill_total_kwh": bill_value,
+                    "meter_aggregate_total_kwh": meter_value,
+                    "difference_kwh": diff,
+                    "difference_rate": diff_rate,
+                    "missing_meter_count": int(missing_count or 0),
+                },
+            }
+        )
 
     # ---------- 数据管理: 区域 / 终端 / 视频 / 规则配置 ----------
     @get("/api/data/monitor-sectors", exclude_from_auth=True)
