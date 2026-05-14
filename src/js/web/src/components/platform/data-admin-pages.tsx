@@ -266,11 +266,12 @@ export function CrudDataPage({
 }) {
   const qc = useQueryClient()
   const [keyword, setKeyword] = useState("")
+  const [appliedKeyword, setAppliedKeyword] = useState("")
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Row | null>(null)
   const [detail, setDetail] = useState<Row | null>(null)
   const [form, setForm] = useState<Record<string, string>>(makeInitial(fields))
-  const { query: listQuery, pageIndex, setPageIndex, pageSize, setPageSize } = usePagedResource<Row>({ endpoint, queryKey, keyword })
+  const { query: listQuery, pageIndex, setPageIndex, pageSize, setPageSize } = usePagedResource<Row>({ endpoint, queryKey, keyword: appliedKeyword })
 
   function startCreate() {
     setEditing(null)
@@ -355,11 +356,18 @@ export function CrudDataPage({
                 value={keyword}
                 onChange={(event) => {
                   setKeyword(event.target.value)
-                  setPageIndex(0)
                 }}
                 placeholder={searchPlaceholder}
               />
-              <Button variant="secondary" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setAppliedKeyword(keyword)
+                  setPageIndex(0)
+                  if (keyword === appliedKeyword) void listQuery.refetch()
+                }}
+                disabled={listQuery.isFetching}
+              >
                 查询
               </Button>
             </div>
@@ -681,9 +689,10 @@ export function ApiKeyMappingPage() {
 export function EventWorkbenchPage({ title, endpoint, queryKey, video = false }: { title: string; endpoint: string; queryKey: string[]; video?: boolean }) {
   const qc = useQueryClient()
   const [keyword, setKeyword] = useState("")
+  const [appliedKeyword, setAppliedKeyword] = useState("")
   const [handled, setHandled] = useState("all")
   const eventParams = useMemo(() => ({ is_handle: handled === "all" ? undefined : handled }), [handled])
-  const { query, pageIndex, setPageIndex, pageSize, setPageSize } = usePagedResource<Row>({ endpoint, queryKey, keyword, extraParams: eventParams })
+  const { query, pageIndex, setPageIndex, pageSize, setPageSize } = usePagedResource<Row>({ endpoint, queryKey, keyword: appliedKeyword, extraParams: eventParams })
   const unhandledIds = (query.data?.items ?? [])
     .filter((row) => row.is_handle !== true)
     .map((row) => row.id)
@@ -720,7 +729,6 @@ export function EventWorkbenchPage({ title, endpoint, queryKey, video = false }:
                 value={keyword}
                 onChange={(event) => {
                   setKeyword(event.target.value)
-                  setPageIndex(0)
                 }}
                 placeholder="搜索事件说明"
               />
@@ -740,7 +748,15 @@ export function EventWorkbenchPage({ title, endpoint, queryKey, video = false }:
                   <SelectItem value="true">已处理</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="secondary" onClick={() => query.refetch()} disabled={query.isFetching}>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setAppliedKeyword(keyword)
+                  setPageIndex(0)
+                  if (keyword === appliedKeyword) void query.refetch()
+                }}
+                disabled={query.isFetching}
+              >
                 查询
               </Button>
             </div>
@@ -803,8 +819,9 @@ export function ReadonlyLedgerPage({
   columns: Column[]
 }) {
   const [keyword, setKeyword] = useState("")
+  const [appliedKeyword, setAppliedKeyword] = useState("")
   const [detail, setDetail] = useState<Row | null>(null)
-  const { query, pageIndex, setPageIndex, pageSize, setPageSize } = usePagedResource<Row>({ endpoint, queryKey, keyword })
+  const { query, pageIndex, setPageIndex, pageSize, setPageSize } = usePagedResource<Row>({ endpoint, queryKey, keyword: appliedKeyword })
   const items = query.data?.items ?? []
   return (
     <PageContainer className="flex-1 space-y-6">
@@ -819,11 +836,18 @@ export function ReadonlyLedgerPage({
                 value={keyword}
                 onChange={(event) => {
                   setKeyword(event.target.value)
-                  setPageIndex(0)
                 }}
                 placeholder="搜索关键字"
               />
-              <Button variant="secondary" onClick={() => query.refetch()} disabled={query.isFetching}>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setAppliedKeyword(keyword)
+                  setPageIndex(0)
+                  if (keyword === appliedKeyword) void query.refetch()
+                }}
+                disabled={query.isFetching}
+              >
                 查询
               </Button>
             </div>
