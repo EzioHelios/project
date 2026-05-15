@@ -1,5 +1,5 @@
 {
-  "assetUrl": "/static/",
+  "assetUrl": "/static/web/",
   "deployAssetUrl": null,
   "bundleDir": "../../py/app/server/static/web",
   "hotFile": "hot",

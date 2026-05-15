@@ -118,7 +118,7 @@ class ViteSettings:
     """Start `vite` development server."""
     BUNDLE_DIR: Path = field(default_factory=get_env("VITE_BUNDLE_DIR", STATIC_DIR))
     """Bundle directory for built assets."""
-    ASSET_URL: str = field(default_factory=get_env("ASSET_URL", "/static/"))
+    ASSET_URL: str = field(default_factory=get_env("ASSET_URL", "/static/web/"))
     """Base URL for assets."""
     TRUSTED_PROXIES: str | None = field(default_factory=get_env("LITESTAR_TRUSTED_PROXIES", None))
     """Trust X-Forwarded-* headers from these proxies. Use "*" to trust all."""
