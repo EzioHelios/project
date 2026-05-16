@@ -18,7 +18,7 @@ const maxWidthClasses = {
   lg: "max-w-screen-lg",
   xl: "max-w-screen-xl",
   "2xl": "max-w-screen-2xl",
-  "4xl": "max-w-[1400px]",
+  "4xl": "max-w-[1560px]",
   full: "max-w-full",
 }
 

@@ -46,7 +46,7 @@ export function UserLoginForm({ className, redirectUrl, ...props }: UserLoginFor
   return (
     <div className={className} {...props}>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4" autoComplete="on">
           <FormField
             control={form.control}
             name="username"
@@ -54,7 +54,7 @@ export function UserLoginForm({ className, redirectUrl, ...props }: UserLoginFor
               <FormItem>
                 <FormLabel>邮箱</FormLabel>
                 <FormControl>
-                  <Input placeholder="name@example.com" autoCapitalize="none" autoComplete="email" autoCorrect="off" {...field} disabled={isLoading} />
+                  <Input placeholder="name@example.com" autoCapitalize="none" autoComplete="username" autoCorrect="off" {...field} disabled={isLoading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -68,15 +68,7 @@ export function UserLoginForm({ className, redirectUrl, ...props }: UserLoginFor
               <FormItem>
                 <FormLabel>密码</FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder="请输入密码"
-                    type="password"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    autoComplete="current-password"
-                    {...field}
-                    disabled={isLoading}
-                  />
+                  <Input placeholder="请输入密码" type="password" autoCapitalize="none" autoCorrect="off" autoComplete="current-password" {...field} disabled={isLoading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

@@ -60,7 +60,7 @@ function Scope2ReconciliationPage() {
 
   return (
     <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="碳核算模型" title="Scope2 对账" description="对比人工电费账单与电表月聚合结果，识别差异和缺失点位。" />
+      <PageHeader eyebrow="碳核算模型" title="[范围2] 数据对账" description="对比人工电费账单与电表月聚合结果，识别范围2用电差异和缺失点位。" />
       <PageSection>
         <Card>
           <CardHeader className="space-y-3">
@@ -73,7 +73,7 @@ function Scope2ReconciliationPage() {
                 查询
               </Button>
               <Button onClick={() => rebuildMut.mutate()} disabled={!billingMonth.trim() || rebuildMut.isPending}>
-                重建电表聚合
+                执行月聚合
               </Button>
             </div>
           </CardHeader>

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import case
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,21 +42,39 @@ async def resolve_emission_factor(
     year: int | None = None,
 ) -> EmissionFactor | None:
     """Resolve a matching emission factor row for the requested activity."""
-    stmt = (
+    preferred_sub_categories = [sub_category]
+    if scope == "scope2" and category == "electricity" and sub_category == "grid_electricity":
+        preferred_sub_categories = [
+            "grid_electricity_jiangsu",
+            "grid_electricity_national",
+            "grid_electricity",
+        ]
+
+    sub_category_rank = case(
+        *[(EmissionFactor.sub_category == candidate, index) for index, candidate in enumerate(preferred_sub_categories)],
+        else_=len(preferred_sub_categories),
+    )
+
+    base_stmt = (
         select(EmissionFactor)
         .where(
             EmissionFactor.scope == scope,
             EmissionFactor.category == category,
-            EmissionFactor.sub_category == sub_category,
+            EmissionFactor.sub_category.in_(preferred_sub_categories),
             EmissionFactor.unit == unit,
-            EmissionFactor.is_active == True,
+            EmissionFactor.is_active.is_(True),
         )
+        .order_by(sub_category_rank.asc(), EmissionFactor.year.desc(), EmissionFactor.id.desc())
     )
+
     if year is not None:
-        stmt = stmt.where(EmissionFactor.year == year)
-    else:
-        stmt = stmt.order_by(EmissionFactor.year.desc())
-    result = await session.execute(stmt)
+        exact_stmt = base_stmt.where(EmissionFactor.year == year)
+        exact_result = await session.execute(exact_stmt)
+        exact_factor = exact_result.scalars().first()
+        if exact_factor is not None:
+            return exact_factor
+
+    result = await session.execute(base_stmt)
     return result.scalars().first()
 
 

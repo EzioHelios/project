@@ -377,6 +377,14 @@ class Scope2ElectricityBill(CarbonAuditBase):
     amount_cny: Mapped[Numeric | None] = mapped_column(Numeric(16, 2))
     attachment: Mapped[str | None] = mapped_column(String(255))
     remark: Mapped[str | None] = mapped_column(Text)
+    calc_status: Mapped[str] = mapped_column(String(24), default="ready", index=True)
+    factor_source: Mapped[str | None] = mapped_column(String(128))
+    factor_year: Mapped[int | None] = mapped_column(Integer)
+    factor_unit: Mapped[str | None] = mapped_column(String(32))
+    activity_amount: Mapped[Numeric | None] = mapped_column(Numeric(16, 4))
+    activity_unit: Mapped[str | None] = mapped_column(String(16))
+    computed_co2e: Mapped[Numeric | None] = mapped_column(Numeric(18, 6))
+    computation_note: Mapped[str | None] = mapped_column(Text)
 
 
 class Scope2MeterAggregate(BigIntAuditBase):
@@ -403,6 +411,13 @@ class Scope2MeterAggregate(BigIntAuditBase):
     approved_at: Mapped[datetime | None] = mapped_column(DateTime)
     reject_reason: Mapped[str | None] = mapped_column(Text)
     calc_status: Mapped[str] = mapped_column(String(24), default="ready", index=True)
+    factor_source: Mapped[str | None] = mapped_column(String(128))
+    factor_year: Mapped[int | None] = mapped_column(Integer)
+    factor_unit: Mapped[str | None] = mapped_column(String(32))
+    activity_amount: Mapped[Numeric | None] = mapped_column(Numeric(16, 4))
+    activity_unit: Mapped[str | None] = mapped_column(String(16))
+    computed_co2e: Mapped[Numeric | None] = mapped_column(Numeric(18, 6))
+    computation_note: Mapped[str | None] = mapped_column(Text)
     aggregation_note: Mapped[str | None] = mapped_column(Text)
 
 

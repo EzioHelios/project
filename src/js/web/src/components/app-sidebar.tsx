@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { useRouterState } from "@tanstack/react-router"
-import { AlarmClock, BellRing, BookOpen, Database, Factory, Home, ShieldCheck, Users } from "lucide-react"
+import { AlarmClock, BellRing, BookOpen, Database, Factory, Gauge, Home, ShieldCheck, Users } from "lucide-react"
 import type * as React from "react"
 import { useEffect, useMemo } from "react"
 import { NavMain } from "@/components/nav-main"
@@ -59,6 +59,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ],
       },
       {
+        title: "能碳中心",
+        to: "/energy-carbon",
+        icon: Gauge,
+        isActive: pathname.startsWith("/energy-carbon"),
+        items: [
+          { title: "经营总览", to: "/energy-carbon" },
+          { title: "综能监测", to: "/energy-carbon/energy" },
+          { title: "监测中心", to: "/energy-carbon/monitor" },
+          { title: "告警中心", to: "/energy-carbon/alerts" },
+          { title: "能流分析", to: "/energy-carbon/flows" },
+          { title: "碳盘查与核算", to: "/energy-carbon/carbon" },
+          { title: "数据质量与追溯", to: "/energy-carbon/quality" },
+          { title: "因子数据库", to: "/energy-carbon/factors" },
+        ],
+      },
+      {
         title: "数据台账",
         to: "/data/company",
         icon: Database,
@@ -113,19 +129,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         icon: ShieldCheck,
         isActive:
           pathname.startsWith("/carbon-mgmt/scope1-") ||
+          pathname.startsWith("/carbon-mgmt/scope2") ||
           pathname.startsWith("/carbon-mgmt/scope2-") ||
           pathname.startsWith("/carbon-mgmt/scope3-") ||
           pathname.startsWith("/carbon-mgmt/pending") ||
           pathname.startsWith("/carbon-mgmt/audit"),
         items: [
+          { title: "数据填报", kind: "section" },
           { title: "[范围1] 移动源燃烧", to: "/carbon-mgmt/scope1-mobile" },
           { title: "[范围1] 固定源燃烧", to: "/carbon-mgmt/scope1-stationary" },
           { title: "[范围1] 制冷剂逸散", to: "/carbon-mgmt/scope1-refrigerant" },
-          { title: "[范围2] 电费账单", to: "/carbon-mgmt/scope2-bill" },
-          { title: "Scope2 核算记录", to: "/carbon-mgmt/scope2-records" },
-          { title: "Scope2 对账", to: "/carbon-mgmt/scope2-reconciliation" },
+          { title: "[范围2] 用电核算", to: "/carbon-mgmt/scope2" },
           { title: "[范围3] 废弃物处理", to: "/carbon-mgmt/scope3-waste" },
           { title: "[范围3] 外购运输", to: "/carbon-mgmt/scope3-transport" },
+          { title: "核算作业", kind: "section" },
           { title: "待审核工作台", to: "/carbon-mgmt/pending" },
           { title: "审核操作日志", to: "/carbon-mgmt/audit" },
         ],

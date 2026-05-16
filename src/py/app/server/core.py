@@ -119,7 +119,6 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
             RepositoryError: exception_to_http_response,
             DuplicateKeyError: exception_to_http_response,
         }
-
         app_config.dependencies.update(
             {
                 "current_user": Provide(provide_user, sync_to_thread=False),

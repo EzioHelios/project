@@ -19,8 +19,8 @@ export const Route = createFileRoute("/_app/carbon-mgmt/scope2-bill")({
 function Scope2BillPage() {
   return (
     <ScopeRecordPage<Scope2Bill>
-      title="[范围2] 电费账单"
-      description="人工电费账单录入、核算与审核流转。"
+      title="[范围2] 账单补录"
+      description="维护人工电费账单补录数据，作为范围2用电核算的辅助来源。"
       endpoint="/api/carbon/scope2-electricity-bill"
       queryKey={["carbon-mgmt", "scope2-bill", "list"]}
       searchPlaceholder="搜索：户号/账期…"

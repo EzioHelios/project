@@ -46,7 +46,7 @@ const quickActions = [
   { title: "视频监控预警事件", to: "/data/video-alarm-events", icon: ClipboardList },
   { title: "储能数值设置", to: "/data/energy-storage", icon: Database },
   { title: "接口结果key映射", to: "/data/api-key-mapping", icon: ShieldCheck },
-  { title: "碳排放管理", to: "/carbon", icon: ShieldCheck },
+  { title: "能碳中心", to: "/energy-carbon", icon: ShieldCheck },
 ] as const
 
 function PlatformHome() {

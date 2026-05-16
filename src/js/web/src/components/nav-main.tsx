@@ -16,7 +16,8 @@ export function NavMain({
     isActive?: boolean
     items?: {
       title: string
-      to: string
+      to?: string
+      kind?: "link" | "section"
     }[]
   }[]
 }) {
@@ -54,11 +55,15 @@ export function NavMain({
                   <SidebarMenuSub>
                     {item.items?.map((subItem) => (
                       <SidebarMenuSubItem key={subItem.title}>
-                        <SidebarMenuSubButton asChild>
-                          <Link to={subItem.to}>
-                            <span>{subItem.title}</span>
-                          </Link>
-                        </SidebarMenuSubButton>
+                        {subItem.kind === "section" ? (
+                          <div className="px-2 py-2 text-xs font-medium text-muted-foreground/80">{subItem.title}</div>
+                        ) : (
+                          <SidebarMenuSubButton asChild>
+                            <Link to={subItem.to || item.to}>
+                              <span>{subItem.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        )}
                       </SidebarMenuSubItem>
                     ))}
                   </SidebarMenuSub>
