@@ -68,6 +68,7 @@ services:
       timeout: 5s
       retries: 3
   app:
+    image: ${APP_IMAGE:-project/warehouse-carbon:latest}
     build:
       context: ../../..
       dockerfile: tools/deploy/docker/Dockerfile.distroless
@@ -85,6 +86,7 @@ services:
     env_file:
       - .env.docker
   worker:
+    image: ${APP_IMAGE:-project/warehouse-carbon:latest}
     build:
       context: ../../..
       dockerfile: tools/deploy/docker/Dockerfile.distroless
@@ -98,6 +100,7 @@ services:
     env_file:
       - .env.docker
   migrator:
+    image: ${APP_IMAGE:-project/warehouse-carbon:latest}
     build:
       context: ../../..
       dockerfile: tools/deploy/docker/Dockerfile.distroless

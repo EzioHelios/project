@@ -1,0 +1,135 @@
+@font-face {
+  font-family: "YouSheBiaoTiHei";
+  src: url("/fonts/YouSheBiaoTiHei.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+.bigscreen-root {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(16, 67, 123, 0.35), transparent 28%),
+    radial-gradient(circle at top right, rgba(16, 185, 129, 0.18), transparent 22%),
+    radial-gradient(circle at bottom, rgba(245, 158, 11, 0.15), transparent 26%),
+    linear-gradient(180deg, #030b18 0%, #051426 46%, #071a2b 100%);
+}
+
+.bigscreen-root::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(78, 122, 164, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(78, 122, 164, 0.08) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: linear-gradient(180deg, rgba(255, 255, 255, 0.75), transparent 92%);
+  pointer-events: none;
+}
+
+.bigscreen-root::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(transparent 0%, rgba(92, 162, 226, 0.03) 48%, transparent 100%),
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px),
+    radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px),
+    radial-gradient(circle at 55% 75%, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px);
+  background-size: auto, 180px 180px, 240px 240px, 220px 220px;
+  pointer-events: none;
+}
+
+.bigscreen-viewport {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.bigscreen-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1920px;
+  height: 1080px;
+  transform: translate(-50%, -50%) scale(var(--bigscreen-scale, 1));
+  transform-origin: center;
+}
+
+.bigscreen-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 20px 22px 22px;
+}
+
+.bigscreen-grid-24 {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  grid-template-rows: repeat(24, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.bigscreen-panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(93, 157, 213, 0.26);
+  background: linear-gradient(180deg, rgba(8, 25, 44, 0.88) 0%, rgba(5, 15, 27, 0.9) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 16px 32px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(16px);
+}
+
+.bigscreen-panel::before,
+.bigscreen-panel::after {
+  content: "";
+  position: absolute;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(130, 196, 255, 0.42);
+}
+
+.bigscreen-panel::before {
+  top: 10px;
+  left: 10px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.bigscreen-panel::after {
+  right: 10px;
+  bottom: 10px;
+  border-left: 0;
+  border-top: 0;
+}
+
+.bigscreen-panel-glow {
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(72, 187, 255, 0.72), transparent);
+}
+
+.bigscreen-title {
+  font-family: "YouSheBiaoTiHei", "Noto Serif SC", "Source Han Serif SC", serif;
+  letter-spacing: 0.08em;
+}
+
+.bigscreen-kpi-value {
+  font-family: "Rajdhani", "DIN Alternate", "Arial Narrow", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.bigscreen-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.bigscreen-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgba(86, 151, 204, 0.3);
+}

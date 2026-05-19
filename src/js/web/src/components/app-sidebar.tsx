@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { useRouterState } from "@tanstack/react-router"
-import { AlarmClock, BellRing, BookOpen, Database, Factory, Gauge, Home, ShieldCheck, Users } from "lucide-react"
+import { AlarmClock, BellRing, BookOpen, Database, Factory, Gauge, Home, MonitorPlay, ShieldCheck, Users } from "lucide-react"
 import type * as React from "react"
 import { useEffect, useMemo } from "react"
 import { NavMain } from "@/components/nav-main"
@@ -72,6 +72,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           { title: "碳盘查与核算", to: "/energy-carbon/carbon" },
           { title: "数据质量与追溯", to: "/energy-carbon/quality" },
           { title: "因子数据库", to: "/energy-carbon/factors" },
+        ],
+      },
+      {
+        title: "大屏中心",
+        to: "/bigscreen/overview",
+        icon: MonitorPlay,
+        isActive: pathname.startsWith("/bigscreen"),
+        items: [
+          { title: "态势总览", to: "/bigscreen/overview" },
+          { title: "企业介绍", to: "/bigscreen/intro" },
+          { title: "电量监控", to: "/bigscreen/power" },
+          { title: "能碳协同", to: "/bigscreen/carbon" },
         ],
       },
       {

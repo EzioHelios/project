@@ -10,6 +10,7 @@ export function AppLayout() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+  const isBigscreenRoute = pathname.startsWith("/bigscreen")
 
   const header = useMemo(() => {
     if (pathname === "/platform") {
@@ -90,6 +91,10 @@ export function AppLayout() {
     }
     return { eyebrow: "Workspace", title: "Dashboard" }
   }, [currentTeam?.name, pathname])
+
+  if (isBigscreenRoute) {
+    return <Outlet />
+  }
 
   return (
     <div className="flex min-h-screen flex-col">

@@ -1,0 +1,67 @@
+services:
+  cache:
+    image: valkey/valkey:latest
+    command: redis-server --appendonly yes
+    hostname: cache
+    restart: unless-stopped
+    volumes:
+      - warehouse-cache-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  migrator:
+    image: ${APP_IMAGE:-registry.xzzandzyc.store:5000/project/warehouse-carbon:latest}
+    command: litestar database upgrade --no-prompt
+    restart: "no"
+    env_file:
+      - .env
+    depends_on:
+      cache:
+        condition: service_healthy
+
+  app:
+    image: ${APP_IMAGE:-registry.xzzandzyc.store:5000/project/warehouse-carbon:latest}
+    hostname: app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      VITE_DEV_MODE: "false"
+      SAQ_USE_SERVER_LIFESPAN: "false"
+    depends_on:
+      cache:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+    ports:
+      - "18100:8000"
+    logging:
+      options:
+        max-size: 10m
+        max-file: "5"
+
+  worker:
+    image: ${APP_IMAGE:-registry.xzzandzyc.store:5000/project/warehouse-carbon:latest}
+    command: litestar workers run
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      cache:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+    logging:
+      options:
+        max-size: 10m
+        max-file: "5"
+
+volumes:
+  warehouse-cache-data: {}

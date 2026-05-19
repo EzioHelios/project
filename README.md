@@ -67,6 +67,37 @@ root@example.com
 12345678
 ```
 
+## 发布到私有 Registry
+
+项目已经支持直接构建并推送单镜像到私有 Registry，`app / worker / migrator` 三个服务复用同一镜像。
+
+### 1. 本机构建并推送
+
+```bash
+IMAGE_REPO=registry.xzzandzyc.store:5000/project/warehouse-carbon \
+IMAGE_TAG=$(git rev-parse --short HEAD) \
+PLATFORMS=linux/amd64 \
+./scripts/build_push_multiarch.sh
+```
+
+如果要同时推送 `latest`，脚本默认会附带 `:latest`。
+
+### 2. 服务器拉取并启动
+
+服务器准备好 `.env.docker` 后，设置镜像地址：
+
+```bash
+export APP_IMAGE=registry.xzzandzyc.store:5000/project/warehouse-carbon:latest
+docker compose -f tools/deploy/docker/docker-compose.yml pull
+docker compose -f tools/deploy/docker/docker-compose.yml up -d
+```
+
+如果你要固定版本，把 `latest` 换成具体 tag 即可。
+
+### 3. Nginx 反向代理
+
+Nginx 只需要把域名代理到容器暴露的应用端口，例如 `127.0.0.1:18100` 或你服务器映射的 80xx 端口。前后端无需分离部署。
+
 ## 常用命令
 
 ```bash
