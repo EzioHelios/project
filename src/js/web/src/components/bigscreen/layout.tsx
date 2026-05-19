@@ -13,20 +13,36 @@ const fallbackNav = [
   { label: "能碳协同", path: "/bigscreen/carbon" },
 ]
 
-function useBigscreenScale() {
-  const [scale, setScale] = useState(1)
+function resolveStageScale() {
+  return Math.min(window.innerWidth / 1920, window.innerHeight / 1080)
+}
+
+function resolveTier() {
+  const stageWidth = Math.min(window.innerWidth, (window.innerHeight * 16) / 9)
+  if (stageWidth >= 3200) return "2160"
+  if (stageWidth >= 2400) return "1440"
+  return "1080"
+}
+
+function useBigscreenViewport() {
+  const [state, setState] = useState(() => ({
+    scale: typeof window === "undefined" ? 1 : resolveStageScale(),
+    tier: typeof window === "undefined" ? "1080" : resolveTier(),
+  }))
 
   useEffect(() => {
     const update = () => {
-      const next = Math.min(window.innerWidth / 1920, window.innerHeight / 1080)
-      setScale(next)
+      setState({
+        scale: resolveStageScale(),
+        tier: resolveTier(),
+      })
     }
     update()
     window.addEventListener("resize", update)
     return () => window.removeEventListener("resize", update)
   }, [])
 
-  return scale
+  return state
 }
 
 function useClock() {
@@ -40,7 +56,7 @@ function useClock() {
 
 export function BigscreenLayout() {
   const pathname = useLocation({ select: (location) => location.pathname })
-  const scale = useBigscreenScale()
+  const { scale, tier } = useBigscreenViewport()
   const now = useClock()
   const metaQuery = useBigscreenMeta()
   const meta = metaQuery.data?.data
@@ -49,38 +65,46 @@ export function BigscreenLayout() {
   const currentLabel = useMemo(() => navItems.find((item) => item.path === pathname)?.label ?? "态势总览", [navItems, pathname])
 
   return (
-    <div className="bigscreen-root">
+    <div className="bigscreen-root" data-bigscreen-tier={tier}>
       <div className="bigscreen-viewport">
         <div className="bigscreen-stage" style={{ ["--bigscreen-scale" as string]: scale }}>
           <div className="bigscreen-shell">
-            <header className="mb-4 rounded-[24px] border border-cyan-300/12 bg-[linear-gradient(180deg,rgba(4,16,32,0.92),rgba(7,22,42,0.7))] px-6 py-4 shadow-[0_28px_60px_rgba(0,0,0,0.25)]">
-              <div className="flex items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-300/8 text-cyan-100">
-                    <span className="bigscreen-title text-2xl">{meta?.short_name ?? "LC"}</span>
+            <header className="bigscreen-header-band">
+              <div className="flex items-start justify-between gap-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-[22px] border border-cyan-300/16 bg-cyan-300/8 text-cyan-50 shadow-[0_0_32px_rgba(34,211,238,0.12)]">
+                    <span className="bigscreen-title text-[30px]">{meta?.short_name ?? "LC"}</span>
                   </div>
                   <div>
-                    <div className="text-[11px] uppercase tracking-[0.34em] text-cyan-100/60">Bigscreen Center</div>
-                    <h1 className="bigscreen-title mt-1 text-[34px] text-white">{meta?.title ?? "仓库能碳态势大屏"}</h1>
-                    <div className="mt-1 text-sm text-cyan-100/55">{meta?.description ?? "平台内正式大屏模块，首版聚焦介绍、总览、电量与能碳协同四屏。"}</div>
+                    <div className="text-[11px] uppercase tracking-[0.34em] text-cyan-100/54">Immersive Operations Screen</div>
+                    <h1 className="bigscreen-title mt-2 text-[var(--display-title-size)] text-white">{meta?.title ?? "仓储能碳态势指挥大屏"}</h1>
+                    <div className="mt-3 max-w-[880px] text-[15px] leading-7 text-cyan-100/58">
+                      {meta?.description ?? "围绕园区主视觉对象组织经营总览、电量监控、能碳协同与企业介绍，形成可上墙、可持续观看的大屏系统。"}
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex min-w-[420px] items-center justify-end gap-4">
-                  <div className="rounded-full border border-emerald-300/18 bg-emerald-300/8 px-4 py-2 text-right">
-                    <div className="text-[10px] uppercase tracking-[0.26em] text-emerald-100/60">Current Screen</div>
-                    <div className="mt-1 text-sm font-medium text-emerald-50">{currentLabel}</div>
-                  </div>
-                  <div className="rounded-full border border-cyan-300/18 bg-cyan-300/8 px-4 py-2 text-right">
-                    <div className="bigscreen-kpi-value text-[28px] leading-none text-cyan-50">{now.toLocaleTimeString("zh-CN", { hour12: false })}</div>
-                    <div className="mt-1 text-[11px] uppercase tracking-[0.22em] text-cyan-100/55">
-                      {now.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit", weekday: "short" })}
+                <div className="flex flex-col items-end gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="bigscreen-status-chip">主视觉安全区已保留</div>
+                    <div className="rounded-[18px] border border-cyan-300/16 bg-cyan-300/8 px-4 py-3 text-right">
+                      <div className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/56">Current Screen</div>
+                      <div className="mt-2 text-sm font-semibold text-white">{currentLabel}</div>
                     </div>
+                    <div className="rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-3 text-right">
+                      <div className="bigscreen-kpi-value text-[34px] leading-none text-cyan-50">{now.toLocaleTimeString("zh-CN", { hour12: false })}</div>
+                      <div className="mt-2 text-[11px] uppercase tracking-[0.22em] text-cyan-100/54">
+                        {now.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit", weekday: "short" })}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-full border border-amber-300/12 bg-amber-300/8 px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-amber-100/72">
+                    Render Tier {tier} / Stage 16:9 / Viewport Scale {scale.toFixed(2)}
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center gap-3">
+              <div className="mt-5 flex items-center gap-3">
                 {navItems.map((item) => {
                   const active = pathname === item.path
                   return (
@@ -101,7 +125,7 @@ export function BigscreenLayout() {
               </div>
             </header>
 
-            <main className="h-[calc(100%-116px)]">
+            <main className="h-[calc(100%-164px)]">
               <Outlet />
             </main>
           </div>
