@@ -433,7 +433,19 @@
   height: 100%;
 }
 
+.bigscreen-map-canvas .cesium-viewer,
+.bigscreen-map-canvas .cesium-viewer-cesiumWidgetContainer,
+.bigscreen-map-canvas .cesium-widget,
+.bigscreen-map-canvas .cesium-widget canvas {
+  width: 100%;
+  height: 100%;
+}
+
 .bigscreen-map-canvas .maplibregl-canvas {
+  filter: saturate(0.92) brightness(0.96) contrast(1.04);
+}
+
+.bigscreen-map-canvas .cesium-widget canvas {
   filter: saturate(0.92) brightness(0.96) contrast(1.04);
 }
 

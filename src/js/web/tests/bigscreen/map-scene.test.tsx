@@ -1,19 +1,20 @@
 import { render, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import { BigscreenMapScene } from "@/components/bigscreen/map"
-import { getWarehouseStatusColor, normalizeBigscreenMapSceneConfig, resolveInitialCamera } from "@/lib/bigscreen/map/scene"
-import type { BigscreenMapEngine, BigscreenWarehouseFeatureCollection } from "@/lib/bigscreen/map/types"
+import { BigscreenSceneCanvas } from "@/components/bigscreen/scene-canvas"
+import { getWarehouseStatusColor, normalizeBigscreenSceneConfig, resolveInitialCamera } from "@/lib/bigscreen/map/scene"
+import type { BigscreenSceneEngine, BigscreenWarehouseFeatureCollection } from "@/lib/bigscreen/map/types"
 
 const manifest = {
-  engine: "maplibre",
+  sceneEngine: "cesium",
   center: [119.890793, 32.421059],
-  styleUrl: "./style.json",
-  warehouseDataUrl: "./warehouses.geojson",
-  statusColors: {
-    normal: "#38bdf8",
-    active: "#22c55e",
-    warning: "#f59e0b",
+  warehouseLayer: {
+    dataUrl: "./warehouses.geojson",
+    statusColors: {
+      normal: "#38bdf8",
+      active: "#22c55e",
+      warning: "#f59e0b",
+    },
   },
 }
 
@@ -43,24 +44,28 @@ class ResizeObserverMock {
 
 describe("bigscreen map scene helpers", () => {
   it("applies default scene config values", () => {
-    const config = normalizeBigscreenMapSceneConfig({
-      styleUrl: "./style.json",
-      warehouseDataUrl: "./warehouses.geojson",
+    const config = normalizeBigscreenSceneConfig({
+      warehouseLayer: {
+        dataUrl: "./warehouses.geojson",
+      },
     })
 
+    expect(config.sceneEngine).toBe("cesium")
     expect(config.coordinateSystem).toBe("wgs84")
-    expect(config.interactive).toBe(false)
-    expect(config.cameraFallback.center).toEqual([119.890793, 32.421059])
-    expect(config.statusColors.normal).toBe("#38bdf8")
+    expect(config.interactive).toBe(true)
+    expect(config.cameraHome.center).toEqual([119.890793, 32.421059])
+    expect(config.warehouseLayer.statusColors.normal).toBe("#38bdf8")
+    expect(config.futureLayers.tileset).toEqual([])
   })
 
   it("maps warehouse status to configured colors", () => {
-    const config = normalizeBigscreenMapSceneConfig({
-      styleUrl: "./style.json",
-      warehouseDataUrl: "./warehouses.geojson",
-      statusColors: {
-        normal: "#111111",
-        active: "#222222",
+    const config = normalizeBigscreenSceneConfig({
+      warehouseLayer: {
+        dataUrl: "./warehouses.geojson",
+        statusColors: {
+          normal: "#111111",
+          active: "#222222",
+        },
       },
     })
 
@@ -69,10 +74,11 @@ describe("bigscreen map scene helpers", () => {
   })
 
   it("prefers fitBounds when warehouse geometry exists", () => {
-    const config = normalizeBigscreenMapSceneConfig({
+    const config = normalizeBigscreenSceneConfig({
       center: [119.890793, 32.421059],
-      styleUrl: "./style.json",
-      warehouseDataUrl: "./warehouses.geojson",
+      warehouseLayer: {
+        dataUrl: "./warehouses.geojson",
+      },
     })
 
     const initialCamera = resolveInitialCamera(config, warehouses)
@@ -85,10 +91,11 @@ describe("bigscreen map scene helpers", () => {
   })
 
   it("falls back to configured camera when no geometry exists", () => {
-    const config = normalizeBigscreenMapSceneConfig({
+    const config = normalizeBigscreenSceneConfig({
       center: [119.890793, 32.421059],
-      styleUrl: "./style.json",
-      warehouseDataUrl: "./warehouses.geojson",
+      warehouseLayer: {
+        dataUrl: "./warehouses.geojson",
+      },
     })
 
     const initialCamera = resolveInitialCamera(config, {
@@ -98,13 +105,13 @@ describe("bigscreen map scene helpers", () => {
 
     expect(initialCamera.kind).toBe("fallback")
     if (initialCamera.kind === "fallback") {
-      expect(initialCamera.center).toEqual(config.cameraFallback.center)
-      expect(initialCamera.zoom).toBe(config.cameraFallback.zoom)
+      expect(initialCamera.center).toEqual(config.cameraHome.center)
+      expect(initialCamera.height).toBe(config.cameraHome.height)
     }
   })
 })
 
-describe("BigscreenMapScene", () => {
+describe("BigscreenSceneCanvas", () => {
   const originalFetch = global.fetch
   const originalResizeObserver = global.ResizeObserver
 
@@ -133,13 +140,13 @@ describe("BigscreenMapScene", () => {
     const resize = vi.fn()
     const destroy = vi.fn()
 
-    const createEngine = (): BigscreenMapEngine => ({
+    const createEngine = (): BigscreenSceneEngine => ({
       mount,
       resize,
       destroy,
     })
 
-    const { unmount } = render(<BigscreenMapScene manifestUrl="/maps/bigscreen/scene.json" createEngine={createEngine} />)
+    const { unmount } = render(<BigscreenSceneCanvas manifestUrl="/maps/bigscreen/scene.json" createEngine={createEngine} />)
 
     await waitFor(() => {
       expect(mount).toHaveBeenCalledTimes(1)

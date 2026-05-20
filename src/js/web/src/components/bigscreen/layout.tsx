@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import "@/components/bigscreen/bigscreen.css"
 
-import { BigscreenMapScene } from "@/components/bigscreen/map"
+import { BigscreenSceneCanvas } from "@/components/bigscreen/scene-canvas"
 import { useBigscreenMeta } from "@/lib/bigscreen/hooks"
 import { cn } from "@/lib/utils"
 
@@ -70,7 +70,7 @@ export function BigscreenLayout() {
       <div className="bigscreen-viewport">
         <div className="bigscreen-stage" style={{ ["--bigscreen-scale" as string]: scale }}>
           <div className="bigscreen-stage-backdrop">
-            <BigscreenMapScene variant="stage" />
+            <BigscreenSceneCanvas variant="stage" />
           </div>
           <div className="bigscreen-shell">
             <header className="bigscreen-header-band">
