@@ -1,0 +1,27 @@
+{
+  "engine": "maplibre",
+  "coordinateSystem": "wgs84",
+  "center": [119.890793, 32.421059],
+  "interactive": false,
+  "styleUrl": "./style.json",
+  "warehouseDataUrl": "./warehouses.geojson",
+  "attributionLabel": "© OpenStreetMap contributors",
+  "cameraFallback": {
+    "center": [119.890793, 32.421059],
+    "zoom": 16.45,
+    "bearing": -18,
+    "pitch": 54,
+    "maxZoom": 17.1,
+    "padding": {
+      "top": 88,
+      "right": 96,
+      "bottom": 112,
+      "left": 96
+    }
+  },
+  "statusColors": {
+    "normal": "#38bdf8",
+    "active": "#22c55e",
+    "warning": "#f59e0b"
+  }
+}

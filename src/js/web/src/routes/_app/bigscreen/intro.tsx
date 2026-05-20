@@ -84,17 +84,24 @@ function BigscreenIntroPage() {
           description={intro?.hero_description ?? "当前还没有正式品牌叙事内容，主视觉区先保留给视频、园区形象或 3D 企业场景。"}
           status="Brand Visual Safe Zone"
           anchors={sceneAnchors}
+          showCore={false}
+          className="bigscreen-scene-ghost"
           overlay={
-            <div className="flex h-full items-center justify-center">
-              <div className="h-[56%] w-[58%] overflow-hidden rounded-[26px] border border-white/10 bg-[#020c15] shadow-[0_28px_64px_rgba(0,0,0,0.28)]">
+            <div className="flex h-full items-center justify-between gap-6">
+              <div className="max-w-[300px] rounded-[22px] border border-cyan-300/14 bg-[#03121ba6] px-5 py-4 shadow-[0_18px_36px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+                <div className="text-[11px] uppercase tracking-[0.28em] text-cyan-100/54">Brand Core</div>
+                <div className="bigscreen-title mt-3 text-[24px] text-white">{intro?.hero_title ?? "企业介绍主视觉区"}</div>
+                <div className="mt-3 text-[13px] leading-6 text-white/56">
+                  {intro?.hero_description ?? "当前还没有正式品牌叙事内容，主视觉区先保留给视频、园区形象或 3D 企业场景。"}
+                </div>
+              </div>
+              <div className="ml-auto h-[48%] w-[34%] overflow-hidden rounded-[24px] border border-white/10 bg-[#020c15c2] shadow-[0_24px_54px_rgba(0,0,0,0.24)] backdrop-blur-xl">
                 {intro?.promo_video_url ? (
                   <video className="h-full w-full object-cover" src={intro.promo_video_url} autoPlay muted loop controls />
                 ) : (
-                  <div className="flex h-full flex-col items-center justify-center bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.16),transparent_34%),linear-gradient(180deg,#061321,#020811)] px-10 text-center">
-                    <div className="bigscreen-title text-[42px] text-cyan-50">Brand Main Visual</div>
-                    <div className="mt-4 max-w-[520px] text-sm leading-7 text-white/58">
-                      当前主视觉区预留给品牌视频、3D 园区形象或中央企业主对象。正式素材到位后，外围 HUD 结构无需变更。
-                    </div>
+                  <div className="flex h-full flex-col items-center justify-center bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.16),transparent_34%),linear-gradient(180deg,#061321,#020811)] px-8 text-center">
+                    <div className="bigscreen-title text-[30px] text-cyan-50">Brand Preview</div>
+                    <div className="mt-3 max-w-[260px] text-[13px] leading-6 text-white/58">品牌视频与园区影像改为侧边悬浮预览，中部底图保持贯穿。</div>
                   </div>
                 )}
               </div>

@@ -1,0 +1,37 @@
+{
+  "version": 8,
+  "name": "Bigscreen Dark Raster",
+  "sources": {
+    "osm-raster": {
+      "type": "raster",
+      "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      "tileSize": 256,
+      "maxzoom": 19,
+      "attribution": "© OpenStreetMap contributors"
+    }
+  },
+  "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#03121b"
+      }
+    },
+    {
+      "id": "osm-raster",
+      "type": "raster",
+      "source": "osm-raster",
+      "minzoom": 0,
+      "maxzoom": 22,
+      "paint": {
+        "raster-opacity": 0.42,
+        "raster-saturation": -1,
+        "raster-contrast": 0.22,
+        "raster-brightness-min": 0.06,
+        "raster-brightness-max": 0.74
+      }
+    }
+  ]
+}

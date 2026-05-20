@@ -1,0 +1,75 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "warehouse-north",
+        "name": "北侧仓库组",
+        "status": "normal",
+        "height_m": 32,
+        "accent": "bulk"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[119.88996, 32.42164], [119.89042, 32.42164], [119.89042, 32.4214], [119.88996, 32.4214], [119.88996, 32.42164]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "warehouse-center-west",
+        "name": "西侧周转仓",
+        "status": "active",
+        "height_m": 28,
+        "accent": "throughput"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[119.89, 32.42128], [119.89032, 32.42128], [119.89032, 32.42104], [119.89, 32.42104], [119.89, 32.42128]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "warehouse-center-east",
+        "name": "东侧成品仓",
+        "status": "warning",
+        "height_m": 36,
+        "accent": "finished"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[119.89046, 32.42126], [119.89084, 32.42126], [119.89084, 32.421], [119.89046, 32.421], [119.89046, 32.42126]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "warehouse-south-west",
+        "name": "南侧能源仓",
+        "status": "normal",
+        "height_m": 24,
+        "accent": "energy"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[119.89008, 32.42088], [119.89042, 32.42088], [119.89042, 32.42066], [119.89008, 32.42066], [119.89008, 32.42088]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "warehouse-south-east",
+        "name": "南侧备货仓",
+        "status": "active",
+        "height_m": 30,
+        "accent": "reserve"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[119.89056, 32.42086], [119.891, 32.42086], [119.891, 32.42062], [119.89056, 32.42062], [119.89056, 32.42086]]]
+      }
+    }
+  ]
+}

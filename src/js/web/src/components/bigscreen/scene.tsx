@@ -18,7 +18,10 @@ export function BigscreenSceneHost({
   description,
   status,
   anchors,
+  background,
   overlay,
+  showSafezone = true,
+  showCore = true,
   className,
 }: {
   eyebrow: string
@@ -26,24 +29,30 @@ export function BigscreenSceneHost({
   description: string
   status?: string
   anchors?: BigscreenSceneAnchor[]
+  background?: React.ReactNode
   overlay?: React.ReactNode
+  showSafezone?: boolean
+  showCore?: boolean
   className?: string
 }) {
   return (
-    <section className={cn("bigscreen-scene-shell", className)}>
+    <section className={cn("bigscreen-scene-shell", className)} data-has-media={background ? "true" : "false"}>
+      {background ? <div className="bigscreen-scene-media">{background}</div> : null}
       <div className="bigscreen-scene-grid" />
       <div className="bigscreen-scene-lines" />
-      <div className="bigscreen-scene-safezone" />
-      <div className="bigscreen-scene-center">
-        <div className="bigscreen-scene-core px-8">
-          <div className="text-[11px] uppercase tracking-[0.28em] text-cyan-100/52">{eyebrow}</div>
-          <div className="bigscreen-title mt-3 text-[32px] text-white">{title}</div>
-          <div className="mt-4 text-sm leading-6 text-white/56">{description}</div>
-          {status ? (
-            <div className="mt-6 inline-flex rounded-full border border-cyan-300/16 bg-cyan-300/8 px-4 py-2 text-xs uppercase tracking-[0.22em] text-cyan-100/70">{status}</div>
-          ) : null}
+      {showSafezone ? <div className="bigscreen-scene-safezone" /> : null}
+      {showCore ? (
+        <div className="bigscreen-scene-center">
+          <div className="bigscreen-scene-core px-8">
+            <div className="text-[11px] uppercase tracking-[0.28em] text-cyan-100/52">{eyebrow}</div>
+            <div className="bigscreen-title mt-3 text-[32px] text-white">{title}</div>
+            <div className="mt-4 text-sm leading-6 text-white/56">{description}</div>
+            {status ? (
+              <div className="mt-6 inline-flex rounded-full border border-cyan-300/16 bg-cyan-300/8 px-4 py-2 text-xs uppercase tracking-[0.22em] text-cyan-100/70">{status}</div>
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {(anchors ?? []).map((anchor, index) => (
         <motion.div

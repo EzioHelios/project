@@ -18,7 +18,7 @@ function BigscreenOverviewPage() {
     {
       id: "month",
       label: "Latest Window",
-      value: overview?.filters?.months?.at(-1)?.label ?? "未标注账期",
+      value: overview?.filters?.months?.slice(-1)[0]?.label ?? "未标注账期",
       position: "ct",
     },
     {
@@ -86,18 +86,32 @@ function BigscreenOverviewPage() {
           description="中部保留给 GIS、Cesium 或 Three.js 主对象。当前用主视觉安全区占位，并把关键状态锚点挂在四周。"
           status="Main Visual Safe Zone Reserved"
           anchors={sceneAnchors}
+          showCore={false}
+          showSafezone
+          className="bigscreen-scene-ghost"
           overlay={
             <div className="flex h-full flex-col justify-between">
-              <div className="flex flex-wrap gap-2">
-                {(overview?.filters?.months ?? []).slice(-4).map((item) => (
-                  <span key={item.value} className="bigscreen-status-chip">
-                    {item.label}
-                  </span>
-                ))}
+              <div className="flex items-start justify-between gap-5">
+                <div className="max-w-[300px] rounded-[22px] border border-cyan-300/14 bg-[#03121ba6] px-5 py-4 shadow-[0_18px_36px_rgba(0,0,0,0.2)] backdrop-blur-xl">
+                  <div className="text-[11px] uppercase tracking-[0.28em] text-cyan-100/54">Overview Scene</div>
+                  <div className="bigscreen-title mt-3 text-[24px] text-white">寺巷街道仓储园区块体演示</div>
+                  <div className="mt-3 text-[13px] leading-6 text-white/56">主体底图现在退到整张大屏下层，中心只保留仓储演示留白和关键锚点。</div>
+                  <div className="mt-4 inline-flex rounded-full border border-cyan-300/18 bg-cyan-300/10 px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-cyan-100/74">
+                    MapLibre / WGS84 / Fill Extrusion
+                  </div>
+                </div>
+                <div className="flex max-w-[420px] flex-wrap justify-end gap-2">
+                  <span className="bigscreen-status-chip">Center 32.421059, 119.890793</span>
+                  {(overview?.filters?.months ?? []).slice(-4).map((item) => (
+                    <span key={item.value} className="bigscreen-status-chip">
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
               </div>
-              <div className="ml-auto max-w-[280px] rounded-[18px] border border-white/10 bg-[#02101ccc] px-4 py-3">
+              <div className="ml-auto max-w-[260px] rounded-[18px] border border-white/10 bg-[#02101ca6] px-4 py-3 backdrop-blur-xl">
                 <div className="text-[11px] uppercase tracking-[0.22em] text-cyan-100/52">Screen Intent</div>
-                <div className="mt-2 text-sm leading-6 text-white/62">当前母版页强调“中部主视觉，四周 HUD 信息”。后续接入地图或 3D 场景时，外围组件无需再大改。</div>
+                <div className="mt-2 text-sm leading-6 text-white/62">中间不再放实体主卡，底图持续贯穿全屏。后续换底图源或引擎时，只改背景层和适配层。</div>
               </div>
             </div>
           }

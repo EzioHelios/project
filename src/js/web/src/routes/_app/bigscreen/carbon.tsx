@@ -77,9 +77,11 @@ function BigscreenCarbonPage() {
           description="中部预留给碳流主对象、范围热点或 3D 园区碳热点图层。当前通过范围锚点和说明摘要建立空间主叙事。"
           status="Carbon Flow Canvas Reserved"
           anchors={sceneAnchors}
+          showCore={false}
+          className="bigscreen-scene-ghost"
           overlay={
             <div className="flex h-full flex-col justify-between">
-              <div className="ml-auto max-w-[320px] rounded-[18px] border border-white/10 bg-[#02101ccc] px-4 py-3">
+              <div className="ml-auto max-w-[280px] rounded-[18px] border border-white/10 bg-[#02101ca6] px-4 py-3 backdrop-blur-xl">
                 <div className="text-[11px] uppercase tracking-[0.22em] text-cyan-100/52">Commentary</div>
                 <div className="mt-2 grid gap-2 text-sm leading-6 text-white/62">
                   {(carbon?.commentary?.length ? carbon.commentary : ["当前暂无补充说明，大屏先保持结构完整。"]).slice(0, 3).map((item) => (
