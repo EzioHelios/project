@@ -1,9 +1,10 @@
 import path from "node:path"
+import fs from "node:fs/promises"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import react from "@vitejs/plugin-react"
 import litestar from "litestar-vite-plugin"
-import { defineConfig } from "vite"
+import { defineConfig, type Plugin } from "vite"
 import { viteStaticCopy } from "vite-plugin-static-copy"
 
 function ensureTrailingSlash(value: string) {
@@ -14,6 +15,58 @@ const baseUrl = process.env.ASSET_URL ?? (process.env.NODE_ENV === "development"
 const normalizedBaseUrl = ensureTrailingSlash(baseUrl)
 const cesiumBaseUrl = `${normalizedBaseUrl}cesium/`
 const cesiumBuildRoot = path.resolve(__dirname, "./node_modules/cesium/Build/Cesium")
+
+function createCesiumDevServerPlugin(): Plugin {
+  return {
+    name: "bigscreen-cesium-dev-server",
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const requestUrl = req.url?.split("?")[0]
+        if (!requestUrl?.startsWith("/cesium/")) {
+          return next()
+        }
+
+        const relativePath = requestUrl.slice("/cesium/".length)
+        const filePath = path.resolve(cesiumBuildRoot, relativePath)
+        if (!filePath.startsWith(cesiumBuildRoot)) {
+          res.statusCode = 403
+          res.end("Forbidden")
+          return
+        }
+
+        try {
+          const stat = await fs.stat(filePath)
+          if (!stat.isFile()) {
+            return next()
+          }
+
+          const ext = path.extname(filePath)
+          const contentTypeMap: Record<string, string> = {
+            ".js": "application/javascript",
+            ".mjs": "application/javascript",
+            ".json": "application/json",
+            ".wasm": "application/wasm",
+            ".css": "text/css",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".svg": "image/svg+xml",
+            ".xml": "application/xml",
+            ".ktx2": "application/octet-stream",
+            ".bin": "application/octet-stream",
+          }
+
+          const buffer = await fs.readFile(filePath)
+          res.statusCode = 200
+          res.setHeader("Content-Type", contentTypeMap[ext] ?? "application/octet-stream")
+          res.end(buffer)
+        } catch {
+          next()
+        }
+      })
+    },
+  }
+}
 
 export default defineConfig({
   clearScreen: false,
@@ -41,6 +94,7 @@ export default defineConfig({
     tanstackRouter({ target: "react", autoCodeSplitting: true }),
     tailwindcss(),
     react(),
+    createCesiumDevServerPlugin(),
     viteStaticCopy({
       targets: [
         { src: path.resolve(cesiumBuildRoot, "Workers"), dest: "cesium" },
