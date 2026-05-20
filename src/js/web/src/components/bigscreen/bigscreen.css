@@ -46,6 +46,7 @@
   --stage-padding: 20px;
   --panel-gap: 14px;
   --panel-radius: 24px;
+  --header-band-height: 170px;
   --panel-header-height: 72px;
   --side-rail-width: 382px;
   --bottom-band-height: 242px;
@@ -62,6 +63,7 @@
   --stage-padding: 24px;
   --panel-gap: 16px;
   --panel-radius: 26px;
+  --header-band-height: 182px;
   --panel-header-height: 76px;
   --side-rail-width: 408px;
   --bottom-band-height: 260px;
@@ -78,6 +80,7 @@
   --stage-padding: 28px;
   --panel-gap: 18px;
   --panel-radius: 28px;
+  --header-band-height: 194px;
   --panel-header-height: 82px;
   --side-rail-width: 432px;
   --bottom-band-height: 284px;
@@ -115,39 +118,57 @@
 
 .bigscreen-shell {
   position: relative;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
   padding: var(--stage-padding);
+  pointer-events: none;
   z-index: 1;
+}
+
+.bigscreen-shell-main {
+  min-height: 0;
+  flex: 1 1 auto;
+  pointer-events: none;
 }
 
 .bigscreen-page {
   display: grid;
   height: 100%;
+  min-height: 0;
   grid-template-columns: var(--side-rail-width) minmax(0, 1fr) var(--side-rail-width);
-  grid-template-rows: minmax(0, 1fr) var(--bottom-band-height);
   gap: var(--panel-gap);
+  align-items: stretch;
+  pointer-events: none;
 }
 
 .bigscreen-side-stack,
 .bigscreen-main-stack {
   display: grid;
   min-height: 0;
+  height: 100%;
   gap: var(--panel-gap);
+  pointer-events: none;
 }
 
 .bigscreen-side-stack {
-  grid-auto-rows: minmax(0, 1fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  align-content: stretch;
 }
 
 .bigscreen-main-stack {
-  grid-template-rows: minmax(0, 1fr) minmax(0, auto);
+  grid-template-rows: minmax(0, 1fr) var(--bottom-band-height);
+  align-content: stretch;
 }
 
 .bigscreen-bottom-grid {
   display: grid;
+  height: 100%;
   min-height: 0;
   gap: var(--panel-gap);
+  align-self: end;
+  pointer-events: none;
 }
 
 .bigscreen-bottom-grid[data-columns="2"] {
@@ -161,6 +182,7 @@
 .bigscreen-panel {
   position: relative;
   overflow: hidden;
+  pointer-events: auto;
   border: 1px solid rgba(103, 172, 235, 0.24);
   background:
     linear-gradient(180deg, rgba(10, 26, 45, 0.84) 0%, rgba(3, 11, 21, 0.92) 100%);
@@ -215,6 +237,13 @@
 
 .bigscreen-header-band {
   position: relative;
+  display: flex;
+  flex: 0 0 var(--header-band-height);
+  min-height: var(--header-band-height);
+  max-height: var(--header-band-height);
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: auto;
   margin-bottom: var(--panel-gap);
   overflow: hidden;
   border-radius: calc(var(--panel-radius) + 4px);
@@ -223,7 +252,7 @@
     linear-gradient(180deg, rgba(5, 18, 33, 0.96), rgba(8, 24, 44, 0.72)),
     radial-gradient(circle at 28% 0%, rgba(34, 211, 238, 0.12), transparent 24%);
   box-shadow: 0 24px 54px rgba(0, 0, 0, 0.28);
-  padding: 18px 24px 16px;
+  padding: 16px 24px 14px;
 }
 
 .bigscreen-header-band::after {
@@ -232,6 +261,29 @@
   inset: auto 40px 0;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.86), transparent);
+}
+
+.bigscreen-header-main {
+  min-height: 0;
+}
+
+.bigscreen-header-brand {
+  flex: 1 1 auto;
+}
+
+.bigscreen-header-side {
+  flex: 0 0 auto;
+}
+
+.bigscreen-header-description {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.bigscreen-header-nav {
+  min-height: 40px;
 }
 
 .bigscreen-title {
@@ -259,12 +311,26 @@
 }
 
 .bigscreen-scene-shell.bigscreen-scene-ghost {
-  border: 1px solid rgba(103, 172, 235, 0.14);
-  background: linear-gradient(180deg, rgba(3, 11, 21, 0.12), rgba(3, 11, 21, 0.28));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.03),
-    0 18px 42px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(2px);
+  pointer-events: none;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.bigscreen-scene-shell.bigscreen-scene-ghost::before,
+.bigscreen-scene-shell.bigscreen-scene-ghost::after,
+.bigscreen-scene-shell.bigscreen-scene-ghost .bigscreen-scene-grid,
+.bigscreen-scene-shell.bigscreen-scene-ghost .bigscreen-scene-lines,
+.bigscreen-scene-shell.bigscreen-scene-ghost .bigscreen-scene-safezone {
+  display: none;
+}
+
+.bigscreen-scene-shell.bigscreen-scene-ghost .bigscreen-scene-anchor {
+  pointer-events: none;
+  background: rgba(4, 15, 28, 0.42);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.16);
+  backdrop-filter: none;
 }
 
 .bigscreen-scene-media {
@@ -350,10 +416,7 @@
 }
 
 .bigscreen-map-frame-stage {
-  background:
-    radial-gradient(circle at 18% 16%, rgba(34, 211, 238, 0.08), transparent 24%),
-    radial-gradient(circle at 78% 24%, rgba(245, 158, 11, 0.06), transparent 28%),
-    linear-gradient(180deg, rgba(2, 10, 18, 0.98), rgba(4, 16, 27, 0.95));
+  background: transparent;
 }
 
 .bigscreen-map-canvas,
@@ -371,7 +434,7 @@
 }
 
 .bigscreen-map-canvas .maplibregl-canvas {
-  filter: saturate(0.7) brightness(0.78) contrast(1.08);
+  filter: saturate(0.92) brightness(0.96) contrast(1.04);
 }
 
 .bigscreen-map-shade {
@@ -385,8 +448,8 @@
 
 .bigscreen-map-frame-stage .bigscreen-map-shade {
   background:
-    radial-gradient(circle at 50% 48%, rgba(5, 18, 30, 0.04) 0 18%, rgba(5, 18, 30, 0.22) 34%, rgba(2, 8, 15, 0.66) 100%),
-    linear-gradient(180deg, rgba(2, 8, 14, 0.36) 0%, rgba(2, 8, 14, 0.16) 22%, rgba(2, 8, 14, 0.52) 100%);
+    radial-gradient(circle at 50% 48%, rgba(5, 18, 30, 0.01) 0 22%, rgba(5, 18, 30, 0.08) 44%, rgba(2, 8, 15, 0.18) 100%),
+    linear-gradient(180deg, rgba(2, 8, 14, 0.12) 0%, rgba(2, 8, 14, 0.02) 22%, rgba(2, 8, 14, 0.16) 100%);
 }
 
 .bigscreen-map-state {

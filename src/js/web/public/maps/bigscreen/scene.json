@@ -2,7 +2,7 @@
   "engine": "maplibre",
   "coordinateSystem": "wgs84",
   "center": [119.890793, 32.421059],
-  "interactive": false,
+  "interactive": true,
   "styleUrl": "./style.json",
   "warehouseDataUrl": "./warehouses.geojson",
   "attributionLabel": "© OpenStreetMap contributors",

@@ -74,23 +74,22 @@ export function BigscreenLayout() {
           </div>
           <div className="bigscreen-shell">
             <header className="bigscreen-header-band">
-              <div className="flex items-start justify-between gap-6">
-                <div className="flex items-start gap-4">
+              <div className="bigscreen-header-main flex items-start justify-between gap-6">
+                <div className="bigscreen-header-brand flex min-w-0 items-start gap-4">
                   <div className="flex h-16 w-16 items-center justify-center rounded-[22px] border border-cyan-300/16 bg-cyan-300/8 text-cyan-50 shadow-[0_0_32px_rgba(34,211,238,0.12)]">
                     <span className="bigscreen-title text-[30px]">{meta?.short_name ?? "LC"}</span>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="text-[11px] uppercase tracking-[0.34em] text-cyan-100/54">Immersive Operations Screen</div>
                     <h1 className="bigscreen-title mt-2 text-[var(--display-title-size)] text-white">{meta?.title ?? "仓储能碳态势指挥大屏"}</h1>
-                    <div className="mt-3 max-w-[880px] text-[15px] leading-7 text-cyan-100/58">
+                    <div className="bigscreen-header-description mt-3 max-w-[880px] text-[15px] leading-7 text-cyan-100/58">
                       {meta?.description ?? "围绕园区主视觉对象组织经营总览、电量监控、能碳协同与企业介绍，形成可上墙、可持续观看的大屏系统。"}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col items-end gap-3">
+                <div className="bigscreen-header-side flex flex-col items-end gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="bigscreen-status-chip">主视觉安全区已保留</div>
                     <div className="rounded-[18px] border border-cyan-300/16 bg-cyan-300/8 px-4 py-3 text-right">
                       <div className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/56">Current Screen</div>
                       <div className="mt-2 text-sm font-semibold text-white">{currentLabel}</div>
@@ -102,13 +101,10 @@ export function BigscreenLayout() {
                       </div>
                     </div>
                   </div>
-                  <div className="rounded-full border border-amber-300/12 bg-amber-300/8 px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-amber-100/72">
-                    Render Tier {tier} / Stage 16:9 / Viewport Scale {scale.toFixed(2)}
-                  </div>
                 </div>
               </div>
 
-              <div className="mt-5 flex items-center gap-3">
+              <div className="bigscreen-header-nav flex items-center gap-3">
                 {navItems.map((item) => {
                   const active = pathname === item.path
                   return (
@@ -129,7 +125,7 @@ export function BigscreenLayout() {
               </div>
             </header>
 
-            <main className="h-[calc(100%-164px)]">
+            <main className="bigscreen-shell-main">
               <Outlet />
             </main>
           </div>

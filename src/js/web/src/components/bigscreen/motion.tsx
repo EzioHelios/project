@@ -88,7 +88,7 @@ export function BigscreenAutoCarousel({
         )}
         <div className={cn("absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,transparent,rgba(4,11,21,0.94))] px-5 pb-5 pt-10", captionClassName)}>
           <div className="text-[18px] font-semibold text-white">{activeItem.title}</div>
-          <div className="mt-2 text-sm leading-6 text-white/62">{activeItem.description || "内容待补充"}</div>
+          <div className="mt-2 text-sm leading-6 text-white/62">{activeItem.description || "暂无详细说明"}</div>
         </div>
         <div className="bigscreen-carousel-dots">
           {items.map((item, index) => (

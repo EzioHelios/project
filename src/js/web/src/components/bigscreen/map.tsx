@@ -25,7 +25,7 @@ export function BigscreenMapScene({
   const [scene, setScene] = useState<BigscreenLoadedMapScene | null>(null)
   const [loadState, setLoadState] = useState<BigscreenMapLoadState>({
     status: "loading",
-    message: "正在装载底图与仓库块体",
+    message: "正在加载园区底图",
   })
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export function BigscreenMapScene({
     async function mountScene() {
       setLoadState({
         status: "loading",
-        message: "正在装载底图与仓库块体",
+        message: "正在加载园区底图",
       })
 
       try {
@@ -59,7 +59,7 @@ export function BigscreenMapScene({
             if (!cancelled) {
               setLoadState({
                 status: "error",
-                message: error.message || "地图渲染失败，已保留主视觉画布",
+                message: error.message || "底图渲染失败，请检查地图资源",
               })
             }
           },
@@ -76,7 +76,7 @@ export function BigscreenMapScene({
         if (!cancelled) {
           setLoadState({
             status: "error",
-            message: error instanceof Error ? error.message : "地图资源加载失败，已保留主视觉画布",
+            message: error instanceof Error ? error.message : "地图资源加载失败，请检查地图资源",
           })
         }
       }
@@ -99,7 +99,7 @@ export function BigscreenMapScene({
       <div className="bigscreen-map-shade" />
       {loadState.status !== "ready" ? (
         <div className="bigscreen-map-state">
-          <div className="bigscreen-map-state-title">{loadState.status === "error" ? "Map Fallback" : "Map Loading"}</div>
+          <div className="bigscreen-map-state-title">{loadState.status === "error" ? "底图加载异常" : "底图载入中"}</div>
           <div className="bigscreen-map-state-body">{loadState.message}</div>
         </div>
       ) : null}

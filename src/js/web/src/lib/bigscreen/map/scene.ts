@@ -78,7 +78,7 @@ export function normalizeBigscreenMapSceneConfig(input: PartialSceneConfig): Big
     engine: input.engine === "maplibre" ? "maplibre" : "maplibre",
     coordinateSystem: input.coordinateSystem === "gcj02" ? "gcj02" : "wgs84",
     center,
-    interactive: input.interactive ?? false,
+    interactive: input.interactive ?? true,
     styleUrl: input.styleUrl?.trim() || "./style.json",
     warehouseDataUrl: input.warehouseDataUrl?.trim() || "./warehouses.geojson",
     attributionLabel: input.attributionLabel?.trim() || undefined,

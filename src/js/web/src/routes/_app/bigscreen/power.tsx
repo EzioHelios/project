@@ -88,26 +88,11 @@ function BigscreenPowerPage() {
         <BigscreenSceneHost
           eyebrow="Power Scene"
           title="配电主视觉留白区"
-          description="中部为配电路径、园区用电热区或 GIS 电力主对象预留。外围组件仅做运行解读，不再抢占主视觉。"
-          status="Energy Flow Canvas Reserved"
+          description="配电运行总览"
           anchors={sceneAnchors}
           showCore={false}
+          showSafezone={false}
           className="bigscreen-scene-ghost"
-          overlay={
-            <div className="flex h-full items-end justify-between">
-              <div className="max-w-[280px] rounded-[18px] border border-white/10 bg-[#02101ca6] px-4 py-3 backdrop-blur-xl">
-                <div className="text-[11px] uppercase tracking-[0.22em] text-cyan-100/52">运行判断</div>
-                <div className="mt-2 text-sm leading-6 text-white/62">主视觉区改为纯留白，用于承接全屏电力底图和配电路径，不再用中心大卡片截断背景。</div>
-              </div>
-              <div className="flex flex-wrap justify-end gap-2">
-                {power?.energy_structure?.slice(0, 3).map((item) => (
-                  <span key={item.name} className="bigscreen-status-chip">
-                    {item.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          }
         />
 
         <div className="bigscreen-bottom-grid" data-columns="3">
