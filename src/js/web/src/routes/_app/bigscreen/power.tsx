@@ -57,7 +57,7 @@ function BigscreenPowerPage() {
   return (
     <div className="bigscreen-page">
       <div className="bigscreen-side-stack">
-        <BigscreenPanel title="运行指标" eyebrow="Terminal Status">
+        <BigscreenPanel title="运行指标" eyebrow="Terminal Status" frame="tall">
           <div className="bigscreen-kpi-grid" data-columns="1">
             {(power?.hero_metrics ?? []).map((metric, index) => (
               <BigscreenMetricCard key={metric.id} metric={metric} tone={index === 0 ? "emerald" : index === 1 ? "cyan" : "amber"} compact />
@@ -65,7 +65,7 @@ function BigscreenPowerPage() {
           </div>
         </BigscreenPanel>
 
-        <BigscreenPanel title="用电预警滚动榜" eyebrow="Alert Feed">
+        <BigscreenPanel title="用电预警滚动榜" eyebrow="Alert Feed" frame="tall">
           <BigscreenScrollBoard
             rows={alertRows}
             headers={["级别", "事件", "时间"]}
@@ -96,15 +96,15 @@ function BigscreenPowerPage() {
         />
 
         <div className="bigscreen-bottom-grid" data-columns="3">
-          <BigscreenPanel title="区域电量流图" eyebrow="Flow Path">
+          <BigscreenPanel title="区域电量流图" eyebrow="Flow Path" frame="wide">
             <BigscreenSankeyChart flow={power?.energy_flow ?? { title: "区域用电流图", nodes: [], links: [] }} height={168} />
           </BigscreenPanel>
 
-          <BigscreenPanel title="账期电量趋势" eyebrow="Time Series">
+          <BigscreenPanel title="账期电量趋势" eyebrow="Time Series" frame="wide">
             <BigscreenLineChart points={power?.energy_timeseries ?? []} height={168} mode="single" />
           </BigscreenPanel>
 
-          <BigscreenPanel title="重点回路观察" eyebrow="Hot Feed">
+          <BigscreenPanel title="重点回路观察" eyebrow="Hot Feed" frame="wide">
             <div className="bigscreen-stack">
               {power?.energy_ranking?.slice(0, 4).map((item, index) => (
                 <div key={item.name} className="bigscreen-list-card flex items-center justify-between gap-3 px-4 py-3">
@@ -121,7 +121,7 @@ function BigscreenPowerPage() {
       </div>
 
       <div className="bigscreen-side-stack">
-        <BigscreenPanel title="用电结构" eyebrow="Load Structure">
+        <BigscreenPanel title="用电结构" eyebrow="Load Structure" frame="tall">
           <BigscreenPieChart items={power?.energy_structure ?? []} height={238} />
           <div className="mt-4 grid gap-2">
             {power?.energy_structure?.slice(0, 3).map((item, index) => (
@@ -136,7 +136,7 @@ function BigscreenPowerPage() {
           </div>
         </BigscreenPanel>
 
-        <BigscreenPanel title="用电排行" eyebrow="Meter Ranking">
+        <BigscreenPanel title="用电排行" eyebrow="Meter Ranking" frame="tall">
           <BigscreenBarChart items={power?.energy_ranking ?? []} unit="kWh" height={220} />
         </BigscreenPanel>
       </div>

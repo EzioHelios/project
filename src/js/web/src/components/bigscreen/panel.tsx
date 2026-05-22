@@ -1,17 +1,15 @@
 import type * as React from "react"
 
 import { BigscreenCountUp } from "@/components/bigscreen/motion"
+import { NarrowPanelFrame } from "@/components/bigscreen/primitives/NarrowPanelFrame"
+import { PanelTitleBar } from "@/components/bigscreen/primitives/PanelTitleBar"
+import { TallPanelFrame } from "@/components/bigscreen/primitives/TallPanelFrame"
+import { WidePanelFrame } from "@/components/bigscreen/primitives/WidePanelFrame"
+import { useBigscreenSkin } from "@/components/bigscreen/skins/context"
+import type { BigscreenPanelFrame } from "@/components/bigscreen/skins/types"
 import { cn } from "@/lib/utils"
 
-export function BigscreenPanel({
-  title,
-  eyebrow,
-  children,
-  className,
-  bodyClassName,
-  style,
-  headerExtra,
-}: {
+export function BigscreenPanel(props: {
   title: string
   eyebrow?: string
   children: React.ReactNode
@@ -19,17 +17,46 @@ export function BigscreenPanel({
   bodyClassName?: string
   style?: React.CSSProperties
   headerExtra?: React.ReactNode
+  frame?: BigscreenPanelFrame
 }) {
-  return (
-    <section className={cn("bigscreen-panel rounded-[var(--panel-radius)]", className)} style={style}>
-      <div className="bigscreen-panel-glow" />
-      <header className="bigscreen-panel-header">
-        {eyebrow ? <div className="mb-2 text-[var(--eyebrow-size)] font-semibold uppercase tracking-[0.28em] text-cyan-200/68">{eyebrow}</div> : null}
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="bigscreen-title text-[var(--panel-title-size)] text-cyan-50">{title}</h2>
-          {headerExtra}
+  const { title, children, className, bodyClassName, style, frame = "wide" } = props
+  const skin = useBigscreenSkin()
+  const frameConfig = skin.panelFrames[frame]
+  const renderMode = frameConfig.renderMode ?? "background-image"
+  const frameImage = frame === "tall" ? skin.assets.panelFrameTall : frame === "narrow" ? skin.assets.panelFrameNarrow : skin.assets.panelFrameWide
+
+  const panelStyle = {
+    ...style,
+    ["--bigscreen-panel-frame-image" as string]: renderMode === "background-image" && frameImage ? `url(${frameImage})` : "none",
+    ["--bigscreen-panel-header-height" as string]: `${frameConfig.headerHeight}px`,
+    ["--bigscreen-panel-title-width" as string]: `${frameConfig.titleWidth}px`,
+    ["--bigscreen-panel-body-padding-top" as string]: `${frameConfig.bodyPadding.top}px`,
+    ["--bigscreen-panel-body-padding-right" as string]: `${frameConfig.bodyPadding.right}px`,
+    ["--bigscreen-panel-body-padding-bottom" as string]: `${frameConfig.bodyPadding.bottom}px`,
+    ["--bigscreen-panel-body-padding-left" as string]: `${frameConfig.bodyPadding.left}px`,
+  } as React.CSSProperties
+
+  if (renderMode === "svg-frame") {
+    return (
+      <section
+        className={cn("bigscreen-panel bigscreen-panel-svg-shell", className)}
+        data-bigscreen-panel-frame={frame}
+        data-bigscreen-panel-render-mode={renderMode}
+        style={panelStyle}
+      >
+        {frame === "tall" ? <TallPanelFrame /> : frame === "narrow" ? <NarrowPanelFrame /> : <WidePanelFrame />}
+        <div className="bigscreen-panel-content-layer">
+          <PanelTitleBar title={title} />
+          <div className={cn("bigscreen-panel-body text-slate-100", bodyClassName)}>{children}</div>
         </div>
-      </header>
+      </section>
+    )
+  }
+
+  return (
+    <section className={cn("bigscreen-panel", className)} data-bigscreen-panel-frame={frame} data-bigscreen-panel-render-mode={renderMode} style={panelStyle}>
+      <div className="bigscreen-panel-glow" />
+      <PanelTitleBar title={title} />
       <div className={cn("bigscreen-panel-body text-slate-100", bodyClassName)}>{children}</div>
     </section>
   )
@@ -45,43 +72,43 @@ export function BigscreenMetricCard({
   compact?: boolean
 }) {
   const toneMap = {
-    cyan: "from-cyan-400/16 to-blue-500/8 text-cyan-100",
-    amber: "from-amber-300/16 to-orange-500/8 text-amber-100",
-    emerald: "from-emerald-300/16 to-teal-500/8 text-emerald-100",
+    cyan: "text-cyan-100",
+    amber: "text-amber-100",
+    emerald: "text-emerald-100",
   }
+  const ratioTone = metric.ratio === null || metric.ratio === undefined ? "neutral" : metric.ratio > 0 ? "up" : metric.ratio < 0 ? "down" : "flat"
 
   return (
-    <div className={cn("bigscreen-metric-card bg-gradient-to-br shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]", toneMap[tone], compact ? "p-4" : undefined)}>
-      <div className="text-[11px] uppercase tracking-[0.24em] text-white/50">{metric.label}</div>
-      <div className="mt-3 flex items-end justify-between gap-3">
-        <div className={cn("bigscreen-kpi-value font-semibold leading-none", compact ? "text-[30px]" : "text-[var(--hero-metric-size)]")}>
+    <article className={cn("bigscreen-metric-card", toneMap[tone])} data-tone={tone} data-compact={compact}>
+      <div className="bigscreen-metric-card-top">
+        <div className="bigscreen-metric-card-label">{metric.label}</div>
+        {metric.unit ? <div className="bigscreen-metric-card-unit">{metric.unit}</div> : null}
+      </div>
+      <div className="bigscreen-metric-card-main">
+        <div className={cn("bigscreen-kpi-value bigscreen-metric-card-value", compact ? "text-[30px]" : "text-[var(--hero-metric-size)]")}>
           <BigscreenCountUp value={metric.value} />
         </div>
-        {metric.unit ? <div className="rounded-full border border-white/10 bg-white/6 px-2 py-1 text-[var(--metric-unit-size)] text-white/60">{metric.unit}</div> : null}
       </div>
-      <div className="mt-3 text-xs text-white/55">
+      <div className="bigscreen-metric-card-bottom" data-ratio-tone={ratioTone}>
         {metric.ratio === null || metric.ratio === undefined ? "本期暂无对比" : `较上期 ${metric.ratio > 0 ? "+" : ""}${metric.ratio.toFixed(1)}%`}
       </div>
-    </div>
+    </article>
   )
 }
 
 export function BigscreenInfoCard({ label, value, accent = "cyan", detail }: { label: string; value: string; accent?: "cyan" | "amber" | "emerald"; detail?: string }) {
-  const accentMap = {
-    cyan: "text-cyan-100 border-cyan-300/14 bg-cyan-300/6",
-    amber: "text-amber-100 border-amber-300/14 bg-amber-300/6",
-    emerald: "text-emerald-100 border-emerald-300/14 bg-emerald-300/6",
-  }
-
   return (
-    <div className={cn("bigscreen-info-card", accentMap[accent])}>
-      <div className="text-[11px] uppercase tracking-[0.22em] text-white/48">{label}</div>
-      <div className="mt-3 text-lg font-semibold text-white">{value}</div>
-      {detail ? <div className="mt-2 text-sm leading-6 text-white/56">{detail}</div> : null}
-    </div>
+    <article className="bigscreen-info-card" data-accent={accent}>
+      <div className="bigscreen-info-card-head">
+        <div className="bigscreen-info-card-marker" />
+        <div className="bigscreen-info-card-label">{label}</div>
+      </div>
+      <div className="bigscreen-info-card-value">{value}</div>
+      {detail ? <div className="bigscreen-info-card-detail">{detail}</div> : null}
+    </article>
   )
 }
 
 export function BigscreenEmpty({ label }: { label: string }) {
-  return <div className="flex h-full items-center justify-center rounded-[20px] border border-dashed border-white/10 bg-white/[0.03] text-sm text-white/45">{label}</div>
+  return <div className="bigscreen-empty-state flex h-full items-center justify-center text-sm text-white/45">{label}</div>
 }

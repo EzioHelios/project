@@ -1,0 +1,24 @@
+<svg width="720" height="56" viewBox="0 0 720 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="titleStripLeft" x1="0" y1="28" x2="120" y2="28" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#65F1FF"/>
+      <stop offset="1" stop-color="#3E8FFF"/>
+    </linearGradient>
+    <linearGradient id="titleStripBody" x1="120" y1="28" x2="720" y2="28" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#163C78" stop-opacity="0.58"/>
+      <stop offset="1" stop-color="#0A1632" stop-opacity="0.46"/>
+    </linearGradient>
+    <pattern id="titleStripDots" width="10" height="10" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#8FE9FF" fill-opacity="0.55"/>
+    </pattern>
+    <linearGradient id="titleStripGlow" x1="0" y1="53" x2="720" y2="53" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3AD5FF"/>
+      <stop offset="0.54" stop-color="#2F7BFF"/>
+      <stop offset="1" stop-color="#184C9D"/>
+    </linearGradient>
+  </defs>
+  <path d="M0 0H120L92 56H0V0Z" fill="url(#titleStripLeft)"/>
+  <path d="M74 0H720V52H46L74 0Z" fill="url(#titleStripBody)"/>
+  <path d="M0 0H164V52H0V0Z" fill="url(#titleStripDots)" fill-opacity="0.32"/>
+  <rect x="0" y="52" width="720" height="4" rx="2" fill="url(#titleStripGlow)"/>
+</svg>

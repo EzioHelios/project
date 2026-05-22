@@ -1,0 +1,41 @@
+.bigscreen-root.bigscreen-skin-taizhou {
+  --bigscreen-stage-surface: linear-gradient(180deg, rgba(3, 11, 27, 0.42), rgba(1, 8, 18, 0.72));
+  --bigscreen-page-grid-opacity: 0.12;
+  --bigscreen-panel-surface-start: rgba(7, 20, 47, 0.58);
+  --bigscreen-panel-surface-end: rgba(3, 10, 24, 0.72);
+  --bigscreen-panel-shadow: 0 18px 38px rgba(0, 0, 0, 0.32);
+  --bigscreen-panel-title-color: #f5fbff;
+  --bigscreen-panel-body-color: #dbeafe;
+  --bigscreen-panel-edge: rgba(77, 157, 255, 0.18);
+  --bigscreen-accent-cyan: #48c8ff;
+  --bigscreen-accent-blue: #3a7bff;
+  --bigscreen-accent-deep: #071837;
+  --bigscreen-header-title-shadow: 0 0 24px rgba(88, 194, 255, 0.26);
+}
+
+.bigscreen-root.bigscreen-skin-taizhou[data-bigscreen-tier="1080"] {
+  --panel-radius: 20px;
+  --header-band-height: 130px;
+  --header-main-height: 84px;
+  --header-nav-height: 38px;
+  --header-nav-gap: 0px;
+  --panel-header-height: 76px;
+}
+
+.bigscreen-root.bigscreen-skin-taizhou[data-bigscreen-tier="1440"] {
+  --panel-radius: 22px;
+  --header-band-height: 138px;
+  --header-main-height: 90px;
+  --header-nav-height: 40px;
+  --header-nav-gap: 0px;
+  --panel-header-height: 80px;
+}
+
+.bigscreen-root.bigscreen-skin-taizhou[data-bigscreen-tier="2160"] {
+  --panel-radius: 24px;
+  --header-band-height: 146px;
+  --header-main-height: 96px;
+  --header-nav-height: 42px;
+  --header-nav-gap: 0px;
+  --panel-header-height: 84px;
+}

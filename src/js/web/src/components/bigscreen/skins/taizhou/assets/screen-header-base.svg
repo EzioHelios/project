@@ -1,0 +1,37 @@
+<svg width="3840" height="194" viewBox="0 0 3840 194" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="headerBaseFill" x1="0" y1="97" x2="3840" y2="97" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#12386B"/>
+      <stop offset="0.28" stop-color="#0D2855"/>
+      <stop offset="0.62" stop-color="#0A1F45"/>
+      <stop offset="1" stop-color="#071732"/>
+    </linearGradient>
+    <linearGradient id="headerCenterFill" x1="1190" y1="18" x2="2650" y2="176" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#102C61"/>
+      <stop offset="0.5" stop-color="#0B2149"/>
+      <stop offset="1" stop-color="#091C3E"/>
+    </linearGradient>
+    <linearGradient id="headerLine" x1="0" y1="0" x2="3840" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#53D2FF"/>
+      <stop offset="0.42" stop-color="#3E90FF"/>
+      <stop offset="1" stop-color="#18458F"/>
+    </linearGradient>
+    <radialGradient id="headerGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(208 52) rotate(24) scale(246 128)">
+      <stop stop-color="#41E7FF" stop-opacity="0.56"/>
+      <stop offset="0.48" stop-color="#41E7FF" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#41E7FF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <path d="M0 18L24 0H3816L3840 18V150H0V18Z" fill="url(#headerBaseFill)"/>
+  <path d="M1188 18H2652L2774 118L2652 150H1188L1066 118L1188 18Z" fill="url(#headerCenterFill)"/>
+  <path d="M0 0H3840V8H0V0Z" fill="url(#headerLine)" fill-opacity="0.92"/>
+  <path d="M0 184H3840V194H0V184Z" fill="url(#headerLine)" fill-opacity="0.94"/>
+  <path d="M0 54H1168V58H0V54Z" fill="#2F7EFF" fill-opacity="0.84"/>
+  <path d="M2672 54H3840V58H2672V54Z" fill="#2F7EFF" fill-opacity="0.84"/>
+  <path d="M1146 18H2694V24H1160L1146 18Z" fill="#57D5FF" fill-opacity="0.82"/>
+  <path d="M1066 118H2774V124H1066V118Z" fill="#3F8FFF" fill-opacity="0.86"/>
+  <path d="M0 18H346L294 92H0V18Z" fill="#58E0FF" fill-opacity="0.12"/>
+  <circle cx="208" cy="52" r="246" fill="url(#headerGlow)"/>
+  <path d="M0 194V168L32 194H0Z" fill="#041027"/>
+  <path d="M3808 194L3840 168V194H3808Z" fill="#041027"/>
+</svg>

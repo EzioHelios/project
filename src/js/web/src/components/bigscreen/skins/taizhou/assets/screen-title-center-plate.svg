@@ -1,0 +1,21 @@
+<svg width="1880" height="94" viewBox="0 0 1880 94" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="plateCore" x1="178" y1="46" x2="1702" y2="46" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#12366D" stop-opacity="0"/>
+      <stop offset="0.22" stop-color="#1E4F99" stop-opacity="0.34"/>
+      <stop offset="0.5" stop-color="#63DBFF" stop-opacity="0.22"/>
+      <stop offset="0.78" stop-color="#1E4F99" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#12366D" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="plateLine" x1="0" y1="0" x2="1880" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1B4A93" stop-opacity="0"/>
+      <stop offset="0.26" stop-color="#4AD0FF" stop-opacity="0.82"/>
+      <stop offset="0.74" stop-color="#4AD0FF" stop-opacity="0.82"/>
+      <stop offset="1" stop-color="#1B4A93" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path d="M178 22H1702L1614 72H266L178 22Z" fill="url(#plateCore)"/>
+  <path d="M218 20H1662L1594 68H286L218 20Z" stroke="#6BE7FF" stroke-opacity="0.34" stroke-width="2"/>
+  <path d="M40 8H1840V14H40V8Z" fill="url(#plateLine)"/>
+  <path d="M240 78H1640V84H240V78Z" fill="url(#plateLine)" fill-opacity="0.72"/>
+</svg>

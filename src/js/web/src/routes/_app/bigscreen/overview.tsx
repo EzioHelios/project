@@ -62,7 +62,7 @@ function BigscreenOverviewPage() {
   return (
     <div className="bigscreen-page">
       <div className="bigscreen-side-stack">
-        <BigscreenPanel title="能耗主指标" eyebrow="Energy Cluster">
+        <BigscreenPanel title="能耗主指标" eyebrow="Energy Cluster" frame="tall">
           <div className="bigscreen-kpi-grid" data-columns="1">
             {(overview?.energy_kpis ?? []).map((metric, index) => (
               <BigscreenMetricCard key={metric.id} metric={metric} tone={index === 1 ? "amber" : "cyan"} compact />
@@ -70,7 +70,7 @@ function BigscreenOverviewPage() {
           </div>
         </BigscreenPanel>
 
-        <BigscreenPanel title="碳排主指标" eyebrow="Carbon Cluster">
+        <BigscreenPanel title="碳排主指标" eyebrow="Carbon Cluster" frame="tall">
           <div className="bigscreen-kpi-grid" data-columns="1">
             {(overview?.carbon_kpis ?? []).map((metric, index) => (
               <BigscreenMetricCard key={metric.id} metric={metric} tone={index === 0 ? "emerald" : "amber"} compact />
@@ -91,15 +91,15 @@ function BigscreenOverviewPage() {
         />
 
         <div className="bigscreen-bottom-grid" data-columns="3">
-          <BigscreenPanel title={overview?.energy_flow.title ?? "购电流向"} eyebrow="Flow Map">
+          <BigscreenPanel title={overview?.energy_flow.title ?? "购电流向"} eyebrow="Flow Map" frame="wide">
             <BigscreenSankeyChart flow={overview?.energy_flow ?? { title: "购电流向", nodes: [], links: [] }} height={168} />
           </BigscreenPanel>
 
-          <BigscreenPanel title="月度经营趋势" eyebrow="Trend Pulse">
+          <BigscreenPanel title="月度经营趋势" eyebrow="Trend Pulse" frame="wide">
             <BigscreenLineChart points={overview?.production_trend ?? []} height={168} />
           </BigscreenPanel>
 
-          <BigscreenPanel title="账期观察窗" eyebrow="Trend Feed">
+          <BigscreenPanel title="账期观察窗" eyebrow="Trend Feed" frame="wide">
             <BigscreenScrollBoard
               rows={trendRows}
               headers={["账期", "能耗", "碳排"]}
@@ -120,25 +120,14 @@ function BigscreenOverviewPage() {
       </div>
 
       <div className="bigscreen-side-stack">
-        <BigscreenPanel title="当前视图摘要" eyebrow="View Scope">
+        <BigscreenPanel title="当前视图摘要" eyebrow="View Scope" frame="tall">
           <div className="bigscreen-stack">
-            <BigscreenInfoCard
-              label="默认账期范围"
-              value={(overview?.filters?.months ?? []).slice(-1)[0]?.label ?? "未配置"}
-              detail="当前统计周期"
-            />
+            <BigscreenInfoCard label="默认账期范围" value={(overview?.filters?.months ?? []).slice(-1)[0]?.label ?? "未配置"} detail="当前统计周期" />
             <div className="bigscreen-stack">
               <div className="text-[11px] uppercase tracking-[0.22em] text-cyan-100/52">关注区域</div>
               <div className="flex flex-wrap gap-2">
                 {(overview?.filters?.areas ?? []).slice(0, 6).map((item, index) => (
-                  <span
-                    key={item.value}
-                    className={
-                      index < 3
-                        ? "rounded-full border border-cyan-300/18 bg-cyan-300/8 px-3 py-2 text-xs text-cyan-100/76"
-                        : "rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/66"
-                    }
-                  >
+                  <span key={item.value} className="bigscreen-chip" data-tone={index < 3 ? "highlight" : "default"}>
                     {item.label}
                   </span>
                 ))}
@@ -147,7 +136,7 @@ function BigscreenOverviewPage() {
           </div>
         </BigscreenPanel>
 
-        <BigscreenPanel title="区域能耗速览" eyebrow="Area Ranking">
+        <BigscreenPanel title="区域能耗速览" eyebrow="Area Ranking" frame="tall">
           <BigscreenBarChart items={flowRanking.slice(0, 6)} unit="kWh" height={232} />
           <div className="mt-4 grid gap-2">
             {flowRanking.slice(0, 3).map((item, index) => (

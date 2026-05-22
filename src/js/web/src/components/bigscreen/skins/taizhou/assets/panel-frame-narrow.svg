@@ -1,0 +1,14 @@
+<svg width="356" height="672" viewBox="0 0 356 672" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="frameNarrowEdge" x1="0" y1="0" x2="356" y2="672" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#48D6FF"/>
+      <stop offset="0.54" stop-color="#2C82FF"/>
+      <stop offset="1" stop-color="#18458E"/>
+    </linearGradient>
+  </defs>
+  <path d="M58 0H356V614L300 672H0V56L58 0Z" stroke="url(#frameNarrowEdge)" stroke-opacity="0.44" stroke-width="4"/>
+  <path d="M0 8L58 0H356V8H0Z" fill="#2F7EFF" fill-opacity="0.88"/>
+  <path d="M0 56L58 0H0V56Z" fill="#5294FF" fill-opacity="0.72"/>
+  <path d="M300 672L356 614V672H300Z" fill="#5A99FF" fill-opacity="0.72"/>
+  <path d="M0 660H300V664H0V660Z" fill="#2F7EFF" fill-opacity="0.82"/>
+</svg>

@@ -10,11 +10,7 @@ const palette = ["#38bdf8", "#fbbf24", "#34d399", "#a78bfa", "#f87171", "#22d3ee
 
 function shell(option?: EChartsOption, height = 260, emptyLabel = "暂无数据") {
   if (!option) {
-    return (
-      <div className="flex h-full min-h-[220px] items-center justify-center rounded-[18px] border border-dashed border-white/10 bg-white/[0.03] text-sm text-white/45">
-        {emptyLabel}
-      </div>
-    )
+    return <div className="bigscreen-empty-state flex h-full min-h-[220px] items-center justify-center text-sm text-white/45">{emptyLabel}</div>
   }
   return <ReactECharts option={option} style={{ width: "100%", height: `${height}px` }} opts={{ renderer: "canvas" }} />
 }

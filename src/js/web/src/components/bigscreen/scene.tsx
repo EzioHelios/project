@@ -48,7 +48,9 @@ export function BigscreenSceneHost({
             <div className="bigscreen-title mt-3 text-[32px] text-white">{title}</div>
             <div className="mt-4 text-sm leading-6 text-white/56">{description}</div>
             {status ? (
-              <div className="mt-6 inline-flex rounded-full border border-cyan-300/16 bg-cyan-300/8 px-4 py-2 text-xs uppercase tracking-[0.22em] text-cyan-100/70">{status}</div>
+              <div className="bigscreen-chip mt-6 text-xs uppercase tracking-[0.22em]" data-tone="highlight">
+                {status}
+              </div>
             ) : null}
           </div>
         </div>

@@ -73,7 +73,7 @@ export function BigscreenAutoCarousel({
   const activeItem = items[activeIndex]
 
   if (!activeItem) {
-    return <div className="flex h-full items-center justify-center rounded-[20px] border border-dashed border-white/10 bg-white/[0.03] text-sm text-white/42">{emptyLabel}</div>
+    return <div className="bigscreen-empty-state flex h-full items-center justify-center text-sm text-white/42">{emptyLabel}</div>
   }
 
   return (
@@ -145,7 +145,7 @@ export function BigscreenScrollBoard<T>({
   }, [rows.length, shouldAnimate])
 
   if (rows.length === 0) {
-    return <div className="flex h-full items-center justify-center rounded-[20px] border border-dashed border-white/10 bg-white/[0.03] text-sm text-white/42">{emptyLabel}</div>
+    return <div className="bigscreen-empty-state flex h-full items-center justify-center text-sm text-white/42">{emptyLabel}</div>
   }
 
   return (

@@ -1,0 +1,17 @@
+<svg width="1000" height="400" viewBox="0 0 1000 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="frameWideEdge" x1="0" y1="0" x2="1000" y2="400" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3FCFFF"/>
+      <stop offset="0.55" stop-color="#2D7FFF"/>
+      <stop offset="1" stop-color="#18478E"/>
+    </linearGradient>
+  </defs>
+  <path d="M8 8H992V392H8V8Z" stroke="url(#frameWideEdge)" stroke-opacity="0.42" stroke-width="4"/>
+  <path d="M0 0H1000V8H0V0Z" fill="#2F7EFF" fill-opacity="0.88"/>
+  <path d="M0 52H1000V56H0V52Z" fill="#2F7EFF" fill-opacity="0.82"/>
+  <path d="M0 0H118L86 56H0V0Z" fill="#58E0FF" fill-opacity="0.18"/>
+  <path d="M0 0H168V56H0V0Z" fill="#8DEFFF" fill-opacity="0.08"/>
+  <path d="M0 384H936L1000 320V400H0V384Z" fill="#5A99FF" fill-opacity="0.58"/>
+  <path d="M0 322V0H8V322H0Z" fill="#6FAEFF" fill-opacity="0.3"/>
+  <path d="M992 8H1000V328H992V8Z" fill="#6FAEFF" fill-opacity="0.3"/>
+</svg>
