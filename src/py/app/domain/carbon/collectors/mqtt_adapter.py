@@ -5,7 +5,9 @@ Topic 格式: carbon/site/{site_id}/device/{device_id}/telemetry
 Payload 格式 (JSON):
   { "ts": 1707812345000, "values": { "active_power", "reactive_power", "voltage_a", "current_a", "total_energy" } }
 
-数据写入 IotTelemetry 表。paho-mqtt 为同步库，在后台线程运行；收到消息后放入队列，由异步任务从队列取数据写入 DB。
+数据写入 IotTelemetry 表。topic 内的 device_id 应与 MonitorEquipment.external_device_id 对齐；
+兼容历史数据时，仍允许与 MonitorEquipment.code 对齐。paho-mqtt 为同步库，在后台线程运行；
+收到消息后放入队列，由异步任务从队列取数据写入 DB。
 """
 from __future__ import annotations
 

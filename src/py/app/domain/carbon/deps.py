@@ -7,7 +7,9 @@ from app.lib.deps import create_service_provider
 
 provide_enterprise_info_service = create_service_provider(services.EnterpriseInfoService)
 provide_monitor_sector_service = create_service_provider(services.MonitorSectorService)
+provide_device_type_service = create_service_provider(services.DeviceTypeService)
 provide_monitor_equipment_service = create_service_provider(services.MonitorEquipmentService)
+provide_device_point_service = create_service_provider(services.DevicePointService)
 provide_ammeter_index_value_service = create_service_provider(services.AmmeterIndexValueService)
 provide_alarm_event_service = create_service_provider(services.AlarmEventService)
 provide_video_monitor_service = create_service_provider(services.VideoMonitorService)
@@ -43,6 +45,8 @@ __all__ = (
     "provide_carbon_factor_import_batch_service",
     "provide_carbon_factor_library_service",
     "provide_carbon_factor_raw_record_service",
+    "provide_device_point_service",
+    "provide_device_type_service",
     "provide_emission_factor_service",
     "provide_employee_commute_service",
     "provide_energy_storage_value_service",

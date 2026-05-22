@@ -21,6 +21,8 @@ from app.domain.carbon.models import (
     CarbonFactorImportBatch,
     CarbonFactorLibrary,
     CarbonFactorRawRecord,
+    DevicePoint,
+    DeviceType,
     EmissionFactor,
     EmployeeCommute,
     EnergyStorageValue,
@@ -87,4 +89,6 @@ __all__ = (
     "CarbonFactorLibrary",
     "CarbonFactorCategory",
     "CarbonFactorRawRecord",
+    "DevicePoint",
+    "DeviceType",
 )

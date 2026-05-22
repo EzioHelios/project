@@ -97,6 +97,30 @@ class MonitorSectorPhoto(BigIntBase):
     )
 
 
+class DeviceType(BigIntBase):
+    """设备类型字典。"""
+
+    __tablename__ = "dataapp_devicetype"
+    __table_args__ = (
+        UniqueConstraint("code", name="uq_dataapp_devicetype_code"),
+    )
+
+    code: Mapped[str] = mapped_column(String(32), index=True)
+    name: Mapped[str] = mapped_column(String(64))
+    parent_code: Mapped[str | None] = mapped_column(String(32), index=True)
+    energy_type: Mapped[str | None] = mapped_column(String(20))
+    is_energy_device: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_special_equipment: Mapped[bool] = mapped_column(Boolean, default=False)
+    default_protocol: Mapped[str | None] = mapped_column(String(20))
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    equipments: Mapped[list[MonitorEquipment]] = relationship(
+        back_populates="device_type",
+        lazy="selectin",
+    )
+
+
 class InMoney(BigIntBase):
     """入库金额管理（对应 Django dataapp.InMoney）。"""
 
@@ -147,17 +171,36 @@ class MonitorEquipment(BigIntBase):
 
     code: Mapped[str] = mapped_column(String(30), unique=True, index=True)
     name: Mapped[str | None] = mapped_column(String(30))
-    code2: Mapped[str | None] = mapped_column(String(30))
+    external_device_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    device_type_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dataapp_devicetype.id", ondelete="SET NULL"),
+        index=True,
+    )
     sector_id: Mapped[int | None] = mapped_column(
         ForeignKey("dataapp_monitorsector.id", ondelete="SET NULL"),
         index=True,
     )
     category: Mapped[int | None] = mapped_column(Integer, doc="0=电表,1=光伏,2=视频摄像头")
+    asset_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    model: Mapped[str | None] = mapped_column(String(100))
+    manufacturer: Mapped[str | None] = mapped_column(String(100))
+    owner_unit: Mapped[str | None] = mapped_column(String(100))
+    warehouse_name: Mapped[str | None] = mapped_column(String(100), index=True)
+    warehouse_code: Mapped[str | None] = mapped_column(String(32), index=True)
+    energy_type: Mapped[str | None] = mapped_column(String(20), index=True)
+    rated_power_kw: Mapped[float | None] = mapped_column(Float)
+    network_env: Mapped[str | None] = mapped_column(String(100))
+    data_acquisition_method: Mapped[str | None] = mapped_column(String(30))
+    running_status: Mapped[str | None] = mapped_column(String(30), index=True)
     supplier: Mapped[str | None] = mapped_column(String(20))
     status: Mapped[int | None] = mapped_column(Integer, doc="0=在线,1=故障")
     trip_state: Mapped[int | None] = mapped_column(Integer, doc="0=合闸,1=跳闸")
     location: Mapped[str | None] = mapped_column(String(50))
     install_time: Mapped[datetime | None] = mapped_column(DateTime)
+    last_inspection_at: Mapped[datetime | None] = mapped_column(DateTime)
+    inspection_due_at: Mapped[datetime | None] = mapped_column(DateTime)
+    registration_code: Mapped[str | None] = mapped_column(String(64))
+    remark: Mapped[str | None] = mapped_column(Text)
     sort_index: Mapped[int | None] = mapped_column(Integer, default=0)
     is_enable: Mapped[bool | None] = mapped_column(Boolean, default=True)
     # 采集协议：用于 DataCollectorFactory 选择适配器（参考 PRD 4.1）
@@ -167,6 +210,45 @@ class MonitorEquipment(BigIntBase):
 
     sector: Mapped[MonitorSector | None] = relationship(
         backref="equipments",
+        lazy="selectin",
+    )
+    device_type: Mapped[DeviceType | None] = relationship(
+        back_populates="equipments",
+        lazy="selectin",
+    )
+    device_points: Mapped[list[DevicePoint]] = relationship(
+        back_populates="device",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
+
+
+class DevicePoint(BigIntBase):
+    """设备测点定义。"""
+
+    __tablename__ = "dataapp_devicepoint"
+    __table_args__ = (
+        UniqueConstraint("device_id", "point_code", name="uq_dataapp_devicepoint_device_point"),
+    )
+
+    device_id: Mapped[int] = mapped_column(
+        ForeignKey("dataapp_monitorequipment.id", ondelete="CASCADE"),
+        index=True,
+    )
+    point_code: Mapped[str] = mapped_column(String(64))
+    point_name: Mapped[str] = mapped_column(String(100))
+    unit: Mapped[str | None] = mapped_column(String(20))
+    value_type: Mapped[str] = mapped_column(String(16), default="float")
+    source_field: Mapped[str | None] = mapped_column(String(64))
+    sampling_interval_seconds: Mapped[int | None] = mapped_column(Integer)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_alarm_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    upper_limit: Mapped[float | None] = mapped_column(Float)
+    lower_limit: Mapped[float | None] = mapped_column(Float)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    device: Mapped[MonitorEquipment] = relationship(
+        back_populates="device_points",
         lazy="selectin",
     )
 
@@ -242,10 +324,19 @@ class WarningRule(BigIntBase):
     description: Mapped[str | None] = mapped_column(Text)
     range_val: Mapped[dict | None] = mapped_column(comment="取值范围")
     event_type: Mapped[int] = mapped_column(Integer, default=1, doc="1=设备故障, 2=用电异常, 3=发电异常, 4=碳排放异常")
+    equipment_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dataapp_monitorequipment.id", ondelete="SET NULL"),
+        index=True,
+    )
     sector_id: Mapped[int | None] = mapped_column(
         ForeignKey("dataapp_monitorsector.id", ondelete="SET NULL"),
         index=True,
     )
+    point_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    alarm_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    alarm_name: Mapped[str | None] = mapped_column(String(64))
+    alarm_level: Mapped[str | None] = mapped_column(String(16), default="warning", index=True)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     table_name: Mapped[str | None] = mapped_column(String(30))
 
 
@@ -259,6 +350,10 @@ class AlarmEvent(BigIntBase):
         index=True,
     )
     event_type: Mapped[int] = mapped_column(Integer, doc="1=设备故障, 2=用电异常, 3=发电异常, 4=碳排放异常")
+    alarm_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    alarm_name: Mapped[str | None] = mapped_column(String(64))
+    alarm_level: Mapped[str | None] = mapped_column(String(16), default="warning", index=True)
+    alarm_category: Mapped[str | None] = mapped_column(String(16), default="device", index=True)
     event_desc: Mapped[str | None] = mapped_column(String(300))
     event_time: Mapped[datetime | None] = mapped_column(DateTime)
     sector_id: Mapped[int | None] = mapped_column(
@@ -269,6 +364,13 @@ class AlarmEvent(BigIntBase):
         ForeignKey("dataapp_monitorequipment.id", ondelete="SET NULL"),
         index=True,
     )
+    point_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    current_value: Mapped[float | None] = mapped_column(Float)
+    threshold_value: Mapped[float | None] = mapped_column(Float)
+    status: Mapped[str | None] = mapped_column(String(20), default="open", index=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime)
+    handled_by: Mapped[str | None] = mapped_column(String(64))
+    handle_note: Mapped[str | None] = mapped_column(Text)
     add_time: Mapped[datetime | None] = mapped_column(DateTime, default=datetime.utcnow)
     is_handle: Mapped[bool | None] = mapped_column(Boolean, default=False)
 

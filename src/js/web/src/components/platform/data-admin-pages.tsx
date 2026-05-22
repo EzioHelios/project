@@ -528,21 +528,39 @@ export function MonitorAreaPage() {
 }
 
 export function TerminalsPage() {
+  const deviceTypeOptions = [
+    { label: "电表", value: "1" },
+    { label: "光伏逆变器", value: "2" },
+    { label: "储能 BMS", value: "3" },
+    { label: "充电桩", value: "4" },
+    { label: "叉车", value: "5" },
+    { label: "起重机", value: "6" },
+    { label: "衡器设备", value: "7" },
+    { label: "自动化及辅助设备", value: "8" },
+    { label: "摄像头", value: "9" },
+  ]
   const fields: Field[] = [
     { name: "code", label: "设备编码", required: true },
     { name: "name", label: "设备名称", required: true },
-    { name: "code2", label: "外部编码" },
-    { name: "sector_id", label: "区域ID", type: "number" },
+    { name: "external_device_id", label: "采集设备标识" },
+    { name: "asset_code", label: "资产编码/牌照" },
     {
-      name: "category",
+      name: "device_type_id",
       label: "设备类型",
       type: "select",
-      options: [
-        { label: "电表", value: "0" },
-        { label: "光伏", value: "1" },
-        { label: "摄像头", value: "2" },
-      ],
+      options: deviceTypeOptions,
     },
+    { name: "sector_id", label: "区域ID", type: "number" },
+    { name: "warehouse_name", label: "所属仓库" },
+    { name: "warehouse_code", label: "仓库编码" },
+    { name: "model", label: "规格型号" },
+    { name: "manufacturer", label: "生产厂家" },
+    { name: "owner_unit", label: "产权单位" },
+    { name: "energy_type", label: "能源类型" },
+    { name: "rated_power_kw", label: "额定功率(kW)", type: "number" },
+    { name: "network_env", label: "网络环境" },
+    { name: "data_acquisition_method", label: "采集方式" },
+    { name: "running_status", label: "运行状态" },
     { name: "supplier", label: "供应商" },
     {
       name: "protocol",
@@ -574,23 +592,103 @@ export function TerminalsPage() {
     },
     { name: "location", label: "安装位置" },
     { name: "install_time", label: "安装时间", type: "date" },
+    { name: "last_inspection_at", label: "最近年检时间", type: "date" },
+    { name: "inspection_due_at", label: "下次年检时间", type: "date" },
+    { name: "registration_code", label: "登记证编号" },
+    { name: "remark", label: "备注", type: "textarea" },
     { name: "sort_index", label: "排序", type: "number" },
     { name: "is_enable", label: "启用状态", type: "boolean" },
   ]
   return (
     <CrudDataPage
       title="监控终端"
-      description="维护电表、光伏和摄像头终端，并通过区域 ID 建立关联。"
+      description="维护设备主档、采集配置和基础台账信息。"
       endpoint="/api/data/monitor-equipments"
       queryKey={["data", "monitor-equipments"]}
       columns={[
         { key: "code", label: "编码" },
         { key: "name", label: "名称" },
+        { key: "external_device_id", label: "采集标识" },
+        { key: "warehouse_name", label: "仓库" },
         { key: "sector_name", label: "区域" },
-        { key: "category", label: "类型", render: (row) => ({ 0: "电表", 1: "光伏", 2: "摄像头" })[Number(row.category)] ?? "-" },
+        { key: "device_type_name", label: "类型" },
+        { key: "asset_code", label: "资产编码" },
         { key: "status", label: "状态", render: (row) => (Number(row.status) === 1 ? "故障" : "在线") },
       ]}
       fields={fields}
+    />
+  )
+}
+
+export function DeviceTypesPage() {
+  return (
+    <CrudDataPage
+      title="设备类型"
+      description="维护设备分类和默认能力模板。"
+      endpoint="/api/data/device-types"
+      queryKey={["data", "device-types"]}
+      columns={[
+        { key: "code", label: "类型编码" },
+        { key: "name", label: "类型名称" },
+        { key: "energy_type", label: "默认能源类型" },
+        { key: "is_energy_device", label: "能碳设备", render: (row) => (row.is_energy_device ? "是" : "否") },
+        { key: "is_special_equipment", label: "特种设备", render: (row) => (row.is_special_equipment ? "是" : "否") },
+      ]}
+      fields={[
+        { name: "code", label: "类型编码", required: true },
+        { name: "name", label: "类型名称", required: true },
+        { name: "parent_code", label: "父级编码" },
+        { name: "energy_type", label: "默认能源类型" },
+        { name: "default_protocol", label: "默认协议" },
+        { name: "is_energy_device", label: "能碳设备", type: "boolean" },
+        { name: "is_special_equipment", label: "特种设备", type: "boolean" },
+        { name: "is_enabled", label: "启用状态", type: "boolean" },
+        { name: "remark", label: "备注", type: "textarea" },
+      ]}
+    />
+  )
+}
+
+export function DevicePointsPage() {
+  return (
+    <CrudDataPage
+      title="设备测点"
+      description="维护设备测点定义和基础告警阈值。"
+      endpoint="/api/data/device-points"
+      queryKey={["data", "device-points"]}
+      columns={[
+        { key: "device_name", label: "设备" },
+        { key: "point_code", label: "测点编码" },
+        { key: "point_name", label: "测点名称" },
+        { key: "unit", label: "单位" },
+        { key: "value_type", label: "值类型" },
+        { key: "is_alarm_enabled", label: "告警", render: (row) => (row.is_alarm_enabled ? "启用" : "关闭") },
+      ]}
+      fields={[
+        { name: "device_id", label: "设备ID", type: "number", required: true },
+        { name: "point_code", label: "测点编码", required: true },
+        { name: "point_name", label: "测点名称", required: true },
+        { name: "unit", label: "单位" },
+        {
+          name: "value_type",
+          label: "值类型",
+          type: "select",
+          options: [
+            { label: "浮点数", value: "float" },
+            { label: "整数", value: "int" },
+            { label: "布尔", value: "bool" },
+            { label: "字符串", value: "string" },
+            { label: "枚举", value: "enum" },
+          ],
+        },
+        { name: "source_field", label: "来源字段" },
+        { name: "sampling_interval_seconds", label: "采样周期(秒)", type: "number" },
+        { name: "is_enabled", label: "启用", type: "boolean" },
+        { name: "is_alarm_enabled", label: "告警启用", type: "boolean" },
+        { name: "upper_limit", label: "上限", type: "number" },
+        { name: "lower_limit", label: "下限", type: "number" },
+        { name: "remark", label: "备注", type: "textarea" },
+      ]}
     />
   )
 }
@@ -641,12 +739,27 @@ export function WarningRulesPage() {
       queryKey={["data", "warning-rules"]}
       columns={[
         { key: "name", label: "规则名称" },
+        { key: "alarm_name", label: "告警名称" },
         { key: "event_type", label: "事件类型" },
+        { key: "equipment_id", label: "设备ID" },
+        { key: "point_code", label: "测点编码" },
         { key: "table_name", label: "来源表/视图" },
         { key: "sector_id", label: "区域ID" },
       ]}
       fields={[
         { name: "name", label: "规则名称", required: true },
+        { name: "alarm_code", label: "告警编码" },
+        { name: "alarm_name", label: "告警名称" },
+        {
+          name: "alarm_level",
+          label: "告警等级",
+          type: "select",
+          options: [
+            { label: "提示", value: "info" },
+            { label: "预警", value: "warning" },
+            { label: "严重", value: "critical" },
+          ],
+        },
         {
           name: "event_type",
           label: "事件类型",
@@ -659,7 +772,10 @@ export function WarningRulesPage() {
           ],
         },
         { name: "sector_id", label: "区域ID", type: "number" },
+        { name: "equipment_id", label: "设备ID", type: "number" },
+        { name: "point_code", label: "测点编码" },
         { name: "table_name", label: "来源表/视图" },
+        { name: "is_enabled", label: "启用", type: "boolean" },
         { name: "range_val", label: "阈值 JSON", type: "json" },
         { name: "description", label: "说明", type: "textarea" },
       ]}
@@ -782,14 +898,16 @@ export function EventWorkbenchPage({ title, endpoint, queryKey, video = false }:
                 )}
                 {(query.data?.items ?? []).map((row) => (
                   <TableRow key={String(row.id)}>
-                    <TableCell>{display(row.event_type)}</TableCell>
+                    <TableCell>{display(row.alarm_name) || display(row.event_type)}</TableCell>
                     <TableCell className="max-w-[520px] whitespace-normal">{display(row.event_desc)}</TableCell>
                     <TableCell>{display(row.event_time)}</TableCell>
                     <TableCell>
-                      <Badge variant={row.is_handle ? "secondary" : "destructive"}>{row.is_handle ? "已处理" : "未处理"}</Badge>
+                      <Badge variant={row.status === "resolved" || row.is_handle ? "secondary" : row.alarm_level === "critical" ? "destructive" : "outline"}>
+                        {display(row.status) || (row.is_handle ? "resolved" : "open")}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="secondary" onClick={() => row.id && handleOne.mutate(row.id)} disabled={row.is_handle === true || handleOne.isPending}>
+                      <Button size="sm" variant="secondary" onClick={() => row.id && handleOne.mutate(row.id)} disabled={row.is_handle === true || row.status === "resolved" || handleOne.isPending}>
                         处理
                       </Button>
                     </TableCell>

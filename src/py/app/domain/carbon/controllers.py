@@ -28,6 +28,8 @@ from app.domain.carbon.deps import (
     provide_ammeter_index_value_service,
     provide_api_result_key_mapping_service,
     provide_carbon_audit_log_service,
+    provide_device_point_service,
+    provide_device_type_service,
     provide_emission_factor_service,
     provide_employee_commute_service,
     provide_energy_storage_value_service,
@@ -72,6 +74,57 @@ SOURCE_KIND_DEMO_SEED = "demo_seed"
 SOURCE_KIND_FALLBACK = "raw_meter_fallback"
 SOURCE_KIND_ESTIMATE = "historical_estimate"
 DEMO_SEED_MARKER = "[demo_seed]"
+DEVICE_TYPE_ID_TO_CODE = {
+    1: "meter",
+    2: "pv_inverter",
+    3: "storage_bms",
+    4: "charger",
+    5: "forklift",
+    6: "crane",
+    7: "weighbridge",
+    8: "automation_equipment",
+    9: "camera",
+}
+DEVICE_TYPE_CODE_TO_ID = {code: identifier for identifier, code in DEVICE_TYPE_ID_TO_CODE.items()}
+CATEGORY_TO_DEVICE_TYPE_ID = {0: DEVICE_TYPE_CODE_TO_ID["meter"], 1: DEVICE_TYPE_CODE_TO_ID["pv_inverter"], 2: DEVICE_TYPE_CODE_TO_ID["camera"]}
+DEVICE_TYPE_ID_TO_CATEGORY = {value: key for key, value in CATEGORY_TO_DEVICE_TYPE_ID.items()}
+DEFAULT_DEVICE_POINT_TEMPLATES: dict[str, list[dict[str, Any]]] = {
+    "meter": [
+        {"point_code": "active_power", "point_name": "有功功率", "unit": "kW", "value_type": "float", "source_field": "active_power", "is_alarm_enabled": True},
+        {"point_code": "voltage_a", "point_name": "A相电压", "unit": "V", "value_type": "float", "source_field": "voltage_a"},
+        {"point_code": "current_a", "point_name": "A相电流", "unit": "A", "value_type": "float", "source_field": "current_a"},
+        {"point_code": "total_energy", "point_name": "累计电量", "unit": "kWh", "value_type": "float", "source_field": "total_energy"},
+    ],
+    "pv_inverter": [
+        {"point_code": "power_kw", "point_name": "发电功率", "unit": "kW", "value_type": "float", "source_field": "power_kw", "is_alarm_enabled": True},
+        {"point_code": "daily_energy_kwh", "point_name": "日发电量", "unit": "kWh", "value_type": "float", "source_field": "daily_energy_kwh"},
+        {"point_code": "cumulative_energy_kwh", "point_name": "累计发电量", "unit": "kWh", "value_type": "float", "source_field": "cumulative_energy_kwh"},
+    ],
+    "storage_bms": [
+        {"point_code": "soc", "point_name": "SOC", "unit": "%", "value_type": "float", "source_field": "soc", "is_alarm_enabled": True},
+        {"point_code": "soh", "point_name": "SOH", "unit": "%", "value_type": "float", "source_field": "soh"},
+        {"point_code": "charge_power_kw", "point_name": "充电功率", "unit": "kW", "value_type": "float", "source_field": "charge_power_kw"},
+        {"point_code": "discharge_power_kw", "point_name": "放电功率", "unit": "kW", "value_type": "float", "source_field": "discharge_power_kw"},
+        {"point_code": "temperature_c", "point_name": "温度", "unit": "℃", "value_type": "float", "source_field": "temperature_c"},
+    ],
+    "charger": [
+        {"point_code": "status", "point_name": "充电状态", "unit": None, "value_type": "enum", "source_field": "status", "is_alarm_enabled": True},
+        {"point_code": "power_kw", "point_name": "充电功率", "unit": "kW", "value_type": "float", "source_field": "power_kw"},
+        {"point_code": "session_energy_kwh", "point_name": "本次充电量", "unit": "kWh", "value_type": "float", "source_field": "session_energy_kwh"},
+        {"point_code": "cumulative_energy_kwh", "point_name": "累计充电量", "unit": "kWh", "value_type": "float", "source_field": "cumulative_energy_kwh"},
+    ],
+}
+DEFAULT_DEVICE_TYPES: tuple[dict[str, Any], ...] = (
+    {"id": 1, "code": "meter", "name": "电表", "energy_type": "electricity", "is_energy_device": True, "default_protocol": "http_yunji"},
+    {"id": 2, "code": "pv_inverter", "name": "光伏逆变器", "energy_type": "electricity", "is_energy_device": True, "default_protocol": "mqtt"},
+    {"id": 3, "code": "storage_bms", "name": "储能 BMS", "energy_type": "electricity", "is_energy_device": True, "default_protocol": "mqtt"},
+    {"id": 4, "code": "charger", "name": "充电桩", "energy_type": "electricity", "is_energy_device": True, "default_protocol": "mqtt"},
+    {"id": 5, "code": "forklift", "name": "叉车", "energy_type": "diesel", "is_special_equipment": True},
+    {"id": 6, "code": "crane", "name": "起重设备", "energy_type": "electricity", "is_special_equipment": True},
+    {"id": 7, "code": "weighbridge", "name": "地磅", "energy_type": "electricity", "is_special_equipment": True},
+    {"id": 8, "code": "automation_equipment", "name": "自动化设备", "energy_type": "electricity"},
+    {"id": 9, "code": "camera", "name": "摄像头", "default_protocol": "rtsp"},
+)
 
 
 def _handle_db_view_error(_request: Any, exc: Exception) -> Response[dict[str, Any]]:
@@ -985,6 +1038,116 @@ def _coerce_datetime_fields(data: dict[str, Any], fields: list[str]) -> None:
                     data[field] = datetime.datetime.combine(datetime.date.fromisoformat(val), datetime.time.min)
                 except ValueError:
                     pass
+
+
+def _coerce_int_fields(data: dict[str, Any], fields: list[str]) -> None:
+    for field in fields:
+        val = data.get(field)
+        if isinstance(val, str) and val.strip():
+            try:
+                data[field] = int(val)
+            except ValueError:
+                pass
+
+
+def _coerce_float_fields(data: dict[str, Any], fields: list[str]) -> None:
+    for field in fields:
+        val = data.get(field)
+        if isinstance(val, str) and val.strip():
+            try:
+                data[field] = float(val)
+            except ValueError:
+                pass
+
+
+def _sync_monitor_equipment_type_fields(data: dict[str, Any]) -> None:
+    device_type_id = data.get("device_type_id")
+    category = data.get("category")
+    if isinstance(device_type_id, str) and device_type_id.strip():
+        try:
+            device_type_id = data["device_type_id"] = int(device_type_id)
+        except ValueError:
+            device_type_id = None
+    if isinstance(category, str) and category.strip():
+        try:
+            category = data["category"] = int(category)
+        except ValueError:
+            category = None
+
+    if device_type_id is not None and "category" not in data:
+        mapped_category = DEVICE_TYPE_ID_TO_CATEGORY.get(device_type_id)
+        if mapped_category is not None:
+            data["category"] = mapped_category
+    elif category is not None and "device_type_id" not in data:
+        mapped_device_type_id = CATEGORY_TO_DEVICE_TYPE_ID.get(category)
+        if mapped_device_type_id is not None:
+            data["device_type_id"] = mapped_device_type_id
+
+
+def _sync_monitor_equipment_identifier_fields(data: dict[str, Any]) -> None:
+    asset_code = data.get("asset_code")
+    external_device_id = data.get("external_device_id")
+    code = data.get("code")
+
+    if isinstance(asset_code, str):
+        asset_code = asset_code.strip() or None
+        data["asset_code"] = asset_code
+    if isinstance(external_device_id, str):
+        external_device_id = external_device_id.strip() or None
+        data["external_device_id"] = external_device_id
+    if isinstance(code, str):
+        code = code.strip() or None
+        data["code"] = code
+
+    if not external_device_id and code:
+        data["external_device_id"] = code
+
+
+async def _ensure_default_device_points(db_session: AsyncSession, equipment: m.MonitorEquipment) -> None:
+    device_type_id = equipment.device_type_id
+    if device_type_id is None:
+        return
+    device_type_code = DEVICE_TYPE_ID_TO_CODE.get(device_type_id)
+    if not device_type_code:
+        return
+    templates = DEFAULT_DEVICE_POINT_TEMPLATES.get(device_type_code)
+    if not templates:
+        return
+
+    existing_codes = {
+        row[0]
+        for row in (
+            await db_session.execute(
+                select(m.DevicePoint.point_code).where(m.DevicePoint.device_id == equipment.id)
+            )
+        ).all()
+    }
+    for template in templates:
+        if template["point_code"] in existing_codes:
+            continue
+        db_session.add(
+            m.DevicePoint(
+                device_id=equipment.id,
+                point_code=template["point_code"],
+                point_name=template["point_name"],
+                unit=template["unit"],
+                value_type=template["value_type"],
+                source_field=template["source_field"],
+                sampling_interval_seconds=300,
+                is_enabled=True,
+                is_alarm_enabled=template.get("is_alarm_enabled", False),
+            )
+        )
+
+
+async def _ensure_default_device_types(db_session: AsyncSession) -> None:
+    existing_codes = set((await db_session.execute(select(m.DeviceType.code))).scalars().all())
+    missing = [item for item in DEFAULT_DEVICE_TYPES if item["code"] not in existing_codes]
+    if not missing:
+        return
+    for item in missing:
+        db_session.add(m.DeviceType(**item))
+    await db_session.commit()
 
 
 def _matches_keyword(row: dict[str, Any], keyword: str | None, fields: list[str]) -> bool:
@@ -4180,6 +4343,8 @@ class CarbonCRUDController(Controller):
         "monitor_sector_service": provide_monitor_sector_service,
         "monitor_sector_photo_service": provide_monitor_sector_photo_service,
         "monitor_equipment_service": provide_monitor_equipment_service,
+        "device_type_service": provide_device_type_service,
+        "device_point_service": provide_device_point_service,
         "video_monitor_service": provide_video_monitor_service,
         "warning_rule_service": provide_warning_rule_service,
         "alarm_event_service": provide_alarm_event_service,
@@ -5568,7 +5733,38 @@ class CarbonCRUDController(Controller):
         if filters:
             stmt = stmt.where(*filters)
         items = (await db_session.execute(stmt)).scalars().all()
-        return Response(content={"code": 200, "data": [model_to_dict(i) for i in items]})
+        telemetry_rows = [model_to_dict(i) for i in items]
+        device_ids = {row["device_id"] for row in telemetry_rows if row.get("device_id")}
+        equipment_map: dict[str, dict[str, Any]] = {}
+        if device_ids:
+            matched = (
+                await db_session.execute(
+                    select(
+                        m.MonitorEquipment.id,
+                        m.MonitorEquipment.code,
+                        m.MonitorEquipment.name,
+                        m.MonitorEquipment.external_device_id,
+                        m.MonitorEquipment.asset_code,
+                    ).where(
+                        or_(
+                            m.MonitorEquipment.external_device_id.in_(device_ids),
+                            m.MonitorEquipment.code.in_(device_ids),
+                        )
+                    )
+                )
+            ).all()
+            for equipment_id, code, name, external_device_id, asset_code in matched:
+                for key in {external_device_id, code} - {None}:
+                    equipment_map[str(key)] = {
+                        "equipment_id": equipment_id,
+                        "equipment_code": code,
+                        "equipment_name": name,
+                        "asset_code": asset_code,
+                        "external_device_id": external_device_id or code,
+                    }
+        for row in telemetry_rows:
+            row.update(equipment_map.get(str(row.get("device_id")), {}))
+        return Response(content={"code": 200, "data": telemetry_rows})
 
     @get("/api/carbon/audit-logs", exclude_from_auth=True)
     async def list_carbon_audit_logs(
@@ -6070,6 +6266,60 @@ class CarbonCRUDController(Controller):
         await db_session.commit()
         return Response(content={"code": 200, "msg": "已删除"})
 
+    @get("/api/data/device-types", exclude_from_auth=True)
+    async def list_device_types(
+        self,
+        db_session: AsyncSession,
+        device_type_service: services.DeviceTypeService,
+        keyword: str | None = None,
+        search: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+        sort_field: str = "id",
+        sort_order: str = "asc",
+    ) -> Response[dict]:
+        await _ensure_default_device_types(db_session)
+        page = await _list_page(
+            device_type_service,
+            m.DeviceType,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["code", "name", "parent_code", "energy_type", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+        )
+        return Response(content=page)
+
+    @post("/api/data/device-types", exclude_from_auth=True)
+    async def create_device_type(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        await _ensure_default_device_types(db_session)
+        obj = m.DeviceType(**_payload_without_none(data))
+        db_session.add(obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
+
+    @patch("/api/data/device-types/{record_id:int}", exclude_from_auth=True)
+    async def update_device_type(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        obj = await db_session.get(m.DeviceType, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        for field, value in _payload_without_none(data).items():
+            setattr(obj, field, value)
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "更新成功"})
+
+    @delete("/api/data/device-types/{record_id:int}", exclude_from_auth=True, status_code=200)
+    async def delete_device_type(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+        obj = await db_session.get(m.DeviceType, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        await db_session.delete(obj)
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "已删除"})
+
     @get("/api/data/monitor-equipments", exclude_from_auth=True)
     async def list_monitor_equipments(
         self,
@@ -6079,6 +6329,7 @@ class CarbonCRUDController(Controller):
         search: str | None = None,
         sector_id: int | None = None,
         category: int | None = None,
+        device_type_id: int | None = None,
         limit: int = 20,
         offset: int = 0,
         sort_field: str = "id",
@@ -6089,6 +6340,8 @@ class CarbonCRUDController(Controller):
             conditions.append(m.MonitorEquipment.sector_id == sector_id)
         if category is not None:
             conditions.append(m.MonitorEquipment.category == category)
+        if device_type_id is not None:
+            conditions.append(m.MonitorEquipment.device_type_id == device_type_id)
         page = await _list_page(
             monitor_equipment_service,
             m.MonitorEquipment,
@@ -6096,42 +6349,157 @@ class CarbonCRUDController(Controller):
             offset=offset,
             search=search,
             keyword=keyword,
-            search_fields=["code", "name", "code2", "supplier", "location"],
+            search_fields=["code", "name", "external_device_id", "supplier", "location", "asset_code", "model", "manufacturer", "warehouse_name", "warehouse_code"],
             sort_field=sort_field,
             sort_order=sort_order,
             conditions=conditions,
         )
         sector_ids = [row["sector_id"] for row in page["items"] if row.get("sector_id") is not None]
+        device_type_ids = [row["device_type_id"] for row in page["items"] if row.get("device_type_id") is not None]
         if sector_ids:
             sectors = (await db_session.execute(select(m.MonitorSector.id, m.MonitorSector.name).where(m.MonitorSector.id.in_(sector_ids)))).all()
             sector_names = dict(sectors)
             for row in page["items"]:
                 row["sector_name"] = sector_names.get(row.get("sector_id"))
+        if device_type_ids:
+            device_types = (
+                await db_session.execute(select(m.DeviceType.id, m.DeviceType.code, m.DeviceType.name).where(m.DeviceType.id.in_(device_type_ids)))
+            ).all()
+            device_type_map = {identifier: {"device_type_code": code, "device_type_name": name} for identifier, code, name in device_types}
+            for row in page["items"]:
+                row.update(device_type_map.get(row.get("device_type_id"), {}))
+        for row in page["items"]:
+            if not row.get("external_device_id") and row.get("code"):
+                row["external_device_id"] = row["code"]
         return Response(content=page)
 
     @post("/api/data/monitor-equipments", exclude_from_auth=True)
     async def create_monitor_equipment(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
-        _coerce_datetime_fields(data, ["install_time"])
+        await _ensure_default_device_types(db_session)
+        _coerce_datetime_fields(data, ["install_time", "last_inspection_at", "inspection_due_at"])
+        _coerce_int_fields(data, ["sector_id", "device_type_id", "category", "sort_index"])
+        _coerce_float_fields(data, ["rated_power_kw"])
+        _sync_monitor_equipment_type_fields(data)
+        _sync_monitor_equipment_identifier_fields(data)
         obj = m.MonitorEquipment(**_payload_without_none(data))
         db_session.add(obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        await _ensure_default_device_points(db_session, obj)
         await db_session.commit()
         await db_session.refresh(obj)
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
     @patch("/api/data/monitor-equipments/{record_id:int}", exclude_from_auth=True)
     async def update_monitor_equipment(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        await _ensure_default_device_types(db_session)
         obj = await db_session.get(m.MonitorEquipment, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        _coerce_datetime_fields(data, ["install_time"])
+        _coerce_datetime_fields(data, ["install_time", "last_inspection_at", "inspection_due_at"])
+        _coerce_int_fields(data, ["sector_id", "device_type_id", "category", "sort_index"])
+        _coerce_float_fields(data, ["rated_power_kw"])
+        _sync_monitor_equipment_type_fields(data)
+        _sync_monitor_equipment_identifier_fields(data)
         for field, value in _payload_without_none(data).items():
             setattr(obj, field, value)
+        await _ensure_default_device_points(db_session, obj)
         await db_session.commit()
         return Response(content={"code": 200, "msg": "更新成功"})
 
     @delete("/api/data/monitor-equipments/{record_id:int}", exclude_from_auth=True, status_code=200)
     async def delete_monitor_equipment(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
         obj = await db_session.get(m.MonitorEquipment, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        await db_session.delete(obj)
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "已删除"})
+
+    @get("/api/data/device-points", exclude_from_auth=True)
+    async def list_device_points(
+        self,
+        db_session: AsyncSession,
+        device_point_service: services.DevicePointService,
+        keyword: str | None = None,
+        search: str | None = None,
+        device_id: int | None = None,
+        limit: int = 50,
+        offset: int = 0,
+        sort_field: str = "id",
+        sort_order: str = "desc",
+    ) -> Response[dict]:
+        conditions = []
+        if device_id is not None:
+            conditions.append(m.DevicePoint.device_id == device_id)
+        page = await _list_page(
+            device_point_service,
+            m.DevicePoint,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["point_code", "point_name", "unit", "value_type", "source_field", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        device_ids = [row["device_id"] for row in page["items"] if row.get("device_id") is not None]
+        if device_ids:
+            devices = (
+                await db_session.execute(select(m.MonitorEquipment.id, m.MonitorEquipment.code, m.MonitorEquipment.name).where(m.MonitorEquipment.id.in_(device_ids)))
+            ).all()
+            device_map = {identifier: {"device_code": code, "device_name": name} for identifier, code, name in devices}
+            for row in page["items"]:
+                row.update(device_map.get(row.get("device_id"), {}))
+        return Response(content=page)
+
+    @post("/api/data/device-points", exclude_from_auth=True)
+    async def create_device_point(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        _coerce_int_fields(data, ["device_id", "sampling_interval_seconds"])
+        _coerce_float_fields(data, ["upper_limit", "lower_limit"])
+        payload = _payload_without_none(data)
+        exists = await db_session.scalar(
+            select(m.DevicePoint.id).where(
+                m.DevicePoint.device_id == payload.get("device_id"),
+                m.DevicePoint.point_code == payload.get("point_code"),
+            )
+        )
+        if exists is not None:
+            return Response(content={"code": 400, "msg": "同一设备下测点编码不能重复"}, status_code=400)
+        obj = m.DevicePoint(**payload)
+        db_session.add(obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
+
+    @patch("/api/data/device-points/{record_id:int}", exclude_from_auth=True)
+    async def update_device_point(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        obj = await db_session.get(m.DevicePoint, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        _coerce_int_fields(data, ["device_id", "sampling_interval_seconds"])
+        _coerce_float_fields(data, ["upper_limit", "lower_limit"])
+        payload = _payload_without_none(data)
+        next_device_id = payload.get("device_id", obj.device_id)
+        next_point_code = payload.get("point_code", obj.point_code)
+        exists = await db_session.scalar(
+            select(m.DevicePoint.id).where(
+                m.DevicePoint.device_id == next_device_id,
+                m.DevicePoint.point_code == next_point_code,
+                m.DevicePoint.id != obj.id,
+            )
+        )
+        if exists is not None:
+            return Response(content={"code": 400, "msg": "同一设备下测点编码不能重复"}, status_code=400)
+        for field, value in payload.items():
+            setattr(obj, field, value)
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "更新成功"})
+
+    @delete("/api/data/device-points/{record_id:int}", exclude_from_auth=True, status_code=200)
+    async def delete_device_point(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+        obj = await db_session.get(m.DevicePoint, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         await db_session.delete(obj)
@@ -6201,6 +6569,7 @@ class CarbonCRUDController(Controller):
         keyword: str | None = None,
         search: str | None = None,
         event_type: int | None = None,
+        equipment_id: int | None = None,
         limit: int = 20,
         offset: int = 0,
         sort_field: str = "id",
@@ -6209,6 +6578,8 @@ class CarbonCRUDController(Controller):
         conditions = []
         if event_type is not None:
             conditions.append(m.WarningRule.event_type == event_type)
+        if equipment_id is not None:
+            conditions.append(m.WarningRule.equipment_id == equipment_id)
         page = await _list_page(
             warning_rule_service,
             m.WarningRule,
@@ -6216,7 +6587,7 @@ class CarbonCRUDController(Controller):
             offset=offset,
             search=search,
             keyword=keyword,
-            search_fields=["name", "description", "table_name"],
+            search_fields=["name", "description", "table_name", "alarm_code", "alarm_name", "point_code"],
             sort_field=sort_field,
             sort_order=sort_order,
             conditions=conditions,
@@ -6225,6 +6596,7 @@ class CarbonCRUDController(Controller):
 
     @post("/api/data/warning-rules", exclude_from_auth=True)
     async def create_warning_rule(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        _coerce_int_fields(data, ["event_type", "sector_id", "equipment_id"])
         obj = m.WarningRule(**_payload_without_none(data))
         db_session.add(obj)
         await db_session.commit()
@@ -6236,6 +6608,7 @@ class CarbonCRUDController(Controller):
         obj = await db_session.get(m.WarningRule, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        _coerce_int_fields(data, ["event_type", "sector_id", "equipment_id"])
         for field, value in _payload_without_none(data).items():
             setattr(obj, field, value)
         await db_session.commit()
@@ -6328,6 +6701,7 @@ class CarbonCRUDController(Controller):
         search: str | None = None,
         event_type: int | None = None,
         is_handle: bool | None = None,
+        status: str | None = None,
         limit: int = 20,
         offset: int = 0,
         sort_field: str = "event_time",
@@ -6338,6 +6712,8 @@ class CarbonCRUDController(Controller):
             conditions.append(m.AlarmEvent.event_type == event_type)
         if is_handle is not None:
             conditions.append(m.AlarmEvent.is_handle == is_handle)
+        if status:
+            conditions.append(m.AlarmEvent.status == status)
         page = await _list_page(
             alarm_event_service,
             m.AlarmEvent,
@@ -6345,18 +6721,39 @@ class CarbonCRUDController(Controller):
             offset=offset,
             search=search,
             keyword=keyword,
-            search_fields=["event_desc"],
+            search_fields=["event_desc", "alarm_code", "alarm_name", "point_code", "status"],
             sort_field=sort_field,
             sort_order=sort_order,
             conditions=conditions,
         )
         return Response(content=page)
 
+    @patch("/api/data/alarm-events/{record_id:int}", exclude_from_auth=True)
+    async def update_alarm_event(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+        obj = await db_session.get(m.AlarmEvent, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        _coerce_datetime_fields(data, ["event_time", "resolved_at"])
+        _coerce_int_fields(data, ["event_type", "sector_id", "equipment_id"])
+        _coerce_float_fields(data, ["current_value", "threshold_value"])
+        payload = _payload_without_none(data)
+        for field, value in payload.items():
+            setattr(obj, field, value)
+        if obj.status == "resolved":
+            obj.is_handle = True
+            obj.resolved_at = obj.resolved_at or datetime.datetime.utcnow()
+        elif obj.status:
+            obj.is_handle = obj.status != "open"
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "更新成功"})
+
     @post("/api/data/alarm-events/{record_id:int}/handle", exclude_from_auth=True)
     async def handle_alarm_event(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
         obj = await db_session.get(m.AlarmEvent, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        obj.status = "resolved"
+        obj.resolved_at = datetime.datetime.utcnow()
         obj.is_handle = True
         await db_session.commit()
         return Response(content={"code": 200, "msg": "已处理"})
@@ -6369,6 +6766,8 @@ class CarbonCRUDController(Controller):
             stmt = stmt.where(m.AlarmEvent.id.in_(ids))
         items = (await db_session.execute(stmt)).scalars().all()
         for item in items:
+            item.status = "resolved"
+            item.resolved_at = item.resolved_at or datetime.datetime.utcnow()
             item.is_handle = True
         await db_session.commit()
         return Response(content={"code": 200, "msg": "已批量处理", "data": {"count": len(items)}})

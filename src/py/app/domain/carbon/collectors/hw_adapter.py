@@ -111,7 +111,10 @@ class HwAdapter(IDataCollector):
                     status = 0 if obj["relay_state"] == "1" else 1
                     await db_session.execute(
                         m.MonitorEquipment.__table__.update()
-                        .where(m.MonitorEquipment.code == obj["address"])
+                        .where(
+                            (m.MonitorEquipment.external_device_id == obj["address"]) |
+                            (m.MonitorEquipment.code == obj["address"])
+                        )
                         .values(status=status, trip_state=status)
                     )
                 await db_session.commit()

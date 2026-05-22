@@ -31,12 +31,32 @@ class MonitorSectorService(CompositeServiceMixin, service.SQLAlchemyAsyncReposit
     repository_type = Repo
 
 
+class DeviceTypeService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.DeviceType]):
+    """Handles database operations for DeviceType."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.DeviceType]):
+        """DeviceType SQLAlchemy Repository."""
+        model_type = m.DeviceType
+
+    repository_type = Repo
+
+
 class MonitorEquipmentService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.MonitorEquipment]):
     """Handles database operations for MonitorEquipment."""
 
     class Repo(repository.SQLAlchemyAsyncRepository[m.MonitorEquipment]):
         """MonitorEquipment SQLAlchemy Repository."""
         model_type = m.MonitorEquipment
+
+    repository_type = Repo
+
+
+class DevicePointService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.DevicePoint]):
+    """Handles database operations for DevicePoint."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.DevicePoint]):
+        """DevicePoint SQLAlchemy Repository."""
+        model_type = m.DevicePoint
 
     repository_type = Repo
 

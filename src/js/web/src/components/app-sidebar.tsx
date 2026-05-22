@@ -42,7 +42,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }, [isError, isLoading, setTeams, storeIds, teamIds, teamsData])
 
   const navMain = useMemo(() => {
-    const items = [
+    const items: React.ComponentProps<typeof NavMain>["items"] = [
       {
         title: "首页",
         to: "/platform",
@@ -113,12 +113,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         isActive:
           pathname.startsWith("/data/monitor-area") ||
           pathname.startsWith("/data/terminals") ||
+          pathname.startsWith("/data/device-types") ||
+          pathname.startsWith("/data/device-points") ||
           pathname.startsWith("/data/meter") ||
           pathname.startsWith("/data/video") ||
           pathname.startsWith("/carbon-mgmt/iot"),
         items: [
           { title: "监测区域", to: "/data/monitor-area" },
           { title: "监控终端", to: "/data/terminals" },
+          { title: "设备类型", to: "/data/device-types" },
+          { title: "设备测点", to: "/data/device-points" },
           { title: "电表电量", to: "/data/meter" },
           { title: "视频监控", to: "/data/video" },
           { title: "IoT时序数据", to: "/carbon-mgmt/iot" },

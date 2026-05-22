@@ -32,7 +32,7 @@ async def pull_yunji_data(_: Context) -> None:
     """定时拉取云集平台电量数值。"""
     async with alchemy.get_session() as session:
         # 获取需要拉取的电表代码
-        stmt = select(m.MonitorEquipment.code).where(
+        stmt = select(func.coalesce(m.MonitorEquipment.external_device_id, m.MonitorEquipment.code)).where(
             m.MonitorEquipment.supplier == "yj",
             m.MonitorEquipment.status == 0
         )

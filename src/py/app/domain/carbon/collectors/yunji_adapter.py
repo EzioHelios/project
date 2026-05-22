@@ -106,7 +106,7 @@ class YunjiAdapter(IDataCollector):
     async def sync_device_status(self, db_session: AsyncSession):
         """同步设备状态"""
         # 获取开启的云集设备
-        stmt = select(m.MonitorEquipment.code).where(
+        stmt = select(func.coalesce(m.MonitorEquipment.external_device_id, m.MonitorEquipment.code)).where(
             m.MonitorEquipment.supplier == "yj",
             m.MonitorEquipment.is_enable == True
         )
@@ -124,7 +124,10 @@ class YunjiAdapter(IDataCollector):
                     status = 0 if obj["OnlineState"] else 1
                     await db_session.execute(
                         m.MonitorEquipment.__table__.update()
-                        .where(m.MonitorEquipment.code == obj["Address"])
+                        .where(
+                            (m.MonitorEquipment.external_device_id == obj["Address"]) |
+                            (m.MonitorEquipment.code == obj["Address"])
+                        )
                         .values(status=status, trip_state=obj["TripState"])
                     )
                 await db_session.commit()
