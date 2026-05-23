@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { BigscreenBarChart, BigscreenLineChart, BigscreenPieChart, BigscreenSankeyChart } from "@/components/bigscreen/charts"
+import { BigscreenBarChart, BigscreenLineChart, BigscreenSankeyChart } from "@/components/bigscreen/charts"
+import { EnergyAssetOverviewPanel } from "@/components/bigscreen/custom/EnergyAssetOverviewPanel"
+import { TerminalStatusTriplet } from "@/components/bigscreen/custom/TerminalStatusTriplet"
 import { BigscreenScrollBoard } from "@/components/bigscreen/motion"
-import { BigscreenInfoCard, BigscreenMetricCard, BigscreenPanel } from "@/components/bigscreen/panel"
+import { BigscreenPanel } from "@/components/bigscreen/panel"
 import { type BigscreenSceneAnchor, BigscreenSceneHost } from "@/components/bigscreen/scene"
 import { useBigscreenPower } from "@/lib/bigscreen/hooks"
 
@@ -57,15 +59,35 @@ function BigscreenPowerPage() {
   return (
     <div className="bigscreen-page">
       <div className="bigscreen-side-stack">
-        <BigscreenPanel title="运行指标" eyebrow="Terminal Status" frame="tall">
-          <div className="bigscreen-kpi-grid" data-columns="1">
-            {(power?.hero_metrics ?? []).map((metric, index) => (
-              <BigscreenMetricCard key={metric.id} metric={metric} tone={index === 0 ? "emerald" : index === 1 ? "cyan" : "amber"} compact />
-            ))}
-          </div>
+        <BigscreenPanel title="运行指标" frame="tall">
+          <TerminalStatusTriplet
+            items={[
+              {
+                id: "power-total",
+                label: power?.hero_metrics?.[1]?.label ?? "终端总量",
+                value: power?.hero_metrics?.[1]?.value ?? 0,
+                unit: power?.hero_metrics?.[1]?.unit,
+                kind: "total",
+              },
+              {
+                id: "power-online",
+                label: power?.hero_metrics?.[0]?.label ?? "在线终端",
+                value: power?.hero_metrics?.[0]?.value ?? 0,
+                unit: power?.hero_metrics?.[0]?.unit,
+                kind: "online",
+              },
+            ]}
+            family="power"
+            summary={{
+              label: power?.hero_metrics?.[2]?.label ?? "最新账期总电量",
+              value: power?.hero_metrics?.[2]?.value ?? 0,
+              unit: power?.hero_metrics?.[2]?.unit,
+              detail: "电表总览摘要",
+            }}
+          />
         </BigscreenPanel>
 
-        <BigscreenPanel title="用电预警滚动榜" eyebrow="Alert Feed" frame="tall">
+        <BigscreenPanel title="用电预警滚动榜" frame="tall">
           <BigscreenScrollBoard
             rows={alertRows}
             headers={["级别", "事件", "时间"]}
@@ -96,15 +118,15 @@ function BigscreenPowerPage() {
         />
 
         <div className="bigscreen-bottom-grid" data-columns="3">
-          <BigscreenPanel title="区域电量流图" eyebrow="Flow Path" frame="wide">
+          <BigscreenPanel title="区域电量流图" frame="wide">
             <BigscreenSankeyChart flow={power?.energy_flow ?? { title: "区域用电流图", nodes: [], links: [] }} height={168} />
           </BigscreenPanel>
 
-          <BigscreenPanel title="账期电量趋势" eyebrow="Time Series" frame="wide">
+          <BigscreenPanel title="账期电量趋势" frame="wide">
             <BigscreenLineChart points={power?.energy_timeseries ?? []} height={168} mode="single" />
           </BigscreenPanel>
 
-          <BigscreenPanel title="重点回路观察" eyebrow="Hot Feed" frame="wide">
+          <BigscreenPanel title="重点回路观察" frame="wide">
             <div className="bigscreen-stack">
               {power?.energy_ranking?.slice(0, 4).map((item, index) => (
                 <div key={item.name} className="bigscreen-list-card flex items-center justify-between gap-3 px-4 py-3">
@@ -121,22 +143,19 @@ function BigscreenPowerPage() {
       </div>
 
       <div className="bigscreen-side-stack">
-        <BigscreenPanel title="用电结构" eyebrow="Load Structure" frame="tall">
-          <BigscreenPieChart items={power?.energy_structure ?? []} height={238} />
-          <div className="mt-4 grid gap-2">
-            {power?.energy_structure?.slice(0, 3).map((item, index) => (
-              <BigscreenInfoCard
-                key={item.name}
-                label={`Structure ${index + 1}`}
-                value={item.name}
-                accent={index === 0 ? "cyan" : index === 1 ? "emerald" : "amber"}
-                detail={`${item.value.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} kWh`}
-              />
-            ))}
-          </div>
+        <BigscreenPanel title="用电结构" frame="tall">
+          <EnergyAssetOverviewPanel
+            kind="consumption"
+            metrics={(power?.energy_structure ?? []).slice(0, 5).map((item, index) => ({
+              label: index === 0 ? "重点区域用电" : item.name,
+              value: item.value,
+              unit: "kWh",
+              tone: index === 1 ? "emerald" : index === 2 ? "amber" : "cyan",
+            }))}
+          />
         </BigscreenPanel>
 
-        <BigscreenPanel title="用电排行" eyebrow="Meter Ranking" frame="tall">
+        <BigscreenPanel title="用电排行" frame="tall">
           <BigscreenBarChart items={power?.energy_ranking ?? []} unit="kWh" height={220} />
         </BigscreenPanel>
       </div>
