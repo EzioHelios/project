@@ -11,12 +11,10 @@ import { cn } from "@/lib/utils"
 
 export function BigscreenPanel(props: {
   title: string
-  eyebrow?: string
   children: React.ReactNode
   className?: string
   bodyClassName?: string
   style?: React.CSSProperties
-  headerExtra?: React.ReactNode
   frame?: BigscreenPanelFrame
 }) {
   const { title, children, className, bodyClassName, style, frame = "wide" } = props

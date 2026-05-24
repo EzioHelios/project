@@ -3,7 +3,7 @@ import type * as React from "react"
 import { useBigscreenSkin } from "@/components/bigscreen/skins/context"
 import { cn } from "@/lib/utils"
 
-export function PanelTitleBar({ title, className }: { title: string; eyebrow?: string; extra?: React.ReactNode; className?: string }) {
+export function PanelTitleBar({ title, className }: { title: string; className?: string }) {
   const skin = useBigscreenSkin()
 
   return (

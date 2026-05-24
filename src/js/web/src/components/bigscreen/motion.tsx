@@ -177,3 +177,147 @@ export function BigscreenScrollBoard<T>({
     </div>
   )
 }
+
+export function BigscreenVerticalTicker<T>({
+  items,
+  visibleItems = 4,
+  itemHeight = 42,
+  intervalMs = 2600,
+  emptyLabel,
+  className,
+  getItemKey,
+  renderItem,
+}: {
+  items: T[]
+  visibleItems?: number
+  itemHeight?: number
+  intervalMs?: number
+  emptyLabel: string
+  className?: string
+  getItemKey: (item: T, index: number) => string
+  renderItem: (item: T, index: number) => React.ReactNode
+}) {
+  const duplicatedItems = useMemo(() => {
+    if (items.length <= visibleItems) {
+      return items
+    }
+    return [...items, ...items]
+  }, [items, visibleItems])
+  const shouldAnimate = items.length > visibleItems
+  const [offset, setOffset] = useState(0)
+
+  useEffect(() => {
+    if (!shouldAnimate) {
+      setOffset(0)
+      return
+    }
+
+    const timer = window.setInterval(() => {
+      setOffset((current) => {
+        const next = current + 1
+        return next >= items.length ? 0 : next
+      })
+    }, intervalMs)
+
+    return () => window.clearInterval(timer)
+  }, [intervalMs, items.length, shouldAnimate])
+
+  if (items.length === 0) {
+    return <div className="bigscreen-empty-state flex h-full items-center justify-center text-sm text-white/42">{emptyLabel}</div>
+  }
+
+  return (
+    <div className={cn("bigscreen-vertical-ticker", className)}>
+      <div className="bigscreen-vertical-ticker-viewport" style={{ height: `${itemHeight * visibleItems}px` }}>
+        <div
+          className="bigscreen-vertical-ticker-track"
+          style={{
+            transform: `translateY(-${offset * itemHeight}px)`,
+            transition: shouldAnimate ? "transform 520ms ease" : undefined,
+          }}
+        >
+          {duplicatedItems.map((item, index) => (
+            <div
+              key={`${getItemKey(item, index % items.length)}-${Math.floor(index / items.length)}`}
+              className="bigscreen-vertical-ticker-item"
+              style={{ minHeight: `${itemHeight}px` }}
+            >
+              {renderItem(item, index % items.length)}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function BigscreenHighlightCycle<T>({
+  items,
+  intervalMs = 3200,
+  className,
+  getItemKey,
+  renderItem,
+}: {
+  items: T[]
+  intervalMs?: number
+  className?: string
+  getItemKey: (item: T, index: number) => string
+  renderItem: (item: T, index: number, isActive: boolean) => React.ReactNode
+}) {
+  const { activeIndex } = useAutoIndex(items.length, intervalMs)
+
+  return (
+    <div className={cn("bigscreen-highlight-cycle", className)}>
+      {items.map((item, index) => renderItem(item, index, index === activeIndex))}
+    </div>
+  )
+}
+
+export function BigscreenHorizontalPager<T>({
+  items,
+  intervalMs = 5200,
+  emptyLabel,
+  className,
+  getItemKey,
+  renderPage,
+}: {
+  items: T[]
+  intervalMs?: number
+  emptyLabel: string
+  className?: string
+  getItemKey: (item: T, index: number) => string
+  renderPage: (item: T, index: number, isActive: boolean) => React.ReactNode
+}) {
+  const { activeIndex } = useAutoIndex(items.length, intervalMs)
+
+  if (items.length === 0) {
+    return <div className="bigscreen-empty-state flex h-full items-center justify-center text-sm text-white/42">{emptyLabel}</div>
+  }
+
+  return (
+    <div className={cn("bigscreen-horizontal-pager", className)}>
+      <div className="bigscreen-horizontal-pager-viewport">
+        <div
+          className="bigscreen-horizontal-pager-track"
+          style={{
+            width: `${items.length * 100}%`,
+            transform: `translateX(-${activeIndex * (100 / items.length)}%)`,
+          }}
+        >
+          {items.map((item, index) => (
+            <div key={getItemKey(item, index)} className="bigscreen-horizontal-pager-page" style={{ width: `${100 / items.length}%` }}>
+              {renderPage(item, index, index === activeIndex)}
+            </div>
+          ))}
+        </div>
+      </div>
+      {items.length > 1 ? (
+        <div className="bigscreen-horizontal-pager-pagination" aria-hidden="true">
+          {items.map((item, index) => (
+            <span key={getItemKey(item, index)} className="bigscreen-horizontal-pager-dot" data-active={index === activeIndex} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}

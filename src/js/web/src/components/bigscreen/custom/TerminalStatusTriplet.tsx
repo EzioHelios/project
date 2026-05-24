@@ -8,7 +8,7 @@ import { BigscreenCountUp } from "@/components/bigscreen/motion"
 import { BigscreenEmpty } from "@/components/bigscreen/panel"
 import { cn } from "@/lib/utils"
 
-type TerminalStatusKind = "total" | "online" | "fault"
+type TerminalStatusKind = "total" | "online" | "fault" | "offline"
 
 export type TerminalStatusItem = {
   id: string
@@ -23,11 +23,13 @@ const iconMap = {
     total: totalGenerationIcon,
     online: onlineGenerationIcon,
     fault: faultGenerationIcon,
+    offline: totalGenerationIcon,
   },
   power: {
     total: totalPowerIcon,
     online: onlinePowerIcon,
     fault: faultPowerIcon,
+    offline: totalPowerIcon,
   },
 } as const
 
@@ -36,21 +38,23 @@ export function TerminalStatusTriplet({
   family = "power",
   summary,
   className,
+  variant = "default",
 }: {
   items: TerminalStatusItem[]
   family?: keyof typeof iconMap
   summary?: { label: string; value: number | string; unit?: string | null; detail?: string | null }
   className?: string
+  variant?: "default" | "dense"
 }) {
   if (!items.length) {
     return <BigscreenEmpty label="暂无终端状态数据" />
   }
 
   return (
-    <div className={cn("bigscreen-terminal-status", className)}>
+    <div className={cn("bigscreen-terminal-status", className)} data-variant={variant}>
       <div className="bigscreen-terminal-status-grid" data-columns={items.length}>
         {items.map((item) => (
-          <article key={item.id} className="bigscreen-terminal-status-item">
+          <article key={item.id} className="bigscreen-terminal-status-item" data-kind={item.kind}>
             <img className="bigscreen-terminal-status-icon" src={iconMap[family][item.kind]} alt="" aria-hidden="true" />
             <div className="bigscreen-terminal-status-copy">
               <div className="bigscreen-terminal-status-label">{item.label}</div>
@@ -63,7 +67,7 @@ export function TerminalStatusTriplet({
         ))}
       </div>
 
-      {summary ? (
+      {summary && items.length < 4 ? (
         <div className="bigscreen-terminal-status-summary">
           <div className="bigscreen-terminal-status-summary-label">{summary.label}</div>
           <div className="bigscreen-terminal-status-summary-main">
