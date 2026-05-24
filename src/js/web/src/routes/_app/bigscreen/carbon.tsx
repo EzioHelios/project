@@ -57,7 +57,7 @@ function BigscreenCarbonPage() {
   return (
     <div className="bigscreen-page">
       <div className="bigscreen-side-stack">
-        <BigscreenPanel title="碳排指标" eyebrow="Carbon Pulse" frame="tall">
+        <BigscreenPanel title="碳排指标" frame="tall">
           <div className="bigscreen-kpi-grid" data-columns="1">
             {(carbon?.hero_metrics ?? []).map((metric, index) => (
               <BigscreenMetricCard key={metric.id} metric={metric} tone={index === 0 ? "emerald" : index === 1 ? "amber" : "cyan"} compact />
@@ -65,7 +65,7 @@ function BigscreenCarbonPage() {
           </div>
         </BigscreenPanel>
 
-        <BigscreenPanel title="范围对比" eyebrow="Scope Compare" frame="tall">
+        <BigscreenPanel title="范围对比" frame="tall">
           <BigscreenCompareChart items={carbon?.carbon_compare ?? []} height={244} />
         </BigscreenPanel>
       </div>
@@ -82,15 +82,15 @@ function BigscreenCarbonPage() {
         />
 
         <div className="bigscreen-bottom-grid" data-columns="3">
-          <BigscreenPanel title={carbon?.carbon_flow.title ?? "范围级碳流"} eyebrow="Carbon Flow" frame="wide">
+          <BigscreenPanel title={carbon?.carbon_flow.title ?? "范围级碳流"} frame="wide">
             <BigscreenSankeyChart flow={carbon?.carbon_flow ?? { title: "范围级碳流", nodes: [], links: [] }} height={168} />
           </BigscreenPanel>
 
-          <BigscreenPanel title="碳价 / 因子走势" eyebrow="Reference Trend" frame="wide">
+          <BigscreenPanel title="碳价 / 因子走势" frame="wide">
             <BigscreenLineChart points={carbon?.carbon_price_trend ?? []} height={168} mode="single" />
           </BigscreenPanel>
 
-          <BigscreenPanel title="协同说明" eyebrow="Reading Notes" frame="wide">
+          <BigscreenPanel title="协同说明" frame="wide">
             <div className="bigscreen-stack">
               {(carbon?.commentary?.length ? carbon.commentary : ["暂无协同说明"]).slice(0, 4).map((item, index) => (
                 <BigscreenInfoCard key={item} label={`Insight ${index + 1}`} value={item} accent={index % 2 === 0 ? "cyan" : "amber"} />
@@ -101,7 +101,7 @@ function BigscreenCarbonPage() {
       </div>
 
       <div className="bigscreen-side-stack">
-        <BigscreenPanel title="贡献构成" eyebrow="Contribution Share" frame="tall">
+        <BigscreenPanel title="贡献构成" frame="tall">
           <BigscreenPieChart items={carbon?.production_share ?? []} height={238} />
           <div className="mt-4 grid gap-2">
             {carbon?.production_share?.slice(0, 3).map((item, index) => (
@@ -116,7 +116,7 @@ function BigscreenCarbonPage() {
           </div>
         </BigscreenPanel>
 
-        <BigscreenPanel title="碳排预警滚动榜" eyebrow="Alert Feed" frame="tall">
+        <BigscreenPanel title="碳排预警滚动榜" frame="tall">
           <BigscreenScrollBoard
             rows={alertRows}
             headers={["事件", "补充说明", "时间"]}

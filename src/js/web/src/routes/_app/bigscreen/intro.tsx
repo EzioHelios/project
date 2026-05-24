@@ -64,11 +64,11 @@ function BigscreenIntroPage() {
   return (
     <div className="bigscreen-page">
       <div className="bigscreen-side-stack">
-        <BigscreenPanel title="企业图集" eyebrow="Company Gallery" frame="tall">
+        <BigscreenPanel title="企业图集" frame="tall">
           <BigscreenAutoCarousel items={companyGallery} emptyLabel="暂无企业图集" />
         </BigscreenPanel>
 
-        <BigscreenPanel title="企业信息摘要" eyebrow="Company Facts" frame="tall">
+        <BigscreenPanel title="企业信息摘要" frame="tall">
           <div className="bigscreen-stack">
             {facts.slice(0, 6).map((item, index) => (
               <BigscreenInfoCard key={item.label} label={item.label} value={item.value} accent={index % 3 === 0 ? "cyan" : index % 3 === 1 ? "emerald" : "amber"} />
@@ -89,7 +89,7 @@ function BigscreenIntroPage() {
         />
 
         <div className="bigscreen-bottom-grid" data-columns="2">
-          <BigscreenPanel title="品牌叙事" eyebrow="Narrative" frame="wide">
+          <BigscreenPanel title="品牌叙事" frame="wide">
             <div className="bigscreen-stack">
               <BigscreenInfoCard label="品牌定位" value={intro?.hero_title ?? "企业品牌展示"} detail={intro?.hero_description ?? "企业品牌展示"} accent="cyan" />
               <div className="bigscreen-split" data-columns="2">
@@ -100,7 +100,7 @@ function BigscreenIntroPage() {
             </div>
           </BigscreenPanel>
 
-          <BigscreenPanel title="运营视角" eyebrow="Program Focus" frame="wide">
+          <BigscreenPanel title="运营视角" frame="wide">
             <div className="bigscreen-stack">
               {projectSpots.slice(0, 3).map((item, index) => (
                 <BigscreenInfoCard
@@ -117,11 +117,11 @@ function BigscreenIntroPage() {
       </div>
 
       <div className="bigscreen-side-stack">
-        <BigscreenPanel title="运营项目轮播" eyebrow="Project Showcase" frame="tall">
+        <BigscreenPanel title="运营项目轮播" frame="tall">
           <BigscreenAutoCarousel items={projectSpots} emptyLabel="暂无运营项目" />
         </BigscreenPanel>
 
-        <BigscreenPanel title="成功案例轮播" eyebrow="Success Cases" frame="tall">
+        <BigscreenPanel title="成功案例轮播" frame="tall">
           <BigscreenAutoCarousel items={successCases} emptyLabel="暂无成功案例" />
         </BigscreenPanel>
       </div>
