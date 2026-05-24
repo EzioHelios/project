@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
 
-import { getBigscreenCarbon, getBigscreenIntro, getBigscreenMeta, getBigscreenOverview, getBigscreenPower } from "@/lib/bigscreen/api"
+import { getBigscreenCarbon, getBigscreenIntro, getBigscreenMeta, getBigscreenOverview, getBigscreenPower, getHuayiBigscreenOverview } from "@/lib/bigscreen/api"
+import { getBigscreenEnvironment } from "@/lib/bigscreen/environment"
 
-export function useBigscreenMeta() {
+export function useBigscreenMeta(variant: "default" | "huayi" = "default") {
   return useQuery({
-    queryKey: ["bigscreen", "meta"],
-    queryFn: getBigscreenMeta,
+    queryKey: ["bigscreen", "meta", variant],
+    queryFn: () => getBigscreenMeta(variant),
     staleTime: 1000 * 60 * 5,
   })
 }
@@ -35,5 +36,22 @@ export function useBigscreenCarbon() {
   return useQuery({
     queryKey: ["bigscreen", "carbon"],
     queryFn: getBigscreenCarbon,
+  })
+}
+
+export function useHuayiBigscreenOverview() {
+  return useQuery({
+    queryKey: ["bigscreen", "huayi", "overview"],
+    queryFn: getHuayiBigscreenOverview,
+    staleTime: 1000 * 60 * 5,
+  })
+}
+
+export function useBigscreenEnvironment(weatherEnabled: boolean) {
+  return useQuery({
+    queryKey: ["bigscreen", "environment", weatherEnabled],
+    queryFn: () => getBigscreenEnvironment({ weatherEnabled }),
+    staleTime: 1000 * 60 * 15,
+    retry: 1,
   })
 }

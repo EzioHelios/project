@@ -81,6 +81,7 @@ class BigscreenMetaPayload(BaseModel):
     short_name: str
     description: str
     default_path: str
+    city: str | None = None
     show_weather: bool = False
     promo_video_url: str | None = None
     nav_items: list[BigscreenNavItem] = Field(default_factory=list)

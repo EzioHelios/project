@@ -1,6 +1,6 @@
 import { Outlet, useLocation } from "@tanstack/react-router"
 import type * as React from "react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 
 import "@/components/bigscreen/bigscreen.css"
 
@@ -8,7 +8,7 @@ import { ScreenHeader } from "@/components/bigscreen/primitives/ScreenHeader"
 import { BigscreenSceneCanvas } from "@/components/bigscreen/scene-canvas"
 import { BigscreenSkinProvider } from "@/components/bigscreen/skins/context"
 import { getBigscreenSkinDefinition } from "@/components/bigscreen/skins/registry"
-import { useBigscreenMeta } from "@/lib/bigscreen/hooks"
+import { useBigscreenEnvironment, useBigscreenMeta } from "@/lib/bigscreen/hooks"
 
 const fallbackNav = [
   { label: "企业介绍", path: "/bigscreen/intro" },
@@ -16,6 +16,12 @@ const fallbackNav = [
   { label: "电量监控", path: "/bigscreen/power" },
   { label: "能碳协同", path: "/bigscreen/carbon" },
 ]
+
+const fallbackNavByVariant = {
+  default: fallbackNav,
+  huayi: [],
+  zhijiang: [],
+} as const
 
 function resolveStageScale() {
   return Math.min(window.innerWidth / 1920, window.innerHeight / 1080)
@@ -60,18 +66,33 @@ function useClock() {
 
 export function BigscreenLayout() {
   const pathname = useLocation({ select: (location) => location.pathname })
+  const metaVariant = pathname.startsWith("/bigscreen/huayi")
+    ? "huayi"
+    : pathname.startsWith("/bigscreen/zhijiang")
+      ? "zhijiang"
+      : "default"
   const { scale, tier } = useBigscreenViewport()
   const now = useClock()
-  const metaQuery = useBigscreenMeta()
+  const queryVariant = metaVariant === "zhijiang" ? "default" : metaVariant
+  const metaQuery = useBigscreenMeta(queryVariant)
   const meta = metaQuery.data?.data
+  const environmentQuery = useBigscreenEnvironment(meta?.show_weather !== false)
+  const environment = environmentQuery.data
   const skin = getBigscreenSkinDefinition()
-  const navItems = meta?.nav_items ?? fallbackNav
-
-  const currentLabel = useMemo(() => navItems.find((item) => item.path === pathname)?.label ?? "态势总览", [navItems, pathname])
+  const navItems = meta?.nav_items ?? [...fallbackNavByVariant[metaVariant]]
+  const resolution = tier === "2160" ? "2160" : "1080"
+  const fallbackMeta =
+    metaVariant === "zhijiang"
+      ? {
+          title: "之江县域公共设施节能降碳态势图",
+          shortName: "ZJ",
+          description: "围绕县域试点点位，把设备改造、节能验证、碳减排成果与复制推广潜力汇聚到一张 GIS 主屏。",
+        }
+      : null
 
   return (
     <BigscreenSkinProvider skin={skin}>
-      <div className={`bigscreen-root ${skin.tokenClassName}`} data-bigscreen-tier={tier}>
+      <div className={`bigscreen-root ${skin.tokenClassName}`} data-bigscreen-tier={tier} data-bigscreen-resolution={resolution}>
         <div className="bigscreen-viewport">
           <div className="bigscreen-stage" style={{ ["--bigscreen-scale" as string]: scale }}>
             <div
@@ -86,12 +107,15 @@ export function BigscreenLayout() {
             </div>
             <div className="bigscreen-shell">
               <ScreenHeader
-                title={meta?.title ?? "仓储能碳态势指挥大屏"}
-                shortName={meta?.short_name ?? "LC"}
-                description={meta?.description ?? "围绕园区主视觉对象组织经营总览、电量监控、能碳协同与企业介绍，形成可上墙、可持续观看的大屏系统。"}
-                currentLabel={currentLabel}
-                city="台州"
-                weather={meta?.show_weather === false ? "--" : "晴"}
+                title={meta?.title ?? fallbackMeta?.title ?? "仓储能碳态势指挥大屏"}
+                shortName={meta?.short_name ?? fallbackMeta?.shortName ?? "LC"}
+                description={
+                  meta?.description ??
+                  fallbackMeta?.description ??
+                  "围绕园区主视觉对象组织经营总览、电量监控、能碳协同与企业介绍，形成可上墙、可持续观看的大屏系统。"
+                }
+                city={meta?.city ?? environment?.city ?? "--"}
+                weather={environment?.weather ?? "--"}
                 now={now}
                 navItems={navItems}
                 pathname={pathname}

@@ -82,6 +82,7 @@ export type BigscreenMetaResponse = {
   short_name: string
   description: string
   default_path: string
+  city?: string | null
   show_weather: boolean
   promo_video_url?: string | null
   nav_items: BigscreenNavItem[]
@@ -122,4 +123,40 @@ export type BigscreenCarbonResponse = {
   carbon_price_trend: BigscreenTrendPoint[]
   commentary: string[]
   hero_metrics: BigscreenMetric[]
+}
+
+export type HuayiBigscreenKeyValue = {
+  label: string
+  value: number | string
+  unit?: string | null
+  tone?: "cyan" | "amber" | "emerald" | string
+  detail?: string | null
+}
+
+export type HuayiBigscreenMetricGroup = {
+  id: string
+  title: string
+  metrics: HuayiBigscreenKeyValue[]
+}
+
+export type HuayiBigscreenListSection = {
+  id: string
+  title: string
+  items: HuayiBigscreenKeyValue[]
+}
+
+export type HuayiBigscreenOverviewResponse = {
+  park_name: string
+  photovoltaic_metrics: HuayiBigscreenKeyValue[]
+  charger_metrics: HuayiBigscreenKeyValue[]
+  load_groups: HuayiBigscreenMetricGroup[]
+  carbon_stats: HuayiBigscreenKeyValue[]
+  resource_cards: HuayiBigscreenMetricGroup[]
+  device_status: HuayiBigscreenKeyValue[]
+  benefit_items: HuayiBigscreenKeyValue[]
+  lifestyle_sections: HuayiBigscreenListSection[]
+  alerts: BigscreenAlertItem[]
+  carbon_trend: BigscreenTrendPoint[]
+  area_distribution: BigscreenDistributionItem[]
+  storage_status?: HuayiBigscreenKeyValue | null
 }

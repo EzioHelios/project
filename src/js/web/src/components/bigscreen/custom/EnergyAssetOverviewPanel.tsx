@@ -1,13 +1,12 @@
-import generationIllustration from "@/components/bigscreen/custom/assets/fadiantu.56d2c826.png"
+import photovoltaicIllustration from "@/components/bigscreen/custom/assets/guangfuzhenlie.png"
 import consumptionIllustration from "@/components/bigscreen/custom/assets/yongdiantu.a4bf1067.png"
-import { BigscreenCountUp } from "@/components/bigscreen/motion"
 import { BigscreenEmpty } from "@/components/bigscreen/panel"
 import type { HuayiBigscreenKeyValue } from "@/lib/bigscreen/types"
 import { cn } from "@/lib/utils"
 
 const illustrationMap = {
   consumption: consumptionIllustration,
-  generation: generationIllustration,
+  generation: photovoltaicIllustration,
 } as const
 
 function normalizeValue(value: number | string) {
@@ -17,29 +16,32 @@ function normalizeValue(value: number | string) {
   return value
 }
 
-export function EnergyAssetOverviewPanel({ kind, metrics, className }: { kind: keyof typeof illustrationMap; metrics: HuayiBigscreenKeyValue[]; className?: string }) {
+export function EnergyAssetOverviewPanel({
+  kind,
+  metrics,
+  className,
+  variant = "default",
+}: {
+  kind: keyof typeof illustrationMap
+  metrics: HuayiBigscreenKeyValue[]
+  className?: string
+  variant?: "default" | "dense"
+}) {
   if (!metrics.length) {
     return <BigscreenEmpty label="暂无能源概览数据" />
   }
 
   const [heroMetric, ...restMetrics] = metrics
+  const visibleMetrics = [heroMetric, ...restMetrics].slice(0, 5)
 
   return (
-    <div className={cn("bigscreen-energy-asset-overview", className)} data-kind={kind}>
+    <div className={cn("bigscreen-energy-asset-overview", className)} data-kind={kind} data-variant={variant}>
       <div className="bigscreen-energy-asset-overview-hero">
         <img className="bigscreen-energy-asset-overview-illustration" src={illustrationMap[kind]} alt="" aria-hidden="true" />
-        <div className="bigscreen-energy-asset-overview-hero-copy">
-          <div className="bigscreen-energy-asset-overview-hero-label">{heroMetric.label}</div>
-          <div className="bigscreen-energy-asset-overview-hero-value">
-            {typeof heroMetric.value === "number" ? <BigscreenCountUp value={heroMetric.value} /> : normalizeValue(heroMetric.value)}
-            {heroMetric.unit ? <span className="bigscreen-energy-asset-overview-hero-unit">{heroMetric.unit}</span> : null}
-          </div>
-          {heroMetric.detail ? <div className="bigscreen-energy-asset-overview-hero-detail">{heroMetric.detail}</div> : null}
-        </div>
       </div>
 
-      <div className="bigscreen-energy-asset-overview-list">
-        {restMetrics.map((metric, index) => (
+      <div className="bigscreen-energy-asset-overview-board">
+        {visibleMetrics.map((metric, index) => (
           <article
             key={`${metric.label}-${index}`}
             className="bigscreen-energy-asset-overview-row"
@@ -52,6 +54,7 @@ export function EnergyAssetOverviewPanel({ kind, metrics, className }: { kind: k
             </div>
           </article>
         ))}
+        {heroMetric.detail ? <div className="bigscreen-energy-asset-overview-detail-strip">{heroMetric.detail}</div> : null}
       </div>
     </div>
   )

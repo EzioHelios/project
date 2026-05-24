@@ -1,0 +1,38 @@
+<svg width="220" height="80" viewBox="0 0 220 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="chargerFloor" x1="14" y1="64" x2="196" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B6B7B" stop-opacity="0.14"/>
+      <stop offset="0.5" stop-color="#33D2FF" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#19B5B7" stop-opacity="0.08"/>
+    </linearGradient>
+    <linearGradient id="chargerBody" x1="49" y1="16" x2="79" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#77F7FF"/>
+      <stop offset="0.48" stop-color="#2FD8EA"/>
+      <stop offset="1" stop-color="#117EA5"/>
+    </linearGradient>
+    <linearGradient id="chargerPanel" x1="92" y1="16" x2="165" y2="59" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5DFFF1"/>
+      <stop offset="0.5" stop-color="#16D8B9"/>
+      <stop offset="1" stop-color="#0D6D73"/>
+    </linearGradient>
+  </defs>
+  <path d="M18 64H194L212 75H0L18 64Z" fill="url(#chargerFloor)"/>
+  <rect x="39" y="18" width="34" height="39" rx="4" fill="#071C2C" stroke="url(#chargerBody)" stroke-width="2"/>
+  <rect x="46" y="25" width="20" height="10" rx="2" fill="#7BFBFF" fill-opacity="0.24" stroke="#72F9FF" stroke-opacity="0.85"/>
+  <path d="M56 37V48" stroke="#74FAFF" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M51 44H61" stroke="#74FAFF" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M72 28C92 28 90 52 109 52" stroke="#52E7FF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M109 52C116 52 122 46 122 39V32" stroke="#52E7FF" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="123" cy="29" r="5" fill="#71FBFF" fill-opacity="0.2" stroke="#73FBFF" stroke-width="2"/>
+  <path d="M135 17L172 17L192 36L155 36L135 17Z" fill="#071C2C" stroke="url(#chargerPanel)" stroke-width="2"/>
+  <path d="M130 39L167 39L187 58L150 58L130 39Z" fill="#071C2C" stroke="url(#chargerPanel)" stroke-width="2"/>
+  <path d="M154 18L149 36" stroke="#69F5E4" stroke-opacity="0.6"/>
+  <path d="M168 18L163 36" stroke="#69F5E4" stroke-opacity="0.5"/>
+  <path d="M149 40L144 58" stroke="#69F5E4" stroke-opacity="0.6"/>
+  <path d="M163 40L158 58" stroke="#69F5E4" stroke-opacity="0.5"/>
+  <path d="M143 26H179" stroke="#69F5E4" stroke-opacity="0.55"/>
+  <path d="M138 48H174" stroke="#69F5E4" stroke-opacity="0.55"/>
+  <path d="M91 58H127" stroke="#52E7FF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M99 58V64" stroke="#52E7FF" stroke-width="2" stroke-linecap="round"/>
+  <path d="M119 58V64" stroke="#52E7FF" stroke-width="2" stroke-linecap="round"/>
+</svg>

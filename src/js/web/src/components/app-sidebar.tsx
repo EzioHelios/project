@@ -84,6 +84,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           { title: "企业介绍", to: "/bigscreen/intro" },
           { title: "电量监控", to: "/bigscreen/power" },
           { title: "能碳协同", to: "/bigscreen/carbon" },
+          { title: "华谊园区", to: "/bigscreen/huayi" },
         ],
       },
       {

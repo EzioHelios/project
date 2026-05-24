@@ -6,6 +6,7 @@ import type {
   BigscreenMetaResponse,
   BigscreenOverviewResponse,
   BigscreenPowerResponse,
+  HuayiBigscreenOverviewResponse,
 } from "@/lib/bigscreen/types"
 
 async function requestBigscreen<T>(path: string): Promise<BigscreenApiEnvelope<T>> {
@@ -23,8 +24,8 @@ async function requestBigscreen<T>(path: string): Promise<BigscreenApiEnvelope<T
   return raw as BigscreenApiEnvelope<T>
 }
 
-export function getBigscreenMeta() {
-  return requestBigscreen<BigscreenMetaResponse>("/api/bigscreen/meta")
+export function getBigscreenMeta(variant: "default" | "huayi" = "default") {
+  return requestBigscreen<BigscreenMetaResponse>(variant === "huayi" ? "/api/bigscreen/huayi/meta" : "/api/bigscreen/meta")
 }
 
 export function getBigscreenIntro() {
@@ -41,4 +42,8 @@ export function getBigscreenPower() {
 
 export function getBigscreenCarbon() {
   return requestBigscreen<BigscreenCarbonResponse>("/api/bigscreen/carbon")
+}
+
+export function getHuayiBigscreenOverview() {
+  return requestBigscreen<HuayiBigscreenOverviewResponse>("/api/bigscreen/huayi/overview")
 }
