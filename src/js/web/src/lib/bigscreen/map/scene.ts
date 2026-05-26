@@ -30,8 +30,8 @@ const DEFAULT_STATUS_COLORS: Record<string, string> = {
 
 const DEFAULT_IMAGERY_PROVIDER: BigscreenSceneImageryProviderConfig = {
   kind: "url-template",
-  url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-  credit: "© OpenStreetMap contributors",
+  url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  credit: "Tiles © Esri",
   maximumLevel: 19,
 }
 
@@ -39,7 +39,9 @@ const DEFAULT_TERRAIN_PROVIDER: BigscreenSceneTerrainProviderConfig = {
   kind: "ellipsoid",
 }
 
-type PartialSceneConfig = Partial<Omit<BigscreenSceneConfig, "cameraHome" | "warehouseLayer" | "futureLayers" | "center" | "imageryProvider" | "terrainProvider" | "viewerOptions">> & {
+type PartialSceneConfig = Partial<
+  Omit<BigscreenSceneConfig, "cameraHome" | "warehouseLayer" | "futureLayers" | "center" | "imageryProvider" | "terrainProvider" | "viewerOptions">
+> & {
   engine?: "maplibre"
   center?: BigscreenSceneLngLat
   imageryProvider?: Partial<BigscreenSceneImageryProviderConfig>
@@ -124,7 +126,7 @@ function normalizeTerrainProvider(input?: PartialSceneConfig["terrainProvider"])
   return DEFAULT_TERRAIN_PROVIDER
 }
 
-function normalizeWarehouseLayer(input: PartialSceneConfig, center: BigscreenSceneLngLat): BigscreenWarehouseLayerConfig {
+function normalizeWarehouseLayer(input: PartialSceneConfig, _center: BigscreenSceneLngLat): BigscreenWarehouseLayerConfig {
   const statusColors = {
     ...DEFAULT_STATUS_COLORS,
     ...input.statusColors,
@@ -233,13 +235,12 @@ export async function loadBigscreenScene(manifestUrl: string): Promise<Bigscreen
         }
       : config.terrainProvider
   const warehouseDataUrl = resolveSceneAssetUrl(resolveWarehouseDataUrl(config), manifestUrl)
-  const maplibre =
-    config.maplibre
-      ? {
-          ...config.maplibre,
-          styleUrl: resolveSceneAssetUrl(config.maplibre.styleUrl, manifestUrl),
-        }
-      : undefined
+  const maplibre = config.maplibre
+    ? {
+        ...config.maplibre,
+        styleUrl: resolveSceneAssetUrl(config.maplibre.styleUrl, manifestUrl),
+      }
+    : undefined
   const warehouses = normalizeWarehouseFeatureCollection(await fetchJson<BigscreenWarehouseFeatureCollection>(warehouseDataUrl))
 
   return {

@@ -79,16 +79,30 @@ export function BigscreenLayout() {
   const environmentQuery = useBigscreenEnvironment(meta?.show_weather !== false)
   const environment = environmentQuery.data
   const skin = getBigscreenSkinDefinition()
-  const navItems = meta?.nav_items ?? [...fallbackNavByVariant[metaVariant]]
+  const navItems =
+    metaVariant === "zhijiang"
+      ? []
+      : metaVariant === "huayi"
+        ? []
+        : meta?.nav_items ?? [...fallbackNavByVariant[metaVariant]]
   const resolution = tier === "2160" ? "2160" : "1080"
   const fallbackMeta =
     metaVariant === "zhijiang"
       ? {
-          title: "之江县域公共设施节能降碳态势图",
+          title: "公共设施节能降碳管理平台",
           shortName: "ZJ",
           description: "围绕县域试点点位，把设备改造、节能验证、碳减排成果与复制推广潜力汇聚到一张 GIS 主屏。",
+          city: "浙江省杭州市",
         }
-      : null
+      : metaVariant === "huayi"
+        ? {
+            city: "上海市",
+          }
+        : {
+            city: "江苏省泰州市",
+          }
+  const displayCity = meta?.city ?? fallbackMeta?.city ?? environment?.city ?? "--"
+  const displayWeather = meta?.show_weather === false ? "--" : environment?.weather ?? "--"
 
   return (
     <BigscreenSkinProvider skin={skin}>
@@ -114,8 +128,8 @@ export function BigscreenLayout() {
                   fallbackMeta?.description ??
                   "围绕园区主视觉对象组织经营总览、电量监控、能碳协同与企业介绍，形成可上墙、可持续观看的大屏系统。"
                 }
-                city={meta?.city ?? environment?.city ?? "--"}
-                weather={environment?.weather ?? "--"}
+                city={displayCity}
+                weather={displayWeather}
                 now={now}
                 navItems={navItems}
                 pathname={pathname}
