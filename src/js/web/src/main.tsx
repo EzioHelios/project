@@ -25,10 +25,40 @@ declare global {
 const queryClient = new QueryClient()
 
 const apiUrl = import.meta.env.VITE_API_URL ?? ""
+const rawFetch: typeof fetch = (...args) => globalThis.fetch(...args)
+const publicAuthPaths = ["/login", "/signup", "/forgot-password", "/reset-password"]
+
+const isPublicAuthPath = (pathname: string) => publicAuthPaths.some((path) => pathname.startsWith(path))
+
+const shouldSkipRefresh = (requestUrl: string) => requestUrl.includes("/api/access/refresh") || requestUrl.includes("/api/access/login")
 
 client.setConfig({
   baseUrl: apiUrl,
   credentials: "include",
+  fetch: async (input, init) => {
+    const request = input instanceof Request ? input : new Request(input, init)
+    const retryRequest = request.clone()
+    let response = await rawFetch(request)
+
+    if (response.status !== 401 || typeof window === "undefined" || shouldSkipRefresh(request.url) || isPublicAuthPath(window.location.pathname)) {
+      return response
+    }
+
+    try {
+      const accessToken = await refreshAccessToken()
+      const retryHeaders = new Headers(retryRequest.headers)
+      retryHeaders.set("Authorization", `Bearer ${accessToken}`)
+      response = await rawFetch(new Request(retryRequest, { headers: retryHeaders }))
+      return response
+    } catch {
+      clearClientAuthState()
+      queryClient.clear()
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login"
+      }
+      return response
+    }
+  },
   auth: () => {
     if (typeof window === "undefined") {
       return undefined
@@ -52,22 +82,7 @@ client.interceptors.request.use((request, _options) => {
 })
 
 // Silent token refresh state
-let isRefreshing = false
-let failedQueue: Array<{
-  resolve: (value?: unknown) => void
-  reject: (reason?: unknown) => void
-}> = []
-
-const processQueue = (error: Error | null) => {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error)
-    } else {
-      prom.resolve()
-    }
-  })
-  failedQueue = []
-}
+let refreshPromise: Promise<string> | null = null
 
 const clearClientAuthState = () => {
   setAccessToken(null)
@@ -80,62 +95,39 @@ const clearClientAuthState = () => {
   })
 }
 
-// Response interceptor for silent token refresh
-// Using error interceptor with the new client API
-client.interceptors.error.use(async (error, response, request, options) => {
-  // Only attempt refresh for 401 errors, not on refresh endpoint itself
-  const requestUrl = request.url
-  if (response?.status === 401 && !requestUrl?.includes("/api/access/refresh") && !requestUrl?.includes("/api/access/login")) {
-    // Skip refresh attempt if we're already on a public auth page to prevent infinite loops
-    const currentPath = window.location.pathname
-    const isPublicAuthPage = ["/login", "/signup", "/forgot-password", "/reset-password"].some((p) => currentPath.startsWith(p))
+const refreshAccessToken = async (): Promise<string> => {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const headers = new Headers()
+      const csrfToken = window.__LITESTAR_CSRF__
+      if (csrfToken) {
+        headers.set("X-XSRF-TOKEN", csrfToken)
+      }
 
-    if (isPublicAuthPage) {
-      // Don't try to refresh or redirect on public auth pages - just throw the error
-      throw error
-    }
-
-    if (isRefreshing) {
-      // If already refreshing, queue this request
-      return new Promise((resolve, reject) => {
-        failedQueue.push({ resolve, reject })
-      }).then(() => {
-        const method = options.method ?? "GET"
-        return client.request({ ...options, method, url: requestUrl })
+      const refreshResponse = await rawFetch(new URL("/api/access/refresh", window.location.origin), {
+        method: "POST",
+        credentials: "include",
+        headers,
       })
-    }
 
-    isRefreshing = true
+      if (!refreshResponse.ok) {
+        throw new Error(`Token refresh failed with status ${refreshResponse.status}`)
+      }
 
-    try {
-      // Attempt to refresh the token
-      const refreshResponse = await client.post({ url: "/api/access/refresh" })
-      const accessToken = (refreshResponse.data as { access_token?: string } | undefined)?.access_token
-      if (!accessToken) {
+      const payload = (await refreshResponse.json()) as { access_token?: string }
+      if (!payload.access_token) {
         throw new Error("Refresh response did not include an access token")
       }
-      setAccessToken(accessToken)
-      processQueue(null)
-      // Retry the original request
-      const method = options.method ?? "GET"
-      return client.request({ ...options, method, url: requestUrl })
-    } catch (refreshError) {
-      processQueue(refreshError as Error)
-      // Refresh failed - clear auth state and redirect to login
-      // But only if we're not already on the login page
-      clearClientAuthState()
-      queryClient.clear()
-      if (window.location.pathname !== "/login") {
-        window.location.href = "/login"
-      }
-      throw refreshError
-    } finally {
-      isRefreshing = false
-    }
+
+      setAccessToken(payload.access_token)
+      return payload.access_token
+    })().finally(() => {
+      refreshPromise = null
+    })
   }
 
-  throw error
-})
+  return refreshPromise
+}
 
 // Create the router using the generated route tree
 const router = createRouter({

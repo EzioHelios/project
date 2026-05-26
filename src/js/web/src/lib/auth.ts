@@ -64,7 +64,10 @@ export const useAuthStore = create<AuthState>()(
             await new Promise((resolve) => setTimeout(resolve, 100))
 
             // Verify the authentication by getting the profile
-            const { data: user } = await accountProfile()
+            const { data: user } = await accountProfile({ throwOnError: true })
+            if (!user) {
+              throw new Error("Profile response did not include a user")
+            }
             set({ user, isAuthenticated: true })
             return { mfaRequired: false }
           }
@@ -87,7 +90,10 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true })
         try {
           setAccessToken(accessToken)
-          const { data: user } = await accountProfile()
+          const { data: user } = await accountProfile({ throwOnError: true })
+          if (!user) {
+            throw new Error("Profile response did not include a user")
+          }
           set({ user, isAuthenticated: true })
         } catch (error) {
           setAccessToken(null)
@@ -112,7 +118,10 @@ export const useAuthStore = create<AuthState>()(
       checkAuth: async () => {
         set({ isLoading: true })
         try {
-          const { data: user } = await accountProfile()
+          const { data: user } = await accountProfile({ throwOnError: true })
+          if (!user) {
+            throw new Error("Profile response did not include a user")
+          }
           set({ user, isAuthenticated: true })
         } catch {
           setAccessToken(null)
