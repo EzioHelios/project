@@ -14,7 +14,7 @@ from typing import Any
 
 from advanced_alchemy.filters import LimitOffset, OrderBy, SearchFilter
 from dateutil.relativedelta import MO, relativedelta
-from litestar import Controller, delete, get, patch, post
+from litestar import Controller, Request, delete, get, patch, post
 from litestar.params import Body
 from litestar.response import Response
 from sqlalchemy import case, func, or_, select, text
@@ -23,6 +23,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db import models as m
+from app.domain.accounts.guards import requires_authenticated_user, requires_superuser
+from app.domain.admin.deps import provide_audit_log_service
+from app.domain.admin.services import AuditLogService
 from app.domain.carbon.deps import (
     provide_alarm_event_service,
     provide_ammeter_index_value_service,
@@ -125,6 +128,37 @@ DEFAULT_DEVICE_TYPES: tuple[dict[str, Any], ...] = (
     {"id": 8, "code": "automation_equipment", "name": "自动化设备", "energy_type": "electricity"},
     {"id": 9, "code": "camera", "name": "摄像头", "default_protocol": "rtsp"},
 )
+
+
+def _audit_request_details(request: Request[Any, Any, Any]) -> tuple[str | None, str | None]:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    ip_address = forwarded_for.split(",")[0].strip() if forwarded_for else request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    return ip_address, user_agent
+
+
+async def _log_security_audit(
+    audit_service: AuditLogService,
+    request: Request[Any, Any, Any],
+    *,
+    action: str,
+    target_type: str,
+    target_id: str | None = None,
+    target_label: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> None:
+    ip_address, user_agent = _audit_request_details(request)
+    await audit_service.log_action(
+        action=action,
+        actor_id=request.user.id,
+        actor_email=request.user.email,
+        target_type=target_type,
+        target_id=target_id,
+        target_label=target_label,
+        details=details,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
 
 
 def _handle_db_view_error(_request: Any, exc: Exception) -> Response[dict[str, Any]]:
@@ -679,69 +713,172 @@ class CarbonEventController(Controller):
         "alarm_event_service": provide_alarm_event_service,
         "vedio_alarm_event_service": provide_vedio_alarm_event_service,
         "video_monitor_service": provide_video_monitor_service,
+        "security_audit_service": provide_audit_log_service,
     }
 
-    @post(path="/api/zjyj/handleEvents", exclude_from_auth=True)
-    async def handle_events_zjyj(self, alarm_event_service: services.AlarmEventService, data: dict) -> Response[dict]:
+    @post(path="/api/zjyj/handleEvents", guards=[requires_superuser])
+    async def handle_events_zjyj(
+        self,
+        request: Request[Any, Any, Any],
+        alarm_event_service: services.AlarmEventService,
+        security_audit_service: AuditLogService,
+        data: dict,
+    ) -> Response[dict]:
         ids = data.get("ids", [])
         if ids:
             await alarm_event_service.update_many([{"id": id, "is_handle": True} for id in ids])
+        await _log_security_audit(
+            security_audit_service,
+            request,
+            action="carbon.alarm-event.batch-handle",
+            target_type="alarm_event",
+            details={"batch_size": len(ids), "query_scope": "zjyj"},
+        )
         return Response(content={"code": 200, "msg": "处理成功"})
 
-    @post(path="/api/handleEvents", exclude_from_auth=True)
-    async def handle_events(self, alarm_event_service: services.AlarmEventService, data: dict) -> Response[dict]:
+    @post(path="/api/handleEvents", guards=[requires_superuser])
+    async def handle_events(
+        self,
+        request: Request[Any, Any, Any],
+        alarm_event_service: services.AlarmEventService,
+        security_audit_service: AuditLogService,
+        data: dict,
+    ) -> Response[dict]:
         ids = data.get("ids", [])
         if ids:
             await alarm_event_service.update_many([{"id": id, "is_handle": True} for id in ids])
+        await _log_security_audit(
+            security_audit_service,
+            request,
+            action="carbon.alarm-event.batch-handle",
+            target_type="alarm_event",
+            details={"batch_size": len(ids)},
+        )
         return Response(content={"code": 200, "msg": "处理成功"})
 
-    @post(path="/api/zjyj/handleAllEvents", exclude_from_auth=True)
-    async def handle_all_events_zjyj(self, alarm_event_service: services.AlarmEventService) -> Response[dict]:
+    @post(path="/api/zjyj/handleAllEvents", guards=[requires_superuser])
+    async def handle_all_events_zjyj(
+        self,
+        request: Request[Any, Any, Any],
+        alarm_event_service: services.AlarmEventService,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
         unhandled = await alarm_event_service.list(m.AlarmEvent.is_handle == False)
         if unhandled:
             await alarm_event_service.update_many([{"id": e.id, "is_handle": True} for e in unhandled])
+        await _log_security_audit(
+            security_audit_service,
+            request,
+            action="carbon.alarm-event.handle-all",
+            target_type="alarm_event",
+            details={"batch_size": len(unhandled), "query_scope": "zjyj"},
+        )
         return Response(content={"code": 200, "msg": "处理成功"})
 
-    @post(path="/api/handleAllEvents", exclude_from_auth=True)
-    async def handle_all_events(self, alarm_event_service: services.AlarmEventService) -> Response[dict]:
+    @post(path="/api/handleAllEvents", guards=[requires_superuser])
+    async def handle_all_events(
+        self,
+        request: Request[Any, Any, Any],
+        alarm_event_service: services.AlarmEventService,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
         unhandled = await alarm_event_service.list(m.AlarmEvent.is_handle == False)
         if unhandled:
             await alarm_event_service.update_many([{"id": e.id, "is_handle": True} for e in unhandled])
+        await _log_security_audit(
+            security_audit_service,
+            request,
+            action="carbon.alarm-event.handle-all",
+            target_type="alarm_event",
+            details={"batch_size": len(unhandled)},
+        )
         return Response(content={"code": 200, "msg": "处理成功"})
 
-    @post(path="/api/zjyj/handleVideoEvents", exclude_from_auth=True)
-    async def handle_video_events_zjyj(self, vedio_alarm_event_service: services.VedioAlarmEventService, data: dict) -> Response[dict]:
+    @post(path="/api/zjyj/handleVideoEvents", guards=[requires_superuser])
+    async def handle_video_events_zjyj(
+        self,
+        request: Request[Any, Any, Any],
+        vedio_alarm_event_service: services.VedioAlarmEventService,
+        security_audit_service: AuditLogService,
+        data: dict,
+    ) -> Response[dict]:
         ids = data.get("ids", [])
         if ids:
             await vedio_alarm_event_service.update_many([{"id": id, "is_handle": True} for id in ids])
+        await _log_security_audit(
+            security_audit_service,
+            request,
+            action="carbon.video-alarm-event.batch-handle",
+            target_type="video_alarm_event",
+            details={"batch_size": len(ids), "query_scope": "zjyj"},
+        )
         return Response(content={"code": 200, "msg": "处理成功"})
 
-    @post(path="/api/handleVideoEvents", exclude_from_auth=True)
-    async def handle_video_events(self, vedio_alarm_event_service: services.VedioAlarmEventService, data: dict) -> Response[dict]:
+    @post(path="/api/handleVideoEvents", guards=[requires_superuser])
+    async def handle_video_events(
+        self,
+        request: Request[Any, Any, Any],
+        vedio_alarm_event_service: services.VedioAlarmEventService,
+        security_audit_service: AuditLogService,
+        data: dict,
+    ) -> Response[dict]:
         ids = data.get("ids", [])
         if ids:
             await vedio_alarm_event_service.update_many([{"id": id, "is_handle": True} for id in ids])
+        await _log_security_audit(
+            security_audit_service,
+            request,
+            action="carbon.video-alarm-event.batch-handle",
+            target_type="video_alarm_event",
+            details={"batch_size": len(ids)},
+        )
         return Response(content={"code": 200, "msg": "处理成功"})
 
-    @post(path="/api/zjyj/handleAllVideoEvents", exclude_from_auth=True)
-    async def handle_all_video_events_zjyj(self, vedio_alarm_event_service: services.VedioAlarmEventService) -> Response[dict]:
+    @post(path="/api/zjyj/handleAllVideoEvents", guards=[requires_superuser])
+    async def handle_all_video_events_zjyj(
+        self,
+        request: Request[Any, Any, Any],
+        vedio_alarm_event_service: services.VedioAlarmEventService,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
         unhandled = await vedio_alarm_event_service.list(m.VedioAlarmEvent.is_handle == False)
         if unhandled:
             await vedio_alarm_event_service.update_many([{"id": e.id, "is_handle": True} for e in unhandled])
+        await _log_security_audit(
+            security_audit_service,
+            request,
+            action="carbon.video-alarm-event.handle-all",
+            target_type="video_alarm_event",
+            details={"batch_size": len(unhandled), "query_scope": "zjyj"},
+        )
         return Response(content={"code": 200, "msg": "处理成功"})
 
-    @post(path="/api/handleAllVideoEvents", exclude_from_auth=True)
-    async def handle_all_video_events(self, vedio_alarm_event_service: services.VedioAlarmEventService) -> Response[dict]:
+    @post(path="/api/handleAllVideoEvents", guards=[requires_superuser])
+    async def handle_all_video_events(
+        self,
+        request: Request[Any, Any, Any],
+        vedio_alarm_event_service: services.VedioAlarmEventService,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
         unhandled = await vedio_alarm_event_service.list(m.VedioAlarmEvent.is_handle == False)
         if unhandled:
             await vedio_alarm_event_service.update_many([{"id": e.id, "is_handle": True} for e in unhandled])
+        await _log_security_audit(
+            security_audit_service,
+            request,
+            action="carbon.video-alarm-event.handle-all",
+            target_type="video_alarm_event",
+            details={"batch_size": len(unhandled)},
+        )
         return Response(content={"code": 200, "msg": "处理成功"})
 
-    @post(path="/api/pullVedioAlarmEvent", exclude_from_auth=True)
+    @post(path="/api/pullVedioAlarmEvent", guards=[requires_superuser])
     async def pull_vedio_alarm_event(
         self,
+        request: Request[Any, Any, Any],
         data: dict,
         video_monitor_service: services.VideoMonitorService,
+        security_audit_service: AuditLogService,
         db_session: AsyncSession,
     ) -> Response[dict]:
         """接收摄像头报警回调，创建 VedioAlarmEvent（与 Django pull_vedio_alarm_event 一致）"""
@@ -814,11 +951,14 @@ class CarbonEventController(Controller):
                 "is_handle": e.is_handle,
                 "add_time": e.add_time.isoformat() if getattr(e, "add_time", None) else None,
             }
-        return Response(content={
-            "code": 200,
-            "msg": "拉取报警事件成功",
-            "data": {"totalCount": len(rets), "alarmEvents": [_serialize(r) for r in rets]},
-        })
+        await _log_security_audit(
+            security_audit_service,
+            request,
+            action="carbon.video-alarm-event.pull",
+            target_type="video_alarm_event",
+            details={"batch_size": len(rets)},
+        )
+        return Response(content={"code": 200, "msg": "拉取报警事件成功", "data": {"totalCount": len(rets), "alarmEvents": [_serialize(r) for r in rets]}})
 
 
 class CarbonVideoController(Controller):
@@ -2476,6 +2616,7 @@ class EnergyCarbonCenterController(Controller):
     signature_types = [Response]
     dependencies = {
         "scope2_meter_aggregate_service": provide_scope2_meter_aggregate_service,
+        "security_audit_service": provide_audit_log_service,
     }
 
     @staticmethod
@@ -4250,11 +4391,13 @@ class EnergyCarbonCenterController(Controller):
             }
         )
 
-    @post("/api/energy-carbon/admin/backfill/raw-meter-history", exclude_from_auth=True)
+    @post("/api/energy-carbon/admin/backfill/raw-meter-history", guards=[requires_superuser])
     async def admin_backfill_raw_meter_history(
         self,
+        request: Request[Any, Any, Any],
         db_session: AsyncSession,
         scope2_meter_aggregate_service: services.Scope2MeterAggregateService,
+        security_audit_service: AuditLogService,
         data: dict[str, Any] = Body(default={}),
     ) -> Response[dict]:
         start_month = str(data.get("start_month")).strip() if data.get("start_month") not in (None, "") else None
@@ -4266,13 +4409,22 @@ class EnergyCarbonCenterController(Controller):
             return Response(content={"code": 200, "msg": "暂无原始电表历史数据", "data": {"months": []}})
         month_keys = _month_span(effective_start, effective_end)
         result = await self._impute_raw_scope2_history(db_session, scope2_meter_aggregate_service, month_keys)
+        await _log_security_audit(
+            security_audit_service,
+            request,
+            action="carbon.scope2.backfill-raw-history",
+            target_type="scope2_meter_aggregate",
+            details={"query_scope": {"start_month": effective_start, "end_month": effective_end}, "batch_size": len(month_keys)},
+        )
         return Response(content={"code": 200, "msg": "原始电表历史补全完成", "data": result})
 
-    @post("/api/energy-carbon/admin/backfill/scope2", exclude_from_auth=True)
+    @post("/api/energy-carbon/admin/backfill/scope2", guards=[requires_superuser])
     async def admin_backfill_scope2(
         self,
+        request: Request[Any, Any, Any],
         db_session: AsyncSession,
         scope2_meter_aggregate_service: services.Scope2MeterAggregateService,
+        security_audit_service: AuditLogService,
         data: dict[str, Any] = Body(default={}),
     ) -> Response[dict]:
         months = int(data.get("months") or 12)
@@ -4297,6 +4449,13 @@ class EnergyCarbonCenterController(Controller):
                     "invalid_count": invalid_month,
                 }
             )
+        await _log_security_audit(
+            security_audit_service,
+            request,
+            action="carbon.scope2.backfill",
+            target_type="scope2_meter_aggregate",
+            details={"batch_size": len(month_keys), "query_scope": {"months": months, "area_id": area_id}},
+        )
         return Response(
             content={
                 "code": 200,
@@ -4311,16 +4470,41 @@ class EnergyCarbonCenterController(Controller):
             }
         )
 
-    @post("/api/energy-carbon/admin/seed/demo-carbon", exclude_from_auth=True)
-    async def admin_seed_demo_carbon(self, db_session: AsyncSession, data: dict[str, Any] = Body(default={})) -> Response[dict]:
+    @post("/api/energy-carbon/admin/seed/demo-carbon", guards=[requires_superuser])
+    async def admin_seed_demo_carbon(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = Body(default={}),
+    ) -> Response[dict]:
         months = int(data.get("months") or 6)
         deleted = await self._clear_demo_seed_records(db_session)
         created = await self._seed_demo_scope_records(db_session, months)
+        await _log_security_audit(
+            security_audit_service,
+            request,
+            action="carbon.demo.seed",
+            target_type="demo_seed",
+            details={"query_scope": {"months": months}, "deleted": deleted, "created": created},
+        )
         return Response(content={"code": 200, "msg": "演示样例已重建", "data": {"deleted": deleted, "created": created}})
 
-    @delete("/api/energy-carbon/admin/seed/demo-carbon", exclude_from_auth=True, status_code=200)
-    async def admin_delete_demo_carbon(self, db_session: AsyncSession) -> Response[dict]:
+    @delete("/api/energy-carbon/admin/seed/demo-carbon", guards=[requires_superuser], status_code=200)
+    async def admin_delete_demo_carbon(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
         deleted = await self._clear_demo_seed_records(db_session)
+        await _log_security_audit(
+            security_audit_service,
+            request,
+            action="carbon.demo.delete",
+            target_type="demo_seed",
+            details={"deleted": deleted},
+        )
         return Response(content={"code": 200, "msg": "演示样例已清理", "data": {"deleted": deleted}})
 
 
@@ -4354,6 +4538,7 @@ class CarbonCRUDController(Controller):
         "ammeter_index_value_service": provide_ammeter_index_value_service,
         "in_money_service": provide_in_money_service,
         "out_money_service": provide_out_money_service,
+        "security_audit_service": provide_audit_log_service,
     }
 
     async def _create_audit_log(
@@ -4363,6 +4548,57 @@ class CarbonCRUDController(Controller):
     ) -> None:
         """Create an audit log entry and let failures abort the parent workflow."""
         await audit_log_service.create(data, auto_commit=True)
+
+    async def _log_carbon_security_event(
+        self,
+        security_audit_service: AuditLogService,
+        request: Request[Any, Any, Any],
+        *,
+        action: str,
+        record_type: str,
+        record_id: int | str,
+        comment: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        payload = dict(details or {})
+        payload.setdefault("record_type", record_type)
+        payload.setdefault("record_id", record_id)
+        if comment:
+            payload.setdefault("reason", comment)
+        await _log_security_audit(
+            security_audit_service,
+            request,
+            action=action,
+            target_type=record_type,
+            target_id=str(record_id),
+            target_label=comment,
+            details=payload,
+        )
+
+    async def _log_admin_data_event(
+        self,
+        security_audit_service: AuditLogService,
+        request: Request[Any, Any, Any],
+        *,
+        action: str,
+        target_type: str,
+        target_id: int | str | None = None,
+        target_label: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        payload = dict(details or {})
+        payload.setdefault("target_type", target_type)
+        if target_id is not None:
+            payload.setdefault("target_id", target_id)
+        await _log_security_audit(
+            security_audit_service,
+            request,
+            action=action,
+            target_type=target_type,
+            target_id=str(target_id) if target_id is not None else None,
+            target_label=target_label,
+            details=payload,
+        )
 
     # ---------- Scope1 移动源 ----------
     @get("/api/carbon/scope1-mobile-combustion", exclude_from_auth=True)
@@ -4414,7 +4650,7 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_mobile_service.repository.session)})
 
-    @post("/api/carbon/scope1-mobile-combustion", exclude_from_auth=True)
+    @post("/api/carbon/scope1-mobile-combustion")
     async def create_scope1_mobile(
         self,
         scope1_mobile_service: services.Scope1MobileCombustionService,
@@ -4430,7 +4666,7 @@ class CarbonCRUDController(Controller):
         obj = await scope1_mobile_service.create(payload, auto_commit=True)
         return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_mobile_service.repository.session), "msg": "创建成功"})
 
-    @patch("/api/carbon/scope1-mobile-combustion/{record_id:int}", exclude_from_auth=True)
+    @patch("/api/carbon/scope1-mobile-combustion/{record_id:int}")
     async def update_scope1_mobile(
         self,
         record_id: int,
@@ -4454,9 +4690,13 @@ class CarbonCRUDController(Controller):
         fresh = await scope1_mobile_service.get_one(id=record_id)
         return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope1_mobile_service.repository.session)})
 
-    @delete("/api/carbon/scope1-mobile-combustion/{record_id:int}", exclude_from_auth=True, status_code=200)
+    @delete("/api/carbon/scope1-mobile-combustion/{record_id:int}", status_code=200)
     async def delete_scope1_mobile(
-        self, record_id: int, scope1_mobile_service: services.Scope1MobileCombustionService
+        self,
+        request: Request[Any, Any, Any],
+        record_id: int,
+        scope1_mobile_service: services.Scope1MobileCombustionService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope1_mobile_service.get_one_or_none(id=record_id)
         if not obj:
@@ -4465,14 +4705,24 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
         # 按照内置 UserService 的用法，delete 期望传入主键 ID
         await scope1_mobile_service.delete(record_id)
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.delete",
+            record_type="Scope1MobileCombustion",
+            record_id=record_id,
+            details={"status_before": obj.status},
+        )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @post("/api/carbon/scope1-mobile-combustion/{record_id:int}/submit", exclude_from_auth=True)
+    @post("/api/carbon/scope1-mobile-combustion/{record_id:int}/submit")
     async def submit_scope1_mobile(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope1_mobile_service: services.Scope1MobileCombustionService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope1_mobile_service.get_one_or_none(id=record_id)
         if not obj:
@@ -4489,14 +4739,24 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope1MobileCombustion", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.submit",
+            record_type="Scope1MobileCombustion",
+            record_id=record_id,
+            details={"status_before": obj.status, "status_after": STATUS_PENDING},
+        )
         return Response(content={"code": 200, "msg": "已提交审核"})
 
-    @post("/api/carbon/scope1-mobile-combustion/{record_id:int}/approve", exclude_from_auth=True)
+    @post("/api/carbon/scope1-mobile-combustion/{record_id:int}/approve", guards=[requires_superuser])
     async def approve_scope1_mobile(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope1_mobile_service: services.Scope1MobileCombustionService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope1_mobile_service.get_one_or_none(id=record_id)
         if not obj:
@@ -4515,14 +4775,24 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope1MobileCombustion", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.approve",
+            record_type="Scope1MobileCombustion",
+            record_id=record_id,
+            details={"status_before": obj.status, "status_after": STATUS_APPROVED},
+        )
         return Response(content={"code": 200, "msg": "已通过"})
 
-    @post("/api/carbon/scope1-mobile-combustion/{record_id:int}/reject", exclude_from_auth=True)
+    @post("/api/carbon/scope1-mobile-combustion/{record_id:int}/reject", guards=[requires_superuser])
     async def reject_scope1_mobile(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope1_mobile_service: services.Scope1MobileCombustionService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
         data: dict[str, Any] = Body(default={}),
     ) -> Response[dict]:
         obj = await scope1_mobile_service.get_one_or_none(id=record_id)
@@ -4539,6 +4809,15 @@ class CarbonCRUDController(Controller):
         await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope1MobileCombustion", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
+        )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.reject",
+            record_type="Scope1MobileCombustion",
+            record_id=record_id,
+            comment=reason,
+            details={"status_before": obj.status, "status_after": STATUS_REJECTED},
         )
         return Response(content={"code": 200, "msg": "已驳回"})
 
@@ -4592,7 +4871,7 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_stationary_service.repository.session)})
 
-    @post("/api/carbon/scope1-stationary-combustion", exclude_from_auth=True)
+    @post("/api/carbon/scope1-stationary-combustion")
     async def create_scope1_stationary(
         self,
         scope1_stationary_service: services.Scope1StationaryCombustionService,
@@ -4608,7 +4887,7 @@ class CarbonCRUDController(Controller):
         obj = await scope1_stationary_service.create(payload, auto_commit=True)
         return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_stationary_service.repository.session), "msg": "创建成功"})
 
-    @patch("/api/carbon/scope1-stationary-combustion/{record_id:int}", exclude_from_auth=True)
+    @patch("/api/carbon/scope1-stationary-combustion/{record_id:int}")
     async def update_scope1_stationary(
         self,
         record_id: int,
@@ -4632,9 +4911,13 @@ class CarbonCRUDController(Controller):
         fresh = await scope1_stationary_service.get_one(id=record_id)
         return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope1_stationary_service.repository.session)})
 
-    @delete("/api/carbon/scope1-stationary-combustion/{record_id:int}", exclude_from_auth=True, status_code=200)
+    @delete("/api/carbon/scope1-stationary-combustion/{record_id:int}", status_code=200)
     async def delete_scope1_stationary(
-        self, record_id: int, scope1_stationary_service: services.Scope1StationaryCombustionService
+        self,
+        request: Request[Any, Any, Any],
+        record_id: int,
+        scope1_stationary_service: services.Scope1StationaryCombustionService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope1_stationary_service.get_one_or_none(id=record_id)
         if not obj:
@@ -4642,14 +4925,24 @@ class CarbonCRUDController(Controller):
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
         await scope1_stationary_service.delete(obj, auto_commit=True)
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.delete",
+            record_type="Scope1StationaryCombustion",
+            record_id=record_id,
+            details={"status_before": obj.status},
+        )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @post("/api/carbon/scope1-stationary-combustion/{record_id:int}/submit", exclude_from_auth=True)
+    @post("/api/carbon/scope1-stationary-combustion/{record_id:int}/submit")
     async def submit_scope1_stationary(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope1_stationary_service: services.Scope1StationaryCombustionService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope1_stationary_service.get_one_or_none(id=record_id)
         if not obj:
@@ -4666,14 +4959,24 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope1StationaryCombustion", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.submit",
+            record_type="Scope1StationaryCombustion",
+            record_id=record_id,
+            details={"status_before": obj.status, "status_after": STATUS_PENDING},
+        )
         return Response(content={"code": 200, "msg": "已提交审核"})
 
-    @post("/api/carbon/scope1-stationary-combustion/{record_id:int}/approve", exclude_from_auth=True)
+    @post("/api/carbon/scope1-stationary-combustion/{record_id:int}/approve", guards=[requires_superuser])
     async def approve_scope1_stationary(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope1_stationary_service: services.Scope1StationaryCombustionService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope1_stationary_service.get_one_or_none(id=record_id)
         if not obj:
@@ -4691,14 +4994,24 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope1StationaryCombustion", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.approve",
+            record_type="Scope1StationaryCombustion",
+            record_id=record_id,
+            details={"status_before": obj.status, "status_after": STATUS_APPROVED},
+        )
         return Response(content={"code": 200, "msg": "已通过"})
 
-    @post("/api/carbon/scope1-stationary-combustion/{record_id:int}/reject", exclude_from_auth=True)
+    @post("/api/carbon/scope1-stationary-combustion/{record_id:int}/reject", guards=[requires_superuser])
     async def reject_scope1_stationary(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope1_stationary_service: services.Scope1StationaryCombustionService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
         data: dict[str, Any] = Body(default={}),
     ) -> Response[dict]:
         obj = await scope1_stationary_service.get_one_or_none(id=record_id)
@@ -4716,6 +5029,15 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope1StationaryCombustion", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.reject",
+            record_type="Scope1StationaryCombustion",
+            record_id=record_id,
+            comment=reason,
+            details={"status_before": obj.status, "status_after": STATUS_REJECTED},
+        )
         return Response(content={"code": 200, "msg": "已驳回"})
 
     # ---------- Scope1 逸散（制冷剂）完整 CRUD + 审核 ----------
@@ -4728,7 +5050,7 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_refrigerant_service.repository.session)})
 
-    @post("/api/carbon/scope1-refrigerant-leak", exclude_from_auth=True)
+    @post("/api/carbon/scope1-refrigerant-leak")
     async def create_scope1_refrigerant(
         self,
         scope1_refrigerant_service: services.Scope1RefrigerantLeakService,
@@ -4744,7 +5066,7 @@ class CarbonCRUDController(Controller):
         obj = await scope1_refrigerant_service.create(payload, auto_commit=True)
         return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_refrigerant_service.repository.session), "msg": "创建成功"})
 
-    @patch("/api/carbon/scope1-refrigerant-leak/{record_id:int}", exclude_from_auth=True)
+    @patch("/api/carbon/scope1-refrigerant-leak/{record_id:int}")
     async def update_scope1_refrigerant(
         self,
         record_id: int,
@@ -4768,9 +5090,13 @@ class CarbonCRUDController(Controller):
         fresh = await scope1_refrigerant_service.get_one(id=record_id)
         return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope1_refrigerant_service.repository.session)})
 
-    @delete("/api/carbon/scope1-refrigerant-leak/{record_id:int}", exclude_from_auth=True, status_code=200)
+    @delete("/api/carbon/scope1-refrigerant-leak/{record_id:int}", status_code=200)
     async def delete_scope1_refrigerant(
-        self, record_id: int, scope1_refrigerant_service: services.Scope1RefrigerantLeakService
+        self,
+        request: Request[Any, Any, Any],
+        record_id: int,
+        scope1_refrigerant_service: services.Scope1RefrigerantLeakService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope1_refrigerant_service.get_one_or_none(id=record_id)
         if not obj:
@@ -4778,14 +5104,24 @@ class CarbonCRUDController(Controller):
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
         await scope1_refrigerant_service.delete(obj, auto_commit=True)
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.delete",
+            record_type="Scope1RefrigerantLeak",
+            record_id=record_id,
+            details={"status_before": obj.status},
+        )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @post("/api/carbon/scope1-refrigerant-leak/{record_id:int}/submit", exclude_from_auth=True)
+    @post("/api/carbon/scope1-refrigerant-leak/{record_id:int}/submit")
     async def submit_scope1_refrigerant(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope1_refrigerant_service: services.Scope1RefrigerantLeakService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope1_refrigerant_service.get_one_or_none(id=record_id)
         if not obj:
@@ -4802,14 +5138,24 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope1RefrigerantLeak", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.submit",
+            record_type="Scope1RefrigerantLeak",
+            record_id=record_id,
+            details={"status_before": obj.status, "status_after": STATUS_PENDING},
+        )
         return Response(content={"code": 200, "msg": "已提交审核"})
 
-    @post("/api/carbon/scope1-refrigerant-leak/{record_id:int}/approve", exclude_from_auth=True)
+    @post("/api/carbon/scope1-refrigerant-leak/{record_id:int}/approve", guards=[requires_superuser])
     async def approve_scope1_refrigerant(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope1_refrigerant_service: services.Scope1RefrigerantLeakService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope1_refrigerant_service.get_one_or_none(id=record_id)
         if not obj:
@@ -4827,14 +5173,24 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope1RefrigerantLeak", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.approve",
+            record_type="Scope1RefrigerantLeak",
+            record_id=record_id,
+            details={"status_before": obj.status, "status_after": STATUS_APPROVED},
+        )
         return Response(content={"code": 200, "msg": "已通过"})
 
-    @post("/api/carbon/scope1-refrigerant-leak/{record_id:int}/reject", exclude_from_auth=True)
+    @post("/api/carbon/scope1-refrigerant-leak/{record_id:int}/reject", guards=[requires_superuser])
     async def reject_scope1_refrigerant(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope1_refrigerant_service: services.Scope1RefrigerantLeakService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
         data: dict[str, Any] = Body(default={}),
     ) -> Response[dict]:
         obj = await scope1_refrigerant_service.get_one_or_none(id=record_id)
@@ -4852,6 +5208,15 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope1RefrigerantLeak", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.reject",
+            record_type="Scope1RefrigerantLeak",
+            record_id=record_id,
+            comment=reason,
+            details={"status_before": obj.status, "status_after": STATUS_REJECTED},
+        )
         return Response(content={"code": 200, "msg": "已驳回"})
 
     # ---------- Scope2 电费账单 完整 CRUD + 审核 ----------
@@ -4864,7 +5229,7 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope2_bill_service.repository.session, source_kind="manual_bill")})
 
-    @post("/api/carbon/scope2-electricity-bill", exclude_from_auth=True)
+    @post("/api/carbon/scope2-electricity-bill")
     async def create_scope2_bill(
         self,
         scope2_bill_service: services.Scope2ElectricityBillService,
@@ -4890,7 +5255,7 @@ class CarbonCRUDController(Controller):
         obj = await scope2_bill_service.create(payload, auto_commit=True)
         return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope2_bill_service.repository.session, source_kind="manual_bill"), "msg": "创建成功"})
 
-    @patch("/api/carbon/scope2-electricity-bill/{record_id:int}", exclude_from_auth=True)
+    @patch("/api/carbon/scope2-electricity-bill/{record_id:int}")
     async def update_scope2_bill(
         self,
         record_id: int,
@@ -4926,9 +5291,13 @@ class CarbonCRUDController(Controller):
         fresh = await scope2_bill_service.get_one(id=record_id)
         return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope2_bill_service.repository.session, source_kind="manual_bill")})
 
-    @delete("/api/carbon/scope2-electricity-bill/{record_id:int}", exclude_from_auth=True, status_code=200)
+    @delete("/api/carbon/scope2-electricity-bill/{record_id:int}", status_code=200)
     async def delete_scope2_bill(
-        self, record_id: int, scope2_bill_service: services.Scope2ElectricityBillService
+        self,
+        request: Request[Any, Any, Any],
+        record_id: int,
+        scope2_bill_service: services.Scope2ElectricityBillService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope2_bill_service.get_one_or_none(id=record_id)
         if not obj:
@@ -4936,14 +5305,24 @@ class CarbonCRUDController(Controller):
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
         await scope2_bill_service.delete(obj, auto_commit=True)
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.delete",
+            record_type="Scope2ElectricityBill",
+            record_id=record_id,
+            details={"status_before": obj.status},
+        )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @post("/api/carbon/scope2-electricity-bill/{record_id:int}/submit", exclude_from_auth=True)
+    @post("/api/carbon/scope2-electricity-bill/{record_id:int}/submit")
     async def submit_scope2_bill(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope2_bill_service: services.Scope2ElectricityBillService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope2_bill_service.get_one_or_none(id=record_id)
         if not obj:
@@ -4966,14 +5345,24 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope2ElectricityBill", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.submit",
+            record_type="Scope2ElectricityBill",
+            record_id=record_id,
+            details={"status_before": obj.status, "status_after": STATUS_PENDING},
+        )
         return Response(content={"code": 200, "msg": "已提交审核"})
 
-    @post("/api/carbon/scope2-electricity-bill/{record_id:int}/approve", exclude_from_auth=True)
+    @post("/api/carbon/scope2-electricity-bill/{record_id:int}/approve", guards=[requires_superuser])
     async def approve_scope2_bill(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope2_bill_service: services.Scope2ElectricityBillService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope2_bill_service.get_one_or_none(id=record_id)
         if not obj:
@@ -4997,14 +5386,24 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope2ElectricityBill", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.approve",
+            record_type="Scope2ElectricityBill",
+            record_id=record_id,
+            details={"status_before": obj.status, "status_after": STATUS_APPROVED},
+        )
         return Response(content={"code": 200, "msg": "已通过"})
 
-    @post("/api/carbon/scope2-electricity-bill/{record_id:int}/reject", exclude_from_auth=True)
+    @post("/api/carbon/scope2-electricity-bill/{record_id:int}/reject", guards=[requires_superuser])
     async def reject_scope2_bill(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope2_bill_service: services.Scope2ElectricityBillService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
         data: dict[str, Any] = Body(default={}),
     ) -> Response[dict]:
         obj = await scope2_bill_service.get_one_or_none(id=record_id)
@@ -5022,6 +5421,15 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope2ElectricityBill", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.reject",
+            record_type="Scope2ElectricityBill",
+            record_id=record_id,
+            comment=reason,
+            details={"status_before": obj.status, "status_after": STATUS_REJECTED},
+        )
         return Response(content={"code": 200, "msg": "已驳回"})
 
     # ---------- Scope3 废弃物 完整 CRUD + 审核 ----------
@@ -5034,7 +5442,7 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope3_waste_service.repository.session)})
 
-    @post("/api/carbon/scope3-waste-disposal", exclude_from_auth=True)
+    @post("/api/carbon/scope3-waste-disposal")
     async def create_scope3_waste(
         self,
         scope3_waste_service: services.Scope3WasteDisposalService,
@@ -5050,7 +5458,7 @@ class CarbonCRUDController(Controller):
         obj = await scope3_waste_service.create(payload, auto_commit=True)
         return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope3_waste_service.repository.session), "msg": "创建成功"})
 
-    @patch("/api/carbon/scope3-waste-disposal/{record_id:int}", exclude_from_auth=True)
+    @patch("/api/carbon/scope3-waste-disposal/{record_id:int}")
     async def update_scope3_waste(
         self,
         record_id: int,
@@ -5074,9 +5482,13 @@ class CarbonCRUDController(Controller):
         fresh = await scope3_waste_service.get_one(id=record_id)
         return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope3_waste_service.repository.session)})
 
-    @delete("/api/carbon/scope3-waste-disposal/{record_id:int}", exclude_from_auth=True, status_code=200)
+    @delete("/api/carbon/scope3-waste-disposal/{record_id:int}", status_code=200)
     async def delete_scope3_waste(
-        self, record_id: int, scope3_waste_service: services.Scope3WasteDisposalService
+        self,
+        request: Request[Any, Any, Any],
+        record_id: int,
+        scope3_waste_service: services.Scope3WasteDisposalService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope3_waste_service.get_one_or_none(id=record_id)
         if not obj:
@@ -5084,14 +5496,24 @@ class CarbonCRUDController(Controller):
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
         await scope3_waste_service.delete(obj, auto_commit=True)
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.delete",
+            record_type="Scope3WasteDisposal",
+            record_id=record_id,
+            details={"status_before": obj.status},
+        )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @post("/api/carbon/scope3-waste-disposal/{record_id:int}/submit", exclude_from_auth=True)
+    @post("/api/carbon/scope3-waste-disposal/{record_id:int}/submit")
     async def submit_scope3_waste(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope3_waste_service: services.Scope3WasteDisposalService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope3_waste_service.get_one_or_none(id=record_id)
         if not obj:
@@ -5108,14 +5530,24 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope3WasteDisposal", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.submit",
+            record_type="Scope3WasteDisposal",
+            record_id=record_id,
+            details={"status_before": obj.status, "status_after": STATUS_PENDING},
+        )
         return Response(content={"code": 200, "msg": "已提交审核"})
 
-    @post("/api/carbon/scope3-waste-disposal/{record_id:int}/approve", exclude_from_auth=True)
+    @post("/api/carbon/scope3-waste-disposal/{record_id:int}/approve", guards=[requires_superuser])
     async def approve_scope3_waste(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope3_waste_service: services.Scope3WasteDisposalService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope3_waste_service.get_one_or_none(id=record_id)
         if not obj:
@@ -5133,14 +5565,24 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope3WasteDisposal", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.approve",
+            record_type="Scope3WasteDisposal",
+            record_id=record_id,
+            details={"status_before": obj.status, "status_after": STATUS_APPROVED},
+        )
         return Response(content={"code": 200, "msg": "已通过"})
 
-    @post("/api/carbon/scope3-waste-disposal/{record_id:int}/reject", exclude_from_auth=True)
+    @post("/api/carbon/scope3-waste-disposal/{record_id:int}/reject", guards=[requires_superuser])
     async def reject_scope3_waste(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope3_waste_service: services.Scope3WasteDisposalService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
         data: dict[str, Any] = Body(default={}),
     ) -> Response[dict]:
         obj = await scope3_waste_service.get_one_or_none(id=record_id)
@@ -5158,6 +5600,15 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope3WasteDisposal", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.reject",
+            record_type="Scope3WasteDisposal",
+            record_id=record_id,
+            comment=reason,
+            details={"status_before": obj.status, "status_after": STATUS_REJECTED},
+        )
         return Response(content={"code": 200, "msg": "已驳回"})
 
     # ---------- Scope3 外购运输 完整 CRUD + 审核 ----------
@@ -5170,7 +5621,7 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope3_transport_service.repository.session)})
 
-    @post("/api/carbon/scope3-third-party-transport", exclude_from_auth=True)
+    @post("/api/carbon/scope3-third-party-transport")
     async def create_scope3_transport(
         self,
         scope3_transport_service: services.Scope3ThirdPartyTransportService,
@@ -5185,7 +5636,7 @@ class CarbonCRUDController(Controller):
         obj = await scope3_transport_service.create(payload, auto_commit=True)
         return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope3_transport_service.repository.session), "msg": "创建成功"})
 
-    @patch("/api/carbon/scope3-third-party-transport/{record_id:int}", exclude_from_auth=True)
+    @patch("/api/carbon/scope3-third-party-transport/{record_id:int}")
     async def update_scope3_transport(
         self,
         record_id: int,
@@ -5208,9 +5659,13 @@ class CarbonCRUDController(Controller):
         fresh = await scope3_transport_service.get_one(id=record_id)
         return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope3_transport_service.repository.session)})
 
-    @delete("/api/carbon/scope3-third-party-transport/{record_id:int}", exclude_from_auth=True, status_code=200)
+    @delete("/api/carbon/scope3-third-party-transport/{record_id:int}", status_code=200)
     async def delete_scope3_transport(
-        self, record_id: int, scope3_transport_service: services.Scope3ThirdPartyTransportService
+        self,
+        request: Request[Any, Any, Any],
+        record_id: int,
+        scope3_transport_service: services.Scope3ThirdPartyTransportService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope3_transport_service.get_one_or_none(id=record_id)
         if not obj:
@@ -5218,14 +5673,24 @@ class CarbonCRUDController(Controller):
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
         await scope3_transport_service.delete(obj, auto_commit=True)
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.delete",
+            record_type="Scope3ThirdPartyTransport",
+            record_id=record_id,
+            details={"status_before": obj.status},
+        )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @post("/api/carbon/scope3-third-party-transport/{record_id:int}/submit", exclude_from_auth=True)
+    @post("/api/carbon/scope3-third-party-transport/{record_id:int}/submit")
     async def submit_scope3_transport(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope3_transport_service: services.Scope3ThirdPartyTransportService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope3_transport_service.get_one_or_none(id=record_id)
         if not obj:
@@ -5242,14 +5707,24 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope3ThirdPartyTransport", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.submit",
+            record_type="Scope3ThirdPartyTransport",
+            record_id=record_id,
+            details={"status_before": obj.status, "status_after": STATUS_PENDING},
+        )
         return Response(content={"code": 200, "msg": "已提交审核"})
 
-    @post("/api/carbon/scope3-third-party-transport/{record_id:int}/approve", exclude_from_auth=True)
+    @post("/api/carbon/scope3-third-party-transport/{record_id:int}/approve", guards=[requires_superuser])
     async def approve_scope3_transport(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope3_transport_service: services.Scope3ThirdPartyTransportService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope3_transport_service.get_one_or_none(id=record_id)
         if not obj:
@@ -5267,14 +5742,24 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope3ThirdPartyTransport", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.approve",
+            record_type="Scope3ThirdPartyTransport",
+            record_id=record_id,
+            details={"status_before": obj.status, "status_after": STATUS_APPROVED},
+        )
         return Response(content={"code": 200, "msg": "已通过"})
 
-    @post("/api/carbon/scope3-third-party-transport/{record_id:int}/reject", exclude_from_auth=True)
+    @post("/api/carbon/scope3-third-party-transport/{record_id:int}/reject", guards=[requires_superuser])
     async def reject_scope3_transport(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope3_transport_service: services.Scope3ThirdPartyTransportService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
         data: dict[str, Any] = Body(default={}),
     ) -> Response[dict]:
         obj = await scope3_transport_service.get_one_or_none(id=record_id)
@@ -5291,6 +5776,15 @@ class CarbonCRUDController(Controller):
         await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope3ThirdPartyTransport", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
+        )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.reject",
+            record_type="Scope3ThirdPartyTransport",
+            record_id=record_id,
+            comment=reason,
+            details={"status_before": obj.status, "status_after": STATUS_REJECTED},
         )
         return Response(content={"code": 200, "msg": "已驳回"})
 
@@ -5932,11 +6426,13 @@ class CarbonCRUDController(Controller):
         await db_session.commit()
         return created
 
-    @post("/api/carbon/scope2-meter-aggregate/rebuild", exclude_from_auth=True)
+    @post("/api/carbon/scope2-meter-aggregate/rebuild", guards=[requires_superuser])
     async def rebuild_scope2_meter_aggregate(
         self,
+        request: Request[Any, Any, Any],
         db_session: AsyncSession,
         scope2_meter_aggregate_service: services.Scope2MeterAggregateService,
+        security_audit_service: AuditLogService,
         data: dict[str, Any] = Body(default={}),
     ) -> Response[dict]:
         billing_month = str(data.get("billing_month") or "").strip()
@@ -5948,6 +6444,20 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
         area_id = str(data.get("area_id")).strip() if data.get("area_id") not in (None, "") else None
         rows = await self._rebuild_scope2_meter_aggregates(db_session, scope2_meter_aggregate_service, billing_month, area_id)
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.scope2-meter-aggregate.rebuild",
+            record_type="Scope2MeterAggregate",
+            record_id=billing_month,
+            details={
+                "billing_month": billing_month,
+                "area_id": area_id,
+                "rebuilt_count": len(rows),
+                "ready_count": sum(1 for row in rows if row.calc_status == "ready"),
+                "invalid_count": sum(1 for row in rows if row.calc_status != "ready"),
+            },
+        )
         return Response(
             content={
                 "code": 200,
@@ -5961,9 +6471,13 @@ class CarbonCRUDController(Controller):
             }
         )
 
-    @delete("/api/carbon/scope2-meter-aggregate/{record_id:int}", exclude_from_auth=True, status_code=200)
+    @delete("/api/carbon/scope2-meter-aggregate/{record_id:int}", status_code=200)
     async def delete_scope2_meter_aggregate(
-        self, record_id: int, scope2_meter_aggregate_service: services.Scope2MeterAggregateService
+        self,
+        request: Request[Any, Any, Any],
+        record_id: int,
+        scope2_meter_aggregate_service: services.Scope2MeterAggregateService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope2_meter_aggregate_service.get_one_or_none(id=record_id)
         if not obj:
@@ -5971,14 +6485,24 @@ class CarbonCRUDController(Controller):
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
         await scope2_meter_aggregate_service.delete(obj, auto_commit=True)
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.delete",
+            record_type="Scope2MeterAggregate",
+            record_id=record_id,
+            details={"status_before": obj.status},
+        )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @post("/api/carbon/scope2-meter-aggregate/{record_id:int}/submit", exclude_from_auth=True)
+    @post("/api/carbon/scope2-meter-aggregate/{record_id:int}/submit")
     async def submit_scope2_meter_aggregate(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope2_meter_aggregate_service: services.Scope2MeterAggregateService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope2_meter_aggregate_service.get_one_or_none(id=record_id)
         if not obj:
@@ -5999,14 +6523,24 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope2MeterAggregate", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.submit",
+            record_type="Scope2MeterAggregate",
+            record_id=record_id,
+            details={"status_before": obj.status, "status_after": STATUS_PENDING},
+        )
         return Response(content={"code": 200, "msg": "已提交审核"})
 
-    @post("/api/carbon/scope2-meter-aggregate/{record_id:int}/approve", exclude_from_auth=True)
+    @post("/api/carbon/scope2-meter-aggregate/{record_id:int}/approve", guards=[requires_superuser])
     async def approve_scope2_meter_aggregate(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope2_meter_aggregate_service: services.Scope2MeterAggregateService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         obj = await scope2_meter_aggregate_service.get_one_or_none(id=record_id)
         if not obj:
@@ -6028,14 +6562,24 @@ class CarbonCRUDController(Controller):
             audit_log_service,
             {"record_type": "Scope2MeterAggregate", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
         )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.approve",
+            record_type="Scope2MeterAggregate",
+            record_id=record_id,
+            details={"status_before": obj.status, "status_after": STATUS_APPROVED},
+        )
         return Response(content={"code": 200, "msg": "已通过"})
 
-    @post("/api/carbon/scope2-meter-aggregate/{record_id:int}/reject", exclude_from_auth=True)
+    @post("/api/carbon/scope2-meter-aggregate/{record_id:int}/reject", guards=[requires_superuser])
     async def reject_scope2_meter_aggregate(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         scope2_meter_aggregate_service: services.Scope2MeterAggregateService,
         audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
         data: dict[str, Any] = Body(default={}),
     ) -> Response[dict]:
         obj = await scope2_meter_aggregate_service.get_one_or_none(id=record_id)
@@ -6048,6 +6592,15 @@ class CarbonCRUDController(Controller):
         await self._create_audit_log(
             audit_log_service,
             {"record_type": "Scope2MeterAggregate", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
+        )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.reject",
+            record_type="Scope2MeterAggregate",
+            record_id=record_id,
+            comment=reason,
+            details={"status_before": obj.status, "status_after": STATUS_REJECTED},
         )
         return Response(content={"code": 200, "msg": "已驳回"})
 
@@ -6222,48 +6775,125 @@ class CarbonCRUDController(Controller):
                 row["equipment_count"] = equipment_counts.get(sector_id, 0)
         return Response(content=page)
 
-    @post("/api/data/monitor-sectors", exclude_from_auth=True)
-    async def create_monitor_sector(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @post("/api/data/monitor-sectors", guards=[requires_superuser])
+    async def create_monitor_sector(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         obj = m.MonitorSector(**_payload_without_none(data))
         db_session.add(obj)
         await db_session.commit()
         await db_session.refresh(obj)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.monitor-sector.create",
+            target_type="MonitorSector",
+            target_id=obj.id,
+            target_label=obj.name,
+            details={"code": obj.code},
+        )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/data/monitor-sectors/{record_id:int}", exclude_from_auth=True)
-    async def update_monitor_sector(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @patch("/api/data/monitor-sectors/{record_id:int}", guards=[requires_superuser])
+    async def update_monitor_sector(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         obj = await db_session.get(m.MonitorSector, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         for field, value in _payload_without_none(data).items():
             setattr(obj, field, value)
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.monitor-sector.update",
+            target_type="MonitorSector",
+            target_id=obj.id,
+            target_label=obj.name,
+            details={"updated_fields": sorted(_payload_without_none(data).keys())},
+        )
         return Response(content={"code": 200, "msg": "更新成功"})
 
-    @delete("/api/data/monitor-sectors/{record_id:int}", exclude_from_auth=True, status_code=200)
-    async def delete_monitor_sector(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+    @delete("/api/data/monitor-sectors/{record_id:int}", guards=[requires_superuser], status_code=200)
+    async def delete_monitor_sector(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
         obj = await db_session.get(m.MonitorSector, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        sector_name = obj.name
+        sector_code = obj.code
         await db_session.delete(obj)
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.monitor-sector.delete",
+            target_type="MonitorSector",
+            target_id=record_id,
+            target_label=sector_name,
+            details={"code": sector_code},
+        )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @post("/api/data/monitor-sector-photos", exclude_from_auth=True)
-    async def create_monitor_sector_photo(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @post("/api/data/monitor-sector-photos", guards=[requires_superuser])
+    async def create_monitor_sector_photo(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         obj = m.MonitorSectorPhoto(**_payload_without_none(data))
         db_session.add(obj)
         await db_session.commit()
         await db_session.refresh(obj)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.monitor-sector-photo.create",
+            target_type="MonitorSectorPhoto",
+            target_id=obj.id,
+            details={"sector_id": obj.sector_id, "url": obj.url},
+        )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @delete("/api/data/monitor-sector-photos/{record_id:int}", exclude_from_auth=True, status_code=200)
-    async def delete_monitor_sector_photo(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+    @delete("/api/data/monitor-sector-photos/{record_id:int}", guards=[requires_superuser], status_code=200)
+    async def delete_monitor_sector_photo(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
         obj = await db_session.get(m.MonitorSectorPhoto, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        details = {"sector_id": obj.sector_id, "url": obj.url}
         await db_session.delete(obj)
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.monitor-sector-photo.delete",
+            target_type="MonitorSectorPhoto",
+            target_id=record_id,
+            details=details,
+        )
         return Response(content={"code": 200, "msg": "已删除"})
 
     @get("/api/data/device-types", exclude_from_auth=True)
@@ -6292,32 +6922,80 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=page)
 
-    @post("/api/data/device-types", exclude_from_auth=True)
-    async def create_device_type(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @post("/api/data/device-types", guards=[requires_superuser])
+    async def create_device_type(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         await _ensure_default_device_types(db_session)
         obj = m.DeviceType(**_payload_without_none(data))
         db_session.add(obj)
         await db_session.commit()
         await db_session.refresh(obj)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.device-type.create",
+            target_type="DeviceType",
+            target_id=obj.id,
+            target_label=obj.name,
+            details={"code": obj.code},
+        )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/data/device-types/{record_id:int}", exclude_from_auth=True)
-    async def update_device_type(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @patch("/api/data/device-types/{record_id:int}", guards=[requires_superuser])
+    async def update_device_type(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         obj = await db_session.get(m.DeviceType, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         for field, value in _payload_without_none(data).items():
             setattr(obj, field, value)
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.device-type.update",
+            target_type="DeviceType",
+            target_id=obj.id,
+            target_label=obj.name,
+            details={"updated_fields": sorted(_payload_without_none(data).keys())},
+        )
         return Response(content={"code": 200, "msg": "更新成功"})
 
-    @delete("/api/data/device-types/{record_id:int}", exclude_from_auth=True, status_code=200)
-    async def delete_device_type(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+    @delete("/api/data/device-types/{record_id:int}", guards=[requires_superuser], status_code=200)
+    async def delete_device_type(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
         obj = await db_session.get(m.DeviceType, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        label = obj.name
+        code = obj.code
         await db_session.delete(obj)
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.device-type.delete",
+            target_type="DeviceType",
+            target_id=record_id,
+            target_label=label,
+            details={"code": code},
+        )
         return Response(content={"code": 200, "msg": "已删除"})
 
     @get("/api/data/monitor-equipments", exclude_from_auth=True)
@@ -6373,8 +7051,14 @@ class CarbonCRUDController(Controller):
                 row["external_device_id"] = row["code"]
         return Response(content=page)
 
-    @post("/api/data/monitor-equipments", exclude_from_auth=True)
-    async def create_monitor_equipment(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @post("/api/data/monitor-equipments", guards=[requires_superuser])
+    async def create_monitor_equipment(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         await _ensure_default_device_types(db_session)
         _coerce_datetime_fields(data, ["install_time", "last_inspection_at", "inspection_due_at"])
         _coerce_int_fields(data, ["sector_id", "device_type_id", "category", "sort_index"])
@@ -6388,10 +7072,26 @@ class CarbonCRUDController(Controller):
         await _ensure_default_device_points(db_session, obj)
         await db_session.commit()
         await db_session.refresh(obj)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.monitor-equipment.create",
+            target_type="MonitorEquipment",
+            target_id=obj.id,
+            target_label=obj.name,
+            details={"code": obj.code, "sector_id": obj.sector_id, "device_type_id": obj.device_type_id},
+        )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/data/monitor-equipments/{record_id:int}", exclude_from_auth=True)
-    async def update_monitor_equipment(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @patch("/api/data/monitor-equipments/{record_id:int}", guards=[requires_superuser])
+    async def update_monitor_equipment(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         await _ensure_default_device_types(db_session)
         obj = await db_session.get(m.MonitorEquipment, record_id)
         if obj is None:
@@ -6405,15 +7105,40 @@ class CarbonCRUDController(Controller):
             setattr(obj, field, value)
         await _ensure_default_device_points(db_session, obj)
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.monitor-equipment.update",
+            target_type="MonitorEquipment",
+            target_id=obj.id,
+            target_label=obj.name,
+            details={"updated_fields": sorted(_payload_without_none(data).keys())},
+        )
         return Response(content={"code": 200, "msg": "更新成功"})
 
-    @delete("/api/data/monitor-equipments/{record_id:int}", exclude_from_auth=True, status_code=200)
-    async def delete_monitor_equipment(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+    @delete("/api/data/monitor-equipments/{record_id:int}", guards=[requires_superuser], status_code=200)
+    async def delete_monitor_equipment(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
         obj = await db_session.get(m.MonitorEquipment, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        details = {"code": obj.code, "sector_id": obj.sector_id, "device_type_id": obj.device_type_id}
         await db_session.delete(obj)
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.monitor-equipment.delete",
+            target_type="MonitorEquipment",
+            target_id=record_id,
+            target_label=obj.name,
+            details=details,
+        )
         return Response(content={"code": 200, "msg": "已删除"})
 
     @get("/api/data/device-points", exclude_from_auth=True)
@@ -6454,8 +7179,14 @@ class CarbonCRUDController(Controller):
                 row.update(device_map.get(row.get("device_id"), {}))
         return Response(content=page)
 
-    @post("/api/data/device-points", exclude_from_auth=True)
-    async def create_device_point(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @post("/api/data/device-points", guards=[requires_superuser])
+    async def create_device_point(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         _coerce_int_fields(data, ["device_id", "sampling_interval_seconds"])
         _coerce_float_fields(data, ["upper_limit", "lower_limit"])
         payload = _payload_without_none(data)
@@ -6471,10 +7202,26 @@ class CarbonCRUDController(Controller):
         db_session.add(obj)
         await db_session.commit()
         await db_session.refresh(obj)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.device-point.create",
+            target_type="DevicePoint",
+            target_id=obj.id,
+            target_label=obj.point_name,
+            details={"device_id": obj.device_id, "point_code": obj.point_code},
+        )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/data/device-points/{record_id:int}", exclude_from_auth=True)
-    async def update_device_point(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @patch("/api/data/device-points/{record_id:int}", guards=[requires_superuser])
+    async def update_device_point(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         obj = await db_session.get(m.DevicePoint, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
@@ -6495,15 +7242,40 @@ class CarbonCRUDController(Controller):
         for field, value in payload.items():
             setattr(obj, field, value)
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.device-point.update",
+            target_type="DevicePoint",
+            target_id=obj.id,
+            target_label=obj.point_name,
+            details={"updated_fields": sorted(payload.keys()), "device_id": obj.device_id, "point_code": obj.point_code},
+        )
         return Response(content={"code": 200, "msg": "更新成功"})
 
-    @delete("/api/data/device-points/{record_id:int}", exclude_from_auth=True, status_code=200)
-    async def delete_device_point(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+    @delete("/api/data/device-points/{record_id:int}", guards=[requires_superuser], status_code=200)
+    async def delete_device_point(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
         obj = await db_session.get(m.DevicePoint, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        details = {"device_id": obj.device_id, "point_code": obj.point_code}
         await db_session.delete(obj)
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.device-point.delete",
+            target_type="DevicePoint",
+            target_id=record_id,
+            target_label=obj.point_name,
+            details=details,
+        )
         return Response(content={"code": 200, "msg": "已删除"})
 
     @get("/api/data/video-monitors", exclude_from_auth=True)
@@ -6535,31 +7307,78 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=page)
 
-    @post("/api/data/video-monitors", exclude_from_auth=True)
-    async def create_video_monitor(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @post("/api/data/video-monitors", guards=[requires_superuser])
+    async def create_video_monitor(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         obj = m.VideoMonitor(**_payload_without_none(data))
         db_session.add(obj)
         await db_session.commit()
         await db_session.refresh(obj)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.video-monitor.create",
+            target_type="VideoMonitor",
+            target_id=obj.id,
+            target_label=obj.location,
+            details={"f_area": obj.f_area, "ip_address": obj.ip_address},
+        )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/data/video-monitors/{record_id:int}", exclude_from_auth=True)
-    async def update_video_monitor(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @patch("/api/data/video-monitors/{record_id:int}", guards=[requires_superuser])
+    async def update_video_monitor(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         obj = await db_session.get(m.VideoMonitor, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         for field, value in _payload_without_none(data).items():
             setattr(obj, field, value)
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.video-monitor.update",
+            target_type="VideoMonitor",
+            target_id=obj.id,
+            target_label=obj.location,
+            details={"updated_fields": sorted(_payload_without_none(data).keys())},
+        )
         return Response(content={"code": 200, "msg": "更新成功"})
 
-    @delete("/api/data/video-monitors/{record_id:int}", exclude_from_auth=True, status_code=200)
-    async def delete_video_monitor(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+    @delete("/api/data/video-monitors/{record_id:int}", guards=[requires_superuser], status_code=200)
+    async def delete_video_monitor(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
         obj = await db_session.get(m.VideoMonitor, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        details = {"f_area": obj.f_area, "ip_address": obj.ip_address}
         await db_session.delete(obj)
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.video-monitor.delete",
+            target_type="VideoMonitor",
+            target_id=record_id,
+            target_label=obj.location,
+            details=details,
+        )
         return Response(content={"code": 200, "msg": "已删除"})
 
     @get("/api/data/warning-rules", exclude_from_auth=True)
@@ -6594,17 +7413,39 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=page)
 
-    @post("/api/data/warning-rules", exclude_from_auth=True)
-    async def create_warning_rule(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @post("/api/data/warning-rules", guards=[requires_superuser])
+    async def create_warning_rule(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         _coerce_int_fields(data, ["event_type", "sector_id", "equipment_id"])
         obj = m.WarningRule(**_payload_without_none(data))
         db_session.add(obj)
         await db_session.commit()
         await db_session.refresh(obj)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.warning-rule.create",
+            target_type="WarningRule",
+            target_id=obj.id,
+            target_label=obj.name,
+            details={"alarm_code": obj.alarm_code, "equipment_id": obj.equipment_id},
+        )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/data/warning-rules/{record_id:int}", exclude_from_auth=True)
-    async def update_warning_rule(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @patch("/api/data/warning-rules/{record_id:int}", guards=[requires_superuser])
+    async def update_warning_rule(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         obj = await db_session.get(m.WarningRule, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
@@ -6612,15 +7453,40 @@ class CarbonCRUDController(Controller):
         for field, value in _payload_without_none(data).items():
             setattr(obj, field, value)
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.warning-rule.update",
+            target_type="WarningRule",
+            target_id=obj.id,
+            target_label=obj.name,
+            details={"updated_fields": sorted(_payload_without_none(data).keys())},
+        )
         return Response(content={"code": 200, "msg": "更新成功"})
 
-    @delete("/api/data/warning-rules/{record_id:int}", exclude_from_auth=True, status_code=200)
-    async def delete_warning_rule(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+    @delete("/api/data/warning-rules/{record_id:int}", guards=[requires_superuser], status_code=200)
+    async def delete_warning_rule(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
         obj = await db_session.get(m.WarningRule, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        details = {"alarm_code": obj.alarm_code, "equipment_id": obj.equipment_id}
         await db_session.delete(obj)
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.warning-rule.delete",
+            target_type="WarningRule",
+            target_id=record_id,
+            target_label=obj.name,
+            details=details,
+        )
         return Response(content={"code": 200, "msg": "已删除"})
 
     @get("/api/data/api-result-key-mappings", exclude_from_auth=True)
@@ -6647,31 +7513,78 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=page)
 
-    @post("/api/data/api-result-key-mappings", exclude_from_auth=True)
-    async def create_api_result_key_mapping(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @post("/api/data/api-result-key-mappings", guards=[requires_superuser])
+    async def create_api_result_key_mapping(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         obj = m.ApiResultKeyMapping(**_payload_without_none(data))
         db_session.add(obj)
         await db_session.commit()
         await db_session.refresh(obj)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.api-result-key-mapping.create",
+            target_type="ApiResultKeyMapping",
+            target_id=obj.id,
+            target_label=obj.key_name,
+            details={"cn_name": obj.cn_name},
+        )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/data/api-result-key-mappings/{record_id:int}", exclude_from_auth=True)
-    async def update_api_result_key_mapping(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @patch("/api/data/api-result-key-mappings/{record_id:int}", guards=[requires_superuser])
+    async def update_api_result_key_mapping(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         obj = await db_session.get(m.ApiResultKeyMapping, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         for field, value in _payload_without_none(data).items():
             setattr(obj, field, value)
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.api-result-key-mapping.update",
+            target_type="ApiResultKeyMapping",
+            target_id=obj.id,
+            target_label=obj.key_name,
+            details={"updated_fields": sorted(_payload_without_none(data).keys())},
+        )
         return Response(content={"code": 200, "msg": "更新成功"})
 
-    @delete("/api/data/api-result-key-mappings/{record_id:int}", exclude_from_auth=True, status_code=200)
-    async def delete_api_result_key_mapping(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+    @delete("/api/data/api-result-key-mappings/{record_id:int}", guards=[requires_superuser], status_code=200)
+    async def delete_api_result_key_mapping(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
         obj = await db_session.get(m.ApiResultKeyMapping, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        details = {"cn_name": obj.cn_name}
         await db_session.delete(obj)
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.api-result-key-mapping.delete",
+            target_type="ApiResultKeyMapping",
+            target_id=record_id,
+            target_label=obj.key_name,
+            details=details,
+        )
         return Response(content={"code": 200, "msg": "已删除"})
 
     @get("/api/data/energy-storage", exclude_from_auth=True)
@@ -6679,8 +7592,14 @@ class CarbonCRUDController(Controller):
         obj = (await db_session.execute(select(m.EnergyStorageValue).order_by(m.EnergyStorageValue.id.desc()).limit(1))).scalars().first()
         return Response(content={"code": 200, "msg": "获取成功", "data": model_to_dict(obj) if obj else None})
 
-    @post("/api/data/energy-storage", exclude_from_auth=True)
-    async def save_energy_storage_setting(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @post("/api/data/energy-storage", guards=[requires_superuser])
+    async def save_energy_storage_setting(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         obj = (await db_session.execute(select(m.EnergyStorageValue).order_by(m.EnergyStorageValue.id.desc()).limit(1))).scalars().first()
         if obj is None:
             obj = m.EnergyStorageValue(**_payload_without_none(data))
@@ -6690,6 +7609,14 @@ class CarbonCRUDController(Controller):
                 setattr(obj, field, value)
         await db_session.commit()
         await db_session.refresh(obj)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.energy-storage.save",
+            target_type="EnergyStorageValue",
+            target_id=obj.id,
+            details={"updated_fields": sorted(_payload_without_none(data).keys())},
+        )
         return Response(content={"code": 200, "msg": "保存成功", "data": model_to_dict(obj)})
 
     # ---------- 数据管理: 事件处理 / 流水只读 ----------
@@ -6728,8 +7655,15 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=page)
 
-    @patch("/api/data/alarm-events/{record_id:int}", exclude_from_auth=True)
-    async def update_alarm_event(self, db_session: AsyncSession, record_id: int, data: dict[str, Any] = ADMIN_BODY) -> Response[dict]:
+    @patch("/api/data/alarm-events/{record_id:int}", guards=[requires_superuser])
+    async def update_alarm_event(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
         obj = await db_session.get(m.AlarmEvent, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
@@ -6745,10 +7679,25 @@ class CarbonCRUDController(Controller):
         elif obj.status:
             obj.is_handle = obj.status != "open"
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.alarm-event.update",
+            target_type="AlarmEvent",
+            target_id=obj.id,
+            target_label=obj.alarm_name,
+            details={"updated_fields": sorted(payload.keys()), "status": obj.status},
+        )
         return Response(content={"code": 200, "msg": "更新成功"})
 
-    @post("/api/data/alarm-events/{record_id:int}/handle", exclude_from_auth=True)
-    async def handle_alarm_event(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+    @post("/api/data/alarm-events/{record_id:int}/handle", guards=[requires_superuser])
+    async def handle_alarm_event(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
         obj = await db_session.get(m.AlarmEvent, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
@@ -6756,10 +7705,25 @@ class CarbonCRUDController(Controller):
         obj.resolved_at = datetime.datetime.utcnow()
         obj.is_handle = True
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.alarm-event.handle",
+            target_type="AlarmEvent",
+            target_id=obj.id,
+            target_label=obj.alarm_name,
+            details={"status": obj.status},
+        )
         return Response(content={"code": 200, "msg": "已处理"})
 
-    @post("/api/data/alarm-events/handle-batch", exclude_from_auth=True)
-    async def handle_alarm_events_batch(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_OPTIONAL_BODY) -> Response[dict]:
+    @post("/api/data/alarm-events/handle-batch", guards=[requires_superuser])
+    async def handle_alarm_events_batch(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_OPTIONAL_BODY,
+    ) -> Response[dict]:
         ids = data.get("ids") or []
         stmt = select(m.AlarmEvent).where(m.AlarmEvent.is_handle.is_(False))
         if ids:
@@ -6770,6 +7734,13 @@ class CarbonCRUDController(Controller):
             item.resolved_at = item.resolved_at or datetime.datetime.utcnow()
             item.is_handle = True
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.alarm-event.batch-handle",
+            target_type="AlarmEvent",
+            details={"count": len(items), "ids": ids},
+        )
         return Response(content={"code": 200, "msg": "已批量处理", "data": {"count": len(items)}})
 
     @get("/api/data/video-alarm-events", exclude_from_auth=True)
@@ -6804,17 +7775,37 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=page)
 
-    @post("/api/data/video-alarm-events/{record_id:int}/handle", exclude_from_auth=True)
-    async def handle_video_alarm_event(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
+    @post("/api/data/video-alarm-events/{record_id:int}/handle", guards=[requires_superuser])
+    async def handle_video_alarm_event(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
         obj = await db_session.get(m.VedioAlarmEvent, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         obj.is_handle = True
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.video-alarm-event.handle",
+            target_type="VedioAlarmEvent",
+            target_id=obj.id,
+            details={"is_handle": obj.is_handle},
+        )
         return Response(content={"code": 200, "msg": "已处理"})
 
-    @post("/api/data/video-alarm-events/handle-batch", exclude_from_auth=True)
-    async def handle_video_alarm_events_batch(self, db_session: AsyncSession, data: dict[str, Any] = ADMIN_OPTIONAL_BODY) -> Response[dict]:
+    @post("/api/data/video-alarm-events/handle-batch", guards=[requires_superuser])
+    async def handle_video_alarm_events_batch(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_OPTIONAL_BODY,
+    ) -> Response[dict]:
         ids = data.get("ids") or []
         stmt = select(m.VedioAlarmEvent).where(m.VedioAlarmEvent.is_handle.is_(False))
         if ids:
@@ -6823,6 +7814,13 @@ class CarbonCRUDController(Controller):
         for item in items:
             item.is_handle = True
         await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.video-alarm-event.batch-handle",
+            target_type="VedioAlarmEvent",
+            details={"count": len(items), "ids": ids},
+        )
         return Response(content={"code": 200, "msg": "已批量处理", "data": {"count": len(items)}})
 
     @get("/api/data/in-money", exclude_from_auth=True)
@@ -6959,10 +7957,12 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=page)
 
-    @post("/api/data/employee-commute", exclude_from_auth=True)
+    @post("/api/data/employee-commute", guards=[requires_superuser])
     async def create_employee_commute(
         self,
+        request: Request[Any, Any, Any],
         employee_commute_service: services.EmployeeCommuteService,
+        security_audit_service: AuditLogService,
         data: dict[str, Any] = Body(),
     ) -> Response[dict]:
         """新增员工通勤记录。"""
@@ -6977,13 +7977,24 @@ class CarbonCRUDController(Controller):
 
         payload = {k: v for k, v in data.items() if v is not None}
         obj = await employee_commute_service.create(payload, auto_commit=True)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.employee-commute.create",
+            target_type="EmployeeCommute",
+            target_id=obj.id,
+            target_label=obj.name,
+            details={"category": obj.category},
+        )
         return Response(content={"code": 200, "data": model_to_dict(obj), "msg": "创建成功"})
 
-    @patch("/api/data/employee-commute/{record_id:int}", exclude_from_auth=True)
+    @patch("/api/data/employee-commute/{record_id:int}", guards=[requires_superuser])
     async def update_employee_commute(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         employee_commute_service: services.EmployeeCommuteService,
+        security_audit_service: AuditLogService,
         data: dict[str, Any] = Body(),
     ) -> Response[dict]:
         """更新员工通勤记录。"""
@@ -7000,17 +8011,37 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
 
         await employee_commute_service.update(item_id=record_id, data=data, auto_commit=True)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.employee-commute.update",
+            target_type="EmployeeCommute",
+            target_id=record_id,
+            target_label=obj.name,
+            details={"updated_fields": sorted(data.keys())},
+        )
         return Response(content={"code": 200, "msg": "更新成功"})
 
-    @delete("/api/data/employee-commute/{record_id:int}", exclude_from_auth=True, status_code=200)
+    @delete("/api/data/employee-commute/{record_id:int}", guards=[requires_superuser], status_code=200)
     async def delete_employee_commute(
         self,
+        request: Request[Any, Any, Any],
         record_id: int,
         employee_commute_service: services.EmployeeCommuteService,
+        security_audit_service: AuditLogService,
     ) -> Response[dict]:
         """删除员工通勤记录。"""
         obj = await employee_commute_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         await employee_commute_service.delete(obj, auto_commit=True)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="carbon.employee-commute.delete",
+            target_type="EmployeeCommute",
+            target_id=record_id,
+            target_label=obj.name,
+            details={"category": obj.category},
+        )
         return Response(content={"code": 200, "msg": "已删除"})

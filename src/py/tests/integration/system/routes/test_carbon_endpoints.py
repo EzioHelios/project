@@ -72,9 +72,15 @@ async def test_device_types_endpoint_seeds_defaults(client: AsyncClient) -> None
     assert {"meter", "pv_inverter", "storage_bms", "charger", "camera"}.issubset(codes)
 
 
+async def test_data_write_endpoints_require_superuser(client: AsyncClient) -> None:
+    response = await client.post("/api/data/monitor-sectors", json={"code": "SEC-01", "name": "安全一区"})
+    assert response.status_code == 401
+
+
 async def test_monitor_equipment_create_backfills_category_and_default_points(
     client: AsyncClient,
     session: AsyncSession,
+    superuser_token_headers: dict[str, str],
 ) -> None:
     sector = m.MonitorSector(code="A-01", name="一区")
     session.add(sector)
@@ -92,6 +98,7 @@ async def test_monitor_equipment_create_backfills_category_and_default_points(
             "warehouse_code": "WH-01",
             "running_status": "正常使用",
         },
+        headers=superuser_token_headers,
     )
 
     assert response.status_code == 201
@@ -106,7 +113,11 @@ async def test_monitor_equipment_create_backfills_category_and_default_points(
     assert point_codes == {"active_power", "voltage_a", "current_a", "total_energy"}
 
 
-async def test_monitor_equipment_create_preserves_asset_code(client: AsyncClient, session: AsyncSession) -> None:
+async def test_monitor_equipment_create_preserves_asset_code(
+    client: AsyncClient,
+    session: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
     sector = m.MonitorSector(code="A-11", name="十一区")
     session.add(sector)
     await session.commit()
@@ -121,6 +132,7 @@ async def test_monitor_equipment_create_preserves_asset_code(client: AsyncClient
             "device_type_id": 5,
             "sector_id": sector.id,
         },
+        headers=superuser_token_headers,
     )
 
     assert response.status_code == 201
@@ -158,7 +170,11 @@ async def test_iot_telemetry_resolves_monitor_equipment_by_external_device_id(cl
     assert row["external_device_id"] == "mqtt-meter-010"
 
 
-async def test_device_point_duplicate_code_is_rejected(client: AsyncClient, session: AsyncSession) -> None:
+async def test_device_point_duplicate_code_is_rejected(
+    client: AsyncClient,
+    session: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
     sector = m.MonitorSector(code="A-02", name="二区")
     session.add(sector)
     await session.commit()
@@ -175,6 +191,7 @@ async def test_device_point_duplicate_code_is_rejected(client: AsyncClient, sess
             "warehouse_code": "WH-02",
             "running_status": "正常使用",
         },
+        headers=superuser_token_headers,
     )
     equipment_id = create_equipment.json()["data"]["id"]
 
@@ -186,13 +203,18 @@ async def test_device_point_duplicate_code_is_rejected(client: AsyncClient, sess
             "point_name": "重复有功功率",
             "value_type": "float",
         },
+        headers=superuser_token_headers,
     )
 
     assert response.status_code == 400
     assert response.json()["msg"] == "同一设备下测点编码不能重复"
 
 
-async def test_alarm_rule_and_event_status_flow(client: AsyncClient, session: AsyncSession) -> None:
+async def test_alarm_rule_and_event_status_flow(
+    client: AsyncClient,
+    session: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
     sector = m.MonitorSector(code="A-03", name="三区")
     session.add(sector)
     await session.commit()
@@ -209,6 +231,7 @@ async def test_alarm_rule_and_event_status_flow(client: AsyncClient, session: As
             "warehouse_code": "WH-03",
             "running_status": "正常使用",
         },
+        headers=superuser_token_headers,
     )
     equipment_id = create_equipment.json()["data"]["id"]
 
@@ -224,6 +247,7 @@ async def test_alarm_rule_and_event_status_flow(client: AsyncClient, session: As
             "alarm_level": "critical",
             "is_enabled": True,
         },
+        headers=superuser_token_headers,
     )
     assert rule_response.status_code == 201
     rule_id = rule_response.json()["data"]["id"]
@@ -252,6 +276,7 @@ async def test_alarm_rule_and_event_status_flow(client: AsyncClient, session: As
     acknowledge_response = await client.patch(
         f"/api/data/alarm-events/{event.id}",
         json={"status": "acknowledged", "handled_by": "tester", "handle_note": "已确认"},
+        headers=superuser_token_headers,
     )
     assert acknowledge_response.status_code == 200
 
@@ -263,6 +288,7 @@ async def test_alarm_rule_and_event_status_flow(client: AsyncClient, session: As
     resolve_response = await client.patch(
         f"/api/data/alarm-events/{event.id}",
         json={"status": "resolved"},
+        headers=superuser_token_headers,
     )
     assert resolve_response.status_code == 200
 
