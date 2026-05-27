@@ -13,7 +13,7 @@ from litestar.params import Dependency
 from sqlalchemy.orm import joinedload, load_only, selectinload, undefer_group
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_superuser
+from app.domain.accounts.guards import requires_permission
 from app.domain.accounts.services import UserService
 from app.domain.admin.deps import provide_audit_log_service
 from app.domain.admin.schemas import AdminUserDetail, AdminUserSummary, AdminUserUpdate
@@ -34,7 +34,7 @@ class AdminUsersController(Controller):
 
     tags = ["Admin"]
     path = "/api/admin/users"
-    guards = [requires_superuser]
+    guards = [requires_permission("auth.user.manage")]
     dependencies = create_service_dependencies(
         UserService,
         key="users_service",

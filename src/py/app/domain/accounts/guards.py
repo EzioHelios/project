@@ -16,6 +16,7 @@ from app.lib.deps import provide_services
 from app.lib.settings import get_settings
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from typing import Any
 
     from litestar.connection import ASGIConnection, Request
@@ -96,6 +97,56 @@ def requires_superuser(connection: ASGIConnection[Any, m.User, Token, Any], _: B
     ):
         return
     raise PermissionDeniedException(detail="Insufficient privileges")
+
+
+def _user_permission_codes(user: m.User) -> set[str]:
+    """Collect permission codes granted to a user."""
+    permissions: set[str] = set()
+    for assigned_role in user.roles:
+        role = getattr(assigned_role, "role", None)
+        role_permissions = getattr(role, "permissions", None) if role is not None else None
+        if not isinstance(role_permissions, (list, tuple, set, frozenset)):
+            role_permissions = getattr(assigned_role, "permissions", None)
+        if not isinstance(role_permissions, (list, tuple, set, frozenset)):
+            continue
+        for permission in role_permissions:
+            permissions.add(permission.code)
+    return permissions
+
+
+def has_permission(user: m.User, permission_code: str) -> bool:
+    """Check whether a user has a specific permission code."""
+    if user.is_superuser:
+        return True
+    if any(
+        assigned_role.role_name == constants.SUPERUSER_ACCESS_ROLE
+        for assigned_role in user.roles
+    ):
+        return True
+    if permission_code == "*":
+        return False
+    return permission_code in _user_permission_codes(user)
+
+
+def requires_permission(
+    *permission_codes: str,
+) -> Callable[[ASGIConnection[Any, m.User, Token, Any], BaseRouteHandler], None]:
+    """Build a guard requiring one of the given permission codes."""
+
+    def _guard(connection: ASGIConnection[Any, m.User, Token, Any], _: BaseRouteHandler) -> None:
+        user = connection.user
+        if any(has_permission(user, code) for code in permission_codes):
+            return
+        raise PermissionDeniedException(detail="Insufficient privileges")
+
+    return _guard
+
+
+def requires_any_permission(
+    *permission_codes: str,
+) -> Callable[[ASGIConnection[Any, m.User, Token, Any], BaseRouteHandler], None]:
+    """Alias for requires_permission for readability."""
+    return requires_permission(*permission_codes)
 
 
 async def current_user_from_token(token: Token, connection: ASGIConnection[Any, Any, Any, Any]) -> m.User | None:
@@ -181,9 +232,12 @@ __all__ = (
     "auth",
     "create_access_token",
     "current_user_from_token",
-    "requires_authenticated_user",
+    "has_permission",
     "provide_user",
     "requires_active_user",
+    "requires_any_permission",
+    "requires_authenticated_user",
+    "requires_permission",
     "requires_superuser",
     "requires_verified_user",
 )

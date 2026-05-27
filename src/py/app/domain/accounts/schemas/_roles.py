@@ -5,6 +5,7 @@ from uuid import UUID
 
 import msgspec
 
+from app.domain.accounts.schemas._permissions import Permission
 from app.lib.schema import CamelizedBaseStruct
 
 
@@ -31,6 +32,7 @@ class Role(CamelizedBaseStruct):
     name: str
     created_at: datetime
     updated_at: datetime
+    permissions: list[Permission] = []
 
 
 class RoleCreate(CamelizedBaseStruct):

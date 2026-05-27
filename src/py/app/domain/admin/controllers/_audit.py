@@ -9,7 +9,7 @@ from litestar import Controller, get
 from litestar.params import Dependency, Parameter
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_superuser
+from app.domain.accounts.guards import requires_permission
 from app.domain.admin.schemas import AuditLogEntry
 from app.domain.admin.services import AuditLogService
 from app.lib.deps import create_service_dependencies
@@ -27,7 +27,7 @@ class AuditController(Controller):
 
     tags = ["Admin"]
     path = "/api/admin/audit"
-    guards = [requires_superuser]
+    guards = [requires_permission("admin.audit.view")]
     dependencies = create_service_dependencies(
         AuditLogService,
         key="audit_service",

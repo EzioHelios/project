@@ -1,6 +1,12 @@
 """Account domain schemas for users, auth, OAuth, roles, and password reset."""
 
-from app.domain.accounts.schemas._auth import AccountLogin, AccountRegister, HumanVerification, PasswordUpdate, PasswordVerify
+from app.domain.accounts.schemas._auth import (
+    AccountLogin,
+    AccountRegister,
+    HumanVerification,
+    PasswordUpdate,
+    PasswordVerify,
+)
 from app.domain.accounts.schemas._email_verification import (
     EmailVerificationConfirm,
     EmailVerificationRequest,
@@ -26,6 +32,7 @@ from app.domain.accounts.schemas._password_reset import (
     ResetTokenValidation,
     ValidateResetTokenRequest,
 )
+from app.domain.accounts.schemas._permissions import Permission, RolePermissionsUpdate
 from app.domain.accounts.schemas._roles import Role, RoleCreate, RoleUpdate, UserRoleAdd, UserRoleRevoke
 from app.domain.accounts.schemas._sessions import ActiveSession, TokenRefresh
 from app.domain.accounts.schemas._user import (
@@ -65,11 +72,13 @@ __all__ = (
     "PasswordResetSent",
     "PasswordUpdate",
     "PasswordVerify",
+    "Permission",
     "ProfileUpdate",
     "ResetPasswordRequest",
     "ResetTokenValidation",
     "Role",
     "RoleCreate",
+    "RolePermissionsUpdate",
     "RoleUpdate",
     "TokenRefresh",
     "User",

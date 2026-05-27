@@ -12,7 +12,7 @@ from msgspec import UNSET
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_superuser
+from app.domain.accounts.guards import requires_permission
 from app.domain.admin.deps import provide_audit_log_service
 from app.domain.admin.schemas import AdminTeamDetail, AdminTeamSummary, AdminTeamUpdate
 from app.domain.teams.services import TeamService
@@ -33,7 +33,7 @@ class AdminTeamsController(Controller):
 
     tags = ["Admin"]
     path = "/api/admin/teams"
-    guards = [requires_superuser]
+    guards = [requires_permission("admin.team.manage")]
     dependencies = create_service_dependencies(
         TeamService,
         key="teams_service",

@@ -8,19 +8,20 @@ from advanced_alchemy.exceptions import IntegrityError
 from litestar import Controller, Request, delete, post
 from litestar.di import Provide
 from litestar.params import Parameter
-from litestar.security.jwt import Token
 from litestar.status_codes import HTTP_202_ACCEPTED
 
-from app.db import models as m
-from app.domain.admin.deps import provide_audit_log_service
-from app.domain.admin.services import AuditLogService
 from app.domain.accounts.deps import provide_roles_service, provide_user_roles_service, provide_users_service
-from app.domain.accounts.guards import requires_superuser
+from app.domain.accounts.guards import requires_permission
+from app.domain.admin.deps import provide_audit_log_service
 from app.lib.schema import Message
 
 if TYPE_CHECKING:
+    from litestar.security.jwt import Token
+
+    from app.db import models as m
     from app.domain.accounts.schemas import UserRoleAdd, UserRoleRevoke
     from app.domain.accounts.services import RoleService, UserRoleService, UserService
+    from app.domain.admin.services import AuditLogService
 
 
 class UserRoleController(Controller):
@@ -28,7 +29,7 @@ class UserRoleController(Controller):
 
     path = "/api/users/roles"
     tags = ["User Account Roles"]
-    guards = [requires_superuser]
+    guards = [requires_permission("auth.role.manage")]
     dependencies = {
         "users_service": Provide(provide_users_service),
         "roles_service": Provide(provide_roles_service),
@@ -50,9 +51,11 @@ class UserRoleController(Controller):
         """Assign a role to a user.
 
         Args:
+            request: Request with authenticated user.
             roles_service: Role Service
             users_service: User Service
             user_roles_service: User Role Service
+            audit_service: Audit log service.
             data: User Role Add
             role_slug: Role Slug
 
@@ -89,8 +92,10 @@ class UserRoleController(Controller):
         """Delete a role from the system.
 
         Args:
+            request: Request with authenticated user.
             users_service: User Service
             user_roles_service: User Role Service
+            audit_service: Audit log service.
             data: User Role Revoke
             role_slug: Role Slug
 

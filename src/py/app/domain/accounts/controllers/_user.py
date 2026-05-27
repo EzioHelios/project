@@ -10,7 +10,7 @@ from litestar.params import Dependency, Parameter
 from sqlalchemy.orm import joinedload, load_only, selectinload
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_superuser
+from app.domain.accounts.guards import requires_permission
 from app.domain.accounts.schemas import User, UserCreate, UserUpdate
 from app.domain.accounts.services import UserService
 from app.lib.deps import create_service_dependencies
@@ -25,7 +25,7 @@ class UserController(Controller):
 
     path = "/api/users"
     tags = ["User Accounts"]
-    guards = [requires_superuser]
+    guards = [requires_permission("auth.user.manage")]
     dependencies = create_service_dependencies(
         UserService,
         key="users_service",

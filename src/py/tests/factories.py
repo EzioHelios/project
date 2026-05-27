@@ -274,6 +274,41 @@ class RoleFactory(SQLAlchemyFactory[m.Role]):
 
     # Ignore relationships
     users = Ignore()
+    permissions = Ignore()
+    permission_links = Ignore()
+
+
+class PermissionFactory(SQLAlchemyFactory[m.Permission]):
+    """Factory for Permission model."""
+
+    __model__ = m.Permission
+    __set_relationships__ = True
+
+    id = Use(uuid4)
+    code = Use(lambda: f"test.permission.{uuid4().hex[:8]}")
+    name = Use(lambda: f"Test Permission {uuid4().hex[:8]}")
+    description = Use(lambda: f"Test permission description {uuid4().hex[:8]}")
+    module = "test"
+
+    role_links = Ignore()
+    roles = Ignore()
+
+
+class RolePermissionFactory(SQLAlchemyFactory[m.RolePermission]):
+    """Factory for RolePermission model."""
+
+    __model__ = m.RolePermission
+    __set_relationships__ = True
+    __check_model__ = False
+
+    id = Use(uuid4)
+
+    # These will be set by the caller
+    role_id: UUID | None = None
+    permission_id: UUID | None = None
+
+    role = Ignore()
+    permission = Ignore()
 
 
 class UserRoleFactory(SQLAlchemyFactory[m.UserRole]):

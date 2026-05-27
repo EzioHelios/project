@@ -8,7 +8,9 @@ from app.db import models as m
 from app.domain.accounts.services import (
     EmailVerificationTokenService,
     PasswordResetService,
+    PermissionService,
     RefreshTokenService,
+    RolePermissionService,
     RoleService,
     UserOAuthAccountService,
     UserRoleService,
@@ -19,7 +21,9 @@ from app.lib.deps import create_service_provider
 provide_users_service = create_service_provider(
     UserService,
     load=[
-        selectinload(m.User.roles).options(joinedload(m.UserRole.role, innerjoin=True)),
+        selectinload(m.User.roles).options(
+            joinedload(m.UserRole.role, innerjoin=True).options(selectinload(m.Role.permissions)),
+        ),
         selectinload(m.User.oauth_accounts),
         selectinload(m.User.teams).options(
             joinedload(m.TeamMember.team, innerjoin=True).options(load_only(m.Team.name)),
@@ -53,10 +57,31 @@ provide_password_reset_service = create_service_provider(
 
 provide_roles_service = create_service_provider(
     RoleService,
-    load=[selectinload(m.Role.users)],
+    load=[selectinload(m.Role.users), selectinload(m.Role.permissions)],
     error_messages={
         "duplicate_key": "This role already exists.",
         "integrity": "Role operation failed.",
+    },
+)
+
+provide_permissions_service = create_service_provider(
+    PermissionService,
+    load=[],
+    error_messages={
+        "duplicate_key": "This permission already exists.",
+        "integrity": "Permission operation failed.",
+    },
+)
+
+provide_role_permissions_service = create_service_provider(
+    RolePermissionService,
+    load=[
+        selectinload(m.RolePermission.role),
+        selectinload(m.RolePermission.permission),
+    ],
+    error_messages={
+        "duplicate_key": "This role already has the permission.",
+        "integrity": "Role permission operation failed.",
     },
 )
 
@@ -93,7 +118,9 @@ provide_refresh_token_service = create_service_provider(
 __all__ = (
     "provide_email_verification_service",
     "provide_password_reset_service",
+    "provide_permissions_service",
     "provide_refresh_token_service",
+    "provide_role_permissions_service",
     "provide_roles_service",
     "provide_user_oauth_service",
     "provide_user_roles_service",

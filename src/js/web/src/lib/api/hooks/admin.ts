@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { getApiBaseUrl } from "@/lib/api-base-url"
 import {
+  type ListRolesData,
   type AdminListAuditLogsData,
   type AdminListTeamsData,
   type AdminListUsersData,
@@ -18,11 +20,55 @@ import {
   adminListUsers,
   adminUpdateTeam,
   adminUpdateUser,
+  listRoles,
   type DashboardStats,
   getDashboardStats,
   getRecentActivity,
   type RecentActivity,
 } from "@/lib/generated/api"
+
+export interface AdminPermission {
+  id: string
+  code: string
+  name: string
+  description: string | null
+  module: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdminRolePermissionsResponse {
+  id: string
+  slug: string
+  name: string
+  permissions: AdminPermission[]
+  createdAt: string
+  updatedAt: string
+}
+
+async function requestAdminJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const apiUrl = getApiBaseUrl()
+  const headers = new Headers(init?.headers)
+  const csrfToken = window.__LITESTAR_CSRF__
+  if (csrfToken) {
+    headers.set("X-XSRF-TOKEN", csrfToken)
+  }
+  if (init?.body !== undefined && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json")
+  }
+
+  const response = await fetch(`${apiUrl}${path}`, {
+    credentials: "include",
+    ...init,
+    headers,
+  })
+  const text = await response.text()
+  const raw = text ? JSON.parse(text) : {}
+  if (!response.ok) {
+    throw new Error(raw.detail || raw.message || raw.msg || `HTTP ${response.status}`)
+  }
+  return raw as T
+}
 
 export function useAdminDashboardStats() {
   return useQuery({
@@ -68,6 +114,57 @@ export function useAdminTeams(page = 1, pageSize = 25) {
       } as unknown as AdminListTeamsData["query"]
       const response = await adminListTeams({ query })
       return response.data as { items: AdminTeamSummary[]; total: number }
+    },
+  })
+}
+
+export function useAdminRoles(page = 1, pageSize = 50) {
+  return useQuery({
+    queryKey: ["admin", "roles", page, pageSize],
+    queryFn: async () => {
+      const query = {
+        currentPage: page,
+        pageSize,
+      } as unknown as ListRolesData["query"]
+      const response = await listRoles({ query })
+      return response.data as { items: Array<{ id: string; slug: string; name: string; createdAt: string; updatedAt: string }>; total: number }
+    },
+  })
+}
+
+export function useAdminPermissions() {
+  return useQuery({
+    queryKey: ["admin", "permissions"],
+    queryFn: async () => requestAdminJson<AdminPermission[]>("/api/admin/permissions"),
+  })
+}
+
+export function useAdminRolePermissions(roleId: string) {
+  return useQuery({
+    queryKey: ["admin", "role-permissions", roleId],
+    queryFn: async () => requestAdminJson<AdminRolePermissionsResponse>(`/api/admin/roles/${roleId}/permissions`),
+    enabled: !!roleId,
+  })
+}
+
+export function useAdminUpdateRolePermissions(roleId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (permissionCodes: string[]) => {
+      return requestAdminJson<AdminRolePermissionsResponse>(`/api/admin/roles/${roleId}/permissions`, {
+        method: "PUT",
+        body: JSON.stringify({ permissionCodes }),
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "role-permissions", roleId] })
+      queryClient.invalidateQueries({ queryKey: ["admin", "roles"] })
+      toast.success("Role permissions updated")
+    },
+    onError: (error) => {
+      toast.error("Unable to update role permissions", {
+        description: error instanceof Error ? error.message : "Try again later",
+      })
     },
   })
 }

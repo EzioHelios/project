@@ -1,0 +1,1 @@
+"""Admin route integration tests."""

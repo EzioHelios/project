@@ -12,8 +12,10 @@ from litestar.security.jwt import Token
 
 from app.domain.accounts.guards import (
     create_access_token,
+    has_permission,
     provide_user,
     requires_active_user,
+    requires_permission,
     requires_superuser,
     requires_verified_user,
 )
@@ -166,6 +168,59 @@ def test_user_with_non_superuser_role_raises() -> None:
         requires_superuser(mock_connection, mock_handler)
 
     assert "Insufficient privileges" in str(exc_info.value)
+
+
+def test_requires_permission_passes_with_granted_permission() -> None:
+    """Test that a user with matching permission passes the guard."""
+    mock_permission = Mock()
+    mock_permission.code = "auth.role.manage"
+    mock_role = Mock()
+    mock_role.role_name = "role_manager"
+    mock_role.permissions = [mock_permission]
+
+    mock_user = Mock()
+    mock_user.is_superuser = False
+    mock_user.roles = [mock_role]
+
+    mock_connection = Mock()
+    mock_connection.user = mock_user
+    mock_handler = Mock()
+
+    requires_permission("auth.role.manage")(mock_connection, mock_handler)
+
+
+def test_requires_permission_denies_without_grant() -> None:
+    """Test that a user without permission is denied."""
+    mock_role = Mock()
+    mock_role.role_name = "role_manager"
+    mock_role.permissions = []
+
+    mock_user = Mock()
+    mock_user.is_superuser = False
+    mock_user.roles = [mock_role]
+
+    mock_connection = Mock()
+    mock_connection.user = mock_user
+    mock_handler = Mock()
+
+    with pytest.raises(PermissionDeniedException):
+        requires_permission("auth.role.manage")(mock_connection, mock_handler)
+
+
+def test_has_permission_checks_user_roles() -> None:
+    """Test permission lookup across user roles."""
+    mock_permission = Mock()
+    mock_permission.code = "admin.audit.view"
+    mock_role = Mock()
+    mock_role.role_name = "auditor"
+    mock_role.permissions = [mock_permission]
+
+    user = Mock()
+    user.is_superuser = False
+    user.roles = [mock_role]
+
+    assert has_permission(user, "admin.audit.view") is True
+    assert has_permission(user, "auth.role.manage") is False
 
 
 def test_create_basic_token() -> None:

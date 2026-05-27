@@ -9,20 +9,22 @@ from uuid import UUID
 from litestar import Controller, Request, delete, get, patch, post
 from litestar.exceptions import HTTPException
 from litestar.params import Dependency, Parameter
-from litestar.security.jwt import Token
+from sqlalchemy.orm import selectinload
 
 from app.db import models as m
-from app.domain.admin.deps import provide_audit_log_service
-from app.domain.admin.services import AuditLogService
-from app.domain.accounts.guards import requires_superuser
+from app.domain.accounts.guards import requires_permission
 from app.domain.accounts.schemas import Message, Role, RoleCreate, RoleUpdate, UserRoleAdd, UserRoleRevoke
 from app.domain.accounts.services import RoleService, UserRoleService, UserService
+from app.domain.admin.deps import provide_audit_log_service
 from app.lib.constants import DEFAULT_ACCESS_ROLE, SUPERUSER_ACCESS_ROLE
 from app.lib.deps import create_service_dependencies
 
 if TYPE_CHECKING:
     from advanced_alchemy.filters import FilterTypes
     from advanced_alchemy.service import OffsetPagination
+    from litestar.security.jwt import Token
+
+    from app.domain.admin.services import AuditLogService
 
 
 class RoleController(Controller):
@@ -30,17 +32,18 @@ class RoleController(Controller):
 
     path = "/api/roles"
     tags = ["Roles"]
-    guards = [requires_superuser]
+    guards = [requires_permission("auth.role.manage")]
     dependencies = {
         **create_service_dependencies(
             RoleService,
             key="roles_service",
-            load=[m.Role.users],
+            load=[selectinload(m.Role.users), selectinload(m.Role.permissions)],
             filters={
                 "id_filter": UUID,
                 "pagination_type": "limit_offset",
                 "pagination_size": 50,
-                "sort_field": "name",
+                "sort_field": "created_at",
+                "sort_order": "desc",
                 "search": "name,slug",
             },
         ),
@@ -158,9 +161,11 @@ class RoleController(Controller):
         """Assign a role to a user.
 
         Args:
+            request: Request with authenticated user.
             roles_service: The role service.
             users_service: The user service.
             user_roles_service: The user role service.
+            audit_service: Audit log service.
             data: The user to assign the role to.
             role_slug: The slug of the role to assign.
 
@@ -216,9 +221,11 @@ class RoleController(Controller):
         """Revoke a role from a user.
 
         Args:
+            request: Request with authenticated user.
             roles_service: The role service.
             users_service: The user service.
             user_roles_service: The user role service.
+            audit_service: Audit log service.
             data: The user to revoke the role from.
             role_slug: The slug of the role to revoke.
 

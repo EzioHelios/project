@@ -298,6 +298,7 @@ export function CrudDataPage({
       setOpen(false)
       setEditing(null)
       setForm(makeInitial(fields))
+      if (!editing) setPageIndex(0)
       await qc.invalidateQueries({ queryKey })
     },
     onError: (error) => toast.error("保存失败", { description: error instanceof Error ? error.message : "请检查输入" }),

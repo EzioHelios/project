@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 
 const navItems = [
   { label: "Dashboard", to: "/admin" },
+  { label: "Roles", to: "/admin/roles" },
   { label: "Users", to: "/admin/users" },
   { label: "Teams", to: "/admin/teams" },
   { label: "Audit log", to: "/admin/audit" },
