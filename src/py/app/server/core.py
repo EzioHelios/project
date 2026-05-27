@@ -1,8 +1,10 @@
 # pylint: disable=[invalid-name,import-outside-toplevel]
+# ruff: noqa: RUF002, RUF003
 from __future__ import annotations
 
 from datetime import datetime
 from typing import TYPE_CHECKING, TypeVar
+from urllib.parse import urlparse
 from uuid import UUID
 
 from advanced_alchemy.exceptions import DuplicateKeyError, RepositoryError
@@ -36,9 +38,49 @@ if TYPE_CHECKING:
     from click import Group
     from litestar.config.app import AppConfig
     from litestar.datastructures import State
+    from litestar.response import Response
 
 
 T = TypeVar("T")
+
+
+def _build_csp(settings: AppSettings) -> str:
+    connect_sources = {"'self'"}
+    frame_sources = {"'none'"}
+    if settings.altcha_enabled and settings.ALTCHA_SENTINEL_URL:
+        sentinel_origin = urlparse(settings.ALTCHA_SENTINEL_URL).scheme + "://" + urlparse(settings.ALTCHA_SENTINEL_URL).netloc
+        connect_sources.add(sentinel_origin)
+        frame_sources.add(sentinel_origin)
+
+    return "; ".join(
+        [
+            "default-src 'self'",
+            "base-uri 'self'",
+            "frame-ancestors 'none'",
+            "object-src 'none'",
+            "img-src 'self' data: blob:",
+            "font-src 'self' data:",
+            "style-src 'self' 'unsafe-inline'",
+            "script-src 'self'",
+            f"connect-src {' '.join(sorted(connect_sources))}",
+            "worker-src 'self' blob:",
+            f"frame-src {' '.join(sorted(frame_sources))}",
+        ]
+    )
+
+
+def add_security_headers(response: Response) -> Response:
+    """Attach default security headers to every response."""
+    headers = response.headers
+    settings = get_settings().app
+    headers.setdefault("X-Frame-Options", "DENY")
+    headers.setdefault("X-Content-Type-Options", "nosniff")
+    headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    headers.setdefault("Permissions-Policy", "accelerometer=(), camera=(), geolocation=(), microphone=()")
+    headers.setdefault("Content-Security-Policy", _build_csp(settings))
+    if settings.is_production and settings.COOKIE_SECURE:
+        headers.setdefault("Strict-Transport-Security", f"max-age={settings.HSTS_MAX_AGE}; includeSubDomains")
+    return response
 
 
 class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
@@ -80,6 +122,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         )
         app_config = auth.on_app_init(app_config)
         app_config.cors_config = config.cors
+        app_config.after_request = add_security_headers
 
 
         app_config.plugins.extend(
@@ -88,9 +131,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
                 # plugins.granian,
                 plugins.alchemy,
                 plugins.vite,
-                # plugins.get_saq_plugin(),
                 plugins.problem_details,
-                # plugins.oauth2_provider,
                 plugins.email,
                 plugins.domain,
             ],

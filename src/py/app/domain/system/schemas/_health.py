@@ -27,3 +27,8 @@ class PublicAppConfig(CamelizedBaseStruct, kw_only=True):
     display_name: str
     short_name: str
     description: str
+    auth_mode: str = "cookie-session"
+    captcha_provider: str | None = None
+    captcha_enabled: bool = False
+    captcha_challenge_url: str | None = None
+    captcha_site_key: str | None = None

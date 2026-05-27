@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 settings = get_settings()
 ACCESS_TOKEN_EXPIRATION = timedelta(minutes=15)
 AUTH_TOKEN_URL = "/api/access/login"  # noqa: S105
+ACCESS_COOKIE_KEY = "access_token"
 
 
 def provide_user(request: Request[m.User, Token, Any]) -> m.User:
@@ -54,6 +55,11 @@ def requires_active_user(connection: ASGIConnection[Any, m.User, Token, Any], _:
         return
     msg = "Inactive account"
     raise PermissionDeniedException(msg)
+
+
+def requires_authenticated_user(connection: ASGIConnection[Any, m.User, Token, Any], _: BaseRouteHandler) -> None:
+    """Request requires an authenticated, active user."""
+    requires_active_user(connection, _)
 
 
 def requires_verified_user(connection: ASGIConnection[Any, m.User, Token, Any], _: BaseRouteHandler) -> None:
@@ -152,6 +158,9 @@ auth = OAuth2PasswordBearerAuth[m.User](
     token_secret=settings.app.SECRET_KEY,
     token_url=AUTH_TOKEN_URL,
     default_token_expiration=ACCESS_TOKEN_EXPIRATION,
+    key=ACCESS_COOKIE_KEY,
+    secure=settings.app.COOKIE_SECURE,
+    samesite="strict",
     exclude=[
         "/health",
         "/api/access/login",
@@ -172,6 +181,7 @@ __all__ = (
     "auth",
     "create_access_token",
     "current_user_from_token",
+    "requires_authenticated_user",
     "provide_user",
     "requires_active_user",
     "requires_superuser",

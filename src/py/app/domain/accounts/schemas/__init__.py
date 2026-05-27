@@ -1,6 +1,6 @@
 """Account domain schemas for users, auth, OAuth, roles, and password reset."""
 
-from app.domain.accounts.schemas._auth import AccountLogin, AccountRegister, PasswordUpdate, PasswordVerify
+from app.domain.accounts.schemas._auth import AccountLogin, AccountRegister, HumanVerification, PasswordUpdate, PasswordVerify
 from app.domain.accounts.schemas._email_verification import (
     EmailVerificationConfirm,
     EmailVerificationRequest,
@@ -48,6 +48,7 @@ __all__ = (
     "EmailVerificationSent",
     "EmailVerificationStatus",
     "ForgotPasswordRequest",
+    "HumanVerification",
     "LoginMfaChallenge",
     "Message",
     "MfaBackupCodes",

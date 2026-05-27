@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 from uuid import UUID
 
-from litestar import Controller, delete, get, patch, post
+from litestar import Controller, Request, delete, get, patch, post
 from litestar.exceptions import HTTPException
 from litestar.params import Dependency, Parameter
+from litestar.security.jwt import Token
 
 from app.db import models as m
+from app.domain.admin.deps import provide_audit_log_service
+from app.domain.admin.services import AuditLogService
 from app.domain.accounts.guards import requires_superuser
 from app.domain.accounts.schemas import Message, Role, RoleCreate, RoleUpdate, UserRoleAdd, UserRoleRevoke
 from app.domain.accounts.services import RoleService, UserRoleService, UserService
@@ -43,6 +46,7 @@ class RoleController(Controller):
         ),
         **create_service_dependencies(UserService, key="users_service"),
         **create_service_dependencies(UserRoleService, key="user_roles_service"),
+        "audit_service": provide_audit_log_service,
     }
 
     @get(operation_id="ListRoles")
@@ -143,9 +147,11 @@ class RoleController(Controller):
     @post(operation_id="AssignRole", path="/{role_slug:str}/assign")
     async def assign_role(
         self,
+        request: Request[m.User, Token, Any],
         roles_service: RoleService,
         users_service: UserService,
         user_roles_service: UserRoleService,
+        audit_service: AuditLogService,
         data: UserRoleAdd,
         role_slug: Annotated[str, Parameter(title="Role Slug", description="The role slug to assign.")],
     ) -> Message:
@@ -183,15 +189,27 @@ class RoleController(Controller):
                 "assigned_at": datetime.now(UTC),
             },
         )
+        await audit_service.log_action(
+            action="auth.role.assign",
+            actor_id=request.user.id,
+            actor_email=request.user.email,
+            target_type="role",
+            target_id=str(role.id),
+            target_label=role.slug,
+            details={"user_id": str(user.id), "user_email": user.email},
+            request=request,
+        )
 
         return Message(message=f"Successfully assigned the '{role_slug}' role to {data.user_name}.")
 
     @post(operation_id="RevokeRole", path="/{role_slug:str}/revoke")
     async def revoke_role(
         self,
+        request: Request[m.User, Token, Any],
         roles_service: RoleService,
         users_service: UserService,
         user_roles_service: UserRoleService,
+        audit_service: AuditLogService,
         data: UserRoleRevoke,
         role_slug: Annotated[str, Parameter(title="Role Slug", description="The role slug to revoke.")],
     ) -> Message:
@@ -223,5 +241,15 @@ class RoleController(Controller):
             raise HTTPException(status_code=404, detail=f"User '{data.user_name}' does not have role '{role_slug}'")
 
         await user_roles_service.delete(existing_role.id)
+        await audit_service.log_action(
+            action="auth.role.revoke",
+            actor_id=request.user.id,
+            actor_email=request.user.email,
+            target_type="role",
+            target_id=str(role.id),
+            target_label=role.slug,
+            details={"user_id": str(user.id), "user_email": user.email},
+            request=request,
+        )
 
         return Message(message=f"Successfully revoked the '{role_slug}' role from {data.user_name}.")

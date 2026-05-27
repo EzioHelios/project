@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any
-from uuid import uuid4
 
 from litestar import Controller, Response, post
 from litestar.di import Provide
 from litestar.exceptions import ClientException, NotAuthorizedException
+from litestar.security.jwt import OAuth2Login
 from litestar.security.jwt import Token as JWTToken
 from sqlalchemy.orm import undefer_group
 
 from app.domain.accounts.deps import provide_refresh_token_service, provide_users_service
-from app.domain.accounts.guards import auth
+from app.domain.accounts.guards import ACCESS_TOKEN_EXPIRATION, auth, create_access_token
 from app.domain.admin.deps import provide_audit_log_service
 from app.lib.crypt import verify_backup_code, verify_totp_code
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from litestar import Request
-    from litestar.security.jwt import OAuth2Login, Token
+    from litestar.security.jwt import Token
 
     from app.db import models as m
     from app.domain.accounts.schemas import MfaChallenge
@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 REFRESH_COOKIE_NAME = "refresh_token"
 REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60
+ACCESS_TOKEN_MAX_AGE = int(ACCESS_TOKEN_EXPIRATION.total_seconds())
 LOW_BACKUP_CODE_THRESHOLD = 2
 MFA_RATE_LIMIT_WINDOW_MINUTES = 15
 MFA_RATE_LIMIT_MAX_ATTEMPTS = 5
@@ -114,19 +115,33 @@ class MfaChallengeController(Controller):
             device_info=device_info,
         )
 
-        token_extras = {
-            "user_id": str(user.id),
-            "is_superuser": users_service.is_superuser(user),
-            "is_verified": user.is_verified,
-            "auth_method": "mfa",
-            "amr": ["pwd", "mfa"],
-        }
-        response = auth.login(
-            user.email,
-            token_unique_jwt_id=str(uuid4()),
-            token_extras=token_extras,
+        access_token = create_access_token(
+            user_id=str(user.id),
+            email=user.email,
+            is_superuser=users_service.is_superuser(user),
+            is_verified=user.is_verified,
+            auth_method="mfa",
+            amr=["pwd", "mfa"],
+        )
+        response = Response(
+            OAuth2Login(
+                access_token=access_token,
+                token_type="Bearer",  # noqa: S106
+                refresh_token=raw_refresh_token,
+                expires_in=ACCESS_TOKEN_MAX_AGE,
+            ),
+            status_code=201,
         )
 
+        response.set_cookie(
+            key=auth.key,
+            value=auth.format_auth_header(access_token),
+            max_age=ACCESS_TOKEN_MAX_AGE,
+            httponly=True,
+            secure=settings.COOKIE_SECURE,
+            samesite="strict",
+            path="/",
+        )
         response.set_cookie(
             key=REFRESH_COOKIE_NAME,
             value=raw_refresh_token,

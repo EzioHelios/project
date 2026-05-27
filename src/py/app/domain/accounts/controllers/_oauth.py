@@ -19,10 +19,10 @@ from litestar.response import Redirect
 from litestar.status_codes import HTTP_302_FOUND, HTTP_400_BAD_REQUEST
 from sqlalchemy.orm import undefer_group
 
-from app.domain.accounts.deps import provide_users_service
-from app.domain.accounts.guards import create_access_token
+from app.domain.accounts.deps import provide_refresh_token_service, provide_users_service
+from app.domain.accounts.guards import ACCESS_TOKEN_EXPIRATION, auth, create_access_token
 from app.domain.accounts.schemas import OAuthAuthorization
-from app.domain.accounts.services import UserOAuthAccountService
+from app.domain.accounts.services import RefreshTokenService, UserOAuthAccountService
 from app.domain.admin.deps import provide_audit_log_service
 from app.lib.deps import create_service_dependencies
 from app.utils.oauth import OAuth2AuthorizeCallback, build_oauth_error_redirect, create_oauth_state, verify_oauth_state
@@ -40,6 +40,8 @@ OAUTH_DEFAULT_SCOPES: dict[str, list[str]] = {
     "google": ["openid", "email", "profile"],
     "github": ["read:user", "user:email"],
 }
+ACCESS_TOKEN_MAX_AGE = int(ACCESS_TOKEN_EXPIRATION.total_seconds())
+REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60
 
 
 class OAuthController(Controller):
@@ -57,6 +59,7 @@ class OAuthController(Controller):
     tags = ["OAuth Authentication"]
     dependencies = create_service_dependencies(UserOAuthAccountService, key="oauth_account_service") | {
         "user_service": Provide(provide_users_service),
+        "refresh_token_service": Provide(provide_refresh_token_service),
         "audit_service": Provide(provide_audit_log_service),
     }
 
@@ -118,6 +121,7 @@ class OAuthController(Controller):
         request: Request[Any, Any, Any],
         settings: AppSettings,
         user_service: UserService,
+        refresh_token_service: RefreshTokenService,
         oauth_account_service: UserOAuthAccountService,
         audit_service: AuditLogService,
         code: str | None = Parameter(query="code", required=False),
@@ -146,10 +150,11 @@ class OAuthController(Controller):
         elif not code:
             redirect_path = build_oauth_error_redirect(frontend_callback, "oauth_failed", "Missing authorization code")
         else:
-            redirect_path = await self._process_google_callback(
+            redirect_path, auth_tokens = await self._process_google_callback(
                 request,
                 settings,
                 user_service,
+                refresh_token_service,
                 oauth_account_service,
                 audit_service,
                 code,
@@ -158,6 +163,11 @@ class OAuthController(Controller):
                 action,
                 payload,
             )
+            response = Redirect(path=redirect_path, status_code=HTTP_302_FOUND)
+            if auth_tokens:
+                access_token, refresh_token = auth_tokens
+                _set_auth_cookies(response, settings, access_token, refresh_token)
+            return response
 
         return Redirect(path=redirect_path, status_code=HTTP_302_FOUND)
 
@@ -166,6 +176,7 @@ class OAuthController(Controller):
         request: Request[Any, Any, Any],
         settings: AppSettings,
         user_service: UserService,
+        refresh_token_service: RefreshTokenService,
         oauth_account_service: UserOAuthAccountService,
         audit_service: AuditLogService,
         code: str,
@@ -173,7 +184,7 @@ class OAuthController(Controller):
         frontend_callback: str,
         action: str,
         payload: dict[str, Any],
-    ) -> str:
+    ) -> tuple[str, tuple[str, str] | None]:
         client = GoogleOAuth2(settings.GOOGLE_OAUTH2_CLIENT_ID, settings.GOOGLE_OAUTH2_CLIENT_SECRET)
         callback_url = str(request.url_for("oauth:google:callback"))
         oauth2_callback = OAuth2AuthorizeCallback(cast("BaseOAuth2[OAuth2Token]", client), redirect_url=callback_url)
@@ -181,18 +192,18 @@ class OAuthController(Controller):
         try:
             token_data, _ = await oauth2_callback(request, code=code, callback_state=oauth_state)
         except GetAccessTokenError:
-            return build_oauth_error_redirect(frontend_callback, "oauth_failed", "Failed to exchange code for token")
+            return build_oauth_error_redirect(frontend_callback, "oauth_failed", "Failed to exchange code for token"), None
         try:
             account_id, account_email = await client.get_id_email(token_data["access_token"])
         except GetIdEmailError:
-            return build_oauth_error_redirect(frontend_callback, "oauth_failed", "Failed to get user info from Google")
+            return build_oauth_error_redirect(frontend_callback, "oauth_failed", "Failed to get user info from Google"), None
 
         if action == "mfa_disable":
             state_user_id = payload.get("user_id")
             if not state_user_id:
                 return build_oauth_error_redirect(
                     frontend_callback, "oauth_failed", "Invalid OAuth session - missing user"
-                )
+                ), None
             return await _handle_mfa_disable(
                 user_service,
                 oauth_account_service,
@@ -210,7 +221,7 @@ class OAuthController(Controller):
             if not state_user_id:
                 return build_oauth_error_redirect(
                     frontend_callback, "oauth_failed", "Invalid OAuth session - missing user"
-                )
+                ), None
             return await _handle_oauth_link(
                 oauth_account_service,
                 "google",
@@ -222,7 +233,13 @@ class OAuthController(Controller):
                 action,
             )
         return await _handle_oauth_login(
-            user_service, "google", account_id, account_email, token_data, frontend_callback
+            user_service,
+            refresh_token_service,
+            "google",
+            account_id,
+            account_email,
+            token_data,
+            frontend_callback,
         )
 
     @get("/github", name="oauth:github:authorize")
@@ -276,6 +293,7 @@ class OAuthController(Controller):
         request: Request[Any, Any, Any],
         settings: AppSettings,
         user_service: UserService,
+        refresh_token_service: RefreshTokenService,
         oauth_account_service: UserOAuthAccountService,
         audit_service: AuditLogService,
         code: str | None = Parameter(query="code", required=False),
@@ -290,6 +308,7 @@ class OAuthController(Controller):
         """
         default_callback = "/auth/github/callback"
         redirect_path = build_oauth_error_redirect(default_callback, "oauth_failed", "Missing state parameter")
+        auth_tokens: tuple[str, str] | None = None
 
         if not oauth_state:
             return Redirect(path=redirect_path, status_code=HTTP_302_FOUND)
@@ -306,10 +325,11 @@ class OAuthController(Controller):
         elif not code:
             redirect_path = build_oauth_error_redirect(frontend_callback, "oauth_failed", "Missing authorization code")
         else:
-            redirect_path = await self._process_github_callback(
+            redirect_path, auth_tokens = await self._process_github_callback(
                 request,
                 settings,
                 user_service,
+                refresh_token_service,
                 oauth_account_service,
                 audit_service,
                 code,
@@ -318,14 +338,18 @@ class OAuthController(Controller):
                 action,
                 payload,
             )
+        response = Redirect(path=redirect_path, status_code=HTTP_302_FOUND)
+        if auth_tokens:
+            access_token, refresh_token = auth_tokens
+            _set_auth_cookies(response, settings, access_token, refresh_token)
+        return response
 
-        return Redirect(path=redirect_path, status_code=HTTP_302_FOUND)
-
-    async def _process_github_callback(  # noqa: PLR0911
+    async def _process_github_callback(  # noqa: PLR0911, D417
         self,
         request: Request[Any, Any, Any],
         settings: AppSettings,
         user_service: UserService,
+        refresh_token_service: RefreshTokenService,
         oauth_account_service: UserOAuthAccountService,
         audit_service: AuditLogService,
         code: str,
@@ -333,7 +357,7 @@ class OAuthController(Controller):
         frontend_callback: str,
         action: str,
         payload: dict[str, Any],
-    ) -> str:
+    ) -> tuple[str, tuple[str, str] | None]:
         """Process GitHub OAuth callback after validation.
 
         Args:
@@ -359,19 +383,19 @@ class OAuthController(Controller):
         try:
             token_data, _ = await oauth2_callback(request, code=code, callback_state=oauth_state)
         except GetAccessTokenError:
-            return build_oauth_error_redirect(frontend_callback, "oauth_failed", "Failed to exchange code for token")
+            return build_oauth_error_redirect(frontend_callback, "oauth_failed", "Failed to exchange code for token"), None
 
         try:
             account_id, account_email = await client.get_id_email(token_data["access_token"])
         except GetIdEmailError:
-            return build_oauth_error_redirect(frontend_callback, "oauth_failed", "Failed to get user info from GitHub")
+            return build_oauth_error_redirect(frontend_callback, "oauth_failed", "Failed to get user info from GitHub"), None
 
         if action == "mfa_disable":
             state_user_id = payload.get("user_id")
             if not state_user_id:
                 return build_oauth_error_redirect(
                     frontend_callback, "oauth_failed", "Invalid OAuth session - missing user"
-                )
+                ), None
             return await _handle_mfa_disable(
                 user_service,
                 oauth_account_service,
@@ -389,7 +413,7 @@ class OAuthController(Controller):
             if not state_user_id:
                 return build_oauth_error_redirect(
                     frontend_callback, "oauth_failed", "Invalid OAuth session - missing user"
-                )
+                ), None
             return await _handle_oauth_link(
                 oauth_account_service,
                 "github",
@@ -402,7 +426,13 @@ class OAuthController(Controller):
             )
 
         return await _handle_oauth_login(
-            user_service, "github", account_id, account_email, token_data, frontend_callback
+            user_service,
+            refresh_token_service,
+            "github",
+            account_id,
+            account_email,
+            token_data,
+            frontend_callback,
         )
 
 
@@ -415,7 +445,7 @@ async def _handle_oauth_link(
     state_user_id: str,
     frontend_callback: str,
     action: str,
-) -> str:
+) -> tuple[str, None]:
     """Handle OAuth account linking flow.
 
     Args:
@@ -435,7 +465,7 @@ async def _handle_oauth_link(
     if existing and str(existing.user_id) != state_user_id:
         return build_oauth_error_redirect(
             frontend_callback, "oauth_failed", f"This {provider.title()} account is already linked to another user"
-        )
+        ), None
 
     scopes = token_data.get("scope", "")
     scope_list = scopes.split() if scopes else OAUTH_DEFAULT_SCOPES.get(provider)
@@ -454,17 +484,18 @@ async def _handle_oauth_link(
 
     params = urlencode({"provider": provider, "action": action, "linked": "true"})
     separator = "&" if "?" in frontend_callback else "?"
-    return f"{frontend_callback}{separator}{params}"
+    return f"{frontend_callback}{separator}{params}", None
 
 
-async def _handle_oauth_login(
+async def _handle_oauth_login(  # noqa: D417
     user_service: UserService,
+    refresh_token_service: RefreshTokenService,
     provider: str,
     account_id: str,
     account_email: str | None,
     token_data: OAuth2Token,
     frontend_callback: str,
-) -> str:
+) -> tuple[str, tuple[str, str]]:
     """Handle OAuth login/signup flow.
 
     Args:
@@ -491,9 +522,37 @@ async def _handle_oauth_login(
         is_verified=user.is_verified,
         auth_method="oauth",
     )
-    params = urlencode({"token": access_token, "is_new": str(is_new).lower()})
+    raw_refresh_token, _ = await refresh_token_service.create_refresh_token(user_id=user.id)
+    params = urlencode({"is_new": str(is_new).lower()})
     separator = "&" if "?" in frontend_callback else "?"
-    return f"{frontend_callback}{separator}{params}"
+    return f"{frontend_callback}{separator}{params}", (access_token, raw_refresh_token)
+
+
+def _set_auth_cookies(
+    response: Redirect,
+    settings: AppSettings,
+    access_token: str,
+    refresh_token: str | None = None,
+) -> None:
+    response.set_cookie(
+        key=auth.key,
+        value=access_token,
+        max_age=ACCESS_TOKEN_MAX_AGE,
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite="strict",
+        path="/",
+    )
+    if refresh_token is not None:
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            max_age=REFRESH_TOKEN_MAX_AGE,
+            httponly=True,
+            secure=settings.COOKIE_SECURE,
+            samesite="strict",
+            path="/api/access",
+        )
 
 
 async def _handle_mfa_disable(
@@ -506,7 +565,7 @@ async def _handle_mfa_disable(
     state_user_id: str,
     frontend_callback: str,
     request: Request[Any, Any, Any],
-) -> str:
+) -> tuple[str, None]:
     """Handle MFA disable via OAuth verification.
 
     Args:
@@ -533,14 +592,14 @@ async def _handle_mfa_disable(
     if not oauth_account:
         return build_oauth_error_redirect(
             frontend_callback, "oauth_failed", f"This {provider.title()} account is not linked to your user"
-        )
+        ), None
 
     # 2. Get user and verify no password (double check)
     user = await user_service.get(UUID(state_user_id), load=[undefer_group("security_sensitive")])
     if user.hashed_password:
         return build_oauth_error_redirect(
             frontend_callback, "oauth_failed", "Password verification required for users with passwords"
-        )
+        ), None
 
     # 3. Disable MFA
     logger.info("Disabling MFA via OAuth for user %s", user.id)
@@ -567,22 +626,12 @@ async def _handle_mfa_disable(
         details={"provider": provider},
     )
 
-    # 5. Log user in (create token)
-    access_token = create_access_token(
-        user_id=str(user.id),
-        email=user.email,
-        is_superuser=user_service.is_superuser(user),
-        is_verified=user.is_verified,
-        auth_method="oauth_mfa_disable",
-    )
-
     params = urlencode(
         {
-            "token": access_token,
             "message": "MFA disabled successfully",
             "action": "mfa_disable",
             "success": "true",
         }
     )
     separator = "&" if "?" in frontend_callback else "?"
-    return f"{frontend_callback}{separator}{params}"
+    return f"{frontend_callback}{separator}{params}", None

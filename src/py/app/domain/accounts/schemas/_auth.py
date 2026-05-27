@@ -6,9 +6,15 @@ from app.lib.schema import CamelizedBaseStruct
 from app.lib.validation import validate_email, validate_name, validate_password, validate_username
 
 
+class HumanVerification(CamelizedBaseStruct):
+    provider: str
+    payload: str
+
+
 class AccountLogin(CamelizedBaseStruct):
     username: str
     password: str
+    human_verification: HumanVerification | None = None
 
     def __post_init__(self) -> None:
         """Validate email format for username."""

@@ -1,9 +1,13 @@
 from typing import TYPE_CHECKING
 
 import pytest
+from sqlalchemy import select
+
+from app.db import models as m
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 pytestmark = pytest.mark.anyio
 
@@ -96,6 +100,7 @@ async def test_superuser_role_access(
     client: "AsyncClient",
     user_token_headers: dict[str, str],
     superuser_token_headers: dict[str, str],
+    session: "AsyncSession",
 ) -> None:
     response = await client.get("/api/teams", headers=user_token_headers)
     assert response.status_code == 200
@@ -108,6 +113,11 @@ async def test_superuser_role_access(
     )
     assert response.status_code == 201
     assert response.json()["message"] == "Successfully assigned the 'superuser' role to user@example.com."
+    assign_audit = (
+        await session.execute(select(m.AuditLog).where(m.AuditLog.action == "auth.role.assign").order_by(m.AuditLog.created_at.desc()))
+    ).scalar_one_or_none()
+    assert assign_audit is not None
+    assert assign_audit.target_label == "superuser"
     response = await client.patch(
         "/api/teams/81108ac1-ffcb-411d-8b1e-d91833999999",
         json={"name": "TEST UPDATE"},
@@ -129,6 +139,11 @@ async def test_superuser_role_access(
         headers=superuser_token_headers,
     )
     assert response.status_code == 201
+    revoke_audit = (
+        await session.execute(select(m.AuditLog).where(m.AuditLog.action == "auth.role.revoke").order_by(m.AuditLog.created_at.desc()))
+    ).scalar_one_or_none()
+    assert revoke_audit is not None
+    assert revoke_audit.target_label == "superuser"
     response = await client.delete("/api/teams/81108ac1-ffcb-411d-8b1e-d91833999999", headers=user_token_headers)
     assert response.status_code == 403
     response = await client.delete("/api/teams/97108ac1-ffcb-411d-8b1e-d9183399f63b", headers=user_token_headers)

@@ -78,6 +78,12 @@ async def test_login_success(
     response_data = response.json()
     assert "access_token" in response_data
     assert response_data["token_type"].lower() == "bearer"
+    audit_log = (
+        await session.execute(select(m.AuditLog).where(m.AuditLog.action == "auth.login.success").order_by(m.AuditLog.created_at.desc()))
+    ).scalar_one_or_none()
+    assert audit_log is not None
+    assert audit_log.actor_email == unique_email
+    assert audit_log.target_label == unique_email
 
 
 async def test_login_invalid_credentials(
@@ -102,6 +108,11 @@ async def test_login_invalid_credentials(
     )
 
     assert response.status_code == 403
+    audit_log = (
+        await session.execute(select(m.AuditLog).where(m.AuditLog.action == "auth.login.failed").order_by(m.AuditLog.created_at.desc()))
+    ).scalar_one_or_none()
+    assert audit_log is not None
+    assert audit_log.target_label == unique_email
 
 
 async def test_login_inactive_user(
@@ -256,13 +267,18 @@ async def test_logout_success(
     assert response_data["message"] == "OK"
 
 
-async def test_logout_authenticated(authenticated_client: AsyncTestClient) -> None:
+async def test_logout_authenticated(authenticated_client: AsyncTestClient, session: AsyncSession, test_user: m.User) -> None:
     """Test successful logout when authenticated."""
     response = await authenticated_client.post("/api/access/logout")
 
     assert response.status_code == 200
     data = response.json()
     assert "message" in data
+    audit_log = (
+        await session.execute(select(m.AuditLog).where(m.AuditLog.action == "auth.logout").order_by(m.AuditLog.created_at.desc()))
+    ).scalar_one_or_none()
+    assert audit_log is not None
+    assert audit_log.actor_id == test_user.id
 
 
 @pytest.mark.parametrize(
@@ -273,10 +289,12 @@ async def test_logout_seeded_user(seeded_client: AsyncTestClient, username: str,
     response = await seeded_client.post("/api/access/login", data={"username": username, "password": password})
     assert response.status_code == 201
     cookies = dict(response.cookies)
+    token = cookies.get("access_token") or response.json()["access_token"]
+    token = token.strip('"').removeprefix("Bearer ").removeprefix("bearer ")
 
-    assert cookies.get("token") is not None
+    assert cookies.get("access_token") is not None
 
-    me_response = await seeded_client.get("/api/me")
+    me_response = await seeded_client.get("/api/me", headers={"Authorization": f"Bearer {token}"})
     assert me_response.status_code == 200
 
     response = await seeded_client.post("/api/access/logout")
@@ -683,11 +701,17 @@ async def test_change_password_weak_new(authenticated_client: AsyncTestClient) -
 # =============================================================================
 
 
-async def test_refresh_token(authenticated_client: AsyncTestClient) -> None:
+async def test_refresh_token(authenticated_client: AsyncTestClient, session: AsyncSession, test_user: m.User) -> None:
     """Test token refresh."""
     response = await authenticated_client.post("/api/access/refresh")
 
     assert response.status_code in {200, 201, 400, 401}
+    if response.status_code in {200, 201}:
+        audit_log = (
+            await session.execute(select(m.AuditLog).where(m.AuditLog.action == "auth.refresh.success").order_by(m.AuditLog.created_at.desc()))
+        ).scalar_one_or_none()
+        assert audit_log is not None
+        assert audit_log.actor_id == test_user.id
 
 
 # =============================================================================
@@ -721,6 +745,13 @@ async def test_forgot_password_success(
     token = result.scalar_one_or_none()
     assert token is not None
     assert token.is_valid is True
+    audit_log = (
+        await session.execute(
+            select(m.AuditLog).where(m.AuditLog.action == "auth.password.reset.requested").order_by(m.AuditLog.created_at.desc())
+        )
+    ).scalar_one_or_none()
+    assert audit_log is not None
+    assert audit_log.target_label == unique_email
 
 
 async def test_forgot_password_nonexistent_user(
@@ -836,6 +867,13 @@ async def test_reset_password_success(
 
     await session.refresh(reset_token)
     assert reset_token.is_used is True
+    audit_log = (
+        await session.execute(
+            select(m.AuditLog).where(m.AuditLog.action == "auth.password.reset.completed").order_by(m.AuditLog.created_at.desc())
+        )
+    ).scalar_one_or_none()
+    assert audit_log is not None
+    assert audit_log.target_id == str(user.id)
 
 
 async def test_reset_password_fixture(

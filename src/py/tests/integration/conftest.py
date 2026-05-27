@@ -147,7 +147,8 @@ async def fx_authenticated_client(
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
     assert login_response.status_code == 201, f"Login failed: {login_response.text}"
-    token = login_response.json()["access_token"]
+    token = login_response.cookies.get("access_token") or login_response.json()["access_token"]
+    token = token.strip('"').removeprefix("Bearer ").removeprefix("bearer ")
 
     # Set auth header on client
     client.headers["Authorization"] = f"Bearer {token}"

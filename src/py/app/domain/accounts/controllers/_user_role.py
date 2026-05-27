@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
 from advanced_alchemy.exceptions import IntegrityError
-from litestar import Controller, delete, post
+from litestar import Controller, Request, delete, post
 from litestar.di import Provide
 from litestar.params import Parameter
+from litestar.security.jwt import Token
 from litestar.status_codes import HTTP_202_ACCEPTED
 
+from app.db import models as m
+from app.domain.admin.deps import provide_audit_log_service
+from app.domain.admin.services import AuditLogService
 from app.domain.accounts.deps import provide_roles_service, provide_user_roles_service, provide_users_service
 from app.domain.accounts.guards import requires_superuser
 from app.lib.schema import Message
@@ -29,14 +33,17 @@ class UserRoleController(Controller):
         "users_service": Provide(provide_users_service),
         "roles_service": Provide(provide_roles_service),
         "user_roles_service": Provide(provide_user_roles_service),
+        "audit_service": Provide(provide_audit_log_service),
     }
 
     @post(operation_id="AssignUserRole")
     async def assign_role(
         self,
+        request: Request[m.User, Token, Any],
         roles_service: RoleService,
         users_service: UserService,
         user_roles_service: UserRoleService,
+        audit_service: AuditLogService,
         data: UserRoleAdd,
         role_slug: str = Parameter(title="Role Slug", description="The role to grant."),
     ) -> Message:
@@ -56,14 +63,26 @@ class UserRoleController(Controller):
         user_obj = await users_service.get_one(email=data.user_name)
         obj, created = await user_roles_service.get_or_upsert(role_id=role_id, user_id=user_obj.id)
         if created:
+            await audit_service.log_action(
+                action="auth.role.assign",
+                actor_id=request.user.id,
+                actor_email=request.user.email,
+                target_type="role",
+                target_id=str(obj.role_id),
+                target_label=obj.role_slug,
+                details={"user_id": str(user_obj.id), "user_email": user_obj.email},
+                request=request,
+            )
             return Message(message=f"Successfully assigned the '{obj.role_slug}' role to {obj.user_email}.")
         return Message(message=f"User {obj.user_email} already has the '{obj.role_slug}' role.")
 
     @delete(operation_id="RevokeUserRole", status_code=HTTP_202_ACCEPTED)
     async def revoke_role(
         self,
+        request: Request[m.User, Token, Any],
         users_service: UserService,
         user_roles_service: UserRoleService,
+        audit_service: AuditLogService,
         data: UserRoleRevoke,
         role_slug: Annotated[str, Parameter(title="Role Slug", description="The role to revoke.")],
     ) -> Message:
@@ -87,6 +106,16 @@ class UserRoleController(Controller):
             if user_role.role_slug == role_slug:
                 _ = await user_roles_service.delete(user_role.id)
                 removed_role = True
+                await audit_service.log_action(
+                    action="auth.role.revoke",
+                    actor_id=request.user.id,
+                    actor_email=request.user.email,
+                    target_type="role",
+                    target_id=str(user_role.role_id),
+                    target_label=user_role.role_slug,
+                    details={"user_id": str(user_obj.id), "user_email": user_obj.email},
+                    request=request,
+                )
         if not removed_role:
             msg = "User did not have role assigned."
             raise IntegrityError(msg)

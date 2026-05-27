@@ -73,7 +73,8 @@ class AuditLogService(service.SQLAlchemyAsyncRepositoryService[m.AuditLog]):
                 "details": details,
                 "ip_address": ip_address,
                 "user_agent": user_agent,
-            }
+            },
+            auto_commit=True,
         )
 
     async def count_recent_actions(

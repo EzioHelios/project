@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, cast
+from urllib.parse import urlparse
 
 import structlog
 from advanced_alchemy.extensions.litestar import AlembicAsyncConfig, AsyncSessionConfig, SQLAlchemyAsyncConfig
@@ -400,6 +401,8 @@ class AppSettings:
     """Toggle dev mode flag.  This can be used enable extra processes during development."""
     ENABLE_INSTRUMENTATION: bool = False
     """Enable OpenTelemetry instrumentation"""
+    ENVIRONMENT: str = field(default_factory=get_env("APP_ENV", "development"))
+    """Runtime environment, e.g. development / staging / production."""
     GOOGLE_OAUTH2_CLIENT_ID: str = field(default_factory=get_env("GOOGLE_OAUTH2_CLIENT_ID", ""))
     """Google Client ID"""
     GOOGLE_OAUTH2_CLIENT_SECRET: str = field(default_factory=get_env("GOOGLE_OAUTH2_CLIENT_SECRET", ""))
@@ -410,6 +413,24 @@ class AppSettings:
     """GitHub Client Secret"""
     ENV_SECRETS: str = field(default_factory=get_env("ENV_SECRETS", "runtime-secrets"))
     """Path to environment secrets."""
+    ALTCHA_SENTINEL_URL: str = field(default_factory=get_env("ALTCHA_SENTINEL_URL", ""))
+    """Public base URL for the ALTCHA Sentinel service."""
+    ALTCHA_SENTINEL_INTERNAL_URL: str = field(default_factory=get_env("ALTCHA_SENTINEL_INTERNAL_URL", ""))
+    """Internal base URL used by the backend to verify Sentinel payloads."""
+    ALTCHA_SENTINEL_API_KEY: str = field(default_factory=get_env("ALTCHA_SENTINEL_API_KEY", ""))
+    """Public/restricted ALTCHA Sentinel API key used for challenges."""
+    ALTCHA_SENTINEL_VERIFY_PATH: str = field(
+        default_factory=get_env("ALTCHA_SENTINEL_VERIFY_PATH", "/v1/verify/signature")
+    )
+    """HTTP path used by the application to verify ALTCHA Sentinel payloads."""
+    LOGIN_RISK_THRESHOLD: int = field(default_factory=get_env("LOGIN_RISK_THRESHOLD", 5, int))
+    """Failed login attempts allowed before human verification is required."""
+    LOGIN_RISK_WINDOW_SECONDS: int = field(default_factory=get_env("LOGIN_RISK_WINDOW_SECONDS", 900, int))
+    """Rolling window used to track failed login attempts."""
+    LOGIN_RISK_BLOCK_SECONDS: int = field(default_factory=get_env("LOGIN_RISK_BLOCK_SECONDS", 3600, int))
+    """Temporary block duration for requests that continue failing after the threshold."""
+    HSTS_MAX_AGE: int = field(default_factory=get_env("HSTS_MAX_AGE", 31536000, int))
+    """Strict-Transport-Security max-age value for HTTPS production deployments."""
 
     @property
     def google_oauth_enabled(self) -> bool:
@@ -438,6 +459,32 @@ class AppSettings:
         """
         return slugify(self.NAME)
 
+    @property
+    def is_production(self) -> bool:
+        """Return whether runtime environment should enforce production-safe settings."""
+        return self.ENVIRONMENT.lower() == "production"
+
+    @property
+    def altcha_enabled(self) -> bool:
+        """Return whether ALTCHA Sentinel is configured for browser verification."""
+        return bool(self.ALTCHA_SENTINEL_URL and self.ALTCHA_SENTINEL_API_KEY)
+
+    @property
+    def altcha_challenge_url(self) -> str | None:
+        """Return the challenge URL consumed directly by the ALTCHA widget."""
+        if not self.altcha_enabled:
+            return None
+        base_url = self.ALTCHA_SENTINEL_URL.rstrip("/")
+        return f"{base_url}/v1/challenge?apiKey={self.ALTCHA_SENTINEL_API_KEY}"
+
+    @property
+    def altcha_verify_url(self) -> str | None:
+        """Return the Sentinel endpoint used to verify the signed ALTCHA payload."""
+        base_url = self.ALTCHA_SENTINEL_INTERNAL_URL or self.ALTCHA_SENTINEL_URL
+        if not base_url:
+            return None
+        return f"{base_url.rstrip('/')}{self.ALTCHA_SENTINEL_VERIFY_PATH}"
+
     def get_compression_config(self) -> CompressionConfig:
         return CompressionConfig(backend="gzip")
 
@@ -462,6 +509,26 @@ class AppSettings:
             else:
                 # Split the string by commas into a list if it is not meant to be a list representation.
                 self.ALLOWED_CORS_ORIGINS = [host.strip() for host in self.ALLOWED_CORS_ORIGINS.split(",")]  # pyright: ignore[reportConstantRedefinition]
+
+        if self.ALTCHA_SENTINEL_URL:
+            parsed = urlparse(self.ALTCHA_SENTINEL_URL)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                msg = "ALTCHA_SENTINEL_URL must be an absolute http(s) URL."
+                raise ValueError(msg)
+
+        if self.is_production:
+            if cast("list[str]", self.ALLOWED_CORS_ORIGINS) == ["*"]:
+                msg = "ALLOWED_CORS_ORIGINS cannot be wildcard in production."
+                raise ValueError(msg)
+            if not self.COOKIE_SECURE:
+                msg = "COOKIE_SECURE must be enabled in production."
+                raise ValueError(msg)
+            if not self.SECRET_KEY or self.SECRET_KEY in {"change-me", "development-secret-key"}:
+                msg = "SECRET_KEY must be rotated away from development defaults in production."
+                raise ValueError(msg)
+            if not self.altcha_enabled:
+                msg = "ALTCHA Sentinel must be configured in production."
+                raise ValueError(msg)
 
 
 @dataclass

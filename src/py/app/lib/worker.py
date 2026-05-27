@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from functools import cache
 from typing import TYPE_CHECKING, Any, cast
 
 import structlog
+from saq import CronJob, Queue
 from saq import Status
 from saq.utils import seconds
+
+from app.lib.settings import get_settings
 
 if TYPE_CHECKING:
     from saq import Job
@@ -26,6 +30,45 @@ LOGGED_JOB_FIELDS = [
 ]
 
 logger = structlog.get_logger()
+
+
+@cache
+def saq_worker_settings() -> dict[str, Any]:
+    """Return the SAQ worker settings dict used by the standalone worker process."""
+    from app.domain.accounts import jobs as account_jobs
+    from app.domain.carbon import jobs as carbon_jobs
+    from app.domain.system import jobs as system_jobs
+
+    settings = get_settings().saq.get_config().queue_configs[0]
+    return {
+        "queue": Queue.from_url(settings.dsn, name=settings.name),
+        "functions": [
+            system_jobs.cleanup_auth_tokens,
+            account_jobs.refresh_oauth_tokens,
+            carbon_jobs.sync_yunji_status,
+            carbon_jobs.pull_yunji_data,
+            carbon_jobs.sync_hw_status,
+            carbon_jobs.pull_hw_data,
+            carbon_jobs.execute_day_alarm_scan,
+            carbon_jobs.execute_video_alarm_scan,
+        ],
+        "concurrency": settings.concurrency,
+        "cron_jobs": [
+            CronJob(system_jobs.cleanup_auth_tokens, "0 * * * *", timeout=600, ttl=1800),
+            CronJob(account_jobs.refresh_oauth_tokens, "*/15 * * * *", timeout=600, ttl=1800),
+            CronJob(carbon_jobs.sync_yunji_status, "0 * * * *", timeout=300),
+            CronJob(carbon_jobs.sync_hw_status, "0 * * * *", timeout=300),
+            CronJob(carbon_jobs.pull_yunji_data, "*/15 * * * *", timeout=600),
+            CronJob(carbon_jobs.pull_hw_data, "0 1 * * *", timeout=1200),
+            CronJob(carbon_jobs.execute_day_alarm_scan, "0 2 * * *", timeout=600),
+            CronJob(carbon_jobs.execute_video_alarm_scan, "0 9-18 * * *", timeout=300),
+        ],
+        "startup": [on_startup],
+        "shutdown": [on_shutdown],
+        "before_process": [before_process],
+        "after_process": [after_process],
+        "metadata": {"app": get_settings().app.NAME},
+    }
 
 
 async def on_shutdown(ctx: Context) -> None:
