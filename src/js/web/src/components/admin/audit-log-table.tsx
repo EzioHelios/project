@@ -33,14 +33,14 @@ export function AuditLogTable() {
   }
 
   if (isError || !data) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Audit log</CardTitle>
-        </CardHeader>
-        <CardContent className="text-muted-foreground">We could not load audit logs.</CardContent>
-      </Card>
-    )
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>审计日志</CardTitle>
+          </CardHeader>
+          <CardContent className="text-muted-foreground">审计日志加载失败，请稍后重试。</CardContent>
+        </Card>
+      )
   }
 
   const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE))
@@ -48,31 +48,31 @@ export function AuditLogTable() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Audit log</CardTitle>
+        <CardTitle>审计日志</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 md:grid-cols-6">
-          <Input placeholder="Search" value={search} onChange={(event) => setSearch(event.target.value)} />
-          <Input placeholder="Action" value={action} onChange={(event) => setAction(event.target.value)} />
-          <Input placeholder="Actor ID" value={actorId} onChange={(event) => setActorId(event.target.value)} />
-          <Input placeholder="Target type" value={targetType} onChange={(event) => setTargetType(event.target.value)} />
-          <Input placeholder="Created after (ISO)" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-          <Input placeholder="Created before (ISO)" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+          <Input placeholder="搜索关键字" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <Input placeholder="动作" value={action} onChange={(event) => setAction(event.target.value)} />
+          <Input placeholder="操作者 ID" value={actorId} onChange={(event) => setActorId(event.target.value)} />
+          <Input placeholder="目标类型" value={targetType} onChange={(event) => setTargetType(event.target.value)} />
+          <Input placeholder="创建于之后（ISO）" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+          <Input placeholder="创建于之前（ISO）" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
         </div>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Action</TableHead>
-              <TableHead>Actor</TableHead>
-              <TableHead>Target</TableHead>
-              <TableHead>Created</TableHead>
+              <TableHead>动作</TableHead>
+              <TableHead>操作者</TableHead>
+              <TableHead>目标</TableHead>
+              <TableHead>创建时间</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {data.items.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  No audit entries found.
+                  暂无审计记录。
                 </TableCell>
               </TableRow>
             )}
@@ -88,14 +88,14 @@ export function AuditLogTable() {
         </Table>
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
-            Page {page} of {totalPages}
+            第 {page} 页 / 共 {totalPages} 页
           </p>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
-              Previous
+              上一页
             </Button>
             <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
-              Next
+              下一页
             </Button>
           </div>
         </div>

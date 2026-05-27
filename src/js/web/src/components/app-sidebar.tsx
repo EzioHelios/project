@@ -14,7 +14,7 @@ import { useAuthStore } from "@/lib/auth"
 import { listTeams, type Team } from "@/lib/generated/api"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { teams, currentTeam, setTeams, setCurrentTeam, user, isAuthenticated } = useAuthStore()
+  const { teams, currentTeam, setTeams, setCurrentTeam, isAuthenticated } = useAuthStore()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const { config } = usePublicConfig()
 
@@ -45,17 +45,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const items: React.ComponentProps<typeof NavMain>["items"] = [
       {
         title: "首页",
-        to: "/platform",
+        to: "/home",
         icon: Home,
       },
       {
-        title: "权限管理",
+        title: "权限中心",
         to: "/auth/users",
         icon: Users,
-        isActive: pathname.startsWith("/auth"),
+        isActive:
+          pathname.startsWith("/auth") ||
+          pathname === "/admin" ||
+          pathname.startsWith("/admin/users") ||
+          pathname.startsWith("/admin/roles") ||
+          pathname.startsWith("/admin/audit"),
         items: [
           { title: "用户管理", to: "/auth/users" },
           { title: "角色管理", to: "/auth/roles" },
+          { title: "权限配置", to: "/admin/roles" },
+          { title: "审计日志", to: "/admin/audit" },
         ],
       },
       {
@@ -187,13 +194,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
     ]
 
-    if (user?.isSuperuser) {
-      const auth = items.find((i) => i.title === "权限管理")
-      auth?.items?.push({ title: "后台管理", to: "/admin" })
-    }
-
     return items
-  }, [pathname, user?.isSuperuser])
+  }, [pathname])
 
   const teamLinks = useMemo(
     () =>

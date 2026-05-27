@@ -18,13 +18,13 @@ export function UserTable() {
 
   if (isError || !data) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Users</CardTitle>
-        </CardHeader>
-        <CardContent className="text-muted-foreground">We could not load users.</CardContent>
-      </Card>
-    )
+        <Card>
+          <CardHeader>
+            <CardTitle>用户列表</CardTitle>
+          </CardHeader>
+          <CardContent className="text-muted-foreground">用户数据加载失败，请稍后重试。</CardContent>
+        </Card>
+      )
   }
 
   const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE))
@@ -32,24 +32,24 @@ export function UserTable() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Users</CardTitle>
+        <CardTitle>用户列表</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>姓名</TableHead>
+              <TableHead>邮箱</TableHead>
+              <TableHead>状态</TableHead>
+              <TableHead>角色</TableHead>
+              <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {data.items.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-muted-foreground">
-                  No users found.
+                  暂无用户。
                 </TableCell>
               </TableRow>
             )}
@@ -57,12 +57,12 @@ export function UserTable() {
               <TableRow key={user.id}>
                 <TableCell>{user.name ?? user.email}</TableCell>
                 <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                <TableCell>{user.isActive ? "Active" : "Inactive"}</TableCell>
-                <TableCell>{user.isSuperuser ? "Superuser" : "Member"}</TableCell>
+                <TableCell>{user.isActive ? "启用" : "停用"}</TableCell>
+                <TableCell>{user.isSuperuser ? "超级管理员" : "普通用户"}</TableCell>
                 <TableCell className="text-right">
                   <Button asChild variant="outline" size="sm">
                     <Link to="/admin/users/$userId" params={{ userId: user.id }}>
-                      View
+                      查看
                     </Link>
                   </Button>
                 </TableCell>
@@ -72,14 +72,14 @@ export function UserTable() {
         </Table>
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
-            Page {page} of {totalPages}
+            第 {page} 页 / 共 {totalPages} 页
           </p>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
-              Previous
+              上一页
             </Button>
             <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
-              Next
+              下一页
             </Button>
           </div>
         </div>

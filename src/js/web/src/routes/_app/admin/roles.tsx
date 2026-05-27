@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
-import { AdminNav } from "@/components/admin/admin-nav"
+import { z } from "zod"
+import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,11 +13,41 @@ import {
   useAdminUpdateRolePermissions,
 } from "@/lib/api/hooks/admin"
 
+const permissionLabels: Record<string, { name: string; description: string }> = {
+  "admin.audit.view": { name: "查看审计日志", description: "查看系统审计与权限变更记录" },
+  "admin.team.manage": { name: "团队管理", description: "创建和维护团队信息" },
+  "auth.role.manage": { name: "角色管理", description: "创建、编辑角色并配置权限" },
+  "auth.user.manage": { name: "用户管理", description: "创建和维护系统用户" },
+  "carbon.alarm.handle": { name: "处理告警", description: "处置碳业务告警事件" },
+  "carbon.audit.view": { name: "查看碳审计", description: "查看碳业务审计轨迹" },
+  "carbon.config.manage": { name: "管理碳配置", description: "维护碳业务数据和配置" },
+  "carbon.record.create": { name: "新增碳记录", description: "创建碳排放记录" },
+  "carbon.record.delete": { name: "删除碳记录", description: "删除碳排放记录" },
+  "carbon.record.submit": { name: "提交碳记录", description: "提交碳排放记录进入审核" },
+  "carbon.record.update": { name: "更新碳记录", description: "更新碳排放记录" },
+  "carbon.review.approve": { name: "审核通过", description: "批准已提交的碳记录" },
+  "carbon.review.reject": { name: "审核驳回", description: "驳回已提交的碳记录" },
+}
+
+const moduleLabels: Record<string, string> = {
+  admin: "系统管理",
+  auth: "账号权限",
+  carbon: "碳业务",
+}
+
 export const Route = createFileRoute("/_app/admin/roles")({
+  validateSearch: (search) =>
+    z
+      .object({
+        roleId: z.string().optional(),
+      })
+      .parse(search),
   component: AdminRolesPage,
 })
 
 function AdminRolesPage() {
+  const search = Route.useSearch()
+  const navigate = useNavigate()
   const { data: rolesData, isLoading: rolesLoading } = useAdminRoles()
   const { data: permissions = [], isLoading: permissionsLoading } = useAdminPermissions()
   const roles = rolesData?.items ?? []
@@ -26,10 +57,14 @@ function AdminRolesPage() {
   const [draftPermissionCodes, setDraftPermissionCodes] = useState<string[]>([])
 
   useEffect(() => {
+    if (search.roleId && roles.some((role) => role.id === search.roleId)) {
+      setSelectedRoleId(search.roleId)
+      return
+    }
     if (!selectedRoleId && roles.length > 0) {
       setSelectedRoleId(roles[0].id)
     }
-  }, [roles, selectedRoleId])
+  }, [roles, search.roleId, selectedRoleId])
 
   useEffect(() => {
     setDraftPermissionCodes(rolePermissionsQuery.data?.permissions.map((permission) => permission.code) ?? [])
@@ -61,23 +96,23 @@ function AdminRolesPage() {
   return (
     <PageContainer className="flex-1 space-y-8">
       <PageHeader
-        eyebrow="Administration"
-        title="Roles and Permissions"
-        description="Manage role-based permissions with explicit permission codes."
+        eyebrow="权限中心"
+        title="权限配置"
+        description="按角色配置权限码，并与角色管理页联动。"
       />
-      <AdminNav />
+      <PermissionCenterNav />
 
       <PageSection className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <Card className="border-border/60">
           <CardHeader>
-            <CardTitle className="text-base">Roles</CardTitle>
-            <CardDescription>Select a role to edit its permission set.</CardDescription>
+            <CardTitle className="text-base">角色列表</CardTitle>
+            <CardDescription>选择一个角色，编辑它的权限集合。</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {rolesLoading ? (
-              <p className="text-sm text-muted-foreground">Loading roles...</p>
+              <p className="text-sm text-muted-foreground">正在加载角色...</p>
             ) : roles.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No roles found.</p>
+              <p className="text-sm text-muted-foreground">暂无角色。</p>
             ) : (
               roles.map((role) => {
                 const active = role.id === selectedRoleId
@@ -87,7 +122,10 @@ function AdminRolesPage() {
                     type="button"
                     variant={active ? "default" : "outline"}
                     className="w-full justify-between"
-                    onClick={() => setSelectedRoleId(role.id)}
+                    onClick={() => {
+                      setSelectedRoleId(role.id)
+                      void navigate({ to: "/admin/roles", search: { roleId: role.id }, replace: true })
+                    }}
                   >
                     <span>{role.name}</span>
                     <Badge variant={active ? "secondary" : "outline"}>{role.slug}</Badge>
@@ -101,36 +139,40 @@ function AdminRolesPage() {
         <Card className="border-border/60">
           <CardHeader className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-3">
-              <CardTitle className="text-base">{selectedRole?.name ?? "Select a role"}</CardTitle>
+              <CardTitle className="text-base">{selectedRole?.name ?? "请选择角色"}</CardTitle>
               {selectedRole ? <Badge variant="secondary">{selectedRole.slug}</Badge> : null}
             </div>
             <CardDescription>
               {permissionsLoading
-                ? "Loading permissions..."
-                : "Toggle permissions and save to update the role."}
+                ? "正在加载权限..."
+                : "勾选权限后保存即可更新该角色。"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {!hasSelection ? (
-              <p className="text-sm text-muted-foreground">Choose a role from the list on the left.</p>
+              <p className="text-sm text-muted-foreground">请先从左侧选择一个角色。</p>
             ) : rolePermissionsQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading role permissions...</p>
+              <p className="text-sm text-muted-foreground">正在加载角色权限...</p>
             ) : (
               <>
                 {Object.entries(permissionsByModule).map(([module, modulePermissions]) => (
                   <div key={module} className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">{module}</h3>
+                      <h3 className="text-sm font-medium tracking-wide text-muted-foreground">{moduleLabels[module] ?? module}</h3>
                       <Badge variant="outline">{modulePermissions.length}</Badge>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       {modulePermissions.map((permission) => {
                         const checked = draftPermissionCodes.includes(permission.code)
+                        const permissionLabel = permissionLabels[permission.code] ?? {
+                          name: permission.name,
+                          description: permission.description ?? permission.code,
+                        }
                         return (
                           <label
                             key={permission.id}
                             className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 p-3 transition-colors hover:bg-muted/40"
-                          >
+                            >
                             <input
                               type="checkbox"
                               className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
@@ -138,11 +180,9 @@ function AdminRolesPage() {
                               onChange={() => togglePermission(permission.code)}
                             />
                             <span className="space-y-1">
-                              <span className="block text-sm font-medium">{permission.name}</span>
+                              <span className="block text-sm font-medium">{permissionLabel.name}</span>
                               <span className="block text-xs text-muted-foreground">{permission.code}</span>
-                              {permission.description ? (
-                                <span className="block text-xs text-muted-foreground">{permission.description}</span>
-                              ) : null}
+                              <span className="block text-xs text-muted-foreground">{permissionLabel.description}</span>
                             </span>
                           </label>
                         )
@@ -153,10 +193,10 @@ function AdminRolesPage() {
 
                 <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-4">
                   <Button type="button" onClick={handleSave} disabled={updateRolePermissions.isPending}>
-                    {updateRolePermissions.isPending ? "Saving..." : "Save permissions"}
+                    {updateRolePermissions.isPending ? "保存中..." : "保存权限"}
                   </Button>
                   <p className="text-sm text-muted-foreground">
-                    {draftPermissionCodes.length} permission{draftPermissionCodes.length === 1 ? "" : "s"} selected
+                    已选择 {draftPermissionCodes.length} 项权限
                   </p>
                 </div>
               </>

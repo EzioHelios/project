@@ -1,5 +1,6 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
+import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
 import { SkeletonTable } from "@/components/ui/skeleton"
@@ -21,7 +22,8 @@ function UsersManagePage() {
   if (!user?.isSuperuser) {
     return (
       <PageContainer className="flex-1 space-y-6">
-        <PageHeader eyebrow="权限管理" title="用户管理" description="该功能仅管理员可用。" />
+        <PageHeader eyebrow="权限中心" title="用户管理" description="该功能仅管理员可用。" />
+        <PermissionCenterNav />
         <PageSection>
           <Card>
             <CardHeader>
@@ -29,7 +31,7 @@ function UsersManagePage() {
             </CardHeader>
             <CardContent className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               当前账号没有“用户管理”权限。
-              <Button variant="outline" size="sm" onClick={() => navigate({ to: "/platform" as const })}>
+              <Button variant="outline" size="sm" onClick={() => navigate({ to: "/home" as const })}>
                 返回首页
               </Button>
             </CardContent>
@@ -41,7 +43,8 @@ function UsersManagePage() {
 
   return (
     <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="权限管理" title="用户管理" description="查看与管理系统用户（复用现有后台接口）。" />
+      <PageHeader eyebrow="权限中心" title="用户管理" description="查看并管理系统用户。" />
+      <PermissionCenterNav />
       <PageSection>
         {isLoading && <SkeletonTable rows={6} />}
         {!isLoading && (isError || !data) && (

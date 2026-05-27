@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
 
 type ApiResponse<T> = { code: number; msg?: string; data: T }
 export type PageResult<T> = { items: T[]; total: number; limit: number; offset: number }
@@ -254,6 +255,9 @@ export function CrudDataPage({
   columns,
   fields,
   searchPlaceholder = "搜索关键字",
+  rowActions,
+  onCreateSuccess,
+  topContent,
 }: {
   eyebrow?: string
   title: string
@@ -263,6 +267,9 @@ export function CrudDataPage({
   columns: Column[]
   fields: Field[]
   searchPlaceholder?: string
+  rowActions?: (row: Row) => ReactNode
+  onCreateSuccess?: (row: Row) => void | Promise<void>
+  topContent?: ReactNode
 }) {
   const qc = useQueryClient()
   const [keyword, setKeyword] = useState("")
@@ -293,12 +300,15 @@ export function CrudDataPage({
         body: JSON.stringify(payload),
       })
     },
-    onSuccess: async () => {
+    onSuccess: async (result) => {
       toast.success(editing ? "更新成功" : "新增成功")
       setOpen(false)
       setEditing(null)
       setForm(makeInitial(fields))
       if (!editing) setPageIndex(0)
+      if (!editing && onCreateSuccess && result.data) {
+        await onCreateSuccess(result.data)
+      }
       await qc.invalidateQueries({ queryKey })
     },
     onError: (error) => toast.error("保存失败", { description: error instanceof Error ? error.message : "请检查输入" }),
@@ -316,6 +326,7 @@ export function CrudDataPage({
   return (
     <PageContainer className="flex-1 space-y-6">
       <PageHeader eyebrow={eyebrow} title={title} description={description} />
+      {topContent}
       <PageSection>
         <Card>
           <CardHeader className="space-y-3">
@@ -404,6 +415,7 @@ export function CrudDataPage({
                       <Button variant="secondary" size="sm" onClick={() => setDetail(row)}>
                         详情
                       </Button>
+                      {rowActions?.(row)}
                       <Button variant="outline" size="sm" onClick={() => startEdit(row)}>
                         编辑
                       </Button>
@@ -425,20 +437,34 @@ export function CrudDataPage({
 }
 
 export function RolesPage() {
+  const navigate = useNavigate()
   const fields: Field[] = [{ name: "name", label: "角色名称", required: true }]
   return (
     <CrudDataPage
-      eyebrow="权限管理"
+      eyebrow="权限中心"
       title="角色管理"
-      description="维护系统角色，并通过后端默认角色保护规则避免误删关键角色。"
+      description="维护系统角色，并可在创建后直接进入权限配置。"
       endpoint="/api/roles"
       queryKey={["roles", "manage"]}
+      searchPlaceholder="按角色名称或标识搜索"
+      topContent={<PermissionCenterNav />}
       columns={[
         { key: "name", label: "角色名称" },
         { key: "slug", label: "标识" },
         { key: "createdAt", label: "创建时间" },
       ]}
       fields={fields}
+      rowActions={(row) => (
+        <Button asChild variant="outline" size="sm">
+          <Link to="/admin/roles" search={{ roleId: String(row.id ?? "") }}>
+            配置权限
+          </Link>
+        </Button>
+      )}
+      onCreateSuccess={async (row) => {
+        if (!row.id) return
+        await navigate({ to: "/admin/roles", search: { roleId: String(row.id) } })
+      }}
     />
   )
 }

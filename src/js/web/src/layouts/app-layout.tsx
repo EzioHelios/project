@@ -13,28 +13,36 @@ export function AppLayout() {
   const isBigscreenRoute = pathname.startsWith("/bigscreen")
 
   const header = useMemo(() => {
+    if (pathname === "/home") {
+      return { eyebrow: "首页", title: "能碳中心工作台" }
+    }
     if (pathname === "/platform") {
       return { eyebrow: "首页", title: "数据管理平台" }
     }
     if (pathname === "/teams") {
-      return { eyebrow: "Workspace", title: "Teams" }
+      return { eyebrow: "团队空间", title: "团队列表" }
     }
     if (pathname === "/teams/new") {
-      return { eyebrow: "Workspace", title: "Create team" }
+      return { eyebrow: "团队空间", title: "创建团队" }
     }
     if (pathname.startsWith("/teams/")) {
-      return { eyebrow: "Workspace", title: currentTeam?.name ?? "Team" }
+      return { eyebrow: "团队空间", title: currentTeam?.name ?? "团队详情" }
     }
     if (pathname.startsWith("/admin")) {
-      return { eyebrow: "权限管理", title: "后台管理" }
+      if (pathname === "/admin") return { eyebrow: "权限中心", title: "权限中心概览" }
+      if (pathname === "/admin/users" || pathname.startsWith("/admin/users/")) return { eyebrow: "权限中心", title: "用户管理" }
+      if (pathname === "/admin/roles") return { eyebrow: "权限中心", title: "权限配置" }
+      if (pathname === "/admin/audit") return { eyebrow: "权限中心", title: "审计日志" }
+      if (pathname.startsWith("/admin/teams")) return { eyebrow: "后台管理", title: "团队管理" }
+      return { eyebrow: "权限中心", title: "权限中心" }
     }
     if (pathname.startsWith("/profile")) {
-      return { eyebrow: "Account", title: "Profile" }
+      return { eyebrow: "账号设置", title: "个人资料" }
     }
     if (pathname.startsWith("/auth")) {
-      if (pathname === "/auth/users") return { eyebrow: "权限管理", title: "用户管理" }
-      if (pathname === "/auth/roles") return { eyebrow: "权限管理", title: "角色管理" }
-      return { eyebrow: "权限管理", title: "权限管理" }
+      if (pathname === "/auth/users") return { eyebrow: "权限中心", title: "用户管理" }
+      if (pathname === "/auth/roles") return { eyebrow: "权限中心", title: "角色管理" }
+      return { eyebrow: "权限中心", title: "权限中心" }
     }
     if (pathname.startsWith("/data")) {
       if (pathname === "/data/company") return { eyebrow: "数据管理", title: "企业基本信息" }
@@ -89,7 +97,7 @@ export function AppLayout() {
     if (pathname === "/carbon/hwpm") {
       return { eyebrow: "碳管理", title: "户外大屏" }
     }
-    return { eyebrow: "Workspace", title: "Dashboard" }
+    return { eyebrow: "工作台", title: "首页" }
   }, [currentTeam?.name, pathname])
 
   if (isBigscreenRoute) {
@@ -118,7 +126,7 @@ export function AppLayout() {
                     params={{ teamId: currentTeam.id }}
                     className="hidden items-center gap-2 rounded-full border border-border/60 bg-card/80 px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground md:flex"
                   >
-                    Active team
+                    当前团队
                     <span className="text-foreground">{currentTeam.name}</span>
                   </Link>
                 )}
