@@ -218,7 +218,7 @@ STOPSIGNAL SIGTERM
 EXPOSE 8000
 
 ENTRYPOINT ["/usr/local/bin/tini", "--"]
-CMD ["app", "run", "--host", "0.0.0.0"]
+CMD ["granian", "--interface", "asgi", "--factory", "app.server.asgi:create_app", "--host", "0.0.0.0", "--port", "8000"]
 
 # Labels for container metadata (OCI spec)
 LABEL org.opencontainers.image.title="Litestar Fullstack SPA" \

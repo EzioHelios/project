@@ -16,6 +16,22 @@ services:
         max-size: 10m
         max-file: "3"
 
+  sentinel:
+    image: ghcr.io/altcha-org/sentinel:latest
+    hostname: sentinel
+    restart: unless-stopped
+    volumes:
+      - sentinel-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -ltn | grep -q ':8080 '"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+
   migrator:
     image: ${APP_IMAGE:-registry.xzzandzyc.store:5000/project/warehouse-carbon:latest}
     command: litestar database upgrade --no-prompt
@@ -24,6 +40,8 @@ services:
       - .env
     depends_on:
       cache:
+        condition: service_healthy
+      sentinel:
         condition: service_healthy
 
   app:
@@ -40,6 +58,8 @@ services:
         condition: service_healthy
       migrator:
         condition: service_completed_successfully
+      sentinel:
+        condition: service_healthy
     ports:
       - "18100:8000"
     logging:
@@ -49,7 +69,7 @@ services:
 
   worker:
     image: ${APP_IMAGE:-registry.xzzandzyc.store:5000/project/warehouse-carbon:latest}
-    command: litestar workers run
+    command: saq app.lib.worker.saq_worker_settings --workers ${SAQ_PROCESSES:-1}
     restart: unless-stopped
     env_file:
       - .env
@@ -58,6 +78,8 @@ services:
         condition: service_healthy
       migrator:
         condition: service_completed_successfully
+      sentinel:
+        condition: service_healthy
     logging:
       options:
         max-size: 10m
@@ -65,3 +87,4 @@ services:
 
 volumes:
   warehouse-cache-data: {}
+  sentinel-data: {}

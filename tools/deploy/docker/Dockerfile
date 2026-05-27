@@ -34,9 +34,9 @@ FROM ${BUILDER_IMAGE} AS python-base
 
 RUN --mount=type=cache,id=apt-cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,id=apt-lib,target=/var/lib/apt,sharing=locked \
-    apt-get update \
-    && apt-get upgrade -y \
-    && apt-get install -y --no-install-recommends \
+    apt-get -o Acquire::Retries=5 update \
+    && apt-get -o Acquire::Retries=5 upgrade -y \
+    && apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
         tini \
         ca-certificates \
     && rm -rf /var/log/* /tmp/* \
@@ -75,7 +75,8 @@ ENV GRPC_PYTHON_BUILD_WITH_CYTHON=1 \
 # Install build dependencies
 RUN --mount=type=cache,id=apt-cache-builder,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,id=apt-lib-builder,target=/var/lib/apt,sharing=locked \
-    apt-get install -y --no-install-recommends \
+    apt-get -o Acquire::Retries=5 update \
+    && apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
         build-essential \
         curl \
         git \
@@ -169,7 +170,7 @@ STOPSIGNAL SIGTERM
 EXPOSE 8000
 
 ENTRYPOINT ["tini", "--"]
-CMD ["litestar", "run", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["granian", "--interface", "asgi", "--factory", "app.server.asgi:create_app", "--host", "0.0.0.0", "--port", "8000"]
 
 # Labels for container metadata (OCI spec)
 LABEL org.opencontainers.image.title="Litestar Fullstack SPA" \

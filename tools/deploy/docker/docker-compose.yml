@@ -22,6 +22,25 @@ services:
       interval: 1s
       timeout: 3s
       retries: 30
+  sentinel:
+    image: ghcr.io/altcha-org/sentinel:latest
+    ports:
+      - "18108:8080"
+    hostname: sentinel
+    volumes:
+      - sentinel-data:/data
+    restart: unless-stopped
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - netstat -ltn | grep -q ':8080 '
+      interval: 10s
+      timeout: 5s
+      retries: 5
   db:
     image: postgres:latest
     ports:
@@ -78,6 +97,8 @@ services:
         condition: service_healthy
       cache:
         condition: service_healthy
+      sentinel:
+        condition: service_healthy
     ports:
       - "18100:8000"
     environment:
@@ -90,12 +111,14 @@ services:
     build:
       context: ../../..
       dockerfile: tools/deploy/docker/Dockerfile.distroless
-    command: litestar workers run
+    command: saq app.lib.worker.saq_worker_settings --workers ${SAQ_PROCESSES:-1}
     restart: always
     depends_on:
       db:
         condition: service_healthy
       cache:
+        condition: service_healthy
+      sentinel:
         condition: service_healthy
     env_file:
       - .env.docker
@@ -113,6 +136,9 @@ services:
         condition: service_healthy
       cache:
         condition: service_healthy
+      sentinel:
+        condition: service_healthy
 volumes:
   db-data: {}
   cache-data: {}
+  sentinel-data: {}

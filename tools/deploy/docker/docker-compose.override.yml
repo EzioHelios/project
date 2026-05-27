@@ -30,7 +30,7 @@ services:
     build:
       context: ../../..
       dockerfile: tools/deploy/docker/Dockerfile.dev
-    command: litestar workers run
+    command: saq app.lib.worker.saq_worker_settings --workers ${SAQ_PROCESSES:-1}
     tty: true
     restart: always
     environment:
