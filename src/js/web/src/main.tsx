@@ -5,7 +5,8 @@ import React from "react"
 import ReactDOM from "react-dom/client"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { usePublicConfig } from "@/hooks/use-public-config"
-import { setAccessToken, useAuthStore } from "@/lib/auth"
+import { getApiBaseUrl } from "@/lib/api-base-url"
+import { useAuthStore } from "@/lib/auth"
 import { client } from "@/lib/generated/api/client.gen"
 import { ThemeProvider } from "@/lib/theme-context"
 
@@ -24,7 +25,7 @@ declare global {
 
 const queryClient = new QueryClient()
 
-const apiUrl = import.meta.env.VITE_API_URL ?? ""
+const apiUrl = getApiBaseUrl()
 const rawFetch: typeof fetch = (...args) => globalThis.fetch(...args)
 const publicAuthPaths = ["/login", "/signup", "/forgot-password", "/reset-password"]
 
@@ -45,10 +46,8 @@ client.setConfig({
     }
 
     try {
-      const accessToken = await refreshAccessToken()
-      const retryHeaders = new Headers(retryRequest.headers)
-      retryHeaders.set("Authorization", `Bearer ${accessToken}`)
-      response = await rawFetch(new Request(retryRequest, { headers: retryHeaders }))
+      await refreshAccessToken()
+      response = await rawFetch(retryRequest)
       return response
     } catch {
       clearClientAuthState()
@@ -58,12 +57,6 @@ client.setConfig({
       }
       return response
     }
-  },
-  auth: () => {
-    if (typeof window === "undefined") {
-      return undefined
-    }
-    return window.localStorage.getItem("access_token") ?? undefined
   },
 })
 
@@ -82,10 +75,9 @@ client.interceptors.request.use((request, _options) => {
 })
 
 // Silent token refresh state
-let refreshPromise: Promise<string> | null = null
+let refreshPromise: Promise<void> | null = null
 
 const clearClientAuthState = () => {
-  setAccessToken(null)
   useAuthStore.setState({
     user: null,
     currentTeam: null,
@@ -95,7 +87,7 @@ const clearClientAuthState = () => {
   })
 }
 
-const refreshAccessToken = async (): Promise<string> => {
+const refreshAccessToken = async (): Promise<void> => {
   if (!refreshPromise) {
     refreshPromise = (async () => {
       const headers = new Headers()
@@ -114,13 +106,7 @@ const refreshAccessToken = async (): Promise<string> => {
         throw new Error(`Token refresh failed with status ${refreshResponse.status}`)
       }
 
-      const payload = (await refreshResponse.json()) as { access_token?: string }
-      if (!payload.access_token) {
-        throw new Error("Refresh response did not include an access token")
-      }
-
-      setAccessToken(payload.access_token)
-      return payload.access_token
+      await refreshResponse.json().catch(() => null)
     })().finally(() => {
       refreshPromise = null
     })
@@ -175,7 +161,4 @@ if (rootElement && !rootElement.innerHTML) {
   )
 }
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
 reportWebVitals()

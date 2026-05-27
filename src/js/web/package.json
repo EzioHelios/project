@@ -33,6 +33,7 @@
     "@tanstack/react-router-devtools": "^1.157.16",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/router-vite-plugin": "^1.157.16",
+    "altcha": "^3.0.10",
     "axios": "^1.13.3",
     "cesium": "^1.141.0",
     "class-variance-authority": "^0.7.1",

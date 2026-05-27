@@ -1,4 +1,3 @@
-import { ACCESS_TOKEN_KEY } from "@/lib/auth"
 import type {
   BigscreenApiEnvelope,
   BigscreenCarbonResponse,
@@ -8,13 +7,12 @@ import type {
   BigscreenPowerResponse,
   HuayiBigscreenOverviewResponse,
 } from "@/lib/bigscreen/types"
+import { getApiBaseUrl } from "@/lib/api-base-url"
 
 async function requestBigscreen<T>(path: string): Promise<BigscreenApiEnvelope<T>> {
-  const apiUrl = import.meta.env.VITE_API_URL ?? ""
-  const token = typeof window === "undefined" ? null : window.localStorage.getItem(ACCESS_TOKEN_KEY)
+  const apiUrl = getApiBaseUrl()
   const response = await fetch(`${apiUrl}${path}`, {
     credentials: "include",
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   })
   const text = await response.text()
   const raw = text ? JSON.parse(text) : {}

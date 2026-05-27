@@ -14,7 +14,6 @@ export const Route = createFileRoute("/_public/auth/google/callback")({
   validateSearch: (search) =>
     z
       .object({
-        token: z.string().optional(),
         // TanStack Router parses "true"/"false" as booleans, coerce to string
         is_new: z.coerce.string().optional(),
         error: z.string().optional(),
@@ -30,7 +29,6 @@ function GoogleCallbackPage() {
   const { refetch: refetchUser } = useAuth()
   const [error, setError] = useState<string | null>(null)
 
-  const token = searchParams.token
   const errorParam = searchParams.error
   const message = searchParams.message
 
@@ -43,14 +41,13 @@ function GoogleCallbackPage() {
         return
       }
 
-      if (!token) {
-        const errorMessage = message || "Invalid OAuth callback - missing token"
+      if (message && !searchParams.is_new) {
+        const errorMessage = message
         setError(errorMessage)
         toast.error(errorMessage)
         return
       }
 
-      localStorage.setItem("access_token", token)
       await refetchUser()
       toast.success("Successfully signed in with Google!")
 
@@ -63,7 +60,7 @@ function GoogleCallbackPage() {
     }
 
     run()
-  }, [errorParam, message, navigate, refetchUser, token])
+  }, [errorParam, message, navigate, refetchUser, searchParams.is_new])
 
   return (
     <div className="relative flex min-h-screen items-center justify-center px-4 py-12">

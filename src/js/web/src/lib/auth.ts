@@ -1,20 +1,17 @@
 import { toast } from "sonner"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import { getApiBaseUrl } from "@/lib/api-base-url"
 import type { Team, User } from "@/lib/generated/api"
-import { accountLogin, accountLogout, accountProfile } from "@/lib/generated/api"
+import { accountLogout, accountProfile } from "@/lib/generated/api"
 
-export const ACCESS_TOKEN_KEY = "access_token"
+export interface HumanVerificationSubmission {
+  payload: string
+  provider: string
+}
 
-export const setAccessToken = (token: string | null) => {
-  if (typeof window === "undefined") {
-    return
-  }
-  if (token) {
-    localStorage.setItem(ACCESS_TOKEN_KEY, token)
-  } else {
-    localStorage.removeItem(ACCESS_TOKEN_KEY)
-  }
+interface LoginResult {
+  mfaRequired: boolean
 }
 
 interface AuthState {
@@ -23,12 +20,37 @@ interface AuthState {
   teams: Team[]
   isLoading: boolean
   isAuthenticated: boolean
-  login: (email: string, password: string) => Promise<{ mfaRequired: boolean }>
-  completeMfaLogin: (accessToken: string) => Promise<void>
+  login: (email: string, password: string, verification?: HumanVerificationSubmission | null) => Promise<LoginResult>
+  completeMfaLogin: () => Promise<void>
   logout: () => Promise<void>
   checkAuth: () => Promise<void>
   setCurrentTeam: (team: Team) => void
   setTeams: (teams: Team[]) => void
+}
+
+export class HumanVerificationRequiredError extends Error {
+  readonly code = "human_verification_required"
+}
+
+const apiUrl = getApiBaseUrl()
+
+function isHumanVerificationRequired(payload: { detail?: string; title?: string } | null): boolean {
+  return payload?.detail === "human_verification_required" || payload?.title === "human_verification_required"
+}
+
+async function postLogin(body: { username: string; password: string; humanVerification?: HumanVerificationSubmission }): Promise<Response> {
+  const headers = new Headers({ "Content-Type": "application/json" })
+  const csrfToken = window.__LITESTAR_CSRF__
+  if (csrfToken) {
+    headers.set("X-XSRF-TOKEN", csrfToken)
+  }
+
+  return fetch(`${apiUrl}/api/access/login`, {
+    method: "POST",
+    body: JSON.stringify(body),
+    credentials: "include",
+    headers,
+  })
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -39,64 +61,64 @@ export const useAuthStore = create<AuthState>()(
       teams: [],
       isLoading: false,
       isAuthenticated: false,
-      login: async (email: string, password: string) => {
+      login: async (email: string, password: string, verification?: HumanVerificationSubmission | null) => {
         set({ isLoading: true })
         try {
-          // Login request
-          const response = await accountLogin({
-            body: { username: email, password },
+          const response = await postLogin({
+            username: email,
+            password,
+            humanVerification: verification ?? undefined,
           })
 
-          if (response.data) {
-            const loginData = response.data as {
-              access_token?: string
-              mfaRequired?: boolean // camelCase from CamelizedBaseStruct
-            }
-            if (loginData.mfaRequired) {
-              setAccessToken(null)
-              set({ user: null, isAuthenticated: false })
-              return { mfaRequired: true }
-            }
-            if (loginData.access_token) {
-              setAccessToken(loginData.access_token)
-            }
-            // Add a small delay to ensure the cookie is set
-            await new Promise((resolve) => setTimeout(resolve, 100))
+          const payload = (await response.json().catch(() => null)) as { detail?: string; title?: string; mfaRequired?: boolean } | null
 
-            // Verify the authentication by getting the profile
-            const { data: user } = await accountProfile({ throwOnError: true })
-            if (!user) {
-              throw new Error("Profile response did not include a user")
+          if (!response.ok) {
+            if (isHumanVerificationRequired(payload)) {
+              throw new HumanVerificationRequiredError("Human verification required")
             }
-            set({ user, isAuthenticated: true })
-            return { mfaRequired: false }
+            throw new Error(payload?.detail || "Login failed")
           }
 
-          set({ user: null, currentTeam: null, isAuthenticated: false })
-          toast.error(response.error?.detail || "Login failed")
+          if (payload?.mfaRequired) {
+            set({ user: null, isAuthenticated: false })
+            return { mfaRequired: true }
+          }
+
+          set({ isAuthenticated: true })
+          try {
+            const { data: user } = await accountProfile({ throwOnError: true })
+            if (user) {
+              set({ user })
+            }
+          } catch {
+            // Session cookies are authoritative; profile fetch can reconcile later.
+          }
           return { mfaRequired: false }
         } catch (error) {
-          setAccessToken(null)
           set({ user: null, currentTeam: null, isAuthenticated: false })
-          toast.error("An error occurred", {
-            description: error instanceof Error ? error.message : "Unknown error",
-          })
-          return { mfaRequired: false }
+          if (!(error instanceof HumanVerificationRequiredError)) {
+            toast.error("An error occurred", {
+              description: error instanceof Error ? error.message : "Unknown error",
+            })
+          }
+          throw error
         } finally {
           set({ isLoading: false })
         }
       },
-      completeMfaLogin: async (accessToken: string) => {
+      completeMfaLogin: async () => {
         set({ isLoading: true })
         try {
-          setAccessToken(accessToken)
-          const { data: user } = await accountProfile({ throwOnError: true })
-          if (!user) {
-            throw new Error("Profile response did not include a user")
+          set({ isAuthenticated: true })
+          try {
+            const { data: user } = await accountProfile({ throwOnError: true })
+            if (user) {
+              set({ user })
+            }
+          } catch {
+            // Session cookies are authoritative; profile fetch can reconcile later.
           }
-          set({ user, isAuthenticated: true })
         } catch (error) {
-          setAccessToken(null)
           set({ user: null, currentTeam: null, isAuthenticated: false })
           toast.error("MFA verification failed", {
             description: error instanceof Error ? error.message : "Unable to complete login",
@@ -109,7 +131,6 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true })
         try {
           await accountLogout()
-          setAccessToken(null)
           set({ user: null, currentTeam: null, isAuthenticated: false })
         } finally {
           set({ isLoading: false })
@@ -124,7 +145,6 @@ export const useAuthStore = create<AuthState>()(
           }
           set({ user, isAuthenticated: true })
         } catch {
-          setAccessToken(null)
           set({ user: null, currentTeam: null, isAuthenticated: false })
         } finally {
           set({ isLoading: false })

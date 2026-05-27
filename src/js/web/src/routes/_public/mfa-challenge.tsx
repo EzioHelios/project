@@ -36,13 +36,8 @@ function MfaChallengePage() {
   const handleVerify = async () => {
     try {
       const payload = tab === "totp" ? { code } : { recovery_code: recoveryCode.trim().toUpperCase() }
-      const response = await verify.mutateAsync(payload)
-      const accessToken = (response as { access_token?: string })?.access_token
-      if (!accessToken) {
-        toast.error("Verification failed")
-        return
-      }
-      await completeMfaLogin(accessToken)
+      await verify.mutateAsync(payload)
+      await completeMfaLogin()
       toast.success("MFA verified")
       navigate({ to: finalRedirect })
     } catch (error) {

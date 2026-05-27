@@ -181,13 +181,7 @@ export function ValidatedForm({
 
 // Example usage component
 export function ExampleRegistrationForm() {
-  const handleSubmit = (values: Record<string, any>, isValid: boolean) => {
-    if (isValid) {
-      console.log("Form submitted:", values)
-    } else {
-      console.log("Form has errors")
-    }
-  }
+  const handleSubmit = (_values: Record<string, any>, _isValid: boolean) => {}
 
   const fields: FormField[] = [
     {
