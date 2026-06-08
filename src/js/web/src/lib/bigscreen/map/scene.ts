@@ -30,8 +30,8 @@ const DEFAULT_STATUS_COLORS: Record<string, string> = {
 
 const DEFAULT_IMAGERY_PROVIDER: BigscreenSceneImageryProviderConfig = {
   kind: "url-template",
-  url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-  credit: "Tiles © Esri",
+  url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  credit: "© OpenStreetMap contributors",
   maximumLevel: 19,
 }
 

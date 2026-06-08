@@ -128,6 +128,7 @@ export function createCesiumBigscreenSceneEngine(): BigscreenSceneEngine {
         timeline: false,
         sceneModePicker: false,
         baseLayerPicker: false,
+        baseLayer: false,
         geocoder: false,
         homeButton: false,
         navigationHelpButton: false,
@@ -143,7 +144,6 @@ export function createCesiumBigscreenSceneEngine(): BigscreenSceneEngine {
         msaaSamples: context.config.viewerOptions.msaaSamples,
       })
 
-      viewer.imageryLayers.removeAll()
       viewer.imageryLayers.addImageryProvider(createImageryProvider(context))
       viewer.terrainProvider = await createTerrainProvider(context)
       viewer.scene.globe.depthTestAgainstTerrain = false

@@ -45,7 +45,12 @@ T = TypeVar("T")
 
 
 def _build_csp(settings: AppSettings) -> str:
-    connect_sources = {"'self'"}
+    connect_sources = {
+        "'self'",
+        "https://tile.openstreetmap.org",
+        "https://nominatim.openstreetmap.org",
+        "https://api.open-meteo.com",
+    }
     frame_sources = {"'none'"}
     if settings.altcha_enabled and settings.ALTCHA_SENTINEL_URL:
         sentinel_origin = urlparse(settings.ALTCHA_SENTINEL_URL).scheme + "://" + urlparse(settings.ALTCHA_SENTINEL_URL).netloc
@@ -58,10 +63,10 @@ def _build_csp(settings: AppSettings) -> str:
             "base-uri 'self'",
             "frame-ancestors 'none'",
             "object-src 'none'",
-            "img-src 'self' data: blob:",
-            "font-src 'self' data:",
-            "style-src 'self' 'unsafe-inline'",
-            "script-src 'self'",
+            "img-src 'self' data: blob: https://tile.openstreetmap.org",
+            "font-src 'self' data: https://fonts.gstatic.com",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'",
             f"connect-src {' '.join(sorted(connect_sources))}",
             "worker-src 'self' blob:",
             f"frame-src {' '.join(sorted(frame_sources))}",
