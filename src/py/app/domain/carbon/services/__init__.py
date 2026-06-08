@@ -31,6 +31,17 @@ class MonitorSectorService(CompositeServiceMixin, service.SQLAlchemyAsyncReposit
     repository_type = Repo
 
 
+class AreaService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.MonitorSector]):
+    """Master-data area service backed by MonitorSector."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.MonitorSector]):
+        """Area SQLAlchemy Repository."""
+
+        model_type = m.MonitorSector
+
+    repository_type = Repo
+
+
 class DeviceTypeService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.DeviceType]):
     """Handles database operations for DeviceType."""
 
@@ -46,6 +57,17 @@ class MonitorEquipmentService(CompositeServiceMixin, service.SQLAlchemyAsyncRepo
 
     class Repo(repository.SQLAlchemyAsyncRepository[m.MonitorEquipment]):
         """MonitorEquipment SQLAlchemy Repository."""
+        model_type = m.MonitorEquipment
+
+    repository_type = Repo
+
+
+class DeviceService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.MonitorEquipment]):
+    """Master-data device service backed by MonitorEquipment."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.MonitorEquipment]):
+        """Device SQLAlchemy Repository."""
+
         model_type = m.MonitorEquipment
 
     repository_type = Repo

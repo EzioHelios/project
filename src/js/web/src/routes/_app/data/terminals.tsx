@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { TerminalsPage } from "@/components/platform/data-admin-pages"
+import { TerminalsWorkbenchPage } from "@/components/platform/master-data-workbench"
 
 export const Route = createFileRoute("/_app/data/terminals")({
-  component: TerminalsPage,
+  component: TerminalsWorkbenchPage,
 })

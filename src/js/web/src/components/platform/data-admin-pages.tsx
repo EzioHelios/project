@@ -40,7 +40,7 @@ function display(value: unknown) {
   return String(value)
 }
 
-async function request<T>(url: string, init?: RequestInit) {
+export async function request<T>(url: string, init?: RequestInit) {
   const res = await fetch(url, init)
   const text = await res.text()
   const raw = text ? JSON.parse(text) : {}

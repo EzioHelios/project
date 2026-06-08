@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { DevicePointsPage } from "@/components/platform/data-admin-pages"
+import { DevicePointsWorkbenchPage } from "@/components/platform/master-data-workbench"
 
 export const Route = createFileRoute("/_app/data/device-points")({
-  component: DevicePointsPage,
+  component: DevicePointsWorkbenchPage,
 })

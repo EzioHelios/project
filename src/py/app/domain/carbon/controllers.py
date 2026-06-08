@@ -29,8 +29,10 @@ from app.domain.admin.services import AuditLogService
 from app.domain.carbon.deps import (
     provide_alarm_event_service,
     provide_ammeter_index_value_service,
+    provide_area_service,
     provide_api_result_key_mapping_service,
     provide_carbon_audit_log_service,
+    provide_device_service,
     provide_device_point_service,
     provide_device_type_service,
     provide_emission_factor_service,
@@ -91,6 +93,8 @@ DEVICE_TYPE_ID_TO_CODE = {
 DEVICE_TYPE_CODE_TO_ID = {code: identifier for identifier, code in DEVICE_TYPE_ID_TO_CODE.items()}
 CATEGORY_TO_DEVICE_TYPE_ID = {0: DEVICE_TYPE_CODE_TO_ID["meter"], 1: DEVICE_TYPE_CODE_TO_ID["pv_inverter"], 2: DEVICE_TYPE_CODE_TO_ID["camera"]}
 DEVICE_TYPE_ID_TO_CATEGORY = {value: key for key, value in CATEGORY_TO_DEVICE_TYPE_ID.items()}
+ROOT_AREA_CODE = "ROOT"
+AREA_TYPE_OPTIONS = {"site", "building", "workshop", "warehouse", "zone", "line", "station", "utility", "other"}
 DEFAULT_DEVICE_POINT_TEMPLATES: dict[str, list[dict[str, Any]]] = {
     "meter": [
         {"point_code": "active_power", "point_name": "有功功率", "unit": "kW", "value_type": "float", "source_field": "active_power", "is_alarm_enabled": True},
@@ -1079,6 +1083,199 @@ def model_to_dict(obj: Any) -> dict:
     return result
 
 
+def _area_label(area: m.MonitorSector | None) -> str | None:
+    if area is None:
+        return None
+    return area.name or area.code
+
+
+def _serialize_area(
+    area: m.MonitorSector,
+    *,
+    equipment_count: int = 0,
+    child_count: int = 0,
+    include_parent: bool = False,
+) -> dict[str, Any]:
+    data = model_to_dict(area)
+    data["is_enabled"] = bool(area.is_enable is not False)
+    data["remark"] = area.remark or area.description
+    data["child_count"] = child_count
+    data["equipment_count"] = equipment_count
+    if include_parent and area.parent is not None:
+        data["parent"] = {"id": area.parent.id, "code": area.parent.code, "name": _area_label(area.parent)}
+    return data
+
+
+def _serialize_device_type(device_type: m.DeviceType, *, child_count: int = 0) -> dict[str, Any]:
+    data = model_to_dict(device_type)
+    data["child_count"] = child_count
+    return data
+
+
+def _serialize_device(
+    device: m.MonitorEquipment,
+    *,
+    area: m.MonitorSector | None = None,
+    device_type: m.DeviceType | None = None,
+    parent_device: m.MonitorEquipment | None = None,
+    child_device_count: int = 0,
+    point_count: int = 0,
+) -> dict[str, Any]:
+    data = model_to_dict(device)
+    resolved_area = area
+    resolved_type = device_type
+    resolved_parent = parent_device
+    data["area_id"] = device.sector_id
+    data["area_name"] = _area_label(resolved_area)
+    data["is_enabled"] = bool(device.is_enable is not False)
+    data["location_desc"] = device.location
+    data["owner_department"] = device.owner_unit
+    data["parent_device"] = (
+        {
+            "id": resolved_parent.id,
+            "code": resolved_parent.code,
+            "name": resolved_parent.name or resolved_parent.code,
+        }
+        if resolved_parent is not None
+        else None
+    )
+    data["device_type"] = (
+        {
+            "id": resolved_type.id,
+            "code": resolved_type.code,
+            "name": resolved_type.name,
+        }
+        if resolved_type is not None
+        else None
+    )
+    data["area"] = (
+        {"id": resolved_area.id, "code": resolved_area.code, "name": _area_label(resolved_area)}
+        if resolved_area is not None
+        else None
+    )
+    data["child_device_count"] = child_device_count
+    data["point_count"] = point_count
+    return data
+
+
+def _build_tree(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_id = {node["id"]: {**node, "children": []} for node in nodes}
+    roots: list[dict[str, Any]] = []
+    for node in by_id.values():
+        parent_id = node.get("parent_id")
+        if parent_id in by_id:
+            by_id[parent_id]["children"].append(node)
+        else:
+            roots.append(node)
+    for node in by_id.values():
+        node["children"].sort(key=lambda item: (item.get("sort_index") or 0, item.get("name") or item.get("code") or ""))
+    roots.sort(key=lambda item: (item.get("sort_index") or 0, item.get("name") or item.get("code") or ""))
+    return roots
+
+
+async def _ensure_root_area(db_session: AsyncSession) -> m.MonitorSector:
+    root = await db_session.scalar(select(m.MonitorSector).where(m.MonitorSector.code == ROOT_AREA_CODE))
+    if root is not None:
+        return root
+    next_id = int((await db_session.execute(select(func.coalesce(func.max(m.MonitorSector.id), 0) + 1))).scalar_one())
+    root = m.MonitorSector(
+        id=next_id,
+        code=ROOT_AREA_CODE,
+        name="区域主数据",
+        area_type="site",
+        path=f"/{next_id}",
+        level=0,
+        sort_index=0,
+        description="系统根节点",
+        remark="系统自动创建的根区域",
+        is_enable=False,
+    )
+    db_session.add(root)
+    await db_session.commit()
+    await db_session.refresh(root)
+    return root
+
+
+async def _rebuild_area_path(db_session: AsyncSession, area: m.MonitorSector) -> None:
+    if area.parent_id is None:
+        area.path = f"/{area.id}"
+        area.level = 0
+        return
+    parent = await db_session.get(m.MonitorSector, area.parent_id)
+    if parent is None:
+        area.parent_id = None
+        area.path = f"/{area.id}"
+        area.level = 0
+        return
+    parent_path = parent.path or f"/{parent.id}"
+    parent_level = parent.level or 0
+    area.path = f"{parent_path}/{area.id}"
+    area.level = parent_level + 1
+
+
+async def _update_area_descendant_paths(db_session: AsyncSession, area: m.MonitorSector) -> None:
+    descendants = (
+        await db_session.execute(
+            select(m.MonitorSector).where(m.MonitorSector.parent_id == area.id).order_by(m.MonitorSector.sort_index.asc(), m.MonitorSector.id.asc())
+        )
+    ).scalars().all()
+    for child in descendants:
+        await _rebuild_area_path(db_session, child)
+        await _update_area_descendant_paths(db_session, child)
+
+
+async def _is_descendant_area(db_session: AsyncSession, area_id: int, candidate_parent_id: int) -> bool:
+    area = await db_session.get(m.MonitorSector, area_id)
+    parent = await db_session.get(m.MonitorSector, candidate_parent_id)
+    if area is None or parent is None:
+        return False
+    area_path = area.path or f"/{area.id}"
+    parent_path = parent.path or f"/{parent.id}"
+    return parent_path.startswith(f"{area_path}/")
+
+
+async def _get_area_subtree_ids(db_session: AsyncSession, area_id: int) -> list[int]:
+    area = await db_session.get(m.MonitorSector, area_id)
+    if area is None:
+        return []
+    path = area.path or f"/{area.id}"
+    rows = (
+        await db_session.execute(select(m.MonitorSector.id).where(m.MonitorSector.path.like(f"{path}%")))
+    ).scalars().all()
+    return [int(item) for item in rows]
+
+
+async def _get_device_type_subtree_ids(db_session: AsyncSession, device_type_id: int) -> list[int]:
+    rows = (
+        await db_session.execute(select(m.DeviceType.id, m.DeviceType.parent_id).order_by(m.DeviceType.id.asc()))
+    ).all()
+    children_by_parent: dict[int | None, list[int]] = defaultdict(list)
+    for identifier, parent_id in rows:
+        children_by_parent[parent_id].append(identifier)
+    queue = [device_type_id]
+    seen: set[int] = set()
+    while queue:
+        current = queue.pop(0)
+        if current in seen:
+            continue
+        seen.add(current)
+        queue.extend(children_by_parent.get(current, []))
+    return sorted(seen)
+
+
+async def _is_descendant_device(db_session: AsyncSession, device_id: int, parent_device_id: int) -> bool:
+    current_parent_id = parent_device_id
+    seen: set[int] = set()
+    while current_parent_id is not None and current_parent_id not in seen:
+        if current_parent_id == device_id:
+            return True
+        seen.add(current_parent_id)
+        current_parent_id = await db_session.scalar(
+            select(m.MonitorEquipment.parent_device_id).where(m.MonitorEquipment.id == current_parent_id)
+        )
+    return False
+
+
 _FACTOR_UNIT_PATTERN = re.compile(r"(tC/TJ|TJ/万t|10⁴t|万t|tCO2|tCO₂|tC|kg|CH4|CH₄|CO2|CO₂|N2O|N₂O|%|m3|m³|Gg)", re.IGNORECASE)
 
 
@@ -1243,6 +1440,44 @@ def _sync_monitor_equipment_identifier_fields(data: dict[str, Any]) -> None:
         data["external_device_id"] = code
 
 
+def _normalize_area_payload(data: dict[str, Any]) -> dict[str, Any]:
+    payload = dict(data)
+    if "is_enabled" in payload and "is_enable" not in payload:
+        payload["is_enable"] = payload.pop("is_enabled")
+    else:
+        payload.pop("is_enabled", None)
+    if "remark" in payload and "description" not in payload:
+        payload["description"] = payload["remark"]
+    payload["remark"] = payload.get("remark") or payload.get("description")
+    if "area_type" in payload and isinstance(payload["area_type"], str):
+        area_type = payload["area_type"].strip().lower()
+        payload["area_type"] = area_type if area_type in AREA_TYPE_OPTIONS else "other"
+    _coerce_int_fields(payload, ["parent_id", "level", "sort_index", "area_id"])
+    return payload
+
+
+def _normalize_device_payload(data: dict[str, Any]) -> dict[str, Any]:
+    payload = dict(data)
+    if "area_id" in payload and "sector_id" not in payload:
+        payload["sector_id"] = payload["area_id"]
+    payload.pop("area_id", None)
+    if "location_desc" in payload and "location" not in payload:
+        payload["location"] = payload["location_desc"]
+    payload.pop("location_desc", None)
+    if "owner_department" in payload and "owner_unit" not in payload:
+        payload["owner_unit"] = payload["owner_department"]
+    payload.pop("owner_department", None)
+    if "is_enabled" in payload and "is_enable" not in payload:
+        payload["is_enable"] = payload["is_enabled"]
+    payload.pop("is_enabled", None)
+    _coerce_datetime_fields(payload, ["install_time", "last_inspection_at", "inspection_due_at"])
+    _coerce_int_fields(payload, ["sector_id", "device_type_id", "category", "sort_index", "parent_device_id"])
+    _coerce_float_fields(payload, ["rated_power_kw"])
+    _sync_monitor_equipment_type_fields(payload)
+    _sync_monitor_equipment_identifier_fields(payload)
+    return payload
+
+
 async def _ensure_default_device_points(db_session: AsyncSession, equipment: m.MonitorEquipment) -> None:
     device_type_id = equipment.device_type_id
     if device_type_id is None:
@@ -1281,12 +1516,21 @@ async def _ensure_default_device_points(db_session: AsyncSession, equipment: m.M
 
 
 async def _ensure_default_device_types(db_session: AsyncSession) -> None:
-    existing_codes = set((await db_session.execute(select(m.DeviceType.code))).scalars().all())
+    existing_rows = (await db_session.execute(select(m.DeviceType.id, m.DeviceType.code))).all()
+    existing_codes = {code for _identifier, code in existing_rows}
+    existing_ids = {int(identifier) for identifier, _code in existing_rows}
     missing = [item for item in DEFAULT_DEVICE_TYPES if item["code"] not in existing_codes]
     if not missing:
         return
+    next_id = max(existing_ids, default=0) + 1
     for item in missing:
-        db_session.add(m.DeviceType(**item))
+        payload = dict(item)
+        payload_id = int(payload["id"])
+        if payload_id in existing_ids:
+            payload["id"] = next_id
+            next_id += 1
+        existing_ids.add(int(payload["id"]))
+        db_session.add(m.DeviceType(**payload))
     await db_session.commit()
 
 
@@ -4524,6 +4768,8 @@ class CarbonCRUDController(Controller):
         "employee_commute_service": provide_employee_commute_service,
         "iot_telemetry_service": provide_iot_telemetry_service,
         "audit_log_service": provide_carbon_audit_log_service,
+        "area_service": provide_area_service,
+        "device_service": provide_device_service,
         "monitor_sector_service": provide_monitor_sector_service,
         "monitor_sector_photo_service": provide_monitor_sector_photo_service,
         "monitor_equipment_service": provide_monitor_equipment_service,
@@ -6729,6 +6975,730 @@ class CarbonCRUDController(Controller):
             }
         )
 
+    @get("/api/master-data/areas/tree", exclude_from_auth=True)
+    async def list_master_data_area_tree(
+        self,
+        db_session: AsyncSession,
+        area_service: services.AreaService,
+        include_disabled: bool = True,
+    ) -> Response[dict]:
+        root = await _ensure_root_area(db_session)
+        conditions = []
+        if not include_disabled:
+            conditions.append(m.MonitorSector.is_enable.is_(True))
+        rows = (
+            await db_session.execute(
+                select(m.MonitorSector)
+                .where(*(conditions or [text("1=1")]))
+                .order_by(m.MonitorSector.level.asc(), m.MonitorSector.sort_index.asc(), m.MonitorSector.id.asc())
+            )
+        ).scalars().all()
+        sector_ids = [row.id for row in rows]
+        child_counts = dict(
+            (
+                await db_session.execute(
+                    select(m.MonitorSector.parent_id, func.count(m.MonitorSector.id))
+                    .where(m.MonitorSector.parent_id.is_not(None))
+                    .group_by(m.MonitorSector.parent_id)
+                )
+            ).all()
+        )
+        equipment_counts = {}
+        if sector_ids:
+            equipment_counts = dict(
+                (
+                    await db_session.execute(
+                        select(m.MonitorEquipment.sector_id, func.count(m.MonitorEquipment.id))
+                        .where(m.MonitorEquipment.sector_id.in_(sector_ids))
+                        .group_by(m.MonitorEquipment.sector_id)
+                    )
+                ).all()
+            )
+        items = [
+            _serialize_area(
+                row,
+                equipment_count=int(equipment_counts.get(row.id, 0)),
+                child_count=int(child_counts.get(row.id, 0)),
+            )
+            for row in rows
+        ]
+        tree = _build_tree(items)
+        selected_root = next((node for node in tree if node["id"] == root.id), None)
+        return Response(content={"code": 200, "msg": "获取成功", "data": {"items": tree, "root": selected_root}})
+
+    @get("/api/master-data/areas", exclude_from_auth=True)
+    async def list_master_data_areas(
+        self,
+        db_session: AsyncSession,
+        area_service: services.AreaService,
+        keyword: str | None = None,
+        search: str | None = None,
+        parent_id: int | None = None,
+        area_type: str | None = None,
+        is_enabled: bool | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        sort_field: str = "sort_index",
+        sort_order: str = "asc",
+    ) -> Response[dict]:
+        conditions = []
+        if parent_id is not None:
+            conditions.append(m.MonitorSector.parent_id == parent_id)
+        if area_type:
+            conditions.append(m.MonitorSector.area_type == area_type.strip().lower())
+        if is_enabled is not None:
+            conditions.append(m.MonitorSector.is_enable.is_(is_enabled))
+        page = await _list_page(
+            area_service,
+            m.MonitorSector,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["code", "name", "description", "manager_name", "owner_department", "location_desc"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        area_ids = [row["id"] for row in page["items"] if row.get("id") is not None]
+        child_counts = {}
+        equipment_counts = {}
+        if area_ids:
+            child_counts = dict(
+                (
+                    await db_session.execute(
+                        select(m.MonitorSector.parent_id, func.count(m.MonitorSector.id))
+                        .where(m.MonitorSector.parent_id.in_(area_ids))
+                        .group_by(m.MonitorSector.parent_id)
+                    )
+                ).all()
+            )
+            equipment_counts = dict(
+                (
+                    await db_session.execute(
+                        select(m.MonitorEquipment.sector_id, func.count(m.MonitorEquipment.id))
+                        .where(m.MonitorEquipment.sector_id.in_(area_ids))
+                        .group_by(m.MonitorEquipment.sector_id)
+                    )
+                ).all()
+            )
+        for row in page["items"]:
+            row["is_enabled"] = row.get("is_enable", True)
+            row["remark"] = row.get("remark") or row.get("description")
+            row["child_count"] = int(child_counts.get(row.get("id"), 0))
+            row["equipment_count"] = int(equipment_counts.get(row.get("id"), 0))
+        return Response(content=page)
+
+    @get("/api/master-data/areas/{area_id:int}/summary", exclude_from_auth=True)
+    async def get_master_data_area_summary(self, db_session: AsyncSession, area_id: int) -> Response[dict]:
+        area = (
+            await db_session.execute(
+                select(m.MonitorSector)
+                .where(m.MonitorSector.id == area_id)
+                .options(selectinload(m.MonitorSector.parent), selectinload(m.MonitorSector.children))
+            )
+        ).scalar_one_or_none()
+        if area is None:
+            return Response(content={"code": 404, "msg": "区域不存在"}, status_code=404)
+        child_ids = [child.id for child in area.children]
+        device_rows = (
+            await db_session.execute(
+                select(m.MonitorEquipment)
+                .where(m.MonitorEquipment.sector_id == area.id)
+                .options(
+                    selectinload(m.MonitorEquipment.device_type),
+                    selectinload(m.MonitorEquipment.parent_device),
+                    selectinload(m.MonitorEquipment.sector),
+                    selectinload(m.MonitorEquipment.child_devices),
+                    selectinload(m.MonitorEquipment.device_points),
+                )
+            )
+        ).scalars().all()
+        online_count = sum(1 for item in device_rows if item.status == 0)
+        child_device_counts = {}
+        child_area_counts = {}
+        if child_ids:
+            child_device_counts = dict(
+                (
+                    await db_session.execute(
+                        select(m.MonitorEquipment.sector_id, func.count(m.MonitorEquipment.id))
+                        .where(m.MonitorEquipment.sector_id.in_(child_ids))
+                        .group_by(m.MonitorEquipment.sector_id)
+                    )
+                ).all()
+            )
+            child_area_counts = dict(
+                (
+                    await db_session.execute(
+                        select(m.MonitorSector.parent_id, func.count(m.MonitorSector.id))
+                        .where(m.MonitorSector.parent_id.in_(child_ids))
+                        .group_by(m.MonitorSector.parent_id)
+                    )
+                ).all()
+            )
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {
+                    "area": _serialize_area(area, equipment_count=len(device_rows), child_count=len(area.children), include_parent=True),
+                    "children": [
+                        _serialize_area(
+                            child,
+                            equipment_count=int(child_device_counts.get(child.id, 0)),
+                            child_count=int(child_area_counts.get(child.id, 0)),
+                        )
+                        for child in sorted(area.children, key=lambda item: ((item.sort_index or 0), item.id))
+                    ],
+                    "devices": [
+                        _serialize_device(item, child_device_count=len(item.child_devices), point_count=len(item.device_points))
+                        for item in device_rows
+                    ],
+                    "stats": {
+                        "device_total": len(device_rows),
+                        "device_online": online_count,
+                        "device_fault": len(device_rows) - online_count,
+                        "child_area_total": len(area.children),
+                    },
+                },
+            }
+        )
+
+    @post("/api/master-data/areas", guards=[requires_superuser])
+    async def create_master_data_area(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
+        root = await _ensure_root_area(db_session)
+        payload = _payload_without_none(_normalize_area_payload(data))
+        if payload.get("code") != ROOT_AREA_CODE and payload.get("parent_id") is None:
+            payload["parent_id"] = root.id
+        obj = m.MonitorSector(**payload)
+        db_session.add(obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        await _rebuild_area_path(db_session, obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="master-data.area.create",
+            target_type="Area",
+            target_id=obj.id,
+            target_label=obj.name,
+            details={"code": obj.code, "parent_id": obj.parent_id},
+        )
+        return Response(content={"code": 200, "msg": "创建成功", "data": _serialize_area(obj)})
+
+    @patch("/api/master-data/areas/{area_id:int}", guards=[requires_superuser])
+    async def update_master_data_area(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        area_id: int,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
+        root = await _ensure_root_area(db_session)
+        obj = await db_session.get(m.MonitorSector, area_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "区域不存在"}, status_code=404)
+        payload = _payload_without_none(_normalize_area_payload(data))
+        next_parent_id = payload.get("parent_id", obj.parent_id)
+        if obj.code == ROOT_AREA_CODE:
+            next_parent_id = None
+        elif next_parent_id is None:
+            next_parent_id = root.id
+        if next_parent_id == obj.id:
+            return Response(content={"code": 400, "msg": "区域不能挂到自身下"}, status_code=400)
+        if next_parent_id is not None and await _is_descendant_area(db_session, obj.id, next_parent_id):
+            return Response(content={"code": 400, "msg": "区域不能挂到自己的子区域下"}, status_code=400)
+        payload["parent_id"] = next_parent_id
+        for field, value in payload.items():
+            setattr(obj, field, value)
+        await _rebuild_area_path(db_session, obj)
+        await _update_area_descendant_paths(db_session, obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="master-data.area.update",
+            target_type="Area",
+            target_id=obj.id,
+            target_label=obj.name,
+            details={"updated_fields": sorted(payload.keys())},
+        )
+        return Response(content={"code": 200, "msg": "更新成功", "data": _serialize_area(obj)})
+
+    @delete("/api/master-data/areas/{area_id:int}", guards=[requires_superuser], status_code=200)
+    async def delete_master_data_area(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        area_id: int,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
+        obj = await db_session.get(m.MonitorSector, area_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "区域不存在"}, status_code=404)
+        if obj.code == ROOT_AREA_CODE:
+            return Response(content={"code": 400, "msg": "系统根区域不可删除"}, status_code=400)
+        child_count = int(
+            (await db_session.execute(select(func.count(m.MonitorSector.id)).where(m.MonitorSector.parent_id == area_id))).scalar_one() or 0
+        )
+        if child_count > 0:
+            return Response(content={"code": 400, "msg": "区域下仍有子区域，禁止删除"}, status_code=400)
+        device_count = int(
+            (await db_session.execute(select(func.count(m.MonitorEquipment.id)).where(m.MonitorEquipment.sector_id == area_id))).scalar_one() or 0
+        )
+        if device_count > 0:
+            return Response(content={"code": 400, "msg": "区域下仍有设备，禁止删除"}, status_code=400)
+        label = obj.name
+        await db_session.delete(obj)
+        await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="master-data.area.delete",
+            target_type="Area",
+            target_id=area_id,
+            target_label=label,
+            details={"code": obj.code},
+        )
+        return Response(content={"code": 200, "msg": "已删除"})
+
+    @get("/api/master-data/device-types/tree", exclude_from_auth=True)
+    async def list_master_data_device_type_tree(
+        self,
+        db_session: AsyncSession,
+        device_type_service: services.DeviceTypeService,
+        include_disabled: bool = True,
+    ) -> Response[dict]:
+        await _ensure_default_device_types(db_session)
+        conditions = []
+        if not include_disabled:
+            conditions.append(m.DeviceType.is_enabled.is_(True))
+        rows = (
+            await db_session.execute(
+                select(m.DeviceType).where(*(conditions or [text("1=1")])).order_by(m.DeviceType.id.asc())
+            )
+        ).scalars().all()
+        child_counts = dict(
+            (
+                await db_session.execute(
+                    select(m.DeviceType.parent_id, func.count(m.DeviceType.id))
+                    .where(m.DeviceType.parent_id.is_not(None))
+                    .group_by(m.DeviceType.parent_id)
+                )
+            ).all()
+        )
+        items = [_serialize_device_type(row, child_count=int(child_counts.get(row.id, 0))) for row in rows]
+        return Response(content={"code": 200, "msg": "获取成功", "data": {"items": _build_tree(items)}})
+
+    @get("/api/master-data/devices", exclude_from_auth=True)
+    async def list_master_data_devices(
+        self,
+        db_session: AsyncSession,
+        device_service: services.DeviceService,
+        keyword: str | None = None,
+        search: str | None = None,
+        area_id: int | None = None,
+        device_type_id: int | None = None,
+        status: int | None = None,
+        is_enabled: bool | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        sort_field: str = "sort_index",
+        sort_order: str = "asc",
+    ) -> Response[dict]:
+        conditions = []
+        if area_id is not None:
+            area_ids = await _get_area_subtree_ids(db_session, area_id)
+            if area_ids:
+                conditions.append(m.MonitorEquipment.sector_id.in_(area_ids))
+        if device_type_id is not None:
+            device_type_ids = await _get_device_type_subtree_ids(db_session, device_type_id)
+            conditions.append(m.MonitorEquipment.device_type_id.in_(device_type_ids))
+        if status is not None:
+            conditions.append(m.MonitorEquipment.status == status)
+        if is_enabled is not None:
+            conditions.append(m.MonitorEquipment.is_enable.is_(is_enabled))
+        page = await _list_page(
+            device_service,
+            m.MonitorEquipment,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=[
+                "code",
+                "name",
+                "external_device_id",
+                "asset_code",
+                "model",
+                "manufacturer",
+                "owner_unit",
+                "maintainer_name",
+                "location",
+            ],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        device_ids = [row["id"] for row in page["items"] if row.get("id") is not None]
+        area_ids = [row["sector_id"] for row in page["items"] if row.get("sector_id") is not None]
+        device_type_ids = [row["device_type_id"] for row in page["items"] if row.get("device_type_id") is not None]
+        parent_ids = [row["parent_device_id"] for row in page["items"] if row.get("parent_device_id") is not None]
+        area_map = {
+            row.id: row
+            for row in (
+                await db_session.execute(select(m.MonitorSector).where(m.MonitorSector.id.in_(area_ids)))
+            ).scalars().all()
+        } if area_ids else {}
+        type_map = {
+            row.id: row
+            for row in (
+                await db_session.execute(select(m.DeviceType).where(m.DeviceType.id.in_(device_type_ids)))
+            ).scalars().all()
+        } if device_type_ids else {}
+        parent_map = {
+            row.id: row
+            for row in (
+                await db_session.execute(select(m.MonitorEquipment).where(m.MonitorEquipment.id.in_(parent_ids)))
+            ).scalars().all()
+        } if parent_ids else {}
+        point_counts = {}
+        child_counts = {}
+        if device_ids:
+            point_counts = dict(
+                (
+                    await db_session.execute(
+                        select(m.DevicePoint.device_id, func.count(m.DevicePoint.id))
+                        .where(m.DevicePoint.device_id.in_(device_ids))
+                        .group_by(m.DevicePoint.device_id)
+                    )
+                ).all()
+            )
+            child_counts = dict(
+                (
+                    await db_session.execute(
+                        select(m.MonitorEquipment.parent_device_id, func.count(m.MonitorEquipment.id))
+                        .where(m.MonitorEquipment.parent_device_id.in_(device_ids))
+                        .group_by(m.MonitorEquipment.parent_device_id)
+                    )
+                ).all()
+            )
+        for row in page["items"]:
+            area = area_map.get(row.get("sector_id"))
+            device_type = type_map.get(row.get("device_type_id"))
+            parent_device = parent_map.get(row.get("parent_device_id"))
+            row["area_id"] = row.get("sector_id")
+            row["area_name"] = _area_label(area)
+            row["device_type"] = (
+                {"id": device_type.id, "code": device_type.code, "name": device_type.name} if device_type is not None else None
+            )
+            row["parent_device"] = (
+                {"id": parent_device.id, "code": parent_device.code, "name": parent_device.name or parent_device.code}
+                if parent_device is not None
+                else None
+            )
+            row["is_enabled"] = row.get("is_enable", True)
+            row["location_desc"] = row.get("location")
+            row["owner_department"] = row.get("owner_unit")
+            row["child_device_count"] = int(child_counts.get(row.get("id"), 0))
+            row["point_count"] = int(point_counts.get(row.get("id"), 0))
+        return Response(content=page)
+
+    @get("/api/master-data/devices/{device_id:int}", exclude_from_auth=True)
+    async def get_master_data_device_detail(self, db_session: AsyncSession, device_id: int) -> Response[dict]:
+        device = (
+            await db_session.execute(
+                select(m.MonitorEquipment)
+                .where(m.MonitorEquipment.id == device_id)
+                .options(
+                    selectinload(m.MonitorEquipment.sector),
+                    selectinload(m.MonitorEquipment.device_type),
+                    selectinload(m.MonitorEquipment.parent_device),
+                    selectinload(m.MonitorEquipment.child_devices),
+                    selectinload(m.MonitorEquipment.device_points),
+                )
+            )
+        ).scalar_one_or_none()
+        if device is None:
+            return Response(content={"code": 404, "msg": "设备不存在"}, status_code=404)
+        child_devices = [
+            _serialize_device(child, area=child.sector, device_type=child.device_type, parent_device=device)
+            for child in sorted(device.child_devices, key=lambda item: ((item.sort_index or 0), item.id))
+        ]
+        point_rows = [model_to_dict(item) for item in sorted(device.device_points, key=lambda item: item.id)]
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {
+                    "device": _serialize_device(
+                        device,
+                        area=device.sector,
+                        device_type=device.device_type,
+                        parent_device=device.parent_device,
+                        child_device_count=len(device.child_devices),
+                        point_count=len(device.device_points),
+                    ),
+                    "children": child_devices,
+                    "points": point_rows,
+                },
+            }
+        )
+
+    @post("/api/master-data/devices", guards=[requires_superuser])
+    async def create_master_data_device(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
+        await _ensure_default_device_types(db_session)
+        payload = _payload_without_none(_normalize_device_payload(data))
+        if payload.get("sector_id") is None:
+            return Response(content={"code": 400, "msg": "area_id 为必填"}, status_code=400)
+        if payload.get("device_type_id") is None:
+            return Response(content={"code": 400, "msg": "device_type_id 为必填"}, status_code=400)
+        obj = m.MonitorEquipment(**payload)
+        db_session.add(obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        await _ensure_default_device_points(db_session, obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="master-data.device.create",
+            target_type="Device",
+            target_id=obj.id,
+            target_label=obj.name,
+            details={"code": obj.code, "area_id": obj.sector_id, "device_type_id": obj.device_type_id},
+        )
+        return Response(content={"code": 200, "msg": "创建成功", "data": _serialize_device(obj)})
+
+    @patch("/api/master-data/devices/{device_id:int}", guards=[requires_superuser])
+    async def update_master_data_device(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        device_id: int,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
+        await _ensure_default_device_types(db_session)
+        obj = await db_session.get(m.MonitorEquipment, device_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "设备不存在"}, status_code=404)
+        payload = _payload_without_none(_normalize_device_payload(data))
+        next_parent_id = payload.get("parent_device_id", obj.parent_device_id)
+        if next_parent_id == obj.id:
+            return Response(content={"code": 400, "msg": "设备不能挂到自身下"}, status_code=400)
+        if next_parent_id is not None and await _is_descendant_device(db_session, obj.id, next_parent_id):
+            return Response(content={"code": 400, "msg": "设备不能挂到自己的子设备下"}, status_code=400)
+        for field, value in payload.items():
+            setattr(obj, field, value)
+        if obj.sector_id is None:
+            return Response(content={"code": 400, "msg": "area_id 为必填"}, status_code=400)
+        if obj.device_type_id is None:
+            return Response(content={"code": 400, "msg": "device_type_id 为必填"}, status_code=400)
+        await _ensure_default_device_points(db_session, obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="master-data.device.update",
+            target_type="Device",
+            target_id=obj.id,
+            target_label=obj.name,
+            details={"updated_fields": sorted(payload.keys())},
+        )
+        return Response(content={"code": 200, "msg": "更新成功", "data": _serialize_device(obj)})
+
+    @delete("/api/master-data/devices/{device_id:int}", guards=[requires_superuser], status_code=200)
+    async def delete_master_data_device(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        device_id: int,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
+        obj = await db_session.get(m.MonitorEquipment, device_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "设备不存在"}, status_code=404)
+        child_count = int(
+            (await db_session.execute(select(func.count(m.MonitorEquipment.id)).where(m.MonitorEquipment.parent_device_id == device_id))).scalar_one()
+            or 0
+        )
+        if child_count > 0:
+            return Response(content={"code": 400, "msg": "设备下仍有子设备，禁止删除"}, status_code=400)
+        label = obj.name
+        await db_session.delete(obj)
+        await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="master-data.device.delete",
+            target_type="Device",
+            target_id=device_id,
+            target_label=label,
+            details={"code": obj.code},
+        )
+        return Response(content={"code": 200, "msg": "已删除"})
+
+    @get("/api/master-data/device-points", exclude_from_auth=True)
+    async def list_master_data_device_points(
+        self,
+        db_session: AsyncSession,
+        device_point_service: services.DevicePointService,
+        keyword: str | None = None,
+        search: str | None = None,
+        device_id: int | None = None,
+        limit: int = 50,
+        offset: int = 0,
+        sort_field: str = "id",
+        sort_order: str = "asc",
+    ) -> Response[dict]:
+        conditions = []
+        if device_id is not None:
+            conditions.append(m.DevicePoint.device_id == device_id)
+        page = await _list_page(
+            device_point_service,
+            m.DevicePoint,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["point_code", "point_name", "source_field", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        device_ids = [row["device_id"] for row in page["items"] if row.get("device_id") is not None]
+        device_map = {
+            row.id: row
+            for row in (
+                await db_session.execute(select(m.MonitorEquipment).where(m.MonitorEquipment.id.in_(device_ids)))
+            ).scalars().all()
+        } if device_ids else {}
+        for row in page["items"]:
+            device = device_map.get(row.get("device_id"))
+            row["device"] = (
+                {"id": device.id, "code": device.code, "name": device.name or device.code} if device is not None else None
+            )
+        return Response(content=page)
+
+    @post("/api/master-data/device-points", guards=[requires_superuser])
+    async def create_master_data_device_point(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
+        _coerce_int_fields(data, ["device_id", "sampling_interval_seconds"])
+        _coerce_float_fields(data, ["upper_limit", "lower_limit"])
+        payload = _payload_without_none(data)
+        if payload.get("device_id") is None:
+            return Response(content={"code": 400, "msg": "device_id 为必填"}, status_code=400)
+        exists = await db_session.scalar(
+            select(m.DevicePoint.id).where(
+                m.DevicePoint.device_id == payload.get("device_id"),
+                m.DevicePoint.point_code == payload.get("point_code"),
+            )
+        )
+        if exists is not None:
+            return Response(content={"code": 400, "msg": "同一设备下测点编码不能重复"}, status_code=400)
+        obj = m.DevicePoint(**payload)
+        db_session.add(obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="master-data.device-point.create",
+            target_type="DevicePoint",
+            target_id=obj.id,
+            target_label=obj.point_name,
+            details={"device_id": obj.device_id, "point_code": obj.point_code},
+        )
+        return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
+
+    @patch("/api/master-data/device-points/{record_id:int}", guards=[requires_superuser])
+    async def update_master_data_device_point(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
+        obj = await db_session.get(m.DevicePoint, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "测点不存在"}, status_code=404)
+        _coerce_int_fields(data, ["device_id", "sampling_interval_seconds"])
+        _coerce_float_fields(data, ["upper_limit", "lower_limit"])
+        payload = _payload_without_none(data)
+        next_device_id = payload.get("device_id", obj.device_id)
+        next_point_code = payload.get("point_code", obj.point_code)
+        exists = await db_session.scalar(
+            select(m.DevicePoint.id).where(
+                m.DevicePoint.device_id == next_device_id,
+                m.DevicePoint.point_code == next_point_code,
+                m.DevicePoint.id != obj.id,
+            )
+        )
+        if exists is not None:
+            return Response(content={"code": 400, "msg": "同一设备下测点编码不能重复"}, status_code=400)
+        for field, value in payload.items():
+            setattr(obj, field, value)
+        await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="master-data.device-point.update",
+            target_type="DevicePoint",
+            target_id=obj.id,
+            target_label=obj.point_name,
+            details={"updated_fields": sorted(payload.keys())},
+        )
+        return Response(content={"code": 200, "msg": "更新成功", "data": model_to_dict(obj)})
+
+    @delete("/api/master-data/device-points/{record_id:int}", guards=[requires_superuser], status_code=200)
+    async def delete_master_data_device_point(
+        self,
+        request: Request[Any, Any, Any],
+        db_session: AsyncSession,
+        record_id: int,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
+        obj = await db_session.get(m.DevicePoint, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "测点不存在"}, status_code=404)
+        await db_session.delete(obj)
+        await db_session.commit()
+        await self._log_admin_data_event(
+            security_audit_service,
+            request,
+            action="master-data.device-point.delete",
+            target_type="DevicePoint",
+            target_id=record_id,
+            target_label=obj.point_name,
+            details={"device_id": obj.device_id, "point_code": obj.point_code},
+        )
+        return Response(content={"code": 200, "msg": "已删除"})
+
     # ---------- 数据管理: 区域 / 终端 / 视频 / 规则配置 ----------
     @get("/api/data/monitor-sectors", exclude_from_auth=True)
     async def list_monitor_sectors(
@@ -6752,6 +7722,7 @@ class CarbonCRUDController(Controller):
             search_fields=["code", "name", "area", "description"],
             sort_field=sort_field,
             sort_order=sort_order,
+            conditions=[m.MonitorSector.code != ROOT_AREA_CODE],
         )
         sector_ids = [row["id"] for row in page["items"] if row.get("id") is not None]
         if sector_ids:
@@ -6783,8 +7754,15 @@ class CarbonCRUDController(Controller):
         security_audit_service: AuditLogService,
         data: dict[str, Any] = ADMIN_BODY,
     ) -> Response[dict]:
-        obj = m.MonitorSector(**_payload_without_none(data))
+        root = await _ensure_root_area(db_session)
+        payload = _payload_without_none(_normalize_area_payload(data))
+        if payload.get("code") != ROOT_AREA_CODE and payload.get("parent_id") is None:
+            payload["parent_id"] = root.id
+        obj = m.MonitorSector(**payload)
         db_session.add(obj)
+        await db_session.commit()
+        await db_session.refresh(obj)
+        await _rebuild_area_path(db_session, obj)
         await db_session.commit()
         await db_session.refresh(obj)
         await self._log_admin_data_event(
@@ -6807,11 +7785,25 @@ class CarbonCRUDController(Controller):
         security_audit_service: AuditLogService,
         data: dict[str, Any] = ADMIN_BODY,
     ) -> Response[dict]:
+        root = await _ensure_root_area(db_session)
         obj = await db_session.get(m.MonitorSector, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        for field, value in _payload_without_none(data).items():
+        payload = _payload_without_none(_normalize_area_payload(data))
+        next_parent_id = payload.get("parent_id", obj.parent_id)
+        if obj.code == ROOT_AREA_CODE:
+            next_parent_id = None
+        elif next_parent_id is None:
+            next_parent_id = root.id
+        if next_parent_id == obj.id:
+            return Response(content={"code": 400, "msg": "区域不能挂到自身下"}, status_code=400)
+        if next_parent_id is not None and await _is_descendant_area(db_session, obj.id, next_parent_id):
+            return Response(content={"code": 400, "msg": "区域不能挂到自己的子区域下"}, status_code=400)
+        payload["parent_id"] = next_parent_id
+        for field, value in payload.items():
             setattr(obj, field, value)
+        await _rebuild_area_path(db_session, obj)
+        await _update_area_descendant_paths(db_session, obj)
         await db_session.commit()
         await self._log_admin_data_event(
             security_audit_service,
@@ -6820,7 +7812,7 @@ class CarbonCRUDController(Controller):
             target_type="MonitorSector",
             target_id=obj.id,
             target_label=obj.name,
-            details={"updated_fields": sorted(_payload_without_none(data).keys())},
+            details={"updated_fields": sorted(payload.keys())},
         )
         return Response(content={"code": 200, "msg": "更新成功"})
 
@@ -6835,6 +7827,18 @@ class CarbonCRUDController(Controller):
         obj = await db_session.get(m.MonitorSector, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        if obj.code == ROOT_AREA_CODE:
+            return Response(content={"code": 400, "msg": "系统根区域不可删除"}, status_code=400)
+        child_count = int(
+            (await db_session.execute(select(func.count(m.MonitorSector.id)).where(m.MonitorSector.parent_id == record_id))).scalar_one() or 0
+        )
+        if child_count > 0:
+            return Response(content={"code": 400, "msg": "区域下仍有子区域，禁止删除"}, status_code=400)
+        device_count = int(
+            (await db_session.execute(select(func.count(m.MonitorEquipment.id)).where(m.MonitorEquipment.sector_id == record_id))).scalar_one() or 0
+        )
+        if device_count > 0:
+            return Response(content={"code": 400, "msg": "区域下仍有设备，禁止删除"}, status_code=400)
         sector_name = obj.name
         sector_code = obj.code
         await db_session.delete(obj)
@@ -7060,12 +8064,8 @@ class CarbonCRUDController(Controller):
         data: dict[str, Any] = ADMIN_BODY,
     ) -> Response[dict]:
         await _ensure_default_device_types(db_session)
-        _coerce_datetime_fields(data, ["install_time", "last_inspection_at", "inspection_due_at"])
-        _coerce_int_fields(data, ["sector_id", "device_type_id", "category", "sort_index"])
-        _coerce_float_fields(data, ["rated_power_kw"])
-        _sync_monitor_equipment_type_fields(data)
-        _sync_monitor_equipment_identifier_fields(data)
-        obj = m.MonitorEquipment(**_payload_without_none(data))
+        payload = _payload_without_none(_normalize_device_payload(data))
+        obj = m.MonitorEquipment(**payload)
         db_session.add(obj)
         await db_session.commit()
         await db_session.refresh(obj)
@@ -7096,12 +8096,13 @@ class CarbonCRUDController(Controller):
         obj = await db_session.get(m.MonitorEquipment, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        _coerce_datetime_fields(data, ["install_time", "last_inspection_at", "inspection_due_at"])
-        _coerce_int_fields(data, ["sector_id", "device_type_id", "category", "sort_index"])
-        _coerce_float_fields(data, ["rated_power_kw"])
-        _sync_monitor_equipment_type_fields(data)
-        _sync_monitor_equipment_identifier_fields(data)
-        for field, value in _payload_without_none(data).items():
+        payload = _payload_without_none(_normalize_device_payload(data))
+        next_parent_id = payload.get("parent_device_id", obj.parent_device_id)
+        if next_parent_id == obj.id:
+            return Response(content={"code": 400, "msg": "设备不能挂到自身下"}, status_code=400)
+        if next_parent_id is not None and await _is_descendant_device(db_session, obj.id, next_parent_id):
+            return Response(content={"code": 400, "msg": "设备不能挂到自己的子设备下"}, status_code=400)
+        for field, value in payload.items():
             setattr(obj, field, value)
         await _ensure_default_device_points(db_session, obj)
         await db_session.commit()
@@ -7112,7 +8113,7 @@ class CarbonCRUDController(Controller):
             target_type="MonitorEquipment",
             target_id=obj.id,
             target_label=obj.name,
-            details={"updated_fields": sorted(_payload_without_none(data).keys())},
+            details={"updated_fields": sorted(payload.keys())},
         )
         return Response(content={"code": 200, "msg": "更新成功"})
 
@@ -7127,6 +8128,12 @@ class CarbonCRUDController(Controller):
         obj = await db_session.get(m.MonitorEquipment, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        child_count = int(
+            (await db_session.execute(select(func.count(m.MonitorEquipment.id)).where(m.MonitorEquipment.parent_device_id == record_id))).scalar_one()
+            or 0
+        )
+        if child_count > 0:
+            return Response(content={"code": 400, "msg": "设备下仍有子设备，禁止删除"}, status_code=400)
         details = {"code": obj.code, "sector_id": obj.sector_id, "device_type_id": obj.device_type_id}
         await db_session.delete(obj)
         await db_session.commit()

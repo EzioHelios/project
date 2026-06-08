@@ -67,11 +67,32 @@ class MonitorSector(BigIntBase):
 
     code: Mapped[str] = mapped_column(String(20), unique=True)
     name: Mapped[str | None] = mapped_column(String(100))
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dataapp_monitorsector.id", ondelete="SET NULL"),
+        index=True,
+    )
+    area_type: Mapped[str | None] = mapped_column(String(32), index=True)
+    path: Mapped[str | None] = mapped_column(String(255), index=True)
+    level: Mapped[int | None] = mapped_column(Integer, default=0)
+    sort_index: Mapped[int | None] = mapped_column(Integer, default=0)
     area: Mapped[str | None] = mapped_column(String(30))
     description: Mapped[str | None] = mapped_column(Text)
+    manager_name: Mapped[str | None] = mapped_column(String(64))
+    owner_department: Mapped[str | None] = mapped_column(String(64))
+    location_desc: Mapped[str | None] = mapped_column(String(255))
+    remark: Mapped[str | None] = mapped_column(Text)
     area_id: Mapped[int | None] = mapped_column(Integer)
     is_enable: Mapped[bool | None] = mapped_column(Boolean, default=True)
 
+    parent: Mapped[MonitorSector | None] = relationship(
+        remote_side="MonitorSector.id",
+        back_populates="children",
+        lazy="selectin",
+    )
+    children: Mapped[list[MonitorSector]] = relationship(
+        back_populates="parent",
+        lazy="selectin",
+    )
     photos: Mapped[list[MonitorSectorPhoto]] = relationship(
         back_populates="sector",
         lazy="selectin",
@@ -107,6 +128,10 @@ class DeviceType(BigIntBase):
 
     code: Mapped[str] = mapped_column(String(32), index=True)
     name: Mapped[str] = mapped_column(String(64))
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dataapp_devicetype.id", ondelete="SET NULL"),
+        index=True,
+    )
     parent_code: Mapped[str | None] = mapped_column(String(32), index=True)
     energy_type: Mapped[str | None] = mapped_column(String(20))
     is_energy_device: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -115,6 +140,15 @@ class DeviceType(BigIntBase):
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     remark: Mapped[str | None] = mapped_column(Text)
 
+    parent: Mapped[DeviceType | None] = relationship(
+        remote_side="DeviceType.id",
+        back_populates="children",
+        lazy="selectin",
+    )
+    children: Mapped[list[DeviceType]] = relationship(
+        back_populates="parent",
+        lazy="selectin",
+    )
     equipments: Mapped[list[MonitorEquipment]] = relationship(
         back_populates="device_type",
         lazy="selectin",
@@ -176,6 +210,10 @@ class MonitorEquipment(BigIntBase):
         ForeignKey("dataapp_devicetype.id", ondelete="SET NULL"),
         index=True,
     )
+    parent_device_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dataapp_monitorequipment.id", ondelete="SET NULL"),
+        index=True,
+    )
     sector_id: Mapped[int | None] = mapped_column(
         ForeignKey("dataapp_monitorsector.id", ondelete="SET NULL"),
         index=True,
@@ -185,6 +223,7 @@ class MonitorEquipment(BigIntBase):
     model: Mapped[str | None] = mapped_column(String(100))
     manufacturer: Mapped[str | None] = mapped_column(String(100))
     owner_unit: Mapped[str | None] = mapped_column(String(100))
+    maintainer_name: Mapped[str | None] = mapped_column(String(64))
     warehouse_name: Mapped[str | None] = mapped_column(String(100), index=True)
     warehouse_code: Mapped[str | None] = mapped_column(String(32), index=True)
     energy_type: Mapped[str | None] = mapped_column(String(20), index=True)
@@ -192,6 +231,7 @@ class MonitorEquipment(BigIntBase):
     network_env: Mapped[str | None] = mapped_column(String(100))
     data_acquisition_method: Mapped[str | None] = mapped_column(String(30))
     running_status: Mapped[str | None] = mapped_column(String(30), index=True)
+    commissioning_status: Mapped[str | None] = mapped_column(String(32), index=True)
     supplier: Mapped[str | None] = mapped_column(String(20))
     status: Mapped[int | None] = mapped_column(Integer, doc="0=在线,1=故障")
     trip_state: Mapped[int | None] = mapped_column(Integer, doc="0=合闸,1=跳闸")
@@ -210,6 +250,15 @@ class MonitorEquipment(BigIntBase):
 
     sector: Mapped[MonitorSector | None] = relationship(
         backref="equipments",
+        lazy="selectin",
+    )
+    parent_device: Mapped[MonitorEquipment | None] = relationship(
+        remote_side="MonitorEquipment.id",
+        back_populates="child_devices",
+        lazy="selectin",
+    )
+    child_devices: Mapped[list[MonitorEquipment]] = relationship(
+        back_populates="parent_device",
         lazy="selectin",
     )
     device_type: Mapped[DeviceType | None] = relationship(

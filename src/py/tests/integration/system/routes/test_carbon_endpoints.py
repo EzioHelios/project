@@ -301,3 +301,134 @@ async def test_alarm_rule_and_event_status_flow(
     assert list_response.status_code == 200
     items = list_response.json()["items"]
     assert any(item["id"] == event.id and item["point_code"] == "soc" and item["alarm_level"] == "critical" for item in items)
+
+
+async def test_master_data_area_tree_and_summary(
+    client: AsyncClient,
+    session: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    create_response = await client.post(
+        "/api/master-data/areas",
+        json={"code": "WH-A", "name": "A仓", "area_type": "warehouse"},
+        headers=superuser_token_headers,
+    )
+    assert create_response.status_code == 201
+    area_id = create_response.json()["data"]["id"]
+
+    child_response = await client.post(
+        "/api/master-data/areas",
+        json={"code": "ZONE-A1", "name": "A1库区", "parent_id": area_id, "area_type": "zone"},
+        headers=superuser_token_headers,
+    )
+    assert child_response.status_code == 201
+    child_id = child_response.json()["data"]["id"]
+
+    tree_response = await client.get("/api/master-data/areas/tree")
+    assert tree_response.status_code == 200
+    tree = tree_response.json()["data"]["items"]
+    assert any(node["code"] == "ROOT" for node in tree)
+
+    summary_response = await client.get(f"/api/master-data/areas/{area_id}/summary")
+    assert summary_response.status_code == 200
+    summary = summary_response.json()["data"]
+    assert summary["area"]["code"] == "WH-A"
+    assert any(item["id"] == child_id for item in summary["children"])
+
+
+async def test_master_data_area_rejects_cycle_and_delete_with_children(
+    client: AsyncClient,
+    session: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    parent = m.MonitorSector(code="TREE-P", name="父区域", area_type="warehouse", path="/1/100", level=1, sort_index=0)
+    child = m.MonitorSector(code="TREE-C", name="子区域", area_type="zone", path="/1/100/101", level=2, sort_index=0, parent=parent)
+    session.add(parent)
+    session.add(child)
+    await session.commit()
+    await session.refresh(parent)
+    await session.refresh(child)
+
+    cycle_response = await client.patch(
+        f"/api/master-data/areas/{parent.id}",
+        json={"parent_id": child.id},
+        headers=superuser_token_headers,
+    )
+    assert cycle_response.status_code == 400
+    assert cycle_response.json()["msg"] == "区域不能挂到自己的子区域下"
+
+    delete_response = await client.delete(f"/api/master-data/areas/{parent.id}", headers=superuser_token_headers)
+    assert delete_response.status_code == 400
+    assert delete_response.json()["msg"] == "区域下仍有子区域，禁止删除"
+
+
+async def test_master_data_devices_support_tree_filters_and_detail(
+    client: AsyncClient,
+    session: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    warehouse = m.MonitorSector(code="FILTER-WH", name="过滤仓", area_type="warehouse", path="/900/901", level=1, sort_index=0)
+    zone = m.MonitorSector(code="FILTER-ZONE", name="过滤库区", area_type="zone", path="/900/901/902", level=2, sort_index=0, parent=warehouse)
+    device_type_parent = m.DeviceType(code="power", name="电力设备", is_enabled=True)
+    device_type_child = m.DeviceType(code="sub-meter", name="回路电表", is_enabled=True, parent=device_type_parent)
+    session.add_all([warehouse, zone, device_type_parent, device_type_child])
+    await session.commit()
+    await session.refresh(warehouse)
+    await session.refresh(zone)
+    await session.refresh(device_type_parent)
+    await session.refresh(device_type_child)
+
+    create_parent = await client.post(
+        "/api/master-data/devices",
+        json={"code": "CAB-001", "name": "配电柜1", "area_id": warehouse.id, "device_type_id": device_type_parent.id},
+        headers=superuser_token_headers,
+    )
+    assert create_parent.status_code == 201
+    parent_id = create_parent.json()["data"]["id"]
+
+    create_child = await client.post(
+        "/api/master-data/devices",
+        json={
+            "code": "METER-CHILD-01",
+            "name": "回路电表1",
+            "area_id": zone.id,
+            "device_type_id": device_type_child.id,
+            "parent_device_id": parent_id,
+        },
+        headers=superuser_token_headers,
+    )
+    assert create_child.status_code == 201
+    child_id = create_child.json()["data"]["id"]
+
+    list_response = await client.get("/api/master-data/devices", params={"area_id": warehouse.id, "device_type_id": device_type_parent.id})
+    assert list_response.status_code == 200
+    items = list_response.json()["items"]
+    assert any(item["id"] == child_id for item in items)
+
+    detail_response = await client.get(f"/api/master-data/devices/{parent_id}")
+    assert detail_response.status_code == 200
+    detail = detail_response.json()["data"]
+    assert detail["device"]["code"] == "CAB-001"
+    assert any(item["id"] == child_id for item in detail["children"])
+
+
+async def test_master_data_device_delete_rejects_children(
+    client: AsyncClient,
+    session: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    area = m.MonitorSector(code="DEL-WH", name="待删仓", area_type="warehouse", path="/1000/1001", level=1, sort_index=0)
+    session.add(area)
+    await session.commit()
+    await session.refresh(area)
+    await client.get("/api/data/device-types")
+
+    parent = m.MonitorEquipment(code="PARENT-DEL", name="父设备", sector_id=area.id, device_type_id=1)
+    child = m.MonitorEquipment(code="CHILD-DEL", name="子设备", sector_id=area.id, device_type_id=1, parent_device=parent)
+    session.add_all([parent, child])
+    await session.commit()
+    await session.refresh(parent)
+
+    response = await client.delete(f"/api/master-data/devices/{parent.id}", headers=superuser_token_headers)
+    assert response.status_code == 400
+    assert response.json()["msg"] == "设备下仍有子设备，禁止删除"
