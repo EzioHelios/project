@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 # =============================================================================
 # Production Python Container
 # =============================================================================
@@ -24,6 +23,7 @@
 ARG PYTHON_VERSION=3.13
 ARG DEBIAN_VERSION=bookworm
 ARG BUILDER_IMAGE=python:${PYTHON_VERSION}-slim-${DEBIAN_VERSION}
+ARG DEBIAN_MIRROR=mirrors.aliyun.com
 
 # =============================================================================
 # Stage 1: Python Base
@@ -32,11 +32,15 @@ ARG BUILDER_IMAGE=python:${PYTHON_VERSION}-slim-${DEBIAN_VERSION}
 # =============================================================================
 FROM ${BUILDER_IMAGE} AS python-base
 
+ARG DEBIAN_MIRROR
+
+RUN sed -i "s|deb.debian.org|${DEBIAN_MIRROR}|g; s|security.debian.org|${DEBIAN_MIRROR}|g" /etc/apt/sources.list.d/debian.sources
+
 RUN --mount=type=cache,id=apt-cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,id=apt-lib,target=/var/lib/apt,sharing=locked \
     apt-get -o Acquire::Retries=5 update \
     && apt-get -o Acquire::Retries=5 upgrade -y \
-    && apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
+    && apt-get -o Acquire::Retries=5 install -y --fix-missing --no-install-recommends \
         tini \
         ca-certificates \
     && rm -rf /var/log/* /tmp/* \
@@ -47,8 +51,9 @@ RUN --mount=type=cache,id=apt-cache,target=/var/cache/apt,sharing=locked \
 # For SHA256 pinning: COPY --from=ghcr.io/astral-sh/uv@sha256:<digest> /uv /uvx /bin/
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Install bun (fast JavaScript runtime/bundler)
+# Install bun and bunx (litestar-vite type generation invokes bunx explicitly)
 COPY --from=oven/bun:latest /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:latest /usr/local/bin/bunx /usr/local/bin/bunx
 
 # =============================================================================
 # Stage 2: Builder
@@ -61,6 +66,10 @@ ARG UV_INSTALL_ARGS="--no-dev"
 
 # Environment configuration for optimal builds
 ENV GRPC_PYTHON_BUILD_WITH_CYTHON=1 \
+    BUN_CONFIG_NO_PROGRESS=1 \
+    BUN_INSTALL_CACHE_DIR=/root/.bun/install/cache \
+    BUN_RUNTIME_TRANSPILER_CACHE_PATH=/root/.bun/transpiler-cache \
+    CI=1 \
     UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_SYSTEM_PYTHON=1 \
@@ -76,7 +85,7 @@ ENV GRPC_PYTHON_BUILD_WITH_CYTHON=1 \
 RUN --mount=type=cache,id=apt-cache-builder,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,id=apt-lib-builder,target=/var/lib/apt,sharing=locked \
     apt-get -o Acquire::Retries=5 update \
-    && apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
+    && apt-get -o Acquire::Retries=5 install -y --fix-missing --no-install-recommends \
         build-essential \
         curl \
         git \
@@ -88,16 +97,20 @@ WORKDIR /workspace/app
 # Copy dependency files first (better layer caching)
 COPY pyproject.toml uv.lock README.md ./
 COPY src/js/web/package.json src/js/web/bun.lock ./src/js/web/
-COPY src/js/web/biome.json src/js/web/vite.config.ts src/js/web/tsconfig.json ./src/js/web/
+COPY src/js/web/.litestar.json src/js/web/biome.json src/js/web/openapi-ts.config.ts src/js/web/vite.config.ts src/js/web/tsconfig.json ./src/js/web/
 COPY src/js/templates/package.json src/js/templates/bun.lock ./src/js/templates/
 
 # Install JavaScript dependencies for web app
 WORKDIR /workspace/app/src/js/web
-RUN bun install --frozen-lockfile
+RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache,sharing=locked \
+    --mount=type=cache,id=bun-transpiler-cache,target=/root/.bun/transpiler-cache,sharing=locked \
+    bun install --frozen-lockfile
 
 # Install JavaScript dependencies for email templates
 WORKDIR /workspace/app/src/js/templates
-RUN bun install --frozen-lockfile
+RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache,sharing=locked \
+    --mount=type=cache,id=bun-transpiler-cache,target=/root/.bun/transpiler-cache,sharing=locked \
+    bun install --frozen-lockfile
 WORKDIR /workspace/app
 
 # Create virtual environment and install Python dependencies
@@ -117,11 +130,17 @@ COPY src/py/ ./src/py/
 RUN mkdir -p src/py/app/server/static/web src/py/app/server/static/email
 
 # Build email templates (must be before wheel build to include in package)
-RUN cd src/js/templates && bun run build
+RUN --mount=type=cache,id=bun-transpiler-cache,target=/root/.bun/transpiler-cache,sharing=locked \
+    cd src/js/templates && bun run build
+
+# Generate frontend types separately so failures are isolated and the step can cache independently.
+RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
+    uv run app assets generate-types
 
 # Build frontend assets and create wheel
 RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
-    uv run app assets build \
+    --mount=type=cache,id=bun-transpiler-cache,target=/root/.bun/transpiler-cache,sharing=locked \
+    (cd src/js/web && bun run build) \
     && uv sync ${UV_INSTALL_ARGS} --frozen --no-editable \
     && uv build
 
@@ -152,13 +171,17 @@ RUN groupadd --system --gid 65532 nonroot \
 # Copy cloudsql directory for GCP deployments
 COPY --from=builder --chown=65532:65532 /cloudsql /cloudsql
 
+# Copy the built application package explicitly because the wheel install
+# currently leaves only dist-info metadata in the runtime image.
+COPY --from=builder --chown=65532:65532 /workspace/app/src/py/app /workspace/app/app
+
 # Copy wheel and install
 COPY --from=builder --chown=65532:65532 /workspace/app/dist/*.whl /tmp/
 
 WORKDIR /workspace/app
 
 RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
-    uv pip install --quiet --disable-pip-version-check --no-cache-dir /tmp/*.whl \
+    uv pip install --system --quiet --disable-pip-version-check --no-cache-dir /tmp/*.whl \
     && rm -rf /tmp/* \
     && chown -R nonroot:nonroot /workspace/app
 

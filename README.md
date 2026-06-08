@@ -76,8 +76,10 @@ root@example.com
 ```bash
 IMAGE_REPO=registry.xzzandzyc.store:5000/project/warehouse-carbon \
 IMAGE_TAG=$(git rev-parse --short HEAD) \
-PLATFORMS=linux/amd64 \
+PLATFORM=linux/amd64 \
 ./scripts/build_push_multiarch.sh
+
+This script now uses local `docker build` for `linux/amd64`, then tags and pushes the built image to the registry.
 ```
 
 如果要同时推送 `latest`，脚本默认会附带 `:latest`。

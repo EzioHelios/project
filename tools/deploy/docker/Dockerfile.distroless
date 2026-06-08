@@ -37,11 +37,10 @@ ARG RUN_IMAGE=gcr.io/distroless/cc-debian12:nonroot
 # =============================================================================
 FROM ${BUILDER_IMAGE} AS python-base
 
-RUN apt-get update \
-    && apt-get upgrade -y \
-    && apt-get install -y --no-install-recommends \
+RUN apt-get update -o Acquire::Retries=5 \
+    && apt-get upgrade -y -o Acquire::Retries=5 \
+    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 \
         tini \
-        unzip \
         ca-certificates \
     && rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/* /var/log/* /tmp/*
 
@@ -80,8 +79,8 @@ ENV GRPC_PYTHON_BUILD_WITH_CYTHON=1 \
     SAQ_WEB_ENABLED=false
 
 # Install build dependencies
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+RUN apt-get update -o Acquire::Retries=5 \
+    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 \
         build-essential \
         curl \
         git \

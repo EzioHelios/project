@@ -5,17 +5,25 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import react from "@vitejs/plugin-react"
 import litestar from "litestar-vite-plugin"
 import { defineConfig, type Plugin } from "vite"
-import { viteStaticCopy } from "vite-plugin-static-copy"
 
 function ensureTrailingSlash(value: string) {
   return value.endsWith("/") ? value : `${value}/`
+}
+
+function createManualChunks(id: string) {
+  if (id.includes("node_modules/cesium/")) return "cesium-engine"
+  if (id.includes("node_modules/maplibre-gl/")) return "maplibre-engine"
+  if (id.includes("node_modules/echarts/") || id.includes("node_modules/echarts-for-react/")) return "charts"
+  if (id.includes("node_modules/@tanstack/")) return "tanstack-vendor"
+  if (id.includes("node_modules/@radix-ui/")) return "radix-vendor"
+  if (id.includes("node_modules/framer-motion/")) return "motion-vendor"
+  if (id.includes("node_modules/lucide-react/")) return "icons"
 }
 
 const baseUrl = process.env.ASSET_URL ?? (process.env.NODE_ENV === "development" ? "/" : "/static/web/")
 const normalizedBaseUrl = ensureTrailingSlash(baseUrl)
 const cesiumBaseUrl = `${normalizedBaseUrl}cesium/`
 const cesiumBuildRoot = path.resolve(__dirname, "./node_modules/cesium/Build/Cesium")
-
 function createCesiumDevServerPlugin(): Plugin {
   return {
     name: "bigscreen-cesium-dev-server",
@@ -89,20 +97,18 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, "../../py/app/server/static/web"),
     emptyOutDir: true,
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: createManualChunks,
+      },
+    },
   },
   plugins: [
     tanstackRouter({ target: "react", autoCodeSplitting: true }),
     tailwindcss(),
     react(),
     createCesiumDevServerPlugin(),
-    viteStaticCopy({
-      targets: [
-        { src: path.resolve(cesiumBuildRoot, "Workers"), dest: "cesium" },
-        { src: path.resolve(cesiumBuildRoot, "ThirdParty"), dest: "cesium" },
-        { src: path.resolve(cesiumBuildRoot, "Assets"), dest: "cesium" },
-        { src: path.resolve(cesiumBuildRoot, "Widgets"), dest: "cesium" },
-      ],
-    }),
     litestar({
       input: ["src/main.tsx", "src/styles.css"],
       bundleDir: path.resolve(__dirname, "../../py/app/server/static/web"),

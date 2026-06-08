@@ -6,10 +6,10 @@ cd "${ROOT_DIR}"
 
 IMAGE_REPO="${IMAGE_REPO:-registry.xzzandzyc.store:5000/project/warehouse-carbon}"
 IMAGE_TAG="${IMAGE_TAG:-$(git rev-parse --short HEAD)}"
-PLATFORMS="${PLATFORMS:-linux/amd64}"
-BUILDER_NAME="${BUILDER_NAME:-multiarch-builder}"
+PLATFORM="${PLATFORM:-${PLATFORMS:-linux/amd64}}"
 DOCKERFILE="${DOCKERFILE:-tools/deploy/docker/Dockerfile.distroless}"
 PUSH_LATEST="${PUSH_LATEST:-true}"
+LOCAL_IMAGE_TAG="${LOCAL_IMAGE_TAG:-warehouse-carbon:build-${IMAGE_TAG}}"
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "[ERROR] docker command not found" >&2
@@ -24,33 +24,41 @@ fi
 echo "[INFO] Root directory: ${ROOT_DIR}"
 echo "[INFO] Image repo: ${IMAGE_REPO}"
 echo "[INFO] Image tag: ${IMAGE_TAG}"
-echo "[INFO] Platforms: ${PLATFORMS}"
+echo "[INFO] Platform: ${PLATFORM}"
 echo "[INFO] Dockerfile: ${DOCKERFILE}"
+echo "[INFO] Local image tag: ${LOCAL_IMAGE_TAG}"
 
-if ! docker buildx inspect "${BUILDER_NAME}" >/dev/null 2>&1; then
-  echo "[INFO] Creating docker buildx builder: ${BUILDER_NAME}"
-  docker buildx create --name "${BUILDER_NAME}" --use
-else
-  echo "[INFO] Using docker buildx builder: ${BUILDER_NAME}"
-  docker buildx use "${BUILDER_NAME}"
+if [[ "${PLATFORM}" != "linux/amd64" ]]; then
+  echo "[ERROR] This script is intentionally restricted to linux/amd64 for production parity." >&2
+  echo "[ERROR] Received PLATFORM=${PLATFORM}" >&2
+  exit 1
 fi
 
-TAGS=(--tag "${IMAGE_REPO}:${IMAGE_TAG}")
-if [[ "${PUSH_LATEST}" == "true" ]]; then
-  TAGS+=(--tag "${IMAGE_REPO}:latest")
-fi
+PRIMARY_REMOTE_TAG="${IMAGE_REPO}:${IMAGE_TAG}"
 
-echo "[INFO] Building and pushing image..."
-docker buildx build \
-  --platform "${PLATFORMS}" \
+echo "[INFO] Building local image..."
+docker build \
+  --platform "${PLATFORM}" \
   --file "${DOCKERFILE}" \
-  "${TAGS[@]}" \
-  --push \
+  --tag "${LOCAL_IMAGE_TAG}" \
   .
+
+echo "[INFO] Tagging image for registry..."
+docker tag "${LOCAL_IMAGE_TAG}" "${PRIMARY_REMOTE_TAG}"
+
+echo "[INFO] Pushing image: ${PRIMARY_REMOTE_TAG}"
+docker push "${PRIMARY_REMOTE_TAG}"
+
+if [[ "${PUSH_LATEST}" == "true" ]]; then
+  echo "[INFO] Tagging image as latest..."
+  docker tag "${LOCAL_IMAGE_TAG}" "${IMAGE_REPO}:latest"
+  echo "[INFO] Pushing image: ${IMAGE_REPO}:latest"
+  docker push "${IMAGE_REPO}:latest"
+fi
 
 echo
 echo "[OK] Image pushed successfully"
-echo "  - ${IMAGE_REPO}:${IMAGE_TAG}"
+echo "  - ${PRIMARY_REMOTE_TAG}"
 if [[ "${PUSH_LATEST}" == "true" ]]; then
   echo "  - ${IMAGE_REPO}:latest"
 fi

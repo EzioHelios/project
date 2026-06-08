@@ -58,6 +58,7 @@ error_body.txt
 *_output.txt
 *_results.txt
 *_list.txt
+outputs/
 
 # OS/editor noise
 .DS_Store

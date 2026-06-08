@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node ./scripts/copy-cesium-assets.mjs && node ./scripts/generate-spa-index.mjs",
     "lint": "biome check --write .",
     "format": "biome format --write .",
     "preview": "vite preview",
