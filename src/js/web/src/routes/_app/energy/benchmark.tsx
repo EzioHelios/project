@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_app/energy/benchmark")({
 function EnergyBenchmarkPage() {
   return (
     <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
-      <PageHeader eyebrow="能源管理" title="能效对标" description="对标历史基线、行业标杆和设备工序水平，用于形成评价结论和整改建议。" />
+      <PageHeader eyebrow="能源管理" title="能效对标" />
       <UnderConstructionModule
         guideTitle="能效对标"
         moduleType="分析展示型"

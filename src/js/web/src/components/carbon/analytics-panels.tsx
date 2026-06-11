@@ -33,14 +33,24 @@ export type RankingItem = {
 
 export type TrendPoint = {
   period: string
-  energy_kwh: number
-  carbon_co2e: number
+  energy_kwh?: number
+  carbon_co2e?: number
   scope1_co2e?: number
   scope2_co2e?: number
   scope3_co2e?: number
   source_kind?: string
   alerts_count?: number
   handled_count?: number
+  total_tce?: number
+  total_kgce?: number
+  total_co2e?: number
+  electricity_kwh?: number
+  store_area_tce_per_m2?: number | null
+  park_area_tce_per_m2?: number | null
+  store_area_kgce_per_m2?: number | null
+  park_area_kgce_per_m2?: number | null
+  store_area_kwh_per_m2?: number | null
+  park_area_kwh_per_m2?: number | null
 }
 
 export type FlowNode = {

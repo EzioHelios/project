@@ -126,3 +126,10 @@ Current scope:
 - Python source root is `src/py` (configured in hatch and ruff)
 - Frontend uses bun as package manager, biome for linting
 - Test markers: `unit`, `integration`, `slow`, `auth`, `email`, `oauth`, `services`, `models`, `endpoints`, `security`, `teams`
+
+## Frontend Product UI Rules
+
+- Business pages should show data, controls, statuses, results, and actions. Do not show implementation notes, evaluation-guide copy, roadmap text, "how this page works" prose, or developer-facing calculation explanations in the product UI.
+- Do not add visible tabs/cards/sections titled like `口径说明`, `计算口径`, `使用说明`, `功能说明`, `数据来源说明`, or similar explanatory surfaces. Put those details in docs, specs, admin configuration, or field-level data tables only when the business user needs to edit or audit the value itself.
+- Page headers should usually be just eyebrow + title + actions. Avoid descriptive paragraphs unless they are real user data or legally required notices.
+- Chart and card descriptions should be omitted by default. Use concise labels, units, legends, filters, and table columns instead of prose explaining what the chart means.

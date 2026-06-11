@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
+import { ChevronDown, ChevronRight } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { type ApiEnvelope, CompositeTrendChart, DiagnosticsPanel, DistributionChart, FlowGraph, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
-import { JumpLinks, sourceLabel } from "@/components/carbon/energy-carbon-center"
+import { JumpLinks } from "@/components/carbon/energy-carbon-center"
 import { type PageResult, PaginationBar, requestPage } from "@/components/platform/data-admin-pages"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,11 +30,6 @@ type TrendData = {
     energy_kwh: number
     scope2_co2e: number
   }[]
-}
-
-type EnergyIntensity = {
-  latest_month?: string | null
-  metrics: { label: string; value: number | null; unit?: string }[]
 }
 
 type FlowData = {
@@ -132,6 +128,108 @@ type EnergyConsumptionSummary = {
   }
 }
 
+type EnergyIntensityDenominators = {
+  enterprise?: {
+    id?: number | string | null
+    name?: string | null
+    belong_unit?: string | null
+    unify_code?: string | null
+    industry?: string | null
+    location?: string | null
+  }
+  store_area: number | null
+  park_area: number | null
+  source_record_type: string
+  source_table: string
+  source_fields: Record<string, string>
+}
+
+type EnergyIntensitySummary = {
+  totals: {
+    record_count: number
+    total_tce: number
+    total_kgce: number
+    total_co2e: number
+    electricity_kwh: number
+  }
+  denominators: EnergyIntensityDenominators
+  intensities: {
+    store_area_tce_per_m2: number | null
+    park_area_tce_per_m2: number | null
+    store_area_kwh_per_m2: number | null
+    park_area_kwh_per_m2: number | null
+  }
+  by_energy_type: {
+    energy_type_code: string
+    energy_type_name: string
+    record_count: number
+    original_amount: number
+    original_unit?: string | null
+    total_tce: number
+    total_kgce: number
+    total_co2e: number
+  }[]
+  by_scope: {
+    scope: string
+    record_count: number
+    total_tce: number
+    total_kgce: number
+    total_co2e: number
+  }[]
+  by_area: {
+    area_id: string
+    area_name: string
+    record_count: number
+    total_tce: number
+    total_kgce: number
+    total_co2e: number
+    electricity_kwh: number
+  }[]
+  by_device: {
+    facility_or_device_name: string
+    area_name: string
+    record_count: number
+    total_tce: number
+    total_kgce: number
+    total_co2e: number
+    electricity_kwh: number
+  }[]
+}
+
+type EnergyIntensityTrendPoint = {
+  period: string
+  record_count: number
+  total_tce: number
+  total_kgce: number
+  total_co2e: number
+  electricity_kwh: number
+  store_area_tce_per_m2: number | null
+  park_area_tce_per_m2: number | null
+  store_area_kgce_per_m2?: number | null
+  park_area_kgce_per_m2?: number | null
+  store_area_kwh_per_m2: number | null
+  park_area_kwh_per_m2: number | null
+}
+
+type EnergyIntensityTrend = {
+  series: EnergyIntensityTrendPoint[]
+  denominators: EnergyIntensityDenominators
+}
+
+type EnergyHierarchyRow = {
+  id: string
+  parentId?: string
+  level: 0 | 1 | 2
+  name: string
+  subtitle?: string
+  type: string
+  record_count: number
+  total_tce: number
+  total_co2e: number
+  electricity_kwh: number
+  hasChildren?: boolean
+}
+
 function useEnergySummary() {
   return useQuery<ApiEnvelope<EnergySummary>>({
     queryKey: ["energy-carbon", "energy", "summary"],
@@ -146,12 +244,10 @@ function useEnergyTrend(months: string) {
   })
 }
 
-function useEnergyIntensity() {
-  return useQuery<ApiEnvelope<EnergyIntensity>>({
-    queryKey: ["energy-carbon", "energy", "intensity"],
-    queryFn: () => fetchCarbonApi<EnergyIntensity>("/api/energy-carbon/energy/intensity"),
-  })
-}
+const formatEnergyValue = (value: number | null | undefined, digits = 4) =>
+  value === null || value === undefined ? "-" : Number(value).toLocaleString("zh-CN", { maximumFractionDigits: digits })
+
+const formatKgcePerM2 = (value: number | null | undefined, digits = 4) => formatEnergyValue(value === null || value === undefined ? null : value * 1000, digits)
 
 export function EnergyConsumptionPanel() {
   const [periodStart, setPeriodStart] = useState("")
@@ -319,7 +415,7 @@ export function EnergyConsumptionPanel() {
         <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
           <TabsTrigger value="summary">汇总查询</TabsTrigger>
           <TabsTrigger value="facts">明细追溯</TabsTrigger>
-          <TabsTrigger value="types">能源品种口径</TabsTrigger>
+          <TabsTrigger value="types">能源品种</TabsTrigger>
           <TabsTrigger value="export">导出记录</TabsTrigger>
         </TabsList>
 
@@ -404,7 +500,7 @@ export function EnergyConsumptionPanel() {
           <PageSection>
             <Card>
               <CardHeader>
-                <CardTitle>能源消费事实明细</CardTitle>
+                <CardTitle>能源消费明细</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <Table>
@@ -481,7 +577,7 @@ export function EnergyConsumptionPanel() {
           <PageSection>
             <Card>
               <CardHeader>
-                <CardTitle>能源品种与折标口径</CardTitle>
+                <CardTitle>能源品种</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -518,7 +614,7 @@ export function EnergyConsumptionPanel() {
           <PageSection>
             <Card>
               <CardHeader>
-                <CardTitle>能源单位换算字典</CardTitle>
+                <CardTitle>单位换算</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -561,10 +657,9 @@ export function EnergyConsumptionPanel() {
           <PageSection>
             <Card>
               <CardHeader>
-                <CardTitle>导出当前筛选结果</CardTitle>
+                <CardTitle>导出</CardTitle>
               </CardHeader>
-              <CardContent className="flex flex-wrap items-center justify-between gap-3">
-                <div className="text-sm text-muted-foreground">导出接口按当前已查询筛选条件生成 CSV，最多返回 5000 条事实明细。</div>
+              <CardContent className="flex justify-end">
                 <Button asChild>
                   <a href={exportUrl}>导出 CSV</a>
                 </Button>
@@ -578,67 +673,427 @@ export function EnergyConsumptionPanel() {
 }
 
 export function EnergyIntensityPanel() {
+  const [periodStart, setPeriodStart] = useState("")
+  const [periodEnd, setPeriodEnd] = useState("")
   const [months, setMonths] = useState("12")
-  const summaryQuery = useEnergySummary()
-  const trendQuery = useEnergyTrend(months)
-  const intensityQuery = useEnergyIntensity()
+  const [granularity, setGranularity] = useState("month")
+  const [scope, setScope] = useState("all")
+  const [energyTypeCode, setEnergyTypeCode] = useState("all")
+  const [status, setStatus] = useState("all")
+  const [expandedHierarchy, setExpandedHierarchy] = useState<Record<string, boolean>>({ root: true })
+  const [appliedFilters, setAppliedFilters] = useState({
+    periodStart: "",
+    periodEnd: "",
+    months: "12",
+    granularity: "month",
+    scope: "all",
+    energyTypeCode: "all",
+    status: "all",
+  })
+
+  const summaryParams = useMemo(() => {
+    const qs = new URLSearchParams()
+    if (appliedFilters.periodStart) qs.set("period_start", appliedFilters.periodStart)
+    if (appliedFilters.periodEnd) qs.set("period_end", appliedFilters.periodEnd)
+    qs.set("status", appliedFilters.status)
+    if (appliedFilters.scope !== "all") qs.set("scope", appliedFilters.scope)
+    if (appliedFilters.energyTypeCode !== "all") qs.set("energy_type_code", appliedFilters.energyTypeCode)
+    return qs
+  }, [appliedFilters])
+
+  const trendParams = useMemo(() => {
+    const qs = new URLSearchParams()
+    qs.set("months", appliedFilters.months)
+    qs.set("granularity", appliedFilters.granularity)
+    if (appliedFilters.periodStart) qs.set("period_start", appliedFilters.periodStart)
+    if (appliedFilters.periodEnd) qs.set("period_end", appliedFilters.periodEnd)
+    qs.set("status", appliedFilters.status)
+    if (appliedFilters.scope !== "all") qs.set("scope", appliedFilters.scope)
+    if (appliedFilters.energyTypeCode !== "all") qs.set("energy_type_code", appliedFilters.energyTypeCode)
+    return qs
+  }, [appliedFilters])
+
+  const summaryQuery = useQuery<ApiEnvelope<EnergyIntensitySummary>>({
+    queryKey: ["energy", "intensity", "summary", appliedFilters],
+    queryFn: () => fetchCarbonApi<EnergyIntensitySummary>(`/api/energy/intensity/summary?${summaryParams.toString()}`),
+  })
+  const trendQuery = useQuery<ApiEnvelope<EnergyIntensityTrend>>({
+    queryKey: ["energy", "intensity", "trend", appliedFilters],
+    queryFn: () => fetchCarbonApi<EnergyIntensityTrend>(`/api/energy/intensity/trend?${trendParams.toString()}`),
+  })
+  const energyTypesQuery = useQuery<ApiEnvelope<{ items: EnergyTypeRow[] }>>({
+    queryKey: ["energy", "types"],
+    queryFn: () => fetchCarbonApi<{ items: EnergyTypeRow[] }>("/api/energy/types"),
+  })
+
   const summary = summaryQuery.data?.data
+  const trend = trendQuery.data?.data
+  const intensityTrendSeries = useMemo(
+    () =>
+      (trend?.series ?? []).map((item) => ({
+        ...item,
+        store_area_kgce_per_m2: item.store_area_tce_per_m2 === null ? null : item.store_area_tce_per_m2 * 1000,
+        park_area_kgce_per_m2: item.park_area_tce_per_m2 === null ? null : item.park_area_tce_per_m2 * 1000,
+      })),
+    [trend?.series],
+  )
+  const hierarchyRows = useMemo<EnergyHierarchyRow[]>(() => {
+    if (!summary) return []
+    const enterprise = summary.denominators.enterprise
+    const enterpriseSubtitle = [enterprise?.belong_unit, enterprise?.industry, enterprise?.unify_code].filter(Boolean).join(" · ")
+    const devicesByArea = new Map<string, EnergyIntensitySummary["by_device"]>()
+    for (const device of summary.by_device) {
+      const key = device.area_name || "未分区"
+      const next = devicesByArea.get(key) ?? []
+      next.push(device)
+      devicesByArea.set(key, next)
+    }
+    const root: EnergyHierarchyRow = {
+      id: "root",
+      level: 0,
+      name: enterprise?.name || "企业/园区",
+      subtitle: enterpriseSubtitle,
+      type: "企业/园区",
+      record_count: summary.totals.record_count,
+      total_tce: summary.totals.total_tce,
+      total_co2e: summary.totals.total_co2e,
+      electricity_kwh: summary.totals.electricity_kwh,
+      hasChildren: summary.by_area.length > 0,
+    }
+    const rows: EnergyHierarchyRow[] = [root]
+    if (!expandedHierarchy.root) return rows
+    for (const area of summary.by_area) {
+      const areaId = `area:${area.area_id || area.area_name}`
+      const devices = devicesByArea.get(area.area_name) ?? []
+      rows.push({
+        id: areaId,
+        parentId: "root",
+        level: 1,
+        name: area.area_name,
+        type: "区域",
+        record_count: area.record_count,
+        total_tce: area.total_tce,
+        total_co2e: area.total_co2e,
+        electricity_kwh: area.electricity_kwh,
+        hasChildren: devices.length > 0,
+      })
+      if (!expandedHierarchy[areaId]) continue
+      for (const device of devices) {
+        rows.push({
+          id: `device:${area.area_name}:${device.facility_or_device_name}`,
+          parentId: areaId,
+          level: 2,
+          name: device.facility_or_device_name,
+          type: "设备/设施",
+          record_count: device.record_count,
+          total_tce: device.total_tce,
+          total_co2e: device.total_co2e,
+          electricity_kwh: device.electricity_kwh,
+        })
+      }
+    }
+    return rows
+  }, [expandedHierarchy, summary])
+  const totalHierarchyTce = Number(summary?.totals.total_tce ?? 0)
+
+  function applyFilters() {
+    setAppliedFilters({ periodStart, periodEnd, months, granularity, scope, energyTypeCode, status })
+  }
+
+  function resetFilters() {
+    setPeriodStart("")
+    setPeriodEnd("")
+    setMonths("12")
+    setGranularity("month")
+    setScope("all")
+    setEnergyTypeCode("all")
+    setStatus("all")
+    setAppliedFilters({
+      periodStart: "",
+      periodEnd: "",
+      months: "12",
+      granularity: "month",
+      scope: "all",
+      energyTypeCode: "all",
+      status: "all",
+    })
+  }
+
+  function toggleHierarchyNode(id: string) {
+    setExpandedHierarchy((current) => ({ ...current, [id]: !current[id] }))
+  }
 
   return (
     <div className="space-y-6">
       <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[150px_150px_130px_130px_150px_130px_170px_1fr_auto]">
+          <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
+          <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
           <Select value={months} onValueChange={setMonths}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="时间范围" />
+            <SelectTrigger>
+              <SelectValue placeholder="周期数" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="6">近 6 个月</SelectItem>
-              <SelectItem value="12">近 12 个月</SelectItem>
-              <SelectItem value="24">近 24 个月</SelectItem>
+              <SelectItem value="7">7 期</SelectItem>
+              <SelectItem value="12">12 期</SelectItem>
+              <SelectItem value="24">24 期</SelectItem>
+              <SelectItem value="36">36 期</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={granularity} onValueChange={setGranularity}>
+            <SelectTrigger>
+              <SelectValue placeholder="统计粒度" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="day">日</SelectItem>
+              <SelectItem value="month">月</SelectItem>
+              <SelectItem value="year">年</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger>
+              <SelectValue placeholder="状态" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部状态</SelectItem>
+              <SelectItem value="approved">已审核</SelectItem>
+              <SelectItem value="pending">待审核</SelectItem>
+              <SelectItem value="draft">草稿</SelectItem>
+              <SelectItem value="rejected">已驳回</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={scope} onValueChange={setScope}>
+            <SelectTrigger>
+              <SelectValue placeholder="Scope" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部 Scope</SelectItem>
+              <SelectItem value="scope1">Scope1</SelectItem>
+              <SelectItem value="scope2">Scope2</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={energyTypeCode} onValueChange={setEnergyTypeCode}>
+            <SelectTrigger>
+              <SelectValue placeholder="能源品种" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部能源品种</SelectItem>
+              {(energyTypesQuery.data?.data.items ?? []).map((item) => (
+                <SelectItem key={item.code} value={item.code}>
+                  {item.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <JumpLinks items={[{ label: "查看能耗查询", to: "/energy/consumption" }]} />
+          <div className="flex justify-end gap-2">
+            <Button onClick={applyFilters}>查询</Button>
+            <Button variant="outline" onClick={resetFilters}>
+              重置
+            </Button>
+          </div>
         </div>
       </PageSection>
 
-      <PageSection className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
-        <CompositeTrendChart
-          title="能源消费量趋势"
-          description="按账期展示能源消费总量，支撑消费量和强度计算口径核对。"
-          points={trendQuery.data?.data.series ?? []}
-          bars={[{ key: "energy_kwh", label: "总用电量", color: "#fdba74" }]}
-          lines={[{ key: "scope2_co2e", label: "范围2碳排", color: "#2563eb", yAxisIndex: 1 }]}
-          leftAxisName="电量"
-          rightAxisName="碳排"
-          height={360}
-        />
-        <DiagnosticsPanel
-          title="强度指标"
-          items={[
-            { label: "当前账期", value: intensityQuery.data?.data.latest_month || summary?.latest_month || "-" },
-            { label: "主来源", value: sourceLabel(summary?.energy_efficiency?.source_kind) },
-            ...(intensityQuery.data?.data.metrics ?? []).map((item) => ({
-              label: item.label,
-              value: item.value === null ? "-" : `${item.value}${item.unit ? ` ${item.unit}` : ""}`,
-            })),
-          ]}
-        />
-      </PageSection>
+      <Tabs defaultValue="summary" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="summary">消费量汇总</TabsTrigger>
+          <TabsTrigger value="area">面积强度</TabsTrigger>
+          <TabsTrigger value="hierarchy">区域设备</TabsTrigger>
+          <TabsTrigger value="trend">趋势分析</TabsTrigger>
+        </TabsList>
 
-      <PageSection className="grid gap-4 xl:grid-cols-2">
-        <DistributionChart
-          title="能源来源记录结构"
-          description="展示不同数据来源在消费量计算中的占比。"
-          items={(summary?.source_mix ?? []).map((item) => ({ name: sourceLabel(item.name), value: item.record_count }))}
-        />
-        <DistributionChart
-          title="核算来源碳排结构"
-          description="用于说明能源消费强度与碳排强度之间的关系。"
-          items={(summary?.carbon_by_type ?? []).map((item) => ({ name: item.name, value: item.value }))}
-          unit="kgCO2e"
-        />
-      </PageSection>
+        <TabsContent value="summary" className="space-y-4">
+          <PageSection className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>综合能耗</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.total_tce, 4)} tce</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>折标煤</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.total_kgce, 2)} kgce</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>外购电力</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.electricity_kwh, 2)} kWh</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>记录数</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.record_count, 0)}</CardContent>
+            </Card>
+          </PageSection>
+
+          <PageSection className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
+            <Card>
+              <CardHeader>
+                <CardTitle>能源品种汇总</CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>能源品种</TableHead>
+                      <TableHead className="text-right">原始量</TableHead>
+                      <TableHead className="text-right">综合能耗(tce)</TableHead>
+                      <TableHead className="text-right">记录数</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(summary?.by_energy_type ?? []).map((item) => (
+                      <TableRow key={item.energy_type_code}>
+                        <TableCell>{item.energy_type_name}</TableCell>
+                        <TableCell className="text-right">
+                          {formatEnergyValue(item.original_amount, 2)} {item.original_unit || ""}
+                        </TableCell>
+                        <TableCell className="text-right">{formatEnergyValue(item.total_tce, 4)}</TableCell>
+                        <TableCell className="text-right">{formatEnergyValue(item.record_count, 0)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+            <DistributionChart
+              title="综合能耗结构"
+              items={(summary?.by_energy_type ?? []).map((item) => ({ name: item.energy_type_name, value: item.total_tce }))}
+              unit="tce"
+              height={360}
+            />
+          </PageSection>
+        </TabsContent>
+
+        <TabsContent value="area" className="space-y-4">
+          <PageSection className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>仓储面积折标强度</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatKgcePerM2(summary?.intensities.store_area_tce_per_m2, 4)} kgce/㎡</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>园区面积折标强度</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatKgcePerM2(summary?.intensities.park_area_tce_per_m2, 4)} kgce/㎡</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>仓储面积电力强度</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.intensities.store_area_kwh_per_m2, 4)} kWh/㎡</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>园区面积电力强度</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.intensities.park_area_kwh_per_m2, 4)} kWh/㎡</CardContent>
+            </Card>
+          </PageSection>
+          <PageSection className="grid gap-4 xl:grid-cols-2">
+            <DiagnosticsPanel
+              title="面积分母"
+              items={[
+                { label: "仓储面积", value: `${formatEnergyValue(summary?.denominators.store_area, 2)} ㎡` },
+                { label: "园区面积", value: `${formatEnergyValue(summary?.denominators.park_area, 2)} ㎡` },
+              ]}
+            />
+            <DistributionChart title="Scope 综合能耗结构" items={(summary?.by_scope ?? []).map((item) => ({ name: item.scope.toUpperCase(), value: item.total_tce }))} unit="tce" />
+          </PageSection>
+        </TabsContent>
+
+        <TabsContent value="hierarchy" className="space-y-4">
+          <PageSection>
+            <Card>
+              <CardHeader>
+                <CardTitle>区域设备层级</CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[320px]">对象</TableHead>
+                      <TableHead className="w-[180px]">占比</TableHead>
+                      <TableHead className="text-right">综合能耗(tce)</TableHead>
+                      <TableHead className="text-right">外购电力(kWh)</TableHead>
+                      <TableHead className="text-right">记录数</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {hierarchyRows.map((row) => {
+                      const share = totalHierarchyTce > 0 ? Math.max(0, Math.min(100, (row.total_tce / totalHierarchyTce) * 100)) : 0
+                      const isExpanded = expandedHierarchy[row.id]
+                      return (
+                        <TableRow key={row.id} className={row.level === 0 ? "bg-muted/50 font-medium" : row.level === 1 ? "bg-muted/20" : "text-muted-foreground"}>
+                          <TableCell>
+                            <div className="flex items-center gap-2" style={{ paddingLeft: `${row.level * 28}px` }}>
+                              {row.hasChildren ? (
+                                <Button variant="ghost" size="icon" className="size-7" onClick={() => toggleHierarchyNode(row.id)}>
+                                  {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                                </Button>
+                              ) : (
+                                <span className="size-7" />
+                              )}
+                              <span className="rounded border border-border/70 px-2 py-0.5 text-xs text-muted-foreground">{row.type}</span>
+                              <span className="min-w-0">
+                                <span className={row.level === 2 ? "block truncate font-normal" : "block truncate font-medium"}>{row.name}</span>
+                                {row.subtitle ? <span className="block truncate text-xs font-normal text-muted-foreground">{row.subtitle}</span> : null}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
+                                <div className="h-full rounded-full bg-primary" style={{ width: `${share}%` }} />
+                              </div>
+                              <span className="w-12 text-right tabular-nums text-xs text-muted-foreground">{formatEnergyValue(share, 1)}%</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">{formatEnergyValue(row.total_tce, 4)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{formatEnergyValue(row.electricity_kwh, 2)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{formatEnergyValue(row.record_count, 0)}</TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </PageSection>
+        </TabsContent>
+
+        <TabsContent value="trend" className="space-y-4">
+          <PageSection>
+            <CompositeTrendChart
+              title="综合能耗和面积折标强度趋势"
+              points={intensityTrendSeries}
+              bars={[{ key: "total_tce", label: "综合能耗", color: "#d97706" }]}
+              lines={[{ key: "store_area_kgce_per_m2", label: "仓储面积折标强度", color: "#0f766e", yAxisIndex: 1 }]}
+              leftAxisName="tce"
+              rightAxisName="kgce/㎡"
+              height={360}
+            />
+          </PageSection>
+          <PageSection>
+            <CompositeTrendChart
+              title="外购电力专项强度趋势"
+              points={trend?.series ?? []}
+              bars={[{ key: "electricity_kwh", label: "外购电力", color: "#2563eb" }]}
+              lines={[{ key: "store_area_kwh_per_m2", label: "仓储面积电力强度", color: "#7c3aed", yAxisIndex: 1 }]}
+              leftAxisName="kWh"
+              rightAxisName="kWh/㎡"
+              height={320}
+            />
+          </PageSection>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
@@ -685,7 +1140,6 @@ export function EnergyAnalysisPanel() {
       <PageSection>
         <CompositeTrendChart
           title="用能趋势分析"
-          description="趋势页只负责分析，不承载填报。异常发现后跳转到底座台账或告警处置。"
           points={trendQuery.data?.data.series ?? []}
           bars={[{ key: "energy_kwh", label: "总用电量", color: "#fdba74" }]}
           lines={[{ key: "scope2_co2e", label: "范围2碳排", color: "#2563eb", yAxisIndex: 1 }]}
@@ -696,8 +1150,8 @@ export function EnergyAnalysisPanel() {
       </PageSection>
 
       <PageSection className="grid gap-4 xl:grid-cols-3">
-        <RankingList title="区域用能排行" description="识别当前高耗片区。" items={filteredEnergyRanking} unit="kWh" height={320} />
-        <RankingList title="区域异常排行" description="结合预警数量判断优先排查对象。" items={filteredAlertRanking} unit="条" height={320} />
+        <RankingList title="区域用能排行" items={filteredEnergyRanking} unit="kWh" height={320} />
+        <RankingList title="区域异常排行" items={filteredAlertRanking} unit="条" height={320} />
         <DiagnosticsPanel
           title="策略建议"
           items={[
@@ -730,7 +1184,6 @@ export function EnergyFlowPanel() {
       <PageSection>
         <FlowGraph
           title={flowQuery.data?.data.title ?? "仓库 / 园区能流图"}
-          description="主链路固定为外部购电 -> 区域 -> 电表 -> 核算结果；节点和链路用于钻取能耗来源。"
           unit={flowQuery.data?.data.unit}
           nodes={flowQuery.data?.data.nodes ?? []}
           links={flowQuery.data?.data.links ?? []}
@@ -740,7 +1193,6 @@ export function EnergyFlowPanel() {
       <PageSection>
         <RankingList
           title="关键链路贡献"
-          description="优先看能量值最高的链路，快速定位主耗能节点。"
           items={(topLinksQuery.data?.data.items ?? []).map((item) => ({ name: `${item.source} -> ${item.target}`, value: item.value }))}
           unit="kWh"
           height={320}

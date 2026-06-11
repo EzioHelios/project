@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_app/energy/budget")({
 function EnergyBudgetPage() {
   return (
     <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
-      <PageHeader eyebrow="能源管理" title="用能与碳排放预算管理" description="围绕年度目标、月度预算、执行偏差和超限预测管理用能与碳排放预算。" />
+      <PageHeader eyebrow="能源管理" title="用能与碳排放预算管理" />
       <UnderConstructionModule
         guideTitle="用能与碳排放预算管理"
         moduleType="业务办理型"

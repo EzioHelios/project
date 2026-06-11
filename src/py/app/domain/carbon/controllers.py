@@ -1588,6 +1588,40 @@ def _jsonable_mapping(row: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _positive_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    number = float(value)
+    return number if number > 0 else None
+
+
+def _ratio_or_none(numerator: Any, denominator: float | None, digits: int = 6) -> float | None:
+    if denominator is None:
+        return None
+    return round(float(numerator or 0) / denominator, digits)
+
+
+async def _energy_area_denominators(db_session: AsyncSession) -> dict[str, Any]:
+    enterprise = await db_session.scalar(select(m.EnterpriseInfo).limit(1))
+    store_area = _positive_float(enterprise.store_area) if enterprise else None
+    park_area = _positive_float(enterprise.park_area) if enterprise else None
+    return {
+        "enterprise": {
+            "id": enterprise.id if enterprise else None,
+            "name": enterprise.name if enterprise else None,
+            "belong_unit": enterprise.belong_unit if enterprise else None,
+            "unify_code": enterprise.unify_code if enterprise else None,
+            "industry": enterprise.industry if enterprise else None,
+            "location": enterprise.location if enterprise else None,
+        },
+        "store_area": store_area,
+        "park_area": park_area,
+        "source_record_type": "EnterpriseInfo",
+        "source_table": "dataapp_enterpriseinfo",
+        "source_fields": {"store_area": "store_area", "park_area": "park_area"},
+    }
+
+
 def _build_energy_fact_filters(
     *,
     period_start: str | None = None,
@@ -7707,6 +7741,293 @@ class CarbonCRUDController(Controller):
                         "source_record_type": source_record_type,
                         "keyword": keyword,
                     },
+                },
+            }
+        )
+
+    @get("/api/energy/intensity/summary")
+    async def get_energy_intensity_summary(
+        self,
+        db_session: AsyncSession,
+        period_start: str | None = None,
+        period_end: str | None = None,
+        energy_type_code: str | None = None,
+        scope_filter: str | None = Parameter(query="scope", required=False),
+        status: str | None = "all",
+        source_record_type: str | None = None,
+    ) -> Response[dict]:
+        where_sql, params = _build_energy_fact_filters(
+            period_start=period_start,
+            period_end=period_end,
+            energy_type_code=energy_type_code,
+            scope=scope_filter,
+            status=status,
+            source_record_type=source_record_type,
+        )
+        totals_sql = text(
+            f"""
+            select
+                count(*)::int as record_count,
+                coalesce(sum(tce_amount), 0) as total_tce,
+                coalesce(sum(standard_amount), 0) as total_kgce,
+                coalesce(sum(co2e_amount), 0) as total_co2e,
+                coalesce(
+                    sum(case when energy_type_code = 'purchased_electricity' then original_amount else 0 end),
+                    0
+                ) as electricity_kwh
+            from energy_consumption_fact_v
+            {where_sql}
+            """  # noqa: S608
+        )
+        totals = _jsonable_mapping(dict((await db_session.execute(totals_sql, params)).mappings().one()))
+
+        by_energy_type_sql = text(
+            f"""
+            select
+                energy_type_code,
+                energy_type_name,
+                count(*)::int as record_count,
+                coalesce(sum(original_amount), 0) as original_amount,
+                max(original_unit) as original_unit,
+                coalesce(sum(tce_amount), 0) as total_tce,
+                coalesce(sum(standard_amount), 0) as total_kgce,
+                coalesce(sum(co2e_amount), 0) as total_co2e
+            from energy_consumption_fact_v
+            {where_sql}
+            group by energy_type_code, energy_type_name
+            order by sum(tce_amount) desc nulls last, sum(original_amount) desc nulls last
+            """  # noqa: S608
+        )
+        by_scope_sql = text(
+            f"""
+            select
+                scope,
+                count(*)::int as record_count,
+                coalesce(sum(tce_amount), 0) as total_tce,
+                coalesce(sum(standard_amount), 0) as total_kgce,
+                coalesce(sum(co2e_amount), 0) as total_co2e
+            from energy_consumption_fact_v
+            {where_sql}
+            group by scope
+            order by scope
+            """  # noqa: S608
+        )
+        by_area_sql = text(
+            f"""
+            select
+                coalesce(area_id, '') as area_id,
+                coalesce(area_name, '未分区') as area_name,
+                count(*)::int as record_count,
+                coalesce(sum(tce_amount), 0) as total_tce,
+                coalesce(sum(standard_amount), 0) as total_kgce,
+                coalesce(sum(co2e_amount), 0) as total_co2e,
+                coalesce(
+                    sum(case when energy_type_code = 'purchased_electricity' then original_amount else 0 end),
+                    0
+                ) as electricity_kwh
+            from energy_consumption_fact_v
+            {where_sql}
+            group by coalesce(area_id, ''), coalesce(area_name, '未分区')
+            order by sum(tce_amount) desc nulls last, sum(original_amount) desc nulls last
+            limit 100
+            """  # noqa: S608
+        )
+        by_device_sql = text(
+            f"""
+            select
+                coalesce(facility_or_device_name, '未命名') as facility_or_device_name,
+                coalesce(area_name, '未分区') as area_name,
+                count(*)::int as record_count,
+                coalesce(sum(tce_amount), 0) as total_tce,
+                coalesce(sum(standard_amount), 0) as total_kgce,
+                coalesce(sum(co2e_amount), 0) as total_co2e,
+                coalesce(
+                    sum(case when energy_type_code = 'purchased_electricity' then original_amount else 0 end),
+                    0
+                ) as electricity_kwh
+            from energy_consumption_fact_v
+            {where_sql}
+            group by coalesce(facility_or_device_name, '未命名'), coalesce(area_name, '未分区')
+            order by sum(tce_amount) desc nulls last, sum(original_amount) desc nulls last
+            limit 100
+            """  # noqa: S608
+        )
+        by_energy_type = [
+            _jsonable_mapping(dict(row)) for row in (await db_session.execute(by_energy_type_sql, params)).mappings().all()
+        ]
+        by_scope = [_jsonable_mapping(dict(row)) for row in (await db_session.execute(by_scope_sql, params)).mappings().all()]
+        by_area = [_jsonable_mapping(dict(row)) for row in (await db_session.execute(by_area_sql, params)).mappings().all()]
+        by_device = [_jsonable_mapping(dict(row)) for row in (await db_session.execute(by_device_sql, params)).mappings().all()]
+        denominators = await _energy_area_denominators(db_session)
+        total_tce = totals.get("total_tce") or 0
+        electricity_kwh = totals.get("electricity_kwh") or 0
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {
+                    "totals": totals,
+                    "denominators": denominators,
+                    "intensities": {
+                        "store_area_tce_per_m2": _ratio_or_none(total_tce, denominators["store_area"]),
+                        "park_area_tce_per_m2": _ratio_or_none(total_tce, denominators["park_area"]),
+                        "store_area_kwh_per_m2": _ratio_or_none(electricity_kwh, denominators["store_area"]),
+                        "park_area_kwh_per_m2": _ratio_or_none(electricity_kwh, denominators["park_area"]),
+                    },
+                    "by_energy_type": by_energy_type,
+                    "by_scope": by_scope,
+                    "by_area": by_area,
+                    "by_device": by_device,
+                    "filters": {
+                        "period_start": period_start,
+                        "period_end": period_end,
+                        "energy_type_code": energy_type_code,
+                        "scope": scope_filter,
+                        "status": status,
+                        "source_record_type": source_record_type,
+                    },
+                },
+            }
+        )
+
+    @get("/api/energy/intensity/trend")
+    async def get_energy_intensity_trend(
+        self,
+        db_session: AsyncSession,
+        months: int = 12,
+        status: str | None = "all",
+        energy_type_code: str | None = None,
+        scope_filter: str | None = Parameter(query="scope", required=False),
+        period_start: str | None = None,
+        period_end: str | None = None,
+        granularity: str = "month",
+    ) -> Response[dict]:
+        months_clamped = max(1, min(months, 366))
+        date_part = granularity if granularity in {"day", "month", "year"} else "month"
+        period_format = {"day": "YYYY-MM-DD", "month": "YYYY-MM", "year": "YYYY"}[date_part]
+        where_sql, params = _build_energy_fact_filters(
+            period_start=period_start,
+            period_end=period_end,
+            energy_type_code=energy_type_code,
+            scope=scope_filter,
+            status=status,
+        )
+        trend_sql = text(
+            f"""
+            select
+                to_char(date_trunc(:date_part, period_start), :period_format) as period,
+                count(*)::int as record_count,
+                coalesce(sum(tce_amount), 0) as total_tce,
+                coalesce(sum(standard_amount), 0) as total_kgce,
+                coalesce(sum(co2e_amount), 0) as total_co2e,
+                coalesce(
+                    sum(case when energy_type_code = 'purchased_electricity' then original_amount else 0 end),
+                    0
+                ) as electricity_kwh
+            from energy_consumption_fact_v
+            {where_sql}
+            group by date_trunc(:date_part, period_start)
+            order by period desc
+            limit :months
+            """  # noqa: S608
+        )
+        rows = (
+            await db_session.execute(
+                trend_sql,
+                {
+                    **params,
+                    "months": months_clamped,
+                    "date_part": date_part,
+                    "period_format": period_format,
+                },
+            )
+        ).mappings().all()
+        denominators = await _energy_area_denominators(db_session)
+        series: list[dict[str, Any]] = []
+        for row in reversed(rows):
+            item = _jsonable_mapping(dict(row))
+            total_tce = item.get("total_tce") or 0
+            electricity_kwh = item.get("electricity_kwh") or 0
+            item["store_area_tce_per_m2"] = _ratio_or_none(total_tce, denominators["store_area"])
+            item["park_area_tce_per_m2"] = _ratio_or_none(total_tce, denominators["park_area"])
+            item["store_area_kwh_per_m2"] = _ratio_or_none(electricity_kwh, denominators["store_area"])
+            item["park_area_kwh_per_m2"] = _ratio_or_none(electricity_kwh, denominators["park_area"])
+            series.append(item)
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {
+                    "series": series,
+                    "denominators": denominators,
+                    "filters": {
+                        "months": months_clamped,
+                        "granularity": date_part,
+                        "period_start": period_start,
+                        "period_end": period_end,
+                        "energy_type_code": energy_type_code,
+                        "scope": scope_filter,
+                        "status": status,
+                    },
+                },
+            }
+        )
+
+    @get("/api/energy/intensity/basis")
+    async def get_energy_intensity_basis(self, db_session: AsyncSession) -> Response[dict]:
+        denominators = await _energy_area_denominators(db_session)
+        denominator_sources = [
+            {
+                "key": "store_area",
+                "label": "仓储面积",
+                "source_table": "dataapp_enterpriseinfo",
+                "source_field": "store_area",
+                "value": denominators["store_area"],
+                "unit": "㎡",
+                "missing": denominators["store_area"] is None,
+            },
+            {
+                "key": "park_area",
+                "label": "园区面积",
+                "source_table": "dataapp_enterpriseinfo",
+                "source_field": "park_area",
+                "value": denominators["park_area"],
+                "unit": "㎡",
+                "missing": denominators["park_area"] is None,
+            },
+        ]
+        missing_items = [f"{item['key']}_missing" for item in denominator_sources if item["missing"]]
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {
+                    "numerator_sources": [
+                        {
+                            "key": "total_tce",
+                            "label": "综合能耗",
+                            "source_view": "energy_consumption_fact_v",
+                            "source_field": "tce_amount",
+                            "unit": "tce",
+                            "standard": "GB/T 2589-2020",
+                        },
+                        {
+                            "key": "electricity_kwh",
+                            "label": "外购电力专项消费量",
+                            "source_view": "energy_consumption_fact_v",
+                            "source_field": "original_amount",
+                            "filter": "energy_type_code = purchased_electricity",
+                            "unit": "kWh",
+                        },
+                    ],
+                    "denominator_sources": denominator_sources,
+                    "missing_items": missing_items,
+                    "assumptions": [
+                        "P0 只计算面积强度, 不计算单位产值或单位产品产量强度。",
+                        "综合能耗来自 energy_consumption_fact_v.tce_amount, 折标口径按能源品种字典和 GB/T 2589-2020 管理。",
+                        "月度趋势按 period_start 所在月份归属, 跨月消费首版不拆分。",
+                        "默认状态为 all; 正式报表可手动切换 approved。",
+                    ],
                 },
             }
         )
