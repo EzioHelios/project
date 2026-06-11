@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 
 import { type ApiEnvelope, DistributionChart, fetchCarbonApi, RankingList, TrendChart } from "@/components/carbon/analytics-panels"
@@ -46,10 +46,13 @@ type TraceData = {
 }
 
 export const Route = createFileRoute("/_app/energy-carbon/quality")({
+  beforeLoad: () => {
+    throw redirect({ to: "/carbon/verification" })
+  },
   component: QualityTracePage,
 })
 
-function QualityTracePage() {
+export function QualityTracePage({ embedded = false }: { embedded?: boolean } = {}) {
   const [issueType, setIssueType] = useState("all")
   const [severity, setSeverity] = useState("all")
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -81,24 +84,19 @@ function QualityTracePage() {
   const summary = summaryQuery.data?.data.summary ?? {}
   const facetItems = [{ key: "all", label: "全部问题", count: issues.length }, ...Object.entries(summary).map(([key, value]) => ({ key, label: key, count: value }))]
 
-  return (
-    <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
-      <PageHeader
-        eyebrow="能碳中心"
-        title="数据质量与追溯"
-        description="这里不是普通报表，而是问题中心。我们要明确哪里错了、影响了什么、该去哪里修。"
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" asChild>
-              <Link to="/data/meter">查看电表明细</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/carbon-mgmt/pending">查看待审核</Link>
-            </Button>
-          </div>
-        }
-      />
+  const actions = (
+    <div className="flex flex-wrap gap-2">
+      <Button variant="outline" asChild>
+        <Link to="/data/meter">查看电表明细</Link>
+      </Button>
+      <Button variant="outline" asChild>
+        <Link to="/carbon/accounting">查看碳排放核算</Link>
+      </Button>
+    </div>
+  )
 
+  const content = (
+    <>
       <PageSection>
         <IssueSummaryStrip
           items={[
@@ -221,6 +219,17 @@ function QualityTracePage() {
           <TraceTimeline items={traceQuery.data?.data.trace ?? []} />
         </div>
       </PageSection>
+    </>
+  )
+
+  if (embedded) {
+    return content
+  }
+
+  return (
+    <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
+      <PageHeader eyebrow="碳排放管理" title="碳核查支撑" description="围绕数据质量、过程追溯、原始凭证和审核记录组织材料，支撑碳核查、问题整改和材料汇集。" actions={actions} />
+      {content}
     </PageContainer>
   )
 }

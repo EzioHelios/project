@@ -36,6 +36,17 @@ export const Route = createFileRoute("/_app/carbon-mgmt/pending")({
 })
 
 function PendingWorkbenchPage() {
+  return (
+    <PageContainer className="flex-1 space-y-6">
+      <PageHeader eyebrow="碳核算模型" title="待审核工作台" description="统一处理各 Scope 的待审记录与电表聚合记录。" />
+      <PageSection>
+        <PendingReviewPanel />
+      </PageSection>
+    </PageContainer>
+  )
+}
+
+export function PendingReviewPanel() {
   const [keyword, setKeyword] = useState("")
   const [recordType, setRecordType] = useState("all")
   const [pageIndex, setPageIndex] = useState(0)
@@ -64,86 +75,81 @@ function PendingWorkbenchPage() {
   }
 
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="碳核算模型" title="待审核工作台" description="统一处理各 Scope 的待审记录与电表聚合记录。" />
-      <PageSection>
-        <Card>
-          <CardHeader className="space-y-3">
-            <CardTitle>待审核记录</CardTitle>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="min-w-[260px] flex-1">
-                <Input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索：记录类型/来源/备注…" />
-              </div>
-              <div className="w-[220px]">
-                <Select value={recordType} onValueChange={setRecordType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="记录类型" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">全部记录</SelectItem>
-                    {Object.keys(basePathByType).map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button variant="secondary" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>
-                查询
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>记录类型</TableHead>
-                  <TableHead>来源</TableHead>
-                  <TableHead className="text-right">核算结果</TableHead>
-                  <TableHead>因子来源</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                      暂无待审核记录
-                    </TableCell>
-                  </TableRow>
-                )}
-                {items.map((row) => (
-                  <TableRow key={`${row.record_type}-${row.record_id}`}>
-                    <TableCell>{row.record_type}</TableCell>
-                    <TableCell>{row.source_kind ?? "-"}</TableCell>
-                    <TableCell className="text-right">{row.computed_co2e === null || row.computed_co2e === undefined ? "-" : `${row.computed_co2e} kgCO2e`}</TableCell>
-                    <TableCell>{row.factor_source ?? "-"}</TableCell>
-                    <TableCell>
-                      <CarbonStatusBadge status={row.status} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <CarbonRecordActions id={row.record_id} status={row.status} basePath={basePathByType[row.record_type]} invalidateKey={["carbon-mgmt", "pending"]} />
-                    </TableCell>
-                  </TableRow>
+    <Card>
+      <CardHeader className="space-y-3">
+        <CardTitle>待审核记录</CardTitle>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-[260px] flex-1">
+            <Input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索：记录类型/来源/备注…" />
+          </div>
+          <div className="w-[220px]">
+            <Select value={recordType} onValueChange={setRecordType}>
+              <SelectTrigger>
+                <SelectValue placeholder="记录类型" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部记录</SelectItem>
+                {Object.keys(basePathByType).map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {value}
+                  </SelectItem>
                 ))}
-              </TableBody>
-            </Table>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button variant="secondary" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>
+            查询
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>记录类型</TableHead>
+              <TableHead>来源</TableHead>
+              <TableHead className="text-right">核算结果</TableHead>
+              <TableHead>因子来源</TableHead>
+              <TableHead>状态</TableHead>
+              <TableHead className="text-right">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                  暂无待审核记录
+                </TableCell>
+              </TableRow>
+            )}
+            {items.map((row) => (
+              <TableRow key={`${row.record_type}-${row.record_id}`}>
+                <TableCell>{row.record_type}</TableCell>
+                <TableCell>{row.source_kind ?? "-"}</TableCell>
+                <TableCell className="text-right">{row.computed_co2e === null || row.computed_co2e === undefined ? "-" : `${row.computed_co2e} kgCO2e`}</TableCell>
+                <TableCell>{row.factor_source ?? "-"}</TableCell>
+                <TableCell>
+                  <CarbonStatusBadge status={row.status} />
+                </TableCell>
+                <TableCell className="text-right">
+                  <CarbonRecordActions id={row.record_id} status={row.status} basePath={basePathByType[row.record_type]} invalidateKey={["carbon-mgmt", "pending"]} />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
 
-            <PaginationBar
-              page={filteredPage}
-              pageIndex={pageIndex}
-              pageSize={pageSize}
-              onPageChange={setPageIndex}
-              onPageSizeChange={(value) => {
-                setPageSize(value)
-                setPageIndex(0)
-              }}
-            />
-          </CardContent>
-        </Card>
-      </PageSection>
-    </PageContainer>
+        <PaginationBar
+          page={filteredPage}
+          pageIndex={pageIndex}
+          pageSize={pageSize}
+          onPageChange={setPageIndex}
+          onPageSizeChange={(value) => {
+            setPageSize(value)
+            setPageIndex(0)
+          }}
+        />
+      </CardContent>
+    </Card>
   )
 }

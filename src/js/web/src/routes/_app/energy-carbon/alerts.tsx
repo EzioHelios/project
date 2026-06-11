@@ -103,7 +103,7 @@ function AlertsCenterPage() {
 
   return (
     <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
-      <PageHeader eyebrow="能碳中心" title="告警中心" description="这一页是处置工作台：先看风险构成，再看趋势，再进入分组、列表和处理详情。" />
+      <PageHeader eyebrow="能碳中心" title="碳告警与预警" description="统一展示设备、视频和碳排异常，按风险等级、来源、区域和处理状态支撑预警处置闭环。" />
 
       <PageSection className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         {[

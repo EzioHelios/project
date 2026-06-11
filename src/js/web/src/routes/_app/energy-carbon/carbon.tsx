@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 
 import { type ApiEnvelope, CompositeTrendChart, DistributionChart, FlowGraph, fetchCarbonApi, LedgerTable } from "@/components/carbon/analytics-panels"
@@ -61,6 +61,9 @@ type CarbonFlow = {
 }
 
 export const Route = createFileRoute("/_app/energy-carbon/carbon")({
+  beforeLoad: () => {
+    throw redirect({ to: "/carbon/accounting" })
+  },
   component: CarbonWorkbenchPage,
 })
 
@@ -102,8 +105,8 @@ function CarbonWorkbenchPage() {
     <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
       <PageHeader
         eyebrow="能碳中心"
-        title="碳盘查与核算"
-        description="先看核算状态、缺失项和范围结构，再进入统一碳账本、追溯和审核处理。Scope 录入页只是这里的子工作流。"
+        title="碳排放核算"
+        description="汇总 Scope 1/2/3 活动数据、核算结果、范围结构、缺失项和审核状态，支撑组织碳盘查与排放核算。"
         actions={
           <JumpLinks
             items={[

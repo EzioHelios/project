@@ -114,6 +114,7 @@ export function ScopeRecordPage<T extends ScopeRow>({
   searchPlaceholder,
   columns,
   fields,
+  embedded = false,
 }: {
   title: string
   description: string
@@ -122,6 +123,7 @@ export function ScopeRecordPage<T extends ScopeRow>({
   searchPlaceholder: string
   columns: Column<T>[]
   fields: Field[]
+  embedded?: boolean
 }) {
   const qc = useQueryClient()
   const [keyword, setKeyword] = useState("")
@@ -158,10 +160,8 @@ export function ScopeRecordPage<T extends ScopeRow>({
   const items = listQuery.data?.items ?? []
   const formReady = useMemo(() => fields.every((field) => !field.required || Boolean((form[field.name] ?? "").trim())), [fields, form])
 
-  return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="碳核算模型" title={title} description={description} />
-
+  const content = (
+    <>
       <PageSection>
         <Card>
           <CardHeader className="space-y-3">
@@ -328,6 +328,17 @@ export function ScopeRecordPage<T extends ScopeRow>({
           </div>
         </SheetContent>
       </Sheet>
+    </>
+  )
+
+  if (embedded) {
+    return content
+  }
+
+  return (
+    <PageContainer className="flex-1 space-y-6">
+      <PageHeader eyebrow="碳核算模型" title={title} description={description} />
+      {content}
     </PageContainer>
   )
 }

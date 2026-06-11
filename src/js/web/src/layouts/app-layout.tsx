@@ -45,20 +45,20 @@ export function AppLayout() {
       return { eyebrow: "权限中心", title: "权限中心" }
     }
     if (pathname.startsWith("/data")) {
-      if (pathname === "/data/company") return { eyebrow: "数据管理", title: "企业基本信息" }
-      if (pathname === "/data/commute") return { eyebrow: "数据管理", title: "员工通勤" }
-      if (pathname === "/data/monitor-area") return { eyebrow: "数据管理", title: "监测区域" }
-      if (pathname === "/data/inbound") return { eyebrow: "数据管理", title: "入库管理" }
-      if (pathname === "/data/outbound") return { eyebrow: "数据管理", title: "出库管理" }
-      if (pathname === "/data/terminals") return { eyebrow: "数据管理", title: "监控终端" }
-      if (pathname === "/data/meter") return { eyebrow: "数据管理", title: "电表电量" }
-      if (pathname === "/data/video") return { eyebrow: "数据管理", title: "视频监控" }
-      if (pathname === "/data/alarm-rules") return { eyebrow: "数据管理", title: "预警规则" }
-      if (pathname === "/data/alarm-events") return { eyebrow: "数据管理", title: "预警事件" }
-      if (pathname === "/data/video-alarm-events") return { eyebrow: "数据管理", title: "视频监控预警事件" }
-      if (pathname === "/data/energy-storage") return { eyebrow: "数据管理", title: "储能数值设置" }
-      if (pathname === "/data/api-key-mapping") return { eyebrow: "数据管理", title: "接口结果key映射" }
-      return { eyebrow: "数据管理", title: "数据管理" }
+      if (pathname === "/data/company") return { eyebrow: "企业与组织", title: "企业基本信息" }
+      if (pathname === "/data/monitor-area") return { eyebrow: "企业与组织", title: "监测区域" }
+      if (pathname === "/data/commute") return { eyebrow: "业务活动台账", title: "员工通勤" }
+      if (pathname === "/data/inbound") return { eyebrow: "业务活动台账", title: "入库管理" }
+      if (pathname === "/data/outbound") return { eyebrow: "业务活动台账", title: "出库管理" }
+      if (pathname === "/data/terminals") return { eyebrow: "采集设备与测点", title: "监控终端" }
+      if (pathname === "/data/meter") return { eyebrow: "采集设备与测点", title: "电表电量" }
+      if (pathname === "/data/video") return { eyebrow: "采集设备与测点", title: "视频监控" }
+      if (pathname === "/data/alarm-rules") return { eyebrow: "监测告警运维", title: "预警规则" }
+      if (pathname === "/data/alarm-events") return { eyebrow: "监测告警运维", title: "预警事件" }
+      if (pathname === "/data/video-alarm-events") return { eyebrow: "监测告警运维", title: "视频监控预警事件" }
+      if (pathname === "/data/energy-storage") return { eyebrow: "碳排放因子库", title: "能源折标与储能口径" }
+      if (pathname === "/data/api-key-mapping") return { eyebrow: "碳排放因子库", title: "接口结果key映射" }
+      return { eyebrow: "基础数据", title: "基础数据" }
     }
     if (pathname.startsWith("/tasks")) {
       if (pathname === "/tasks/interval") return { eyebrow: "定时任务", title: "时间间隔设置" }
@@ -73,29 +73,35 @@ export function AppLayout() {
       if (pathname === "/carbon-mgmt/scope2-bill") return { eyebrow: "碳排放管理", title: "[范围2] 电费账单" }
       if (pathname === "/carbon-mgmt/scope3-waste") return { eyebrow: "碳排放管理", title: "[范围3] 废弃物处理" }
       if (pathname === "/carbon-mgmt/scope3-transport") return { eyebrow: "碳排放管理", title: "[范围3] 外购运输" }
-      if (pathname === "/carbon-mgmt/factors") return { eyebrow: "碳排放管理", title: "排放因子库" }
-      if (pathname === "/carbon-mgmt/calculation-factors") return { eyebrow: "碳排放管理", title: "计算因子库" }
-      if (pathname === "/carbon-mgmt/iot") return { eyebrow: "碳排放管理", title: "IoT时序数据" }
+      if (pathname === "/carbon-mgmt/factors") return { eyebrow: "碳排放因子库", title: "排放因子库" }
+      if (pathname === "/carbon-mgmt/calculation-factors") return { eyebrow: "碳排放因子库", title: "计算因子库" }
+      if (pathname === "/carbon-mgmt/iot") return { eyebrow: "采集设备与测点", title: "IoT时序数据" }
       if (pathname === "/carbon-mgmt/audit") return { eyebrow: "碳排放管理", title: "审核操作日志" }
       return { eyebrow: "碳排放管理", title: "碳排放管理" }
     }
-    if (pathname === "/carbon" || pathname === "/carbon/") {
-      return { eyebrow: "碳管理", title: "态势总览" }
+    if (pathname.startsWith("/energy-carbon/monitor")) {
+      return { eyebrow: "监测告警运维", title: "监测中心" }
     }
-    if (pathname === "/carbon/page2") {
-      return { eyebrow: "碳管理", title: "视频监控" }
+    if (pathname.startsWith("/energy-carbon/alerts")) {
+      return { eyebrow: "监测告警运维", title: "告警中心" }
     }
-    if (pathname === "/carbon/page3") {
-      return { eyebrow: "碳管理", title: "电能监测" }
+    if (pathname === "/energy" || pathname.startsWith("/energy/")) {
+      if (pathname === "/energy/consumption") return { eyebrow: "能源管理", title: "能耗查询" }
+      if (pathname === "/energy/intensity") return { eyebrow: "能源管理", title: "能源消费量和强度计算" }
+      if (pathname === "/energy/analysis") return { eyebrow: "能源管理", title: "能源消费分析与用能策略推荐" }
+      if (pathname === "/energy/benchmark") return { eyebrow: "能源管理", title: "能效对标" }
+      if (pathname === "/energy/flow") return { eyebrow: "能源管理", title: "能流分析" }
+      if (pathname === "/energy/balance") return { eyebrow: "能源管理", title: "能效平衡与优化" }
+      if (pathname === "/energy/budget") return { eyebrow: "能源管理", title: "用能与碳排放预算管理" }
+      return { eyebrow: "能源管理", title: "能源管理" }
     }
-    if (pathname === "/carbon/page4") {
-      return { eyebrow: "碳管理", title: "碳能协同" }
-    }
-    if (pathname === "/carbon/map") {
-      return { eyebrow: "碳管理", title: "地图" }
-    }
-    if (pathname === "/carbon/hwpm") {
-      return { eyebrow: "碳管理", title: "户外大屏" }
+    if (pathname.startsWith("/carbon")) {
+      if (pathname === "/carbon/accounting") return { eyebrow: "碳排放管理", title: "碳排放核算" }
+      if (pathname === "/carbon/product-footprint") return { eyebrow: "碳排放管理", title: "产品碳足迹核算" }
+      if (pathname === "/carbon/supply-chain") return { eyebrow: "碳排放管理", title: "供应链碳管理" }
+      if (pathname === "/carbon/verification") return { eyebrow: "碳排放管理", title: "碳核查支撑" }
+      if (pathname === "/carbon/assets") return { eyebrow: "碳排放管理", title: "碳资产管理" }
+      return { eyebrow: "碳排放管理", title: "碳排放管理" }
     }
     return { eyebrow: "工作台", title: "首页" }
   }, [currentTeam?.name, pathname])

@@ -121,7 +121,7 @@ function MonitorCenterPage() {
 
   return (
     <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
-      <PageHeader eyebrow="能碳中心" title="监测中心" description="把区域、设备、测点和关联视频组织成一张观察塔，不让用户在多个台账页之间反复跳转。" />
+      <PageHeader eyebrow="能碳中心" title="数据采集与监测" description="聚合区域、设备、测点、电表、IoT 时序和视频监控数据，支撑能源与碳排放数据采集管理。" />
 
       <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">

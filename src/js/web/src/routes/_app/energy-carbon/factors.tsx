@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useState } from "react"
 
 import { type ApiEnvelope, DistributionChart, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
@@ -41,6 +41,9 @@ type FactorPage = {
 }
 
 export const Route = createFileRoute("/_app/energy-carbon/factors")({
+  beforeLoad: () => {
+    throw redirect({ to: "/carbon-mgmt/factors" })
+  },
   component: EnergyCarbonFactorsPage,
 })
 
@@ -67,8 +70,8 @@ function EnergyCarbonFactorsPage() {
     <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
       <PageHeader
         eyebrow="能碳中心"
-        title="因子数据库"
-        description="这里不是把所有 CRUD 再做一遍，而是把因子口径、版本、适用范围和使用健康度放在一个专业治理视图里。"
+        title="因子库管理"
+        description="集中管理排放因子和计算因子的口径、版本、适用范围与使用健康度，支撑碳排数据库和核算模型。"
         actions={
           <JumpLinks
             items={[
