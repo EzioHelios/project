@@ -161,6 +161,48 @@ class DeviceType(BigIntBase):
     )
 
 
+class EnergyType(BigIntBase):
+    """能源品种与折标口径字典。"""
+
+    __tablename__ = "dataapp_energytype"
+    __table_args__ = (
+        UniqueConstraint("code", name="uq_dataapp_energytype_code"),
+        Index("ix_dataapp_energytype_category_scope", "category", "default_scope"),
+    )
+
+    code: Mapped[str] = mapped_column(String(32), index=True)
+    name: Mapped[str] = mapped_column(String(64))
+    category: Mapped[str] = mapped_column(String(32), index=True)
+    default_scope: Mapped[str] = mapped_column(String(16), index=True)
+    original_unit: Mapped[str | None] = mapped_column(String(16))
+    standard_unit: Mapped[str | None] = mapped_column(String(16), default="kgce")
+    standard_factor: Mapped[Numeric | None] = mapped_column(Numeric(18, 8), doc="原始单位折算为 standard_unit 的系数")
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    conversion_factor_source: Mapped[str | None] = mapped_column(String(255))
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
+class EnergyUnitConversion(BigIntBase):
+    """能源业务单位到折标基准单位的换算字典。"""
+
+    __tablename__ = "dataapp_energyunitconversion"
+    __table_args__ = (
+        UniqueConstraint("energy_type_code", "from_unit", "to_unit", name="uq_energy_unit_conversion_type_units"),
+        Index("ix_energy_unit_conversion_type_enabled", "energy_type_code", "is_enabled"),
+    )
+
+    energy_type_code: Mapped[str] = mapped_column(String(32), index=True)
+    from_unit: Mapped[str] = mapped_column(String(16))
+    to_unit: Mapped[str] = mapped_column(String(16))
+    multiply_factor: Mapped[Numeric] = mapped_column(Numeric(18, 10))
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    conversion_factor_source: Mapped[str | None] = mapped_column(String(255))
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
 class InMoney(TeamScopedMixin, BigIntBase):
     """入库金额管理（对应 Django dataapp.InMoney）。"""
 
@@ -546,6 +588,43 @@ class Scope2ElectricityBill(CarbonAuditBase):
     activity_unit: Mapped[str | None] = mapped_column(String(16))
     computed_co2e: Mapped[Numeric | None] = mapped_column(Numeric(18, 6))
     computation_note: Mapped[str | None] = mapped_column(Text)
+
+
+class Scope2PurchasedEnergy(CarbonAuditBase):
+    """Scope2 外购热力、蒸汽、冷量。"""
+
+    __tablename__ = "dataapp_scope2purchasedenergy"
+    __table_args__ = (
+        Index("ix_scope2_purchased_energy_team_period", "team_id", "period_start", "period_end"),
+        Index("ix_scope2_purchased_energy_team_type", "team_id", "energy_type_code"),
+    )
+
+    energy_type_code: Mapped[str] = mapped_column(String(32), index=True)
+    energy_type_name: Mapped[str | None] = mapped_column(String(64))
+    supplier_name: Mapped[str | None] = mapped_column(String(128))
+    period_start: Mapped[date] = mapped_column(Date)
+    period_end: Mapped[date] = mapped_column(Date)
+    amount: Mapped[Numeric] = mapped_column(Numeric(16, 4))
+    unit: Mapped[str] = mapped_column(String(16))
+    standard_amount: Mapped[Numeric | None] = mapped_column(Numeric(18, 6))
+    standard_unit: Mapped[str | None] = mapped_column(String(16))
+    tce_amount: Mapped[Numeric | None] = mapped_column(Numeric(18, 6))
+    amount_cny: Mapped[Numeric | None] = mapped_column(Numeric(16, 2))
+    area_id: Mapped[str | None] = mapped_column(String(20), index=True)
+    area_name: Mapped[str | None] = mapped_column(String(50))
+    facility_name: Mapped[str | None] = mapped_column(String(128))
+    attachment: Mapped[str | None] = mapped_column(String(255))
+    remark: Mapped[str | None] = mapped_column(Text)
+    calc_status: Mapped[str] = mapped_column(String(24), default="ready", index=True)
+    factor_source: Mapped[str | None] = mapped_column(String(128))
+    factor_year: Mapped[int | None] = mapped_column(Integer)
+    factor_unit: Mapped[str | None] = mapped_column(String(32))
+    activity_amount: Mapped[Numeric | None] = mapped_column(Numeric(16, 4))
+    activity_unit: Mapped[str | None] = mapped_column(String(16))
+    computed_co2e: Mapped[Numeric | None] = mapped_column(Numeric(18, 6))
+    computation_note: Mapped[str | None] = mapped_column(Text)
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    conversion_factor_source: Mapped[str | None] = mapped_column(String(255))
 
 
 class Scope2MeterAggregate(TeamScopedMixin, BigIntAuditBase):

@@ -89,6 +89,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           pathname.startsWith("/carbon") || pathname.startsWith("/carbon-mgmt/scope") || pathname.startsWith("/carbon-mgmt/pending") || pathname.startsWith("/carbon-mgmt/audit"),
         items: [
           { title: "碳排放核算", to: "/carbon/accounting" },
+          { title: "Scope2 外购热/汽/冷", to: "/carbon-mgmt/scope2-purchased-energy" },
           { title: "产品碳足迹核算", to: "/carbon/product-footprint" },
           { title: "供应链碳管理", to: "/carbon/supply-chain" },
           { title: "碳核查支撑", to: "/carbon/verification" },
@@ -138,6 +139,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           pathname.startsWith("/data/device-types") ||
           pathname.startsWith("/data/device-points") ||
           pathname.startsWith("/data/meter") ||
+          pathname.startsWith("/data/energy-consumption") ||
           pathname.startsWith("/data/video") ||
           pathname.startsWith("/carbon-mgmt/iot"),
         items: [
@@ -145,6 +147,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           { title: "设备类型", to: "/data/device-types" },
           { title: "设备测点", to: "/data/device-points" },
           { title: "电表电量", to: "/data/meter" },
+          { title: "能源消费明细", to: "/data/energy-consumption" },
           { title: "视频监控", to: "/data/video" },
           { title: "IoT时序数据", to: "/carbon-mgmt/iot" },
         ],

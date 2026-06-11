@@ -5,9 +5,11 @@
 - 逐步使用 SQLAlchemy / 视图查询来实现相同的统计与查询逻辑
 """
 
-from collections import defaultdict
+import csv
 import datetime
+import io
 import re
+from collections import defaultdict
 from decimal import Decimal
 from statistics import median
 from typing import Any
@@ -15,7 +17,7 @@ from typing import Any
 from advanced_alchemy.filters import LimitOffset, OrderBy, SearchFilter
 from dateutil.relativedelta import MO, relativedelta
 from litestar import Controller, Request, delete, get, patch, post
-from litestar.params import Body
+from litestar.params import Body, Parameter
 from litestar.response import Response
 from sqlalchemy import case, func, or_, select, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -23,21 +25,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_authenticated_user, requires_superuser
+from app.domain.accounts.guards import requires_superuser
 from app.domain.admin.deps import provide_audit_log_service
 from app.domain.admin.services import AuditLogService
 from app.domain.carbon.deps import (
     provide_alarm_event_service,
     provide_ammeter_index_value_service,
-    provide_area_service,
     provide_api_result_key_mapping_service,
+    provide_area_service,
     provide_carbon_audit_log_service,
-    provide_device_service,
     provide_device_point_service,
+    provide_device_service,
     provide_device_type_service,
     provide_emission_factor_service,
     provide_employee_commute_service,
     provide_energy_storage_value_service,
+    provide_energy_type_service,
     provide_enterprise_info_service,
     provide_in_money_service,
     provide_iot_telemetry_service,
@@ -50,6 +53,7 @@ from app.domain.carbon.deps import (
     provide_scope1_stationary_combustion_service,
     provide_scope2_electricity_bill_service,
     provide_scope2_meter_aggregate_service,
+    provide_scope2_purchased_energy_service,
     provide_scope3_third_party_transport_service,
     provide_scope3_waste_disposal_service,
     provide_vedio_alarm_event_service,
@@ -58,10 +62,10 @@ from app.domain.carbon.deps import (
 )
 
 from . import services
-from .utils import _CKYQZMJ as CKYQZMJ
 
 # 排放因子与常量（根据 Django views.py 同步）
 from .emission_calculator import compute_emission_result
+from .utils import _CKYQZMJ as CKYQZMJ
 from .utils import GF_CJPL_PFYZ, YD_CPFL_PFYZ, calc_day_ygtq_cpfl
 from .validation import (
     CarbonValidationError,
@@ -1335,6 +1339,20 @@ AUDIT_ACTION_APPROVE = "approve"
 AUDIT_ACTION_REJECT = "reject"
 ADMIN_BODY = Body()
 ADMIN_OPTIONAL_BODY = Body(default={})
+PURCHASED_SCOPE2_ENERGY_CODES = {"purchased_heat", "purchased_steam", "purchased_cooling"}
+ENERGY_FACT_SORT_FIELDS = {
+    "period_start",
+    "period_end",
+    "scope",
+    "energy_type_code",
+    "energy_type_name",
+    "original_amount",
+    "factor_amount",
+    "tce_amount",
+    "co2e_amount",
+    "status",
+    "source_record_id",
+}
 
 
 def _coerce_date_fields(data: dict[str, Any], fields: list[str]) -> None:
@@ -1558,6 +1576,73 @@ def _paged_payload(items: list[dict[str, Any]], total: int, limit: int, offset: 
     return {"items": items, "total": total, "limit": limit, "offset": offset, "code": 200, "data": items}
 
 
+def _jsonable_mapping(row: dict[str, Any]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in row.items():
+        if isinstance(value, (datetime.date, datetime.datetime)):
+            result[key] = value.isoformat()
+        elif isinstance(value, Decimal):
+            result[key] = float(value)
+        else:
+            result[key] = value
+    return result
+
+
+def _build_energy_fact_filters(
+    *,
+    period_start: str | None = None,
+    period_end: str | None = None,
+    energy_type_code: str | None = None,
+    scope: str | None = None,
+    status: str | None = "approved",
+    area_id: str | None = None,
+    area_keyword: str | None = None,
+    source_record_type: str | None = None,
+    keyword: str | None = None,
+) -> tuple[str, dict[str, Any]]:
+    conditions: list[str] = []
+    params: dict[str, Any] = {}
+    if period_start:
+        conditions.append("period_end >= :period_start")
+        params["period_start"] = period_start
+    if period_end:
+        conditions.append("period_start <= :period_end")
+        params["period_end"] = period_end
+    if energy_type_code and energy_type_code != "all":
+        conditions.append("energy_type_code = :energy_type_code")
+        params["energy_type_code"] = energy_type_code
+    if scope and scope != "all":
+        conditions.append("scope = :scope")
+        params["scope"] = scope
+    if status and status != "all":
+        conditions.append("status = :status")
+        params["status"] = status
+    if area_id and area_id != "all":
+        conditions.append("area_id = :area_id")
+        params["area_id"] = area_id
+    if source_record_type and source_record_type != "all":
+        conditions.append("source_record_type = :source_record_type")
+        params["source_record_type"] = source_record_type
+    if area_keyword:
+        conditions.append("(area_name ilike :area_keyword or area_id ilike :area_keyword)")
+        params["area_keyword"] = f"%{area_keyword.strip()}%"
+    if keyword:
+        conditions.append(
+            """
+            (
+                energy_type_code ilike :keyword
+                or energy_type_name ilike :keyword
+                or facility_or_device_name ilike :keyword
+                or area_name ilike :keyword
+                or source_record_type ilike :keyword
+            )
+            """
+        )
+        params["keyword"] = f"%{keyword.strip()}%"
+    where_sql = f"where {' and '.join(conditions)}" if conditions else ""
+    return where_sql, params
+
+
 def _build_list_filters(
     model: Any,
     *,
@@ -1634,7 +1719,7 @@ async def _list_rows(
     return await service.list(*(conditions or []), *filters)
 
 
-def _format_decimal(value: Decimal | float | int | None) -> float | None:
+def _format_decimal(value: Decimal | float | None) -> float | None:
     if value is None:
         return None
     return float(value if isinstance(value, Decimal) else Decimal(str(value)))
@@ -1653,6 +1738,125 @@ def _compute_year_from_date(value: str | datetime.date | None) -> int | None:
         except ValueError:
             return None
     return None
+
+
+def _decimal_value(value: Any) -> Decimal | None:
+    if value in (None, ""):
+        return None
+    return value if isinstance(value, Decimal) else Decimal(str(value))
+
+
+async def _load_energy_type(session: AsyncSession, code: str) -> m.EnergyType | None:
+    return await session.scalar(select(m.EnergyType).where(m.EnergyType.code == code, m.EnergyType.is_enabled.is_(True)))
+
+
+def _normalized_energy_unit(value: str | None) -> str:
+    return (value or "").strip().replace("³", "3").replace(" ", "").lower()
+
+
+async def _convert_to_energy_factor_unit(
+    session: AsyncSession,
+    *,
+    energy_type: m.EnergyType,
+    amount: Decimal,
+    from_unit: str | None,
+) -> tuple[Decimal | None, str | None, Decimal | None, str | None]:
+    factor_unit = energy_type.original_unit
+    if not factor_unit:
+        return None, None, None, None
+    if _normalized_energy_unit(from_unit) == _normalized_energy_unit(factor_unit):
+        return amount, factor_unit, Decimal(1), "原始单位与折标基准单位一致"
+    conversion = await session.scalar(
+        select(m.EnergyUnitConversion).where(
+            m.EnergyUnitConversion.energy_type_code == energy_type.code,
+            m.EnergyUnitConversion.is_enabled.is_(True),
+            func.lower(func.replace(func.replace(func.trim(m.EnergyUnitConversion.from_unit), "³", "3"), " ", "")) == _normalized_energy_unit(from_unit),
+            func.lower(func.replace(func.replace(func.trim(m.EnergyUnitConversion.to_unit), "³", "3"), " ", "")) == _normalized_energy_unit(factor_unit),
+        )
+    )
+    if conversion is None:
+        return None, factor_unit, None, None
+    factor = _decimal_value(conversion.multiply_factor)
+    return amount * factor, factor_unit, factor, conversion.conversion_factor_source
+
+
+async def _build_purchased_energy_snapshot_payload(payload: dict[str, Any], session: AsyncSession) -> dict[str, Any]:
+    energy_type_code = str(payload.get("energy_type_code") or "").strip()
+    if energy_type_code not in PURCHASED_SCOPE2_ENERGY_CODES:
+        raise CarbonValidationError("Scope2 外购能源仅允许外购热力、外购蒸汽、外购冷量。")
+
+    energy_type = await _load_energy_type(session, energy_type_code)
+    if not energy_type or energy_type.default_scope != "scope2" or energy_type.category != "purchased_energy":
+        raise CarbonValidationError("能源品种字典缺少有效的 Scope2 外购能源口径。")
+
+    amount = _decimal_value(payload.get("amount"))
+    if amount is None:
+        raise CarbonValidationError("能源消费量不能为空。")
+    validate_consumption(amount, "能源消费量")
+
+    factor_amount, factor_unit, unit_conversion_factor, unit_conversion_source = await _convert_to_energy_factor_unit(
+        session,
+        energy_type=energy_type,
+        amount=amount,
+        from_unit=str(payload.get("unit") or energy_type.original_unit or ""),
+    )
+    standard_amount = _decimal_value(payload.get("standard_amount"))
+    standard_unit = payload.get("standard_unit") or energy_type.standard_unit
+    factor = _decimal_value(energy_type.standard_factor)
+    if standard_amount is None and factor is not None and factor_amount is not None:
+        standard_amount = factor_amount * factor
+    tce_amount = _decimal_value(payload.get("tce_amount"))
+    if tce_amount is None and standard_amount is not None and standard_unit == "kgce":
+        tce_amount = standard_amount / Decimal(1000)
+
+    factor_payload: dict[str, Any] = {
+        "calc_status": "missing_factor",
+        "factor_source": None,
+        "factor_year": _compute_year_from_date(payload.get("period_start")),
+        "factor_unit": None,
+        "activity_amount": _format_decimal(amount),
+        "activity_unit": payload.get("unit"),
+        "computed_co2e": None,
+        "computation_note": (
+            "暂未匹配外购热力/蒸汽/冷量排放因子，已完成能耗折标口径。"
+            if factor_amount is not None
+            else f"缺少 {payload.get('unit')} 到 {factor_unit or '折标基准单位'} 的单位换算，未计算折标煤。"
+        ),
+    }
+    try:
+        computation = await compute_emission_result(
+            session,
+            "scope2",
+            "purchased_energy",
+            energy_type_code,
+            amount,
+            str(payload.get("unit") or energy_type.original_unit or ""),
+            _compute_year_from_date(payload.get("period_start")),
+        )
+    except CarbonValidationError:
+        computation = None
+    if computation is not None:
+        factor_payload = {
+            "calc_status": "ready",
+            "factor_source": computation.factor_source,
+            "factor_year": computation.factor_year,
+            "factor_unit": computation.factor_unit,
+            "activity_amount": _format_decimal(computation.activity_amount),
+            "activity_unit": computation.activity_unit,
+            "computed_co2e": _format_decimal(computation.co2e),
+            "computation_note": "按外购能源活动量与匹配排放因子计算。",
+        }
+
+    return {
+        "energy_type_name": payload.get("energy_type_name") or energy_type.name,
+        "standard_amount": _format_decimal(standard_amount),
+        "standard_unit": standard_unit,
+        "tce_amount": _format_decimal(tce_amount),
+        "standard_code": payload.get("standard_code") or energy_type.standard_code,
+        "conversion_factor_source": payload.get("conversion_factor_source")
+        or "; ".join(item for item in [unit_conversion_source, energy_type.conversion_factor_source] if item),
+        **factor_payload,
+    }
 
 
 async def _build_scope_record_computation(record: Any, session: AsyncSession, *, source_kind: str | None = None) -> dict[str, Any]:
@@ -1764,12 +1968,14 @@ def _mutable_record_data(record: Any) -> dict[str, Any]:
 
 
 async def _build_scope2_snapshot_payload(
-    model_type: type[m.Scope2ElectricityBill] | type[m.Scope2MeterAggregate],
+    model_type: type[m.Scope2ElectricityBill] | type[m.Scope2MeterAggregate] | type[m.Scope2PurchasedEnergy],
     payload: dict[str, Any],
     session: AsyncSession,
     *,
     source_kind: str,
 ) -> dict[str, Any]:
+    if model_type is m.Scope2PurchasedEnergy:
+        return await _build_purchased_energy_snapshot_payload(payload, session)
     record = model_type(**payload)
     computation = await _build_scope_record_computation(record, session, source_kind=source_kind)
     return {
@@ -1785,8 +1991,8 @@ async def _build_scope2_snapshot_payload(
 
 
 async def _refresh_scope2_snapshot(
-    record: m.Scope2ElectricityBill | m.Scope2MeterAggregate,
-    service: services.Scope2ElectricityBillService | services.Scope2MeterAggregateService,
+    record: m.Scope2ElectricityBill | m.Scope2MeterAggregate | m.Scope2PurchasedEnergy,
+    service: services.Scope2ElectricityBillService | services.Scope2MeterAggregateService | services.Scope2PurchasedEnergyService,
     *,
     source_kind: str,
 ) -> Any:
@@ -1804,6 +2010,9 @@ async def _serialize_scope_record(record: Any, session: AsyncSession, *, source_
     data = model_to_dict(record)
     if isinstance(record, m.Scope2ElectricityBill):
         data.update(_scope2_snapshot_fields(data, source_kind=source_kind or SOURCE_KIND_MANUAL_BILL))
+        return data
+    if isinstance(record, m.Scope2PurchasedEnergy):
+        data.update(_scope2_snapshot_fields(data, source_kind=source_kind or "purchased_energy"))
         return data
     if isinstance(record, m.Scope2MeterAggregate):
         data.update(_scope2_snapshot_fields(data, source_kind=source_kind or SOURCE_KIND_DERIVED))
@@ -1921,6 +2130,7 @@ def _scope_record_label(record_type: str) -> str:
         "Scope1RefrigerantLeak": "[范围1] 制冷剂逸散",
         "Scope2ElectricityBill": "[范围2] 账单补录",
         "Scope2MeterAggregate": "[范围2] 电表聚合",
+        "Scope2PurchasedEnergy": "[范围2] 外购热力/蒸汽/冷量",
         "Scope3WasteDisposal": "[范围3] 废弃物处理",
         "Scope3ThirdPartyTransport": "[范围3] 外购运输",
     }.get(record_type, record_type)
@@ -1953,6 +2163,8 @@ def _scope_display_name(record: Any) -> str:
         return record.device_name or record.device_id or record.refrigerant_type
     if isinstance(record, m.Scope2ElectricityBill):
         return record.account_number
+    if isinstance(record, m.Scope2PurchasedEnergy):
+        return record.facility_name or record.supplier_name or record.energy_type_name or record.energy_type_code
     if isinstance(record, m.Scope2MeterAggregate):
         return record.ammeter_name or record.ammeter_id
     if isinstance(record, m.Scope3WasteDisposal):
@@ -1971,6 +2183,8 @@ def _scope_record_period(record: Any) -> str | None:
         return _month_string(record.fill_date)
     if isinstance(record, (m.Scope2ElectricityBill, m.Scope2MeterAggregate)):
         return getattr(record, "billing_month", None)
+    if isinstance(record, m.Scope2PurchasedEnergy):
+        return _month_string(record.period_start)
     if isinstance(record, m.Scope3WasteDisposal):
         return _month_string(record.date)
     if isinstance(record, m.Scope3ThirdPartyTransport):
@@ -1997,6 +2211,8 @@ def _is_demo_seed_record(record: Any) -> bool:
 def _record_source_kind(record: Any, default: str | None = None) -> str:
     if isinstance(record, m.Scope2ElectricityBill):
         return SOURCE_KIND_MANUAL_BILL
+    if isinstance(record, m.Scope2PurchasedEnergy):
+        return "purchased_energy"
     if isinstance(record, m.Scope2MeterAggregate):
         return SOURCE_KIND_DERIVED
     if _is_demo_seed_record(record):
@@ -2248,6 +2464,7 @@ class CarbonAnalyticsController(Controller):
             ("Scope1RefrigerantLeak", m.Scope1RefrigerantLeak, SOURCE_KIND_REAL),
             ("Scope2ElectricityBill", m.Scope2ElectricityBill, SOURCE_KIND_MANUAL_BILL),
             ("Scope2MeterAggregate", m.Scope2MeterAggregate, SOURCE_KIND_DERIVED),
+            ("Scope2PurchasedEnergy", m.Scope2PurchasedEnergy, "purchased_energy"),
             ("Scope3WasteDisposal", m.Scope3WasteDisposal, SOURCE_KIND_REAL),
             ("Scope3ThirdPartyTransport", m.Scope3ThirdPartyTransport, SOURCE_KIND_REAL),
         ]
@@ -3130,8 +3347,8 @@ class EnergyCarbonCenterController(Controller):
                             fuel_type="diesel" if index % 2 == 0 else "gasoline",
                             amount=Decimal("118.5") + Decimal(index * 9),
                             unit="L",
-                            mileage_km=Decimal("1280") + Decimal(index * 90),
-                            work_hours=Decimal("72") + Decimal(index * 4),
+                            mileage_km=Decimal(1280) + Decimal(index * 90),
+                            work_hours=Decimal(72) + Decimal(index * 4),
                             attachment=None if index == 0 else f"/demo/evidence/scope1-mobile-{month}.pdf",
                             remark=f"{DEMO_SEED_MARKER} 范围1移动源演示记录",
                             status=STATUS_PENDING if index == 0 else STATUS_APPROVED,
@@ -3148,10 +3365,10 @@ class EnergyCarbonCenterController(Controller):
                             period_start=month_date(month, 1),
                             period_end=month_date(month, 28),
                             fuel_type="natural_gas" if index % 2 == 0 else "diesel",
-                            amount=Decimal("420") + Decimal(index * 35),
+                            amount=Decimal(420) + Decimal(index * 35),
                             unit="m³" if index % 2 == 0 else "L",
-                            meter_reading_start=Decimal("1000") + Decimal(index * 120),
-                            meter_reading_end=Decimal("1100") + Decimal(index * 140),
+                            meter_reading_start=Decimal(1000) + Decimal(index * 120),
+                            meter_reading_end=Decimal(1100) + Decimal(index * 140),
                             attachment=f"/demo/evidence/scope1-stationary-{month}.pdf",
                             remark=f"{DEMO_SEED_MARKER} 范围1固定源演示记录",
                             status=STATUS_APPROVED,
@@ -3168,7 +3385,7 @@ class EnergyCarbonCenterController(Controller):
                             device_name=f"冷机组 {index + 1}",
                             fill_date=month_date(month, 12),
                             refrigerant_type="r410a" if index != 1 else "unknown_refrigerant",
-                            amount_kg=Decimal("2.6") + Decimal(index) / Decimal("10"),
+                            amount_kg=Decimal("2.6") + Decimal(index) / Decimal(10),
                             leak_type="maintenance" if index % 2 == 0 else "leak",
                             attachment=None,
                             remark=f"{DEMO_SEED_MARKER} 范围1制冷剂演示记录",
@@ -3184,7 +3401,7 @@ class EnergyCarbonCenterController(Controller):
                         m.Scope3WasteDisposal(
                             date=month_date(month, 18),
                             category="waste_municipal_incineration" if index % 2 == 0 else "waste_unknown",
-                            weight_ton=Decimal("4.2") + Decimal(index) / Decimal("2"),
+                            weight_ton=Decimal("4.2") + Decimal(index) / Decimal(2),
                             treatment_method="incineration" if index % 2 == 0 else "outsourced",
                             vendor_name=f"再生资源服务商 {index + 1}",
                             attachment=None if index == 2 else f"/demo/evidence/scope3-waste-{month}.pdf",
@@ -3203,8 +3420,8 @@ class EnergyCarbonCenterController(Controller):
                             origin="苏州工业园区仓",
                             destination=f"华东客户点位 {index + 1}",
                             vehicle_type="transport_heavy_truck" if index % 2 == 0 else "transport_light_truck",
-                            distance_km=Decimal("286") + Decimal(index * 12),
-                            load_ton=Decimal("14.5") + Decimal(index) / Decimal("2"),
+                            distance_km=Decimal(286) + Decimal(index * 12),
+                            load_ton=Decimal("14.5") + Decimal(index) / Decimal(2),
                             fuel_amount=None,
                             attachment=f"/demo/evidence/scope3-transport-{month}.pdf" if index != 3 else None,
                             remark=f"{DEMO_SEED_MARKER} 范围3运输演示记录",
@@ -4762,6 +4979,8 @@ class CarbonCRUDController(Controller):
         "scope1_refrigerant_service": provide_scope1_refrigerant_leak_service,
         "scope2_bill_service": provide_scope2_electricity_bill_service,
         "scope2_meter_aggregate_service": provide_scope2_meter_aggregate_service,
+        "scope2_purchased_energy_service": provide_scope2_purchased_energy_service,
+        "energy_type_service": provide_energy_type_service,
         "scope3_waste_service": provide_scope3_waste_disposal_service,
         "scope3_transport_service": provide_scope3_third_party_transport_service,
         "emission_factor_service": provide_emission_factor_service,
@@ -4950,7 +5169,7 @@ class CarbonCRUDController(Controller):
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
         # 按照内置 UserService 的用法，delete 期望传入主键 ID
-        await scope1_mobile_service.delete(record_id)
+        await scope1_mobile_service.delete(record_id, auto_commit=True)
         await self._log_carbon_security_event(
             security_audit_service,
             request,
@@ -5170,7 +5389,7 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
-        await scope1_stationary_service.delete(obj, auto_commit=True)
+        await scope1_stationary_service.delete(record_id, auto_commit=True)
         await self._log_carbon_security_event(
             security_audit_service,
             request,
@@ -5349,7 +5568,7 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
-        await scope1_refrigerant_service.delete(obj, auto_commit=True)
+        await scope1_refrigerant_service.delete(record_id, auto_commit=True)
         await self._log_carbon_security_event(
             security_audit_service,
             request,
@@ -5550,7 +5769,7 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
-        await scope2_bill_service.delete(obj, auto_commit=True)
+        await scope2_bill_service.delete(record_id, auto_commit=True)
         await self._log_carbon_security_event(
             security_audit_service,
             request,
@@ -5678,6 +5897,232 @@ class CarbonCRUDController(Controller):
         )
         return Response(content={"code": 200, "msg": "已驳回"})
 
+    # ---------- Scope2 外购热力/蒸汽/冷量 完整 CRUD + 审核 ----------
+    @get("/api/carbon/scope2-purchased-energy/{record_id:int}")
+    async def get_scope2_purchased_energy(
+        self, record_id: int, scope2_purchased_energy_service: services.Scope2PurchasedEnergyService
+    ) -> Response[dict]:
+        obj = await scope2_purchased_energy_service.get_one_or_none(id=record_id)
+        if not obj:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        return Response(
+            content={
+                "code": 200,
+                "data": await _serialize_scope_record(
+                    obj,
+                    scope2_purchased_energy_service.repository.session,
+                    source_kind="purchased_energy",
+                ),
+            }
+        )
+
+    @post("/api/carbon/scope2-purchased-energy")
+    async def create_scope2_purchased_energy(
+        self,
+        scope2_purchased_energy_service: services.Scope2PurchasedEnergyService,
+        data: dict[str, Any] = Body(),
+    ) -> Response[dict]:
+        try:
+            validate_period_start_end(data.get("period_start"), data.get("period_end"))
+            validate_consumption(data.get("amount"), "能源消费量")
+            _coerce_date_fields(data, ["period_start", "period_end"])
+            payload = {**_carbon_defaults(), **{k: v for k, v in data.items() if v is not None}}
+            payload.update(
+                await _build_scope2_snapshot_payload(
+                    m.Scope2PurchasedEnergy,
+                    payload,
+                    scope2_purchased_energy_service.repository.session,
+                    source_kind="purchased_energy",
+                )
+            )
+        except CarbonValidationError as e:
+            return Response(content={"code": 400, "msg": str(e)}, status_code=400)
+        obj = await scope2_purchased_energy_service.create(payload, auto_commit=True)
+        return Response(
+            content={
+                "code": 200,
+                "data": await _serialize_scope_record(
+                    obj,
+                    scope2_purchased_energy_service.repository.session,
+                    source_kind="purchased_energy",
+                ),
+                "msg": "创建成功",
+            }
+        )
+
+    @patch("/api/carbon/scope2-purchased-energy/{record_id:int}")
+    async def update_scope2_purchased_energy(
+        self,
+        record_id: int,
+        scope2_purchased_energy_service: services.Scope2PurchasedEnergyService,
+        data: dict[str, Any] = Body(),
+    ) -> Response[dict]:
+        obj = await scope2_purchased_energy_service.get_one_or_none(id=record_id)
+        if not obj:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        if obj.status == STATUS_APPROVED:
+            return Response(content={"code": 400, "msg": "已通过记录不可修改"}, status_code=400)
+        try:
+            merged = _mutable_record_data(obj)
+            merged.update({k: v for k, v in data.items() if v is not None})
+            validate_period_start_end(merged.get("period_start"), merged.get("period_end"))
+            validate_consumption(merged.get("amount"), "能源消费量")
+            _coerce_date_fields(merged, ["period_start", "period_end"])
+            merged.update(
+                await _build_scope2_snapshot_payload(
+                    m.Scope2PurchasedEnergy,
+                    merged,
+                    scope2_purchased_energy_service.repository.session,
+                    source_kind="purchased_energy",
+                )
+            )
+        except CarbonValidationError as e:
+            return Response(content={"code": 400, "msg": str(e)}, status_code=400)
+        await scope2_purchased_energy_service.update(item_id=record_id, data=merged, auto_commit=True)
+        fresh = await scope2_purchased_energy_service.get_one(id=record_id)
+        return Response(
+            content={
+                "code": 200,
+                "msg": "更新成功",
+                "data": await _serialize_scope_record(
+                    fresh,
+                    scope2_purchased_energy_service.repository.session,
+                    source_kind="purchased_energy",
+                ),
+            }
+        )
+
+    @delete("/api/carbon/scope2-purchased-energy/{record_id:int}", status_code=200)
+    async def delete_scope2_purchased_energy(
+        self,
+        request: Request[Any, Any, Any],
+        record_id: int,
+        scope2_purchased_energy_service: services.Scope2PurchasedEnergyService,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
+        obj = await scope2_purchased_energy_service.get_one_or_none(id=record_id)
+        if not obj:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        if obj.status == STATUS_APPROVED:
+            return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
+        await scope2_purchased_energy_service.delete(record_id, auto_commit=True)
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.delete",
+            record_type="Scope2PurchasedEnergy",
+            record_id=record_id,
+            details={"status_before": obj.status},
+        )
+        return Response(content={"code": 200, "msg": "已删除"})
+
+    @post("/api/carbon/scope2-purchased-energy/{record_id:int}/submit")
+    async def submit_scope2_purchased_energy(
+        self,
+        request: Request[Any, Any, Any],
+        record_id: int,
+        scope2_purchased_energy_service: services.Scope2PurchasedEnergyService,
+        audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
+        obj = await scope2_purchased_energy_service.get_one_or_none(id=record_id)
+        if not obj:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        if obj.status != STATUS_DRAFT:
+            return Response(content={"code": 400, "msg": "仅草稿可提交"}, status_code=400)
+        try:
+            obj = await _refresh_scope2_snapshot(obj, scope2_purchased_energy_service, source_kind="purchased_energy")
+        except CarbonValidationError as e:
+            return Response(content={"code": 400, "msg": str(e)}, status_code=400)
+        await scope2_purchased_energy_service.update(item_id=record_id, data={"status": STATUS_PENDING}, auto_commit=True)
+        await self._create_audit_log(
+            audit_log_service,
+            {"record_type": "Scope2PurchasedEnergy", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
+        )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.submit",
+            record_type="Scope2PurchasedEnergy",
+            record_id=record_id,
+            details={"status_before": obj.status, "status_after": STATUS_PENDING},
+        )
+        return Response(content={"code": 200, "msg": "已提交审核"})
+
+    @post("/api/carbon/scope2-purchased-energy/{record_id:int}/approve", guards=[requires_superuser])
+    async def approve_scope2_purchased_energy(
+        self,
+        request: Request[Any, Any, Any],
+        record_id: int,
+        scope2_purchased_energy_service: services.Scope2PurchasedEnergyService,
+        audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
+    ) -> Response[dict]:
+        obj = await scope2_purchased_energy_service.get_one_or_none(id=record_id)
+        if not obj:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        if obj.status != STATUS_PENDING:
+            return Response(content={"code": 400, "msg": "仅待审核可通过"}, status_code=400)
+        try:
+            obj = await _refresh_scope2_snapshot(obj, scope2_purchased_energy_service, source_kind="purchased_energy")
+        except CarbonValidationError as e:
+            return Response(content={"code": 400, "msg": str(e)}, status_code=400)
+        now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        await scope2_purchased_energy_service.update(
+            item_id=record_id,
+            data={"status": STATUS_APPROVED, "approved_at": now},
+            auto_commit=True,
+        )
+        await self._create_audit_log(
+            audit_log_service,
+            {"record_type": "Scope2PurchasedEnergy", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
+        )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.approve",
+            record_type="Scope2PurchasedEnergy",
+            record_id=record_id,
+            details={"status_before": obj.status, "status_after": STATUS_APPROVED},
+        )
+        return Response(content={"code": 200, "msg": "已通过"})
+
+    @post("/api/carbon/scope2-purchased-energy/{record_id:int}/reject", guards=[requires_superuser])
+    async def reject_scope2_purchased_energy(
+        self,
+        request: Request[Any, Any, Any],
+        record_id: int,
+        scope2_purchased_energy_service: services.Scope2PurchasedEnergyService,
+        audit_log_service: services.CarbonAuditLogService,
+        security_audit_service: AuditLogService,
+        data: dict[str, Any] = Body(default={}),
+    ) -> Response[dict]:
+        obj = await scope2_purchased_energy_service.get_one_or_none(id=record_id)
+        if not obj:
+            return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        if obj.status != STATUS_PENDING:
+            return Response(content={"code": 400, "msg": "仅待审核可驳回"}, status_code=400)
+        reason = (data.get("reason") or data.get("reject_reason") or "管理员驳回，请修改后重新提交")[:500]
+        await scope2_purchased_energy_service.update(
+            item_id=record_id,
+            data={"status": STATUS_REJECTED, "reject_reason": reason},
+            auto_commit=True,
+        )
+        await self._create_audit_log(
+            audit_log_service,
+            {"record_type": "Scope2PurchasedEnergy", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
+        )
+        await self._log_carbon_security_event(
+            security_audit_service,
+            request,
+            action="carbon.record.reject",
+            record_type="Scope2PurchasedEnergy",
+            record_id=record_id,
+            comment=reason,
+            details={"status_before": obj.status, "status_after": STATUS_REJECTED},
+        )
+        return Response(content={"code": 200, "msg": "已驳回"})
+
     # ---------- Scope3 废弃物 完整 CRUD + 审核 ----------
     @get("/api/carbon/scope3-waste-disposal/{record_id:int}")
     async def get_scope3_waste(
@@ -5741,7 +6186,7 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
-        await scope3_waste_service.delete(obj, auto_commit=True)
+        await scope3_waste_service.delete(record_id, auto_commit=True)
         await self._log_carbon_security_event(
             security_audit_service,
             request,
@@ -5918,7 +6363,7 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
-        await scope3_transport_service.delete(obj, auto_commit=True)
+        await scope3_transport_service.delete(record_id, auto_commit=True)
         await self._log_carbon_security_event(
             security_audit_service,
             request,
@@ -6114,6 +6559,51 @@ class CarbonCRUDController(Controller):
             conditions=conditions,
         )
         return Response(content=await _augment_page_items(page, rows, session, source_kind="manual_bill"))
+
+    @get("/api/carbon/scope2-purchased-energy")
+    async def list_scope2_purchased_energy(
+        self,
+        scope2_purchased_energy_service: services.Scope2PurchasedEnergyService,
+        limit: int = 20,
+        offset: int = 0,
+        search: str | None = None,
+        keyword: str | None = None,
+        status: str | None = None,
+        energy_type_code: str | None = None,
+        sort_field: str = "id",
+        sort_order: str = "desc",
+    ) -> Response[dict]:
+        conditions = []
+        if status:
+            conditions.append(m.Scope2PurchasedEnergy.status == status)
+        if energy_type_code:
+            conditions.append(m.Scope2PurchasedEnergy.energy_type_code == energy_type_code)
+        session = scope2_purchased_energy_service.repository.session
+        page = await _list_page(
+            scope2_purchased_energy_service,
+            m.Scope2PurchasedEnergy,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["energy_type_code", "energy_type_name", "supplier_name", "area_name", "facility_name", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        rows = await _list_rows(
+            scope2_purchased_energy_service,
+            m.Scope2PurchasedEnergy,
+            limit=limit,
+            offset=offset,
+            search=search,
+            keyword=keyword,
+            search_fields=["energy_type_code", "energy_type_name", "supplier_name", "area_name", "facility_name", "remark"],
+            sort_field=sort_field,
+            sort_order=sort_order,
+            conditions=conditions,
+        )
+        return Response(content=await _augment_page_items(page, rows, session, source_kind="purchased_energy"))
 
     @get("/api/carbon/scope3-waste-disposal")
     async def list_scope3_waste(
@@ -6730,7 +7220,7 @@ class CarbonCRUDController(Controller):
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
-        await scope2_meter_aggregate_service.delete(obj, auto_commit=True)
+        await scope2_meter_aggregate_service.delete(record_id, auto_commit=True)
         await self._log_carbon_security_event(
             security_audit_service,
             request,
@@ -6973,6 +7463,355 @@ class CarbonCRUDController(Controller):
                     "missing_meter_count": int(missing_count or 0),
                 },
             }
+        )
+
+    @get("/api/energy/types")
+    async def list_energy_types(
+        self,
+        db_session: AsyncSession,
+        category: str | None = None,
+        scope_filter: str | None = Parameter(query="scope", required=False),
+        include_disabled: bool = False,
+    ) -> Response[dict]:
+        conditions = []
+        if category:
+            conditions.append(m.EnergyType.category == category)
+        if scope_filter:
+            conditions.append(m.EnergyType.default_scope == scope_filter)
+        if not include_disabled:
+            conditions.append(m.EnergyType.is_enabled.is_(True))
+        rows = (
+            await db_session.execute(
+                select(m.EnergyType)
+                .where(*(conditions or [text("1=1")]))
+                .order_by(m.EnergyType.default_scope.asc(), m.EnergyType.category.asc(), m.EnergyType.id.asc())
+            )
+        ).scalars().all()
+        return Response(content={"code": 200, "msg": "获取成功", "data": {"items": [model_to_dict(row) for row in rows]}})
+
+    @get("/api/energy/unit-conversions")
+    async def list_energy_unit_conversions(
+        self,
+        db_session: AsyncSession,
+        energy_type_code: str | None = None,
+        include_disabled: bool = False,
+    ) -> Response[dict]:
+        conditions = []
+        if energy_type_code:
+            conditions.append(m.EnergyUnitConversion.energy_type_code == energy_type_code)
+        if not include_disabled:
+            conditions.append(m.EnergyUnitConversion.is_enabled.is_(True))
+        rows = (
+            await db_session.execute(
+                select(m.EnergyUnitConversion)
+                .where(*(conditions or [text("1=1")]))
+                .order_by(
+                    m.EnergyUnitConversion.energy_type_code.asc(),
+                    m.EnergyUnitConversion.from_unit.asc(),
+                    m.EnergyUnitConversion.to_unit.asc(),
+                )
+            )
+        ).scalars().all()
+        return Response(content={"code": 200, "msg": "获取成功", "data": {"items": [model_to_dict(row) for row in rows]}})
+
+    @get("/api/energy/consumption/facts")
+    async def list_energy_consumption_facts(
+        self,
+        db_session: AsyncSession,
+        period_start: str | None = None,
+        period_end: str | None = None,
+        energy_type_code: str | None = None,
+        scope_filter: str | None = Parameter(query="scope", required=False),
+        status: str | None = "approved",
+        area_id: str | None = None,
+        area_keyword: str | None = None,
+        source_record_type: str | None = None,
+        keyword: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        sort_field: str = "period_start",
+        sort_order: str = "desc",
+    ) -> Response[dict]:
+        limit_clamped = max(1, min(limit, 200))
+        offset_clamped = max(0, offset)
+        where_sql, params = _build_energy_fact_filters(
+            period_start=period_start,
+            period_end=period_end,
+            energy_type_code=energy_type_code,
+            scope=scope_filter,
+            status=status,
+            area_id=area_id,
+            area_keyword=area_keyword,
+            source_record_type=source_record_type,
+            keyword=keyword,
+        )
+        order_field = sort_field if sort_field in ENERGY_FACT_SORT_FIELDS else "period_start"
+        order_direction = "asc" if sort_order == "asc" else "desc"
+        count_sql = text(f"select count(*) from energy_consumption_fact_v {where_sql}")  # noqa: S608
+        total = int((await db_session.execute(count_sql, params)).scalar_one() or 0)
+        query_sql = text(
+            f"""
+            select
+                source_record_type,
+                source_record_id,
+                scope,
+                emission_category,
+                energy_type_code,
+                energy_type_name,
+                original_amount,
+                original_unit,
+                factor_amount,
+                factor_unit,
+                unit_conversion_factor,
+                unit_conversion_source,
+                standard_amount,
+                standard_unit,
+                tce_amount,
+                co2e_amount,
+                period_start,
+                period_end,
+                area_id,
+                area_name,
+                facility_or_device_name,
+                status,
+                standard_code,
+                conversion_factor_source,
+                emission_factor_source
+            from energy_consumption_fact_v
+            {where_sql}
+            order by {order_field} {order_direction}, source_record_id desc
+            limit :limit offset :offset
+            """  # noqa: S608
+        )
+        rows = (
+            await db_session.execute(
+                query_sql,
+                {
+                    **params,
+                    "limit": limit_clamped,
+                    "offset": offset_clamped,
+                },
+            )
+        ).mappings().all()
+        items = [_jsonable_mapping(dict(row)) for row in rows]
+        return Response(content=_paged_payload(items, total, limit_clamped, offset_clamped))
+
+    @get("/api/energy/consumption/summary")
+    async def get_energy_consumption_summary(
+        self,
+        db_session: AsyncSession,
+        period_start: str | None = None,
+        period_end: str | None = None,
+        energy_type_code: str | None = None,
+        scope_filter: str | None = Parameter(query="scope", required=False),
+        status: str | None = "approved",
+        area_id: str | None = None,
+        area_keyword: str | None = None,
+        source_record_type: str | None = None,
+        keyword: str | None = None,
+        group_by: str = "energy_type",
+    ) -> Response[dict]:
+        group_options = {
+            "energy_type": ("energy_type_code", "energy_type_name"),
+            "scope": ("scope", "scope"),
+            "area": ("coalesce(area_id, '')", "coalesce(area_name, '未分区')"),
+            "source": ("source_record_type", "source_record_type"),
+            "facility": ("coalesce(facility_or_device_name, '')", "coalesce(facility_or_device_name, '未命名')"),
+        }
+        requested_groups = [item.strip() for item in group_by.split(",") if item.strip() in group_options]
+        if not requested_groups:
+            requested_groups = ["energy_type"]
+        select_parts: list[str] = []
+        group_parts: list[str] = []
+        for index, group_name in enumerate(requested_groups, start=1):
+            key_expr, label_expr = group_options[group_name]
+            select_parts.append(f"{key_expr} as group_key_{index}")
+            select_parts.append(f"{label_expr} as group_label_{index}")
+            group_parts.extend([key_expr, label_expr])
+        where_sql, params = _build_energy_fact_filters(
+            period_start=period_start,
+            period_end=period_end,
+            energy_type_code=energy_type_code,
+            scope=scope_filter,
+            status=status,
+            area_id=area_id,
+            area_keyword=area_keyword,
+            source_record_type=source_record_type,
+            keyword=keyword,
+        )
+        summary_sql = text(
+            f"""
+            select
+                {", ".join(select_parts)},
+                count(*)::int as record_count,
+                sum(original_amount) as original_amount,
+                max(original_unit) as original_unit,
+                sum(factor_amount) as factor_amount,
+                max(factor_unit) as factor_unit,
+                sum(standard_amount) as standard_amount,
+                max(standard_unit) as standard_unit,
+                sum(tce_amount) as tce_amount,
+                sum(co2e_amount) as co2e_amount
+            from energy_consumption_fact_v
+            {where_sql}
+            group by {", ".join(group_parts)}
+            order by sum(tce_amount) desc nulls last, sum(original_amount) desc nulls last
+            """  # noqa: S608
+        )
+        rows = (await db_session.execute(summary_sql, params)).mappings().all()
+        items: list[dict[str, Any]] = []
+        for row in rows:
+            item = _jsonable_mapping(dict(row))
+            groups = [
+                {
+                    "dimension": requested_groups[index - 1],
+                    "key": item.pop(f"group_key_{index}", None),
+                    "label": item.pop(f"group_label_{index}", None),
+                }
+                for index in range(1, len(requested_groups) + 1)
+            ]
+            item["groups"] = groups
+            item["group_key"] = " / ".join(str(group["key"] or "") for group in groups)
+            item["group_label"] = " / ".join(str(group["label"] or "-") for group in groups)
+            items.append(item)
+        totals_sql = text(
+            f"""
+            select
+                count(*)::int as record_count,
+                sum(original_amount) as original_amount,
+                sum(factor_amount) as factor_amount,
+                sum(standard_amount) as standard_amount,
+                sum(tce_amount) as tce_amount,
+                sum(co2e_amount) as co2e_amount
+            from energy_consumption_fact_v
+            {where_sql}
+            """  # noqa: S608
+        )
+        totals = _jsonable_mapping(dict((await db_session.execute(totals_sql, params)).mappings().one()))
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {
+                    "items": items,
+                    "totals": totals,
+                    "group_by": requested_groups,
+                    "filters": {
+                        "period_start": period_start,
+                        "period_end": period_end,
+                        "energy_type_code": energy_type_code,
+                        "scope": scope_filter,
+                        "status": status,
+                        "area_id": area_id,
+                        "area_keyword": area_keyword,
+                        "source_record_type": source_record_type,
+                        "keyword": keyword,
+                    },
+                },
+            }
+        )
+
+    @get("/api/energy/consumption/export")
+    async def export_energy_consumption(
+        self,
+        db_session: AsyncSession,
+        period_start: str | None = None,
+        period_end: str | None = None,
+        energy_type_code: str | None = None,
+        scope_filter: str | None = Parameter(query="scope", required=False),
+        status: str | None = "approved",
+        area_id: str | None = None,
+        area_keyword: str | None = None,
+        source_record_type: str | None = None,
+        keyword: str | None = None,
+    ) -> Response[str]:
+        where_sql, params = _build_energy_fact_filters(
+            period_start=period_start,
+            period_end=period_end,
+            energy_type_code=energy_type_code,
+            scope=scope_filter,
+            status=status,
+            area_id=area_id,
+            area_keyword=area_keyword,
+            source_record_type=source_record_type,
+            keyword=keyword,
+        )
+        rows = (
+            await db_session.execute(
+                text(
+                    f"""
+                    select
+                        source_record_type,
+                        source_record_id,
+                        scope,
+                        emission_category,
+                        energy_type_code,
+                        energy_type_name,
+                        original_amount,
+                        original_unit,
+                        factor_amount,
+                        factor_unit,
+                        unit_conversion_factor,
+                        unit_conversion_source,
+                        standard_amount,
+                        standard_unit,
+                        tce_amount,
+                        co2e_amount,
+                        period_start,
+                        period_end,
+                        area_id,
+                        area_name,
+                        facility_or_device_name,
+                        status,
+                        standard_code,
+                        conversion_factor_source,
+                        emission_factor_source
+                    from energy_consumption_fact_v
+                    {where_sql}
+                    order by period_start desc, source_record_id desc
+                    limit 5000
+                    """  # noqa: S608
+                ),
+                params,
+            )
+        ).mappings().all()
+        output = io.StringIO()
+        writer = csv.writer(output)
+        headers = [
+            "source_record_type",
+            "source_record_id",
+            "scope",
+            "emission_category",
+            "energy_type_code",
+            "energy_type_name",
+            "original_amount",
+            "original_unit",
+            "factor_amount",
+            "factor_unit",
+            "unit_conversion_factor",
+            "unit_conversion_source",
+            "standard_amount",
+            "standard_unit",
+            "tce_amount",
+            "co2e_amount",
+            "period_start",
+            "period_end",
+            "area_id",
+            "area_name",
+            "facility_or_device_name",
+            "status",
+            "standard_code",
+            "conversion_factor_source",
+            "emission_factor_source",
+        ]
+        writer.writerow(headers)
+        for row in rows:
+            item = _jsonable_mapping(dict(row))
+            writer.writerow([item.get(header) for header in headers])
+        return Response(
+            content="\ufeff" + output.getvalue(),
+            media_type="text/csv; charset=utf-8",
+            headers={"content-disposition": 'attachment; filename="energy_consumption.csv"'},
         )
 
     @get("/api/master-data/areas/tree")
@@ -9041,7 +9880,7 @@ class CarbonCRUDController(Controller):
         obj = await employee_commute_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        await employee_commute_service.delete(obj, auto_commit=True)
+        await employee_commute_service.delete(record_id, auto_commit=True)
         await self._log_admin_data_event(
             security_audit_service,
             request,

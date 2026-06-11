@@ -52,6 +52,27 @@ class DeviceTypeService(CompositeServiceMixin, service.SQLAlchemyAsyncRepository
     repository_type = Repo
 
 
+class EnergyTypeService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.EnergyType]):
+    """Handles database operations for EnergyType."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.EnergyType]):
+        """EnergyType SQLAlchemy Repository."""
+        model_type = m.EnergyType
+
+    repository_type = Repo
+
+
+class EnergyUnitConversionService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.EnergyUnitConversion]):
+    """Handles database operations for EnergyUnitConversion."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.EnergyUnitConversion]):
+        """EnergyUnitConversion SQLAlchemy Repository."""
+
+        model_type = m.EnergyUnitConversion
+
+    repository_type = Repo
+
+
 class MonitorEquipmentService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.MonitorEquipment]):
     """Handles database operations for MonitorEquipment."""
 
@@ -199,6 +220,16 @@ class Scope2ElectricityBillService(CompositeServiceMixin, service.SQLAlchemyAsyn
     class Repo(repository.SQLAlchemyAsyncRepository[m.Scope2ElectricityBill]):
         """Scope2ElectricityBill SQLAlchemy Repository."""
         model_type = m.Scope2ElectricityBill
+
+    repository_type = Repo
+
+
+class Scope2PurchasedEnergyService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.Scope2PurchasedEnergy]):
+    """Handles database operations for Scope2PurchasedEnergy."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.Scope2PurchasedEnergy]):
+        """Scope2PurchasedEnergy SQLAlchemy Repository."""
+        model_type = m.Scope2PurchasedEnergy
 
     repository_type = Repo
 

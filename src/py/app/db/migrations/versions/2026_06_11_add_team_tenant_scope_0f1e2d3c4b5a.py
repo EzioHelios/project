@@ -56,7 +56,7 @@ def _add_team_column(table_name: str) -> None:
     op.add_column(table_name, _team_id_column())
     op.execute(
         sa.text(
-            f"update {table_name} set team_id = :team_id where team_id is null"  # noqa: S608
+            f"update {table_name} set team_id = cast(:team_id as uuid) where team_id is null"  # noqa: S608
         ).bindparams(
             team_id=DEFAULT_TENANT_ID,
         )
@@ -117,7 +117,7 @@ def upgrade() -> None:
             """
             insert into team (id, name, description, is_active, slug, sa_orm_sentinel, created_at, updated_at)
             values (
-                :team_id,
+                cast(:team_id as uuid),
                 'Default Tenant',
                 'Default team used to own data created before tenant isolation.',
                 true,

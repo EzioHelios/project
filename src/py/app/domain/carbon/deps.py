@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from . import services
+from app.domain.carbon import services
 from app.lib.deps import create_service_provider
 
 provide_enterprise_info_service = create_service_provider(services.EnterpriseInfoService)
 provide_monitor_sector_service = create_service_provider(services.MonitorSectorService)
 provide_area_service = create_service_provider(services.AreaService)
 provide_device_type_service = create_service_provider(services.DeviceTypeService)
+provide_energy_type_service = create_service_provider(services.EnergyTypeService)
+provide_energy_unit_conversion_service = create_service_provider(services.EnergyUnitConversionService)
 provide_monitor_equipment_service = create_service_provider(services.MonitorEquipmentService)
 provide_device_service = create_service_provider(services.DeviceService)
 provide_device_point_service = create_service_provider(services.DevicePointService)
@@ -24,6 +26,7 @@ provide_scope1_mobile_combustion_service = create_service_provider(services.Scop
 provide_scope1_stationary_combustion_service = create_service_provider(services.Scope1StationaryCombustionService)
 provide_scope1_refrigerant_leak_service = create_service_provider(services.Scope1RefrigerantLeakService)
 provide_scope2_electricity_bill_service = create_service_provider(services.Scope2ElectricityBillService)
+provide_scope2_purchased_energy_service = create_service_provider(services.Scope2PurchasedEnergyService)
 provide_scope2_meter_aggregate_service = create_service_provider(services.Scope2MeterAggregateService)
 provide_scope3_waste_disposal_service = create_service_provider(services.Scope3WasteDisposalService)
 provide_scope3_third_party_transport_service = create_service_provider(services.Scope3ThirdPartyTransportService)
@@ -48,12 +51,14 @@ __all__ = (
     "provide_carbon_factor_import_batch_service",
     "provide_carbon_factor_library_service",
     "provide_carbon_factor_raw_record_service",
-    "provide_device_service",
     "provide_device_point_service",
+    "provide_device_service",
     "provide_device_type_service",
     "provide_emission_factor_service",
     "provide_employee_commute_service",
     "provide_energy_storage_value_service",
+    "provide_energy_type_service",
+    "provide_energy_unit_conversion_service",
     "provide_enterprise_info_service",
     "provide_in_money_service",
     "provide_iot_telemetry_service",
@@ -66,6 +71,7 @@ __all__ = (
     "provide_scope1_stationary_combustion_service",
     "provide_scope2_electricity_bill_service",
     "provide_scope2_meter_aggregate_service",
+    "provide_scope2_purchased_energy_service",
     "provide_scope3_third_party_transport_service",
     "provide_scope3_waste_disposal_service",
     "provide_vedio_alarm_event_service",
