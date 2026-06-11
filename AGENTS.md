@@ -93,6 +93,30 @@ src/
 
 **Frontend integration**: Litestar-Vite serves the React SPA. `make types` generates TypeScript API client from the OpenAPI schema using `@hey-api`.
 
+## Multi-Tenant Development Notes
+
+Carbon business data is team-scoped. The tenant infrastructure lives in `src/py/app/lib/tenancy.py` and is wired through `DatabaseSettings.get_config()` in `src/py/app/lib/settings.py`.
+
+When adding a new team-owned business table:
+- Inherit `TeamScopedMixin` on the SQLAlchemy model so it gets a non-null `team_id` FK to `team.id`.
+- Add the table to the tenant migration path: create/backfill `team_id`, add the FK/index, and enable/force PostgreSQL RLS with a policy based on `current_setting('app.tenant_id', true)` and `current_setting('app.tenant_bypass', true)`.
+- Prefer team-local uniqueness for business identifiers, for example `UniqueConstraint("team_id", "code", ...)` instead of global `unique=True`.
+- Add focused integration tests for query isolation, automatic `team_id` assignment on writes, and cross-team write rejection.
+
+Tenant context rules:
+- Non-superusers can access an explicit team only if they are a member. If they belong to exactly one team and no team is requested, that team becomes the default tenant.
+- Superusers bypass tenant filtering unless they explicitly request a team. Bypass writes without `team_id` fall back to `DEFAULT_TENANT_ID` for legacy compatibility.
+- The request session stores tenant metadata in `session.info` and also sets PostgreSQL transaction-local settings. Use the injected `AsyncSession`; avoid ad hoc engine connections for tenant-scoped data because they may miss the tenant settings.
+
+Query and raw SQL guidance:
+- ORM queries against `TeamScopedMixin` models are filtered automatically by SQLAlchemy session events.
+- Raw SQL and database views are protected only if the underlying tables have RLS and the query runs through the tenant-aware session. Do not disable RLS or use privileged database roles for application queries.
+- Use `execution_options(include_all_tenants=True)` only for deliberate administrative reads, and keep those paths guarded by superuser checks.
+
+Current scope:
+- Tenant-scoped carbon models include enterprise info, monitor sectors/equipment, telemetry, alarms, energy values, carbon activity records, meter aggregates, and carbon audit logs.
+- Identity/platform tables such as users, teams, roles, permissions, invitations, tags, factor libraries, factor categories, raw factor records, API result key mappings, and device types remain global unless a product requirement says otherwise.
+
 ## Code Conventions
 
 - Python line length: 120 characters (ruff)

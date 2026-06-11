@@ -99,7 +99,9 @@ class DatabaseSettings:
         Returns:
             The SQLAlchemy async configuration.
         """
-        return SQLAlchemyAsyncConfig(
+        from app.lib.tenancy import TenantAwareSQLAlchemyAsyncConfig
+
+        return TenantAwareSQLAlchemyAsyncConfig(
             engine_instance=self.get_engine(),
             before_send_handler="autocommit",
             session_config=AsyncSessionConfig(expire_on_commit=False),

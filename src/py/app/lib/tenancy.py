@@ -1,0 +1,253 @@
+"""Tenant scoping helpers for team-owned business data."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, ClassVar, cast
+from uuid import UUID
+
+from advanced_alchemy.extensions.litestar import SQLAlchemyAsyncConfig
+from litestar.datastructures import State  # noqa: TC002 - Litestar resolves reserved dependency types at runtime.
+from litestar.exceptions import PermissionDeniedException
+from litestar.types import Scope  # noqa: TC002 - Litestar resolves reserved dependency types at runtime.
+from sqlalchemy import ForeignKey, event, false, text
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: TC002 - Litestar resolves provider return types at runtime.
+from sqlalchemy.orm import Mapped, Session, declared_attr, mapped_column, with_loader_criteria
+
+from app.lib import constants
+
+if TYPE_CHECKING:
+    from app.db.models import User
+
+TENANT_ID_SESSION_KEY = "tenant_id"
+TENANT_BYPASS_SESSION_KEY = "tenant_bypass"
+TENANT_EVENT_INSTALLED_KEY = "_app_tenant_events_installed"
+TENANT_HEADER_NAME = b"x-team-id"
+DEFAULT_TENANT_ID = UUID("00000000-0000-7000-8000-000000000001")
+
+
+@dataclass(frozen=True)
+class TenantContext:
+    """Resolved tenant information for the current request."""
+
+    team_id: UUID
+    user_id: UUID
+    is_superuser: bool = False
+
+
+class TeamScopedMixin:
+    """Declarative mixin for rows owned by a team tenant."""
+
+    __abstract__ = True
+    __tenant_scoped__: ClassVar[bool] = True
+
+    @declared_attr.directive
+    def team_id(cls) -> Mapped[UUID]:
+        return mapped_column(ForeignKey("team.id", ondelete="CASCADE"), nullable=False, index=True)
+
+
+def _coerce_uuid(value: object) -> UUID | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, UUID):
+        return value
+    try:
+        return UUID(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_header_team_id(scope: Scope) -> UUID | None:
+    for name, value in cast("list[tuple[bytes, bytes]]", scope.get("headers", [])):
+        if name.lower() == TENANT_HEADER_NAME:
+            return _coerce_uuid(value.decode())
+    return None
+
+
+def _extract_requested_team_id(scope: Scope) -> UUID | None:
+    path_params = cast("dict[str, object]", scope.get("path_params") or {})
+    return _coerce_uuid(path_params.get("team_id")) or _extract_header_team_id(scope)
+
+
+def _user_has_superuser_access(user: User) -> bool:
+    if user.is_superuser:
+        return True
+    return any(
+        assigned_role.role_name == constants.SUPERUSER_ACCESS_ROLE
+        for assigned_role in user.roles
+    )
+
+
+def _user_team_ids(user: User) -> set[UUID]:
+    return {membership.team_id for membership in user.teams}
+
+
+def resolve_tenant_context(scope: Scope) -> TenantContext | None:
+    """Resolve tenant context from path/header/user membership.
+
+    Non-superusers can use an explicitly requested team only if they are a member.
+    If a user belongs to exactly one team, that team is used as the default tenant.
+    Superusers bypass tenant filtering unless they explicitly select a team.
+    """
+    user = cast("User | None", scope.get("user"))
+    if user is None:
+        return None
+
+    requested_team_id = _extract_requested_team_id(scope)
+    is_superuser = _user_has_superuser_access(user)
+    if is_superuser:
+        if requested_team_id is None:
+            return None
+        return TenantContext(team_id=requested_team_id, user_id=user.id, is_superuser=True)
+
+    team_ids = _user_team_ids(user)
+    if requested_team_id is not None:
+        if requested_team_id not in team_ids:
+            raise PermissionDeniedException(detail="Insufficient permissions to access team.")
+        return TenantContext(team_id=requested_team_id, user_id=user.id)
+
+    if len(team_ids) == 1:
+        return TenantContext(team_id=next(iter(team_ids)), user_id=user.id)
+    return None
+
+
+def configure_session_tenant(session: AsyncSession, scope: Scope) -> None:
+    """Attach tenant metadata to a request-scoped SQLAlchemy session."""
+    try:
+        tenant_context = resolve_tenant_context(scope)
+    except PermissionDeniedException:
+        session.info.pop(TENANT_ID_SESSION_KEY, None)
+        session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
+        return
+
+    user = cast("User | None", scope.get("user"))
+    if tenant_context is None:
+        session.info.pop(TENANT_ID_SESSION_KEY, None)
+        if user is not None and _user_has_superuser_access(user):
+            session.info[TENANT_BYPASS_SESSION_KEY] = True
+        else:
+            session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
+        return
+
+    session.info[TENANT_ID_SESSION_KEY] = tenant_context.team_id
+    session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
+
+
+class TenantAwareSQLAlchemyAsyncConfig(SQLAlchemyAsyncConfig):
+    """SQLAlchemy config that carries request tenant metadata on sessions."""
+
+    def provide_session(self, state: State, scope: Scope) -> AsyncSession:
+        session = super().provide_session(state, scope)
+        configure_session_tenant(session, scope)
+        return session
+
+
+def _is_team_scoped(obj: object) -> bool:
+    return bool(getattr(obj.__class__, "__tenant_scoped__", False))
+
+
+def _tenant_id_for_session(session: Session) -> UUID | None:
+    return _coerce_uuid(session.info.get(TENANT_ID_SESSION_KEY))
+
+
+def _iter_team_scoped_model_classes() -> list[type[TeamScopedMixin]]:
+    scoped_classes: list[type[TeamScopedMixin]] = []
+    pending: list[type[TeamScopedMixin]] = list(TeamScopedMixin.__subclasses__())
+    while pending:
+        model_cls = pending.pop()
+        pending.extend(cast("list[type[TeamScopedMixin]]", model_cls.__subclasses__()))
+        if hasattr(model_cls, "__mapper__"):
+            scoped_classes.append(model_cls)
+    return scoped_classes
+
+
+def _enforce_flush_tenant(session: Session) -> None:
+    tenant_id = _tenant_id_for_session(session)
+    bypass = bool(session.info.get(TENANT_BYPASS_SESSION_KEY))
+    scoped_objects = [
+        obj
+        for collection in (session.new, session.dirty, session.deleted)
+        for obj in collection
+        if _is_team_scoped(obj)
+    ]
+    if not scoped_objects:
+        return
+
+    if tenant_id is None:
+        if bypass:
+            for obj in scoped_objects:
+                if obj in session.new and _coerce_uuid(getattr(obj, "team_id", None)) is None:
+                    setattr(obj, "team_id", DEFAULT_TENANT_ID)
+            return
+        msg = "Tenant-scoped writes require an active team context."
+        raise PermissionDeniedException(detail=msg)
+
+    for obj in scoped_objects:
+        object_team_id = _coerce_uuid(getattr(obj, "team_id", None))
+        if obj in session.new and object_team_id is None:
+            setattr(obj, "team_id", tenant_id)
+            continue
+        if object_team_id != tenant_id:
+            msg = "Cannot write tenant-scoped data outside the active team."
+            raise PermissionDeniedException(detail=msg)
+
+
+def install_tenant_events() -> None:
+    """Install SQLAlchemy session events once per process."""
+    if getattr(Session, TENANT_EVENT_INSTALLED_KEY, False):
+        return
+
+    @event.listens_for(Session, "after_begin")
+    def _set_postgresql_tenant_settings(session: Session, _transaction: Any, connection: Any) -> None:
+        if connection.dialect.name != "postgresql":
+            return
+
+        tenant_id = _tenant_id_for_session(session)
+        connection.execute(
+            text("select set_config('app.tenant_id', :tenant_id, true)"),
+            {"tenant_id": str(tenant_id) if tenant_id is not None else ""},
+        )
+        connection.execute(
+            text("select set_config('app.tenant_bypass', :tenant_bypass, true)"),
+            {"tenant_bypass": "true" if session.info.get(TENANT_BYPASS_SESSION_KEY) else "false"},
+        )
+
+    @event.listens_for(Session, "do_orm_execute")
+    def _add_tenant_criteria(execute_state: Any) -> None:
+        if not execute_state.is_select or execute_state.execution_options.get("include_all_tenants"):
+            return
+        session = execute_state.session
+        if session.info.get(TENANT_BYPASS_SESSION_KEY):
+            return
+
+        tenant_id = _tenant_id_for_session(session)
+        scoped_model_classes = _iter_team_scoped_model_classes()
+        if not scoped_model_classes:
+            return
+        if tenant_id is None:
+            def _deny_tenant_access(_cls: type[TeamScopedMixin]) -> Any:
+                return false()
+
+            execute_state.statement = execute_state.statement.options(
+                *[
+                    with_loader_criteria(model_cls, _deny_tenant_access, include_aliases=True)
+                    for model_cls in scoped_model_classes
+                ],
+            )
+            return
+
+        def _match_tenant(cls: type[TeamScopedMixin]) -> Any:
+            return cls.team_id == tenant_id
+
+        execute_state.statement = execute_state.statement.options(
+            *[with_loader_criteria(model_cls, _match_tenant, include_aliases=True) for model_cls in scoped_model_classes],
+        )
+
+    @event.listens_for(Session, "before_flush")
+    def _validate_tenant_writes(session: Session, _flush_context: Any, _instances: Any) -> None:
+        _enforce_flush_tenant(session)
+
+    setattr(Session, TENANT_EVENT_INSTALLED_KEY, True)
+
+
+install_tenant_events()

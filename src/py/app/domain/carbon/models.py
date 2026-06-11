@@ -20,6 +20,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.lib.tenancy import TeamScopedMixin
+
 
 class DataFeatureMixin:
     """通用数据特征属性（Scope1/2/3 公共）。"""
@@ -31,7 +33,7 @@ class DataFeatureMixin:
     data_year: Mapped[int | None] = mapped_column(Integer)
 
 
-class EnterpriseInfo(BigIntBase):
+class EnterpriseInfo(TeamScopedMixin, BigIntBase):
     """企业信息（对应 Django dataapp.EnterpriseInfo）。"""
 
     __tablename__ = "dataapp_enterpriseinfo"
@@ -48,7 +50,7 @@ class EnterpriseInfo(BigIntBase):
     other_info: Mapped[dict | None] = mapped_column(comment="其他信息")
 
 
-class EmployeeCommute(BigIntBase):
+class EmployeeCommute(TeamScopedMixin, BigIntBase):
     """员工通勤（对应 Django dataapp.EmployeeCommute）。"""
 
     __tablename__ = "dataapp_employeecommute"
@@ -60,12 +62,16 @@ class EmployeeCommute(BigIntBase):
     unit_consumption: Mapped[float | None] = mapped_column(Float, default=0.0)
 
 
-class MonitorSector(BigIntBase):
+class MonitorSector(TeamScopedMixin, BigIntBase):
     """监控区域（对应 Django dataapp.MonitorSector）。"""
 
     __tablename__ = "dataapp_monitorsector"
 
-    code: Mapped[str] = mapped_column(String(20), unique=True)
+    __table_args__ = (
+        UniqueConstraint("team_id", "code", name="uq_dataapp_monitorsector_team_code"),
+    )
+
+    code: Mapped[str] = mapped_column(String(20), index=True)
     name: Mapped[str | None] = mapped_column(String(100))
     parent_id: Mapped[int | None] = mapped_column(
         ForeignKey("dataapp_monitorsector.id", ondelete="SET NULL"),
@@ -99,7 +105,7 @@ class MonitorSector(BigIntBase):
     )
 
 
-class MonitorSectorPhoto(BigIntBase):
+class MonitorSectorPhoto(TeamScopedMixin, BigIntBase):
     """监控区域照片（对应 Django dataapp.MonitorSectorPhoto）。"""
 
     __tablename__ = "dataapp_monitorsectorphoto"
@@ -155,7 +161,7 @@ class DeviceType(BigIntBase):
     )
 
 
-class InMoney(BigIntBase):
+class InMoney(TeamScopedMixin, BigIntBase):
     """入库金额管理（对应 Django dataapp.InMoney）。"""
 
     __tablename__ = "dataapp_inmoney"
@@ -175,7 +181,7 @@ class InMoney(BigIntBase):
     add_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
-class OutMoney(BigIntBase):
+class OutMoney(TeamScopedMixin, BigIntBase):
     """出库金额管理（对应 Django dataapp.OutMoney）。"""
 
     __tablename__ = "dataapp_outmoney"
@@ -198,12 +204,16 @@ class OutMoney(BigIntBase):
     add_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
-class MonitorEquipment(BigIntBase):
+class MonitorEquipment(TeamScopedMixin, BigIntBase):
     """监控终端：电表、光伏、摄像头（对应 Django dataapp.MonitorEquipment）。"""
 
     __tablename__ = "dataapp_monitorequipment"
 
-    code: Mapped[str] = mapped_column(String(30), unique=True, index=True)
+    __table_args__ = (
+        UniqueConstraint("team_id", "code", name="uq_dataapp_monitorequipment_team_code"),
+    )
+
+    code: Mapped[str] = mapped_column(String(30), index=True)
     name: Mapped[str | None] = mapped_column(String(30))
     external_device_id: Mapped[str | None] = mapped_column(String(64), index=True)
     device_type_id: Mapped[int | None] = mapped_column(
@@ -272,7 +282,7 @@ class MonitorEquipment(BigIntBase):
     )
 
 
-class DevicePoint(BigIntBase):
+class DevicePoint(TeamScopedMixin, BigIntBase):
     """设备测点定义。"""
 
     __tablename__ = "dataapp_devicepoint"
@@ -302,7 +312,7 @@ class DevicePoint(BigIntBase):
     )
 
 
-class AmmeterIndexValue(BigIntBase):
+class AmmeterIndexValue(TeamScopedMixin, BigIntBase):
     """电表终端数值管理（对应 Django dataapp.AmmeterIndexValue）。"""
 
     __tablename__ = "dataapp_ammeterindexvalue"
@@ -332,7 +342,7 @@ class AmmeterIndexValue(BigIntBase):
     add_time: Mapped[datetime | None] = mapped_column(DateTime, default=datetime.utcnow)
 
 
-class VideoMonitor(BigIntBase):
+class VideoMonitor(TeamScopedMixin, BigIntBase):
     """视频监控（对应 Django dataapp.VideoMonitor）。"""
 
     __tablename__ = "dataapp_videomonitor"
@@ -364,7 +374,7 @@ class ApiResultKeyMapping(BigIntBase):
     cn_name: Mapped[str | None] = mapped_column(String(30))
 
 
-class WarningRule(BigIntBase):
+class WarningRule(TeamScopedMixin, BigIntBase):
     """预警规则设置（对应 Django dataapp.WarningRule）。"""
 
     __tablename__ = "dataapp_warningrule"
@@ -389,7 +399,7 @@ class WarningRule(BigIntBase):
     table_name: Mapped[str | None] = mapped_column(String(30))
 
 
-class AlarmEvent(BigIntBase):
+class AlarmEvent(TeamScopedMixin, BigIntBase):
     """预警事件（对应 Django dataapp.AlarmEvent）。"""
 
     __tablename__ = "dataapp_alarmevent"
@@ -424,7 +434,7 @@ class AlarmEvent(BigIntBase):
     is_handle: Mapped[bool | None] = mapped_column(Boolean, default=False)
 
 
-class VedioAlarmEvent(BigIntBase):
+class VedioAlarmEvent(TeamScopedMixin, BigIntBase):
     """摄像头预警事件（对应 Django dataapp.VedioAlarmEvent）。"""
 
     __tablename__ = "dataapp_vedioalarmevent"
@@ -440,7 +450,7 @@ class VedioAlarmEvent(BigIntBase):
     is_handle: Mapped[bool | None] = mapped_column(Boolean, default=False)
 
 
-class EnergyStorageValue(BigIntBase):
+class EnergyStorageValue(TeamScopedMixin, BigIntBase):
     """储能量（对应 Django dataapp.EnergyStorageValue）。"""
 
     __tablename__ = "dataapp_energystoragevalue"
@@ -453,7 +463,7 @@ class EnergyStorageValue(BigIntBase):
     ratio2: Mapped[float | None] = mapped_column(Float, default=0.5)
 
 
-class CarbonAuditBase(BigIntAuditBase, DataFeatureMixin):
+class CarbonAuditBase(TeamScopedMixin, BigIntAuditBase, DataFeatureMixin):
     """碳排放业务记录基类。"""
 
     __abstract__ = True
@@ -538,13 +548,13 @@ class Scope2ElectricityBill(CarbonAuditBase):
     computation_note: Mapped[str | None] = mapped_column(Text)
 
 
-class Scope2MeterAggregate(BigIntAuditBase):
+class Scope2MeterAggregate(TeamScopedMixin, BigIntAuditBase):
     """Scope2 电表月度聚合快照。"""
 
     __tablename__ = "dataapp_scope2meteraggregate"
     __table_args__ = (
-        UniqueConstraint("ammeter_id", "billing_month", name="uq_scope2_meter_aggregate_meter_month"),
-        Index("ix_scope2_meter_aggregate_month_area", "billing_month", "area_id"),
+        UniqueConstraint("team_id", "ammeter_id", "billing_month", name="uq_scope2_meter_aggregate_team_meter_month"),
+        Index("ix_scope2_meter_aggregate_team_month_area", "team_id", "billing_month", "area_id"),
     )
 
     source_kind: Mapped[str] = mapped_column(String(24), default="meter_aggregate")
@@ -733,7 +743,7 @@ class CarbonFactorRawRecord(BigIntAuditBase):
     raw_payload: Mapped[dict | None] = mapped_column(JSON)
 
 
-class IotTelemetry(BigIntBase):
+class IotTelemetry(TeamScopedMixin, BigIntBase):
     """IoT 设备上报时序数据（对应 Django dataapp.IotTelemetry）。"""
 
     __tablename__ = "dataapp_iottelemetry"
@@ -752,7 +762,7 @@ class IotTelemetry(BigIntBase):
     created_at: Mapped[datetime | None] = mapped_column(DateTime, default=datetime.utcnow)
 
 
-class CarbonAuditLog(BigIntBase):
+class CarbonAuditLog(TeamScopedMixin, BigIntBase):
     """审核操作日志（对应 Django dataapp.AuditLog，表名与 Django 一致）。"""
 
     __tablename__ = "dataapp_carbonauditlog"

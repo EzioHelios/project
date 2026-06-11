@@ -4,12 +4,14 @@ import datetime
 from typing import TYPE_CHECKING
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db import models as dbm
 from app.domain.carbon import models as m
+from app.lib.tenancy import DEFAULT_TENANT_ID, TENANT_BYPASS_SESSION_KEY
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 pytestmark = pytest.mark.anyio
 
@@ -41,8 +43,22 @@ CARBON_VIEW_ENDPOINTS: list[str] = [
 ]
 
 
+@pytest.fixture(autouse=True)
+async def _carbon_tenant_test_context(
+    client: AsyncClient,
+    request: pytest.FixtureRequest,
+    session: AsyncSession,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    session.add(dbm.Team(id=DEFAULT_TENANT_ID, name="Default Tenant", slug="default-tenant"))
+    await session.commit()
+    session.info[TENANT_BYPASS_SESSION_KEY] = True
+    if request.node.name != "test_data_write_endpoints_require_superuser":
+        client.headers.update(superuser_token_headers)
+
+
 async def test_carbon_orm_endpoints_return_json(client: AsyncClient) -> None:
-    """连通性测试：ORM 端点不应返回 5xx。"""
+    """连通性测试: ORM 端点不应返回 5xx。"""
     for path in CARBON_ORM_ENDPOINTS:
         response = await client.get(path)
         assert response.status_code < 500, f"{path} 返回 {response.status_code}"
@@ -51,15 +67,15 @@ async def test_carbon_orm_endpoints_return_json(client: AsyncClient) -> None:
 
 
 async def test_carbon_view_endpoints_return_json(client: AsyncClient) -> None:
-    """连通性测试：大屏视图端点应优雅处理视图不存在的情况。
+    """连通性测试: 大屏视图端点应优雅处理视图不存在的情况。
 
-    这些端点查询数据库视图（如 yj_day_sum_view），在测试数据库中不存在。
-    当前预期行为是返回 500（因 controller 缺少错误处理），标记为 xfail。
+    这些端点查询数据库视图(如 yj_day_sum_view), 在测试数据库中不存在。
+    当前预期行为是返回 500(因 controller 缺少错误处理), 标记为 xfail。
     """
     for path in CARBON_VIEW_ENDPOINTS:
         response = await client.get(path)
-        # 这些端点查询不存在的视图会 500，这是已知的 controller 层缺陷
-        # 当 controller 加上错误处理后，应改为 assert < 500
+        # 这些端点查询不存在的视图会 500, 这是已知的 controller 层缺陷
+        # 当 controller 加上错误处理后, 应改为 assert < 500
         assert response.status_code < 500, f"{path} 返回 {response.status_code}"
 
 
@@ -152,7 +168,7 @@ async def test_iot_telemetry_resolves_monitor_equipment_by_external_device_id(cl
         site_id="site-a",
         device_id="mqtt-meter-010",
         ts=1710000000,
-        reading_time=datetime.datetime.utcnow(),
+        reading_time=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
         active_power=12.5,
         total_energy=345.6,
         interval="raw",
@@ -260,7 +276,7 @@ async def test_alarm_rule_and_event_status_flow(
         alarm_level="critical",
         alarm_category="point",
         event_desc="SOC 低于阈值",
-        event_time=datetime.datetime.utcnow(),
+        event_time=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
         sector_id=sector.id,
         equipment_id=equipment_id,
         point_code="soc",
@@ -359,7 +375,7 @@ async def test_master_data_area_rejects_cycle_and_delete_with_children(
 
     delete_response = await client.delete(f"/api/master-data/areas/{parent.id}", headers=superuser_token_headers)
     assert delete_response.status_code == 400
-    assert delete_response.json()["msg"] == "区域下仍有子区域，禁止删除"
+    assert delete_response.json()["msg"] == "区域下仍有子区域，禁止删除"  # noqa: RUF001
 
 
 async def test_master_data_devices_support_tree_filters_and_detail(
@@ -431,4 +447,4 @@ async def test_master_data_device_delete_rejects_children(
 
     response = await client.delete(f"/api/master-data/devices/{parent.id}", headers=superuser_token_headers)
     assert response.status_code == 400
-    assert response.json()["msg"] == "设备下仍有子设备，禁止删除"
+    assert response.json()["msg"] == "设备下仍有子设备，禁止删除"  # noqa: RUF001

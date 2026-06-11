@@ -186,13 +186,13 @@ class CarbonDashboardController(Controller):
         "alarm_event_service": provide_alarm_event_service,
     }
 
-    @get(path="/api/page1/ckxxgk", exclude_from_auth=True)
+    @get(path="/api/page1/ckxxgk")
     async def get_page1_ck_information(self, enterprise_info_service: services.EnterpriseInfoService) -> Response[dict]:
         db_obj = await enterprise_info_service.get_one_or_none()
         data = db_obj.to_dict() if db_obj else {}
         return Response(content={"code": 200, "msg": "获取成功", "data": data})
 
-    @get(path="/api/page1/jcdwzxtj", exclude_from_auth=True)
+    @get(path="/api/page1/jcdwzxtj")
     async def get_page1_jcdw_statis(self, monitor_equipment_service: services.MonitorEquipmentService) -> Response[dict]:
         ret = {"ydzs": 0, "ydzx": 0, "ydgz": 0, "fdzs": 0, "fdzx": 0, "fdgz": 0, "spzs": 0, "spzx": 0, "spgz": 0}
         rows = await monitor_equipment_service.list()
@@ -299,22 +299,22 @@ class CarbonDashboardController(Controller):
         rows = result.mappings().all()
         return {row["key_name"]: row["cn_name"] for row in rows}
 
-    @get(path="/api/page3/ckqy/ljydtj", exclude_from_auth=True)
+    @get(path="/api/page3/ckqy/ljydtj")
     async def get_page3_yd_statis(self, db_session: AsyncSession) -> Response[dict]:
         data = await self._get_common_yd_statis(db_session)
         return Response(content={"code": 200, "msg": "获取成功", "data": data})
 
-    @get(path="/api/page3/gfqy/ljfdtj", exclude_from_auth=True)
+    @get(path="/api/page3/gfqy/ljfdtj")
     async def get_page3_gffd_statis(self, db_session: AsyncSession) -> Response[dict]:
         data = await self._get_common_gffd_statis(db_session)
         return Response(content={"code": 200, "msg": "获取成功", "data": data})
 
-    @get(path="/api/page3/cdzqy/ljydtj", exclude_from_auth=True)
+    @get(path="/api/page3/cdzqy/ljydtj")
     async def get_page3_cdz_statis(self, db_session: AsyncSession) -> Response[dict]:
         data = await self._get_common_cdzyd_statis(db_session)
         return Response(content={"code": 200, "msg": "获取成功", "data": data})
 
-    @get(path="/api/page1/ydfdzl/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page1/ydfdzl/{stat_type:str}")
     async def get_page1_ydfdzl(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         yj_table, gf_table = f"yj_{stat_type}_sum_view", f"hw_gf_{stat_type}_sum_view"
         today = datetime.date.today()
@@ -332,7 +332,7 @@ class CarbonDashboardController(Controller):
 
         return Response(content={"code": 200, "msg": "获取成功", "data": {**ret_yd, **ret_fd}})
 
-    @get(path="/api/page1/ydfdzl/qypx/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page1/ydfdzl/qypx/{stat_type:str}")
     async def get_page1_ydfdzl_qy(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         yj_table, gf_table = f"yj_area_{stat_type}_sum_view", f"hw_gf_area_{stat_type}_sum_view"
         today = datetime.date.today()
@@ -348,14 +348,14 @@ class CarbonDashboardController(Controller):
 
         return Response(content={"code": 200, "msg": "获取成功", "data": {"yd": ret_yds, "fd": ret_fds}})
 
-    @get(path="/api/page3/ydfdtj/chart/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page3/ydfdtj/chart/{stat_type:str}")
     async def get_page3_fdyd_statis_for_chart(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         rets = await self._get_common_fdyd_statis_for_chart(db_session, stat_type)
         mapping = await self._get_api_result_key_mapping(db_session)
         new_rets = [{mapping.get(k, k): v for k, v in r.items()} for r in rets]
         return Response(content={"code": 200, "msg": "获取成功", "data": new_rets})
 
-    @get(path="/api/hwpm/show/num", exclude_from_auth=True)
+    @get(path="/api/hwpm/show/num")
     async def get_hwpm_show_num(self, db_session: AsyncSession) -> Response[dict]:
         ret_cdz = await self._get_common_cdzyd_statis(db_session)
         ret_yd = await self._get_common_yd_statis(db_session)
@@ -382,7 +382,7 @@ class CarbonDashboardController(Controller):
         yd_cpfl, gf_cjpl = round(y * YD_CPFL_PFYZ, 3), round(g * GF_CJPL_PFYZ, 3)
         return {"yd_cpfl": yd_cpfl, "gf_cjpl": gf_cjpl, "jcpfl": round(yd_cpfl - gf_cjpl, 3)}
 
-    @get(path="/api/page4/tpfltj", exclude_from_auth=True)
+    @get(path="/api/page4/tpfltj")
     async def get_page4_cpf_statis(self, db_session: AsyncSession) -> Response[dict]:
         ret_yd = await self._get_common_yd_statis(db_session)
         ret_fd = await self._get_common_gffd_statis(db_session)
@@ -398,12 +398,12 @@ class CarbonDashboardController(Controller):
         }
         return Response(content={"code": 200, "msg": "获取成功", "data": ret})
 
-    @get(path="/api/page4/tpflzl/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page4/tpflzl/{stat_type:str}")
     async def get_page4_cpf_zl(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         data = await self._get_common_cpf_zl(db_session, stat_type)
         return Response(content={"code": 200, "msg": "获取成功", "data": data})
 
-    @get(path="/api/page1/ydfdtj/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page1/ydfdtj/{stat_type:str}")
     async def get_page1_ydfd_statis(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         data = await self._get_common_cpf_zl(db_session, stat_type)
         return Response(content={"code": 200, "msg": "获取成功", "data": data})
@@ -426,15 +426,15 @@ class CarbonDashboardController(Controller):
         ret["czcsy"] = abs(round(ret["jcpfl"] * 50.0 / 10000, 1))
         return Response(content={"code": 200, "msg": "获取成功", "data": ret})
 
-    @get(path="/api/page1/tpfgl/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page1/tpfgl/{stat_type:str}")
     async def get_page1_tpfgl(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         return await self._get_page1_cpf_gl_impl(db_session, stat_type)
 
-    @get(path="/api/page1/cpfgl/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page1/cpfgl/{stat_type:str}")
     async def get_page1_cpfgl(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         return await self._get_page1_cpf_gl_impl(db_session, stat_type)
 
-    @get(path="/api/page4/tpfl/ckqypx/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page4/tpfl/ckqypx/{stat_type:str}")
     async def get_page4_cpfl_qy(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         yj_table = f"yj_area_{stat_type}_sum_view"
         today = datetime.date.today()
@@ -445,7 +445,7 @@ class CarbonDashboardController(Controller):
         rets.sort(key=lambda x: x["cpfl"], reverse=True)
         return Response(content={"code": 200, "msg": "获取成功", "data": rets})
 
-    @get(path="/api/page4/tpfl/year", exclude_from_auth=True)
+    @get(path="/api/page4/tpfl/year")
     async def get_page4_year_cpfl(self, db_session: AsyncSession) -> Response[dict]:
         res = await db_session.execute(text(f"select zygdn, zygdn_dif from yj_year_sum_view where year={datetime.date.today().year}"))
         r = res.fetchone()
@@ -455,7 +455,7 @@ class CarbonDashboardController(Controller):
         ratio = round(diff * 100 / last_cpfl) if last_cpfl > 0 else 0
         return Response(content={"code": 200, "msg": "获取成功", "data": {"year_cpfl": now_cpfl, "year_cpfl_bh": ratio, "last_year_cpfl": last_cpfl, "last_year_dif": diff}})
 
-    @get(path="/api/page4/tpfltj/chart/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page4/tpfltj/chart/{stat_type:str}")
     async def get_page4_pfl_statis_for_chart(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         rets = await self._get_common_fdyd_statis_for_chart(db_session, stat_type)
         mapping = await self._get_api_result_key_mapping(db_session)
@@ -466,35 +466,35 @@ class CarbonDashboardController(Controller):
             new_rets.append({mapping.get("dt", "dt"): r["dt"], mapping.get("human_dt", "human_dt"): r["human_dt"], mapping.get("yd_cpf", "yd_cpf"): yd_cpf, mapping.get("gf_cjp", "gf_cjp"): gf_cjp, mapping.get("jpf", "jpf"): round(yd_cpf - gf_cjp, 3)})
         return Response(content={"code": 200, "msg": "获取成功", "data": new_rets})
 
-    @get(path="/api/page3/zjyj", exclude_from_auth=True)
+    @get(path="/api/page3/zjyj")
     async def get_page3_zjyj(self, db_session: AsyncSession) -> Response[dict]:
         sql = "select id, COALESCE(name, '整个仓库'), case when event_type=1 then '设备故障' when event_type=2 then '用电异常' when event_type=3 then '发电异常' else '碳排放异常' end, to_char(event_time,'YYYY-MM-DD HH24:MI:SS'), event_desc, case when is_handle then '已处理' else '未处理' end from alarm_event_view where event_type in (1,2,3) and is_handle = false order by event_time desc limit 10"
         res = await db_session.execute(text(sql))
         headers = ["id", "区域名称", "事件类型", "发生时间", "事件描述", "事件状态"]
         return Response(content={"code": 200, "msg": "获取成功", "data": [dict(zip(headers, r)) for r in res.fetchall()]})
 
-    @get(path="/api/page3/latestyj", exclude_from_auth=True)
+    @get(path="/api/page3/latestyj")
     async def get_page3_latestyj(self, db_session: AsyncSession) -> Response[dict]:
         sql = "select id, COALESCE(name, '整个仓库'), case when event_type=1 then '设备故障' when event_type=2 then '用电异常' when event_type=3 then '发电异常' else '碳排放异常' end, to_char(event_time,'YYYY-MM-DD HH24:MI:SS'), event_desc, case when is_handle then '已处理' else '未处理' end from alarm_event_view where event_type in (1,2,3) and is_handle = false order by event_time desc limit 10"
         res = await db_session.execute(text(sql))
         headers = ["id", "区域名称", "事件类型", "发生时间", "事件描述", "事件状态"]
         return Response(content={"code": 200, "msg": "获取成功", "data": [dict(zip(headers, r)) for r in res.fetchall()]})
 
-    @get(path="/api/page4/zjyj", exclude_from_auth=True)
+    @get(path="/api/page4/zjyj")
     async def get_page4_zjyj(self, db_session: AsyncSession) -> Response[dict]:
         sql = "select id, COALESCE(name, '整个仓库'), '碳排放异常', to_char(event_time,'YYYY-MM-DD HH24:MI:SS'), event_desc, case when is_handle then '已处理' else '未处理' end from alarm_event_view where event_type = 4 and is_handle = false order by event_time desc limit 10"
         res = await db_session.execute(text(sql))
         headers = ["id", "区域名称", "事件类型", "发生时间", "事件描述", "事件状态"]
         return Response(content={"code": 200, "msg": "获取成功", "data": [dict(zip(headers, r)) for r in res.fetchall()]})
 
-    @get(path="/api/page4/latestyj", exclude_from_auth=True)
+    @get(path="/api/page4/latestyj")
     async def get_page4_latestyj(self, db_session: AsyncSession) -> Response[dict]:
         sql = "select id, COALESCE(name, '整个仓库'), '碳排放异常', to_char(event_time,'YYYY-MM-DD HH24:MI:SS'), event_desc, case when is_handle then '已处理' else '未处理' end from alarm_event_view where event_type = 4 and is_handle = false order by event_time desc limit 10"
         res = await db_session.execute(text(sql))
         headers = ["id", "区域名称", "事件类型", "发生时间", "事件描述", "事件状态"]
         return Response(content={"code": 200, "msg": "获取成功", "data": [dict(zip(headers, r)) for r in res.fetchall()]})
 
-    @get(path="/api/page3/yjtj/qypx/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page3/yjtj/qypx/{stat_type:str}")
     async def get_page3_yjtj_2(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         today = datetime.date.today()
         dt = today if stat_type == "day" else (today - datetime.timedelta(days=today.weekday()))
@@ -503,7 +503,7 @@ class CarbonDashboardController(Controller):
         headers = ["区域ID", "区域名", "预警次数"]
         return Response(content={"code": 200, "msg": "获取成功", "data": [dict(zip(headers, r)) for r in res.fetchall()]})
 
-    @get(path="/api/page4/yjtj/qypx/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page4/yjtj/qypx/{stat_type:str}")
     async def get_page4_yjtj_2(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         today = datetime.date.today()
         dt = today if stat_type == "day" else (today - datetime.timedelta(days=today.weekday()))
@@ -526,7 +526,7 @@ class CarbonDashboardController(Controller):
             dt = today.year
         return str(dt) if isinstance(dt, datetime.date) else dt
 
-    @get(path="/api/page3/yjtj/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page3/yjtj/{stat_type:str}")
     async def get_page3_yjtj(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         """电能监测：预警统计"""
         dt = self._dt_for_stat_type(stat_type)
@@ -542,7 +542,7 @@ class CarbonDashboardController(Controller):
         result = {"total_alarm_count": r1, "fdycyj": r3, "ydycyj": r2, "qyyj": [dict(zip(["区域ID", "区域名", "预警次数"], r)) for r in rs4]}
         return Response(content={"code": 200, "msg": "获取成功", "data": result})
 
-    @get(path="/api/page4/yjtj/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page4/yjtj/{stat_type:str}")
     async def get_page4_yjtj(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         """碳能协同：预警统计"""
         dt = self._dt_for_stat_type(stat_type)
@@ -554,7 +554,7 @@ class CarbonDashboardController(Controller):
         result = {"total_alarm_count": r1, "qyyj": [dict(zip(["区域ID", "区域名", "预警次数"], r)) for r in rs4]}
         return Response(content={"code": 200, "msg": "获取成功", "data": result})
 
-    @get(path="/api/page4/qytpfyj/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page4/qytpfyj/{stat_type:str}")
     async def get_page4_qy_tpfyj(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         """碳能协同：各区域碳排放预警"""
         dt = self._dt_for_stat_type(stat_type)
@@ -564,7 +564,7 @@ class CarbonDashboardController(Controller):
         header = ["区域ID", "区域名称", "事件描述"]
         return Response(content={"code": 200, "msg": "获取成功", "data": [dict(zip(header, r)) for r in res.fetchall()]})
 
-    @get(path="/api/page4/cktpfqd/chart/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page4/cktpfqd/chart/{stat_type:str}")
     async def get_page4_cktpfqd_statis_for_chart(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         """碳能协同：仓库碳排放强度图表"""
         today = datetime.date.today()
@@ -598,20 +598,20 @@ class CarbonDashboardController(Controller):
         headers = ["日期1", "日期", "碳排放量(kgCo2)", "出入库总金额(万元)", "碳排放强度(kgCo2/万元)"]
         return Response(content={"code": 200, "msg": "获取成功", "data": [dict(zip(headers, r)) for r in res.fetchall()]})
 
-    @get(path="/api/page1/yjzl/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page1/yjzl/{stat_type:str}")
     async def get_page1_yjzl(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         dt = self._dt_for_stat_type(stat_type)
         res_total = await db_session.execute(text(f"select count(1) from alarm_event_view where {stat_type}='{dt}' and is_handle = false"))
         total = res_total.scalar() or 0
         return Response(content={"code": 200, "msg": "获取成功", "data": {"total_alarm_count": total, "qyyj": [], "lxyj": []}})
 
-    @get(path="/api/page1/zjyj", exclude_from_auth=True)
+    @get(path="/api/page1/zjyj")
     async def get_page1_zjyj(self, alarm_event_service: services.AlarmEventService) -> Response[dict]:
         rows = await alarm_event_service.list(limit=5, order_by="event_time desc")
         data = [{"desc": r.event_desc, "time": r.event_time.strftime("%Y-%m-%d %H:%M:%S") if r.event_time else "", "type": r.event_type} for r in rows]
         return Response(content={"code": 200, "msg": "获取成功", "data": data})
 
-    @get(path="/api/page1/latestwj", exclude_from_auth=True)
+    @get(path="/api/page1/latestwj")
     async def get_page1_latestwj(self, alarm_event_service: services.AlarmEventService) -> Response[dict]:
         rows = await alarm_event_service.list(limit=5, order_by="event_time desc")
         data = [{"desc": r.event_desc, "time": r.event_time.strftime("%Y-%m-%d %H:%M:%S") if r.event_time else "", "type": r.event_type} for r in rows]
@@ -623,7 +623,7 @@ class CarbonMapController(Controller):
     signature_types = [Response]
     dependencies = {"monitor_sector_service": provide_monitor_sector_service}
 
-    @get(path="/api/map/popup/{area_id:str}", exclude_from_auth=True)
+    @get(path="/api/map/popup/{area_id:str}")
     async def get_map_popup(
         self, area_id: str, db_session: AsyncSession, monitor_sector_service: services.MonitorSectorService
     ) -> Response[dict]:
@@ -689,7 +689,7 @@ class CarbonMapController(Controller):
         result["popupVals"] = ret_list
         return Response(content={"code": 200, "msg": "获取成功", "data": result})
 
-    @get(path="/api/map/monitorSector/list", exclude_from_auth=True)
+    @get(path="/api/map/monitorSector/list")
     async def get_all_monitor_sector(self, monitor_sector_service: services.MonitorSectorService) -> Response[dict]:
         rows = await monitor_sector_service.list(m.MonitorSector.is_enable.is_(True))
         data = [{"code": r.code, "name": r.name, "area_id": r.area_id, "description": r.description, "pictures": []} for r in rows]
@@ -974,40 +974,40 @@ class CarbonVideoController(Controller):
         "video_monitor_service": provide_video_monitor_service,
     }
 
-    @get(path="/api/page2/yjzl/{stat_type:str}", exclude_from_auth=True)
+    @get(path="/api/page2/yjzl/{stat_type:str}")
     async def get_page2_yjzl(self, db_session: AsyncSession, stat_type: str = "day") -> Response[dict]:
         today = datetime.date.today()
         dt = today if stat_type == "day" else (today - datetime.timedelta(days=today.weekday()))
         res = await db_session.execute(text(f"select count(1) from vedio_alarm_event_view where {stat_type}='{dt}' and is_handle = false"))
         return Response(content={"code": 200, "msg": "获取成功", "data": {"total_alarm_count": res.scalar(), "qyyj": [], "lxyj": []}})
 
-    @get(path="/api/page2/spgl", exclude_from_auth=True)
+    @get(path="/api/page2/spgl")
     async def get_page2_spgl(self, db_session: AsyncSession) -> Response[dict]:
         res = await db_session.execute(text("select status, count(*) from dataapp_videomonitor group by status"))
         mapping = {0: "在线", 1: "故障"}
         data = [{"id": i+1, "name": mapping.get(r[0], "未知"), "num": r[1]} for i, r in enumerate(res.fetchall())]
         return Response(content={"code": 200, "msg": "获取成功", "data": data})
 
-    @get(path="/api/page2/spjk", exclude_from_auth=True)
+    @get(path="/api/page2/spjk")
     async def get_page2_spjk(self, db_session: AsyncSession) -> Response[dict]:
         res = await db_session.execute(text("select location, status, f_area from dataapp_videomonitor"))
         mapping = {0: "在线", 1: "故障"}
         data = [{"location": r[0], "status": r[1], "status_name": mapping.get(r[1]), "f_area": r[2]} for r in res.fetchall()]
         return Response(content={"code": 200, "msg": "获取成功", "data": data})
 
-    @get(path="/api/page2/zjyj", exclude_from_auth=True)
+    @get(path="/api/page2/zjyj")
     async def get_page2_zjyj(self, db_session: AsyncSession) -> Response[dict]:
         res = await db_session.execute(text("select id, location, case when event_type=1 then '未佩戴安全帽' when event_type=2 then '烟火' when event_type=3 then '火点' else '区域入侵' end, to_char(event_time,'YYYY-MM-DD HH24:MI'), event_desc, case when is_handle then '已处理' else '未处理' end from vedio_alarm_event_view where is_handle=false order by event_time desc limit 10"))
         headers = ["id", "监控位置", "事件类型", "发生时间", "事件描述", "事件状态"]
         return Response(content={"code": 200, "msg": "获取成功", "data": [dict(zip(headers, r)) for r in res.fetchall()]})
 
-    @get(path="/api/page2/latestyj", exclude_from_auth=True)
+    @get(path="/api/page2/latestyj")
     async def get_page2_latestyj(self, db_session: AsyncSession) -> Response[dict]:
         res = await db_session.execute(text("select id, location, case when event_type=1 then '未佩戴安全帽' when event_type=2 then '烟火' when event_type=3 then '火点' else '区域入侵' end, to_char(event_time,'YYYY-MM-DD HH24:MI'), event_desc, case when is_handle then '已处理' else '未处理' end from vedio_alarm_event_view where is_handle=false order by event_time desc limit 10"))
         headers = ["id", "监控位置", "事件类型", "发生时间", "事件描述", "事件状态"]
         return Response(content={"code": 200, "msg": "获取成功", "data": [dict(zip(headers, r)) for r in res.fetchall()]})
 
-    @get(path="/api/map/vedio/popup/{vid:int}", exclude_from_auth=True)
+    @get(path="/api/map/vedio/popup/{vid:int}")
     async def get_vedio_map_popup(
         self, vid: int, db_session: AsyncSession
     ) -> Response[dict]:
@@ -1025,7 +1025,7 @@ class CarbonVideoController(Controller):
         data["webRtcUrl"] = str(vm.id)
         return Response(content={"code": 200, "msg": "获取成功", "data": data})
 
-    @get(path="/api/map/videos", exclude_from_auth=True)
+    @get(path="/api/map/videos")
     async def get_all_videos(self, video_monitor_service: services.VideoMonitorService) -> Response[dict]:
         """获取所有视频流信息（与 Django 返回结构一致）"""
         vms = await video_monitor_service.list()
@@ -1053,7 +1053,7 @@ class CarbonEnergyController(Controller):
     signature_types = [Response]
     exception_handlers = {SQLAlchemyError: _handle_db_view_error}  # type: ignore[dict-item]
 
-    @get(path="/api/page3/cnsy", exclude_from_auth=True)
+    @get(path="/api/page3/cnsy")
     async def get_energy_storage_data(self, db_session: AsyncSession) -> Response[dict]:
         res = await db_session.execute(text("select cn1, ratio1, cn2, ratio2, cn_total, ratio_total from dataapp_energystoragevalue order by id desc limit 1"))
         r = res.fetchone()
@@ -2353,7 +2353,7 @@ class CarbonAnalyticsController(Controller):
             )
         return series
 
-    @get("/api/carbon/analytics/overview", exclude_from_auth=True)
+    @get("/api/carbon/analytics/overview")
     async def get_analytics_overview(self, db_session: AsyncSession) -> Response[dict]:
         latest_month = await self._latest_energy_month(db_session)
         energy_series = await self._build_energy_series(db_session, _months_back(latest_month, 1) if latest_month else [])
@@ -2439,7 +2439,7 @@ class CarbonAnalyticsController(Controller):
             }
         )
 
-    @get("/api/carbon/analytics/trend", exclude_from_auth=True)
+    @get("/api/carbon/analytics/trend")
     async def get_analytics_trend(self, db_session: AsyncSession, months: int = 12) -> Response[dict]:
         latest_month = await self._latest_energy_month(db_session)
         if not latest_month:
@@ -2473,7 +2473,7 @@ class CarbonAnalyticsController(Controller):
             )
         return Response(content={"code": 200, "msg": "获取成功", "data": {"months": month_keys, "series": series}})
 
-    @get("/api/carbon/analytics/ranking", exclude_from_auth=True)
+    @get("/api/carbon/analytics/ranking")
     async def get_analytics_ranking(self, db_session: AsyncSession) -> Response[dict]:
         latest_month = await self._latest_energy_month(db_session)
         energy_rows: list[dict[str, Any]] = []
@@ -2531,7 +2531,7 @@ class CarbonAnalyticsController(Controller):
             }
         )
 
-    @get("/api/carbon/analytics/efficiency", exclude_from_auth=True)
+    @get("/api/carbon/analytics/efficiency")
     async def get_analytics_efficiency(self, db_session: AsyncSession) -> Response[dict]:
         latest_month = await self._latest_energy_month(db_session)
         energy_series = await self._build_energy_series(db_session, [latest_month] if latest_month else [])
@@ -2585,7 +2585,7 @@ class CarbonAnalyticsController(Controller):
             }
         )
 
-    @get("/api/carbon/energy-flow", exclude_from_auth=True)
+    @get("/api/carbon/energy-flow")
     async def get_energy_flow(self, db_session: AsyncSession, billing_month: str | None = None) -> Response[dict]:
         month = billing_month or await self._latest_energy_month(db_session)
         if not month:
@@ -2649,7 +2649,7 @@ class CarbonAnalyticsController(Controller):
             }
         )
 
-    @get("/api/carbon/carbon-flow", exclude_from_auth=True)
+    @get("/api/carbon/carbon-flow")
     async def get_carbon_flow(self, db_session: AsyncSession) -> Response[dict]:
         records = await self._load_scope_records(db_session)
         nodes: dict[str, dict[str, Any]] = {}
@@ -2691,7 +2691,7 @@ class CarbonAnalyticsController(Controller):
             }
         )
 
-    @get("/api/carbon/ledger/energy", exclude_from_auth=True)
+    @get("/api/carbon/ledger/energy")
     async def get_energy_ledger(
         self,
         db_session: AsyncSession,
@@ -2766,7 +2766,7 @@ class CarbonAnalyticsController(Controller):
         page = _paged_payload(items[offset : offset + limit], len(items), limit, offset)
         return Response(content=page)
 
-    @get("/api/carbon/ledger/carbon", exclude_from_auth=True)
+    @get("/api/carbon/ledger/carbon")
     async def get_carbon_ledger(
         self,
         db_session: AsyncSession,
@@ -2803,7 +2803,7 @@ class CarbonAnalyticsController(Controller):
         page = _paged_payload(items[offset : offset + limit], len(items), limit, offset)
         return Response(content=page)
 
-    @get("/api/carbon/ledger/record/{record_type:str}/{record_id:int}", exclude_from_auth=True)
+    @get("/api/carbon/ledger/record/{record_type:str}/{record_id:int}")
     async def get_carbon_ledger_record_detail(
         self,
         db_session: AsyncSession,
@@ -3993,7 +3993,7 @@ class EnergyCarbonCenterController(Controller):
             "factor_source_distribution": [{"name": name, "value": value} for name, value in sorted(by_source.items(), key=lambda pair: pair[1], reverse=True)[:10]],
         }
 
-    @get("/api/energy-carbon/dashboard/overview", exclude_from_auth=True)
+    @get("/api/energy-carbon/dashboard/overview")
     async def get_dashboard_overview(self, db_session: AsyncSession) -> Response[dict]:
         latest_month = await CarbonAnalyticsController._latest_energy_month(db_session)
         energy_series = await CarbonAnalyticsController._build_energy_series(db_session, _months_back(latest_month, 1) if latest_month else [])
@@ -4055,19 +4055,19 @@ class EnergyCarbonCenterController(Controller):
             }
         )
 
-    @get("/api/energy-carbon/dashboard/completion", exclude_from_auth=True)
+    @get("/api/energy-carbon/dashboard/completion")
     async def get_dashboard_completion(self, db_session: AsyncSession) -> Response[dict]:
         return Response(content={"code": 200, "msg": "获取成功", "data": await self._build_dashboard_completion(db_session)})
 
-    @get("/api/energy-carbon/dashboard/recent-activities", exclude_from_auth=True)
+    @get("/api/energy-carbon/dashboard/recent-activities")
     async def get_dashboard_recent_activities(self, db_session: AsyncSession) -> Response[dict]:
         return Response(content={"code": 200, "msg": "获取成功", "data": {"items": await self._build_recent_activities(db_session)}})
 
-    @get("/api/energy-carbon/dashboard/trend", exclude_from_auth=True)
+    @get("/api/energy-carbon/dashboard/trend")
     async def get_dashboard_trend(self, db_session: AsyncSession, months: int = 12) -> Response[dict]:
         return Response(content={"code": 200, "msg": "获取成功", "data": await self._trend_data(db_session, months)})
 
-    @get("/api/energy-carbon/dashboard/health", exclude_from_auth=True)
+    @get("/api/energy-carbon/dashboard/health")
     async def get_dashboard_health(self, db_session: AsyncSession) -> Response[dict]:
         health = await self._build_monitor_area_summary(db_session)
         alerts = await self._build_unified_alerts(db_session)
@@ -4087,7 +4087,7 @@ class EnergyCarbonCenterController(Controller):
             }
         )
 
-    @get("/api/energy-carbon/energy/summary", exclude_from_auth=True)
+    @get("/api/energy-carbon/energy/summary")
     async def get_energy_summary(self, db_session: AsyncSession) -> Response[dict]:
         ranking = await self._ranking_data(db_session)
         efficiency = await self._efficiency_data(db_session)
@@ -4111,17 +4111,17 @@ class EnergyCarbonCenterController(Controller):
             }
         )
 
-    @get("/api/energy-carbon/energy/trend", exclude_from_auth=True)
+    @get("/api/energy-carbon/energy/trend")
     async def get_energy_trend(self, db_session: AsyncSession, months: int = 12) -> Response[dict]:
         return Response(content={"code": 200, "msg": "获取成功", "data": await self._trend_data(db_session, months)})
 
-    @get("/api/energy-carbon/energy/structure", exclude_from_auth=True)
+    @get("/api/energy-carbon/energy/structure")
     async def get_energy_structure(self, db_session: AsyncSession) -> Response[dict]:
         ranking = await self._ranking_data(db_session)
         efficiency = await self._efficiency_data(db_session)
         return Response(content={"code": 200, "msg": "获取成功", "data": {"source_mix": efficiency.get("source_mix", []), "energy_by_area": ranking.get("energy_by_area", []), "alerts_by_area": ranking.get("alerts_by_area", [])}})
 
-    @get("/api/energy-carbon/energy/intensity", exclude_from_auth=True)
+    @get("/api/energy-carbon/energy/intensity")
     async def get_energy_intensity(self, db_session: AsyncSession) -> Response[dict]:
         latest_month = await CarbonAnalyticsController._latest_energy_month(db_session)
         energy_series = await CarbonAnalyticsController._build_energy_series(db_session, [latest_month] if latest_month else [])
@@ -4145,11 +4145,11 @@ class EnergyCarbonCenterController(Controller):
             }
         )
 
-    @get("/api/energy-carbon/energy/ranking", exclude_from_auth=True)
+    @get("/api/energy-carbon/energy/ranking")
     async def get_energy_ranking(self, db_session: AsyncSession) -> Response[dict]:
         return Response(content={"code": 200, "msg": "获取成功", "data": await self._ranking_data(db_session)})
 
-    @get("/api/energy-carbon/energy/ledger-preview", exclude_from_auth=True)
+    @get("/api/energy-carbon/energy/ledger-preview")
     async def get_energy_ledger_preview(
         self,
         db_session: AsyncSession,
@@ -4160,7 +4160,7 @@ class EnergyCarbonCenterController(Controller):
     ) -> Response[dict]:
         return Response(content={"code": 200, "msg": "获取成功", "data": await self._energy_ledger_page(db_session, billing_month, source_kind, limit, offset)})
 
-    @get("/api/energy-carbon/energy/diagnostics", exclude_from_auth=True)
+    @get("/api/energy-carbon/energy/diagnostics")
     async def get_energy_diagnostics(self, db_session: AsyncSession) -> Response[dict]:
         ranking = await self._ranking_data(db_session)
         efficiency = await self._efficiency_data(db_session)
@@ -4177,11 +4177,11 @@ class EnergyCarbonCenterController(Controller):
             }
         )
 
-    @get("/api/energy-carbon/monitor/areas", exclude_from_auth=True)
+    @get("/api/energy-carbon/monitor/areas")
     async def list_monitor_areas(self, db_session: AsyncSession) -> Response[dict]:
         return Response(content={"code": 200, "msg": "获取成功", "data": {"items": await self._build_monitor_area_summary(db_session)}})
 
-    @get("/api/energy-carbon/monitor/devices", exclude_from_auth=True)
+    @get("/api/energy-carbon/monitor/devices")
     async def list_monitor_devices(
         self,
         db_session: AsyncSession,
@@ -4231,7 +4231,7 @@ class EnergyCarbonCenterController(Controller):
         total = int((await db_session.execute(total_stmt)).scalar_one())
         return Response(content={"code": 200, "msg": "获取成功", "data": {"items": items, "total": total, "limit": limit, "offset": offset}})
 
-    @get("/api/energy-carbon/monitor/devices/{device_id:int}", exclude_from_auth=True)
+    @get("/api/energy-carbon/monitor/devices/{device_id:int}")
     async def get_monitor_device_detail(self, db_session: AsyncSession, device_id: int) -> Response[dict]:
         device = (
             await db_session.execute(select(m.MonitorEquipment).options(selectinload(m.MonitorEquipment.sector)).where(m.MonitorEquipment.id == device_id))
@@ -4267,7 +4267,7 @@ class EnergyCarbonCenterController(Controller):
             }
         )
 
-    @get("/api/energy-carbon/monitor/devices/{device_id:int}/timeseries", exclude_from_auth=True)
+    @get("/api/energy-carbon/monitor/devices/{device_id:int}/timeseries")
     async def get_monitor_device_timeseries(self, db_session: AsyncSession, device_id: int) -> Response[dict]:
         samples = (
             await db_session.execute(
@@ -4284,14 +4284,14 @@ class EnergyCarbonCenterController(Controller):
         ]
         return Response(content={"code": 200, "msg": "获取成功", "data": {"series": points}})
 
-    @get("/api/energy-carbon/monitor/devices/{device_id:int}/alerts", exclude_from_auth=True)
+    @get("/api/energy-carbon/monitor/devices/{device_id:int}/alerts")
     async def get_monitor_device_alerts(self, db_session: AsyncSession, device_id: int) -> Response[dict]:
         alarms = (
             await db_session.execute(select(m.AlarmEvent).where(m.AlarmEvent.equipment_id == device_id).order_by(m.AlarmEvent.event_time.desc().nullslast()).limit(20))
         ).scalars().all()
         return Response(content={"code": 200, "msg": "获取成功", "data": {"items": [model_to_dict(item) for item in alarms]}})
 
-    @get("/api/energy-carbon/monitor/devices/{device_id:int}/videos", exclude_from_auth=True)
+    @get("/api/energy-carbon/monitor/devices/{device_id:int}/videos")
     async def get_monitor_device_videos(self, db_session: AsyncSession, device_id: int) -> Response[dict]:
         device = await db_session.scalar(select(m.MonitorEquipment).where(m.MonitorEquipment.id == device_id))
         if not device or not device.sector_id:
@@ -4304,7 +4304,7 @@ class EnergyCarbonCenterController(Controller):
         ).scalars().all()
         return Response(content={"code": 200, "msg": "获取成功", "data": {"items": [model_to_dict(item) for item in videos]}})
 
-    @get("/api/energy-carbon/alerts", exclude_from_auth=True)
+    @get("/api/energy-carbon/alerts")
     async def list_energy_center_alerts(
         self,
         db_session: AsyncSession,
@@ -4323,7 +4323,7 @@ class EnergyCarbonCenterController(Controller):
             items = [item for item in items if item["severity"] == severity]
         return Response(content={"code": 200, "msg": "获取成功", "data": {"items": items[offset : offset + limit], "total": len(items), "limit": limit, "offset": offset}})
 
-    @get("/api/energy-carbon/alerts/summary", exclude_from_auth=True)
+    @get("/api/energy-carbon/alerts/summary")
     async def get_energy_center_alert_summary(self, db_session: AsyncSession) -> Response[dict]:
         items = await self._build_unified_alerts(db_session)
         facets = self._build_alert_facets(items)
@@ -4342,17 +4342,17 @@ class EnergyCarbonCenterController(Controller):
             }
         )
 
-    @get("/api/energy-carbon/alerts/facets", exclude_from_auth=True)
+    @get("/api/energy-carbon/alerts/facets")
     async def get_energy_center_alert_facets(self, db_session: AsyncSession) -> Response[dict]:
         items = await self._build_unified_alerts(db_session)
         return Response(content={"code": 200, "msg": "获取成功", "data": self._build_alert_facets(items)})
 
-    @get("/api/energy-carbon/alerts/trend", exclude_from_auth=True)
+    @get("/api/energy-carbon/alerts/trend")
     async def get_energy_center_alert_trend(self, db_session: AsyncSession, months: int = 12) -> Response[dict]:
         items = await self._build_unified_alerts(db_session)
         return Response(content={"code": 200, "msg": "获取成功", "data": {"series": self._build_alert_trend(items, months)}})
 
-    @get("/api/energy-carbon/alerts/{alert_id:str}", exclude_from_auth=True)
+    @get("/api/energy-carbon/alerts/{alert_id:str}")
     async def get_energy_center_alert_detail(self, db_session: AsyncSession, alert_id: str) -> Response[dict]:
         items = await self._build_unified_alerts(db_session)
         match = next((item for item in items if item["id"] == alert_id), None)
@@ -4365,7 +4365,7 @@ class EnergyCarbonCenterController(Controller):
         ]
         return Response(content={"code": 200, "msg": "获取成功", "data": {**match, "history": history}})
 
-    @get("/api/energy-carbon/alerts/{alert_id:str}/history", exclude_from_auth=True)
+    @get("/api/energy-carbon/alerts/{alert_id:str}/history")
     async def get_energy_center_alert_history(self, db_session: AsyncSession, alert_id: str) -> Response[dict]:
         items = await self._build_unified_alerts(db_session)
         match = next((item for item in items if item["id"] == alert_id), None)
@@ -4373,11 +4373,11 @@ class EnergyCarbonCenterController(Controller):
             return Response(content={"code": 404, "msg": "告警不存在"}, status_code=404)
         return Response(content={"code": 200, "msg": "获取成功", "data": {"items": [{"stage": "发现", "time": match.get("occurred_at"), "status": match.get("status")}]}})
 
-    @get("/api/energy-carbon/flows/energy", exclude_from_auth=True)
+    @get("/api/energy-carbon/flows/energy")
     async def get_energy_center_flow(self, db_session: AsyncSession, billing_month: str | None = None) -> Response[dict]:
         return Response(content={"code": 200, "msg": "获取成功", "data": await self._energy_flow_data(db_session, billing_month)})
 
-    @get("/api/energy-carbon/flows/energy-balance", exclude_from_auth=True)
+    @get("/api/energy-carbon/flows/energy-balance")
     async def get_energy_balance(self, db_session: AsyncSession, billing_month: str | None = None) -> Response[dict]:
         month = billing_month or await CarbonAnalyticsController._latest_energy_month(db_session)
         if not month:
@@ -4420,12 +4420,12 @@ class EnergyCarbonCenterController(Controller):
             }
         )
 
-    @get("/api/energy-carbon/flows/energy-diagnostics", exclude_from_auth=True)
+    @get("/api/energy-carbon/flows/energy-diagnostics")
     async def get_energy_flow_diagnostics(self, db_session: AsyncSession, billing_month: str | None = None) -> Response[dict]:
         flow = await self._energy_flow_data(db_session, billing_month)
         return Response(content={"code": 200, "msg": "获取成功", "data": flow.get("diagnostics", {})})
 
-    @get("/api/energy-carbon/flows/energy-top-links", exclude_from_auth=True)
+    @get("/api/energy-carbon/flows/energy-top-links")
     async def get_energy_flow_top_links(self, db_session: AsyncSession, billing_month: str | None = None) -> Response[dict]:
         flow = await self._energy_flow_data(db_session, billing_month)
         node_map = {item["id"]: item["name"] for item in flow.get("nodes", [])}
@@ -4435,7 +4435,7 @@ class EnergyCarbonCenterController(Controller):
         ]
         return Response(content={"code": 200, "msg": "获取成功", "data": {"items": top_links}})
 
-    @get("/api/energy-carbon/carbon/records", exclude_from_auth=True)
+    @get("/api/energy-carbon/carbon/records")
     async def list_energy_center_carbon_records(
         self,
         db_session: AsyncSession,
@@ -4456,21 +4456,21 @@ class EnergyCarbonCenterController(Controller):
         }
         return Response(content={"code": 200, "msg": "获取成功", "data": {**ledger, "summary": summary}})
 
-    @get("/api/energy-carbon/carbon/summary", exclude_from_auth=True)
+    @get("/api/energy-carbon/carbon/summary")
     async def get_energy_center_carbon_summary(self, db_session: AsyncSession) -> Response[dict]:
         ledger = await self._carbon_ledger_page(db_session, None, None, 500, 0)
         records = await CarbonAnalyticsController._load_scope_records(db_session)
         usage = self._build_factor_usage(records)
         return Response(content={"code": 200, "msg": "获取成功", "data": {"summary": ledger.get("items", []), "usage": usage, "totals": ledger.get("total", 0)}})
 
-    @get("/api/energy-carbon/carbon/records/{record_type:str}/{record_id:int}", exclude_from_auth=True)
+    @get("/api/energy-carbon/carbon/records/{record_type:str}/{record_id:int}")
     async def get_energy_center_carbon_record(self, db_session: AsyncSession, record_type: str, record_id: int) -> Response[dict]:
         detail = await self._get_record_detail(db_session, record_type, record_id)
         if not detail:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         return Response(content={"code": 200, "msg": "获取成功", "data": detail})
 
-    @get("/api/energy-carbon/carbon/pending", exclude_from_auth=True)
+    @get("/api/energy-carbon/carbon/pending")
     async def list_energy_center_pending(self, db_session: AsyncSession, limit: int = 20, offset: int = 0) -> Response[dict]:
         records = await CarbonAnalyticsController._load_scope_records(db_session)
         pending_items = [
@@ -4491,17 +4491,17 @@ class EnergyCarbonCenterController(Controller):
         pending_items.sort(key=lambda item: (_sort_month_key(item.get("period")), item["record_id"]), reverse=True)
         return Response(content={"code": 200, "msg": "获取成功", "data": {"items": pending_items[offset : offset + limit], "total": len(pending_items), "limit": limit, "offset": offset}})
 
-    @get("/api/energy-carbon/carbon/trend", exclude_from_auth=True)
+    @get("/api/energy-carbon/carbon/trend")
     async def get_energy_center_carbon_trend(self, db_session: AsyncSession, months: int = 12) -> Response[dict]:
         records = await CarbonAnalyticsController._load_scope_records(db_session)
         return Response(content={"code": 200, "msg": "获取成功", "data": {"series": self._build_carbon_scope_trend(records, months)}})
 
-    @get("/api/energy-carbon/carbon/flow", exclude_from_auth=True)
+    @get("/api/energy-carbon/carbon/flow")
     async def get_energy_center_carbon_flow(self, db_session: AsyncSession) -> Response[dict]:
         records = await CarbonAnalyticsController._load_scope_records(db_session)
         return Response(content={"code": 200, "msg": "获取成功", "data": self._build_carbon_flow(records)})
 
-    @get("/api/energy-carbon/carbon/evidence/{record_type:str}/{record_id:int}", exclude_from_auth=True)
+    @get("/api/energy-carbon/carbon/evidence/{record_type:str}/{record_id:int}")
     async def get_energy_center_carbon_evidence(self, db_session: AsyncSession, record_type: str, record_id: int) -> Response[dict]:
         detail = await self._get_record_detail(db_session, record_type, record_id)
         if not detail:
@@ -4512,7 +4512,7 @@ class EnergyCarbonCenterController(Controller):
             attachments.append({"label": "业务附件", "path": source.get("attachment")})
         return Response(content={"code": 200, "msg": "获取成功", "data": {"items": attachments}})
 
-    @get("/api/energy-carbon/quality/issues", exclude_from_auth=True)
+    @get("/api/energy-carbon/quality/issues")
     async def list_quality_issues(
         self,
         db_session: AsyncSession,
@@ -4531,7 +4531,7 @@ class EnergyCarbonCenterController(Controller):
             summary[item["issue_type"]] += 1
         return Response(content={"code": 200, "msg": "获取成功", "data": {"items": items[offset : offset + limit], "total": len(items), "limit": limit, "offset": offset, "summary": summary}})
 
-    @get("/api/energy-carbon/quality/summary", exclude_from_auth=True)
+    @get("/api/energy-carbon/quality/summary")
     async def get_quality_summary(self, db_session: AsyncSession) -> Response[dict]:
         issues = await self._build_quality_issues(db_session)
         summary: dict[str, int] = defaultdict(int)
@@ -4550,12 +4550,12 @@ class EnergyCarbonCenterController(Controller):
             }
         )
 
-    @get("/api/energy-carbon/quality/trend", exclude_from_auth=True)
+    @get("/api/energy-carbon/quality/trend")
     async def get_quality_trend(self, db_session: AsyncSession, months: int = 12) -> Response[dict]:
         issues = await self._build_quality_issues(db_session)
         return Response(content={"code": 200, "msg": "获取成功", "data": {"series": self._build_quality_trend(issues, months)}})
 
-    @get("/api/energy-carbon/quality/impact-ranking", exclude_from_auth=True)
+    @get("/api/energy-carbon/quality/impact-ranking")
     async def get_quality_impact_ranking(self, db_session: AsyncSession) -> Response[dict]:
         issues = await self._build_quality_issues(db_session)
         by_module: dict[str, int] = defaultdict(int)
@@ -4563,7 +4563,7 @@ class EnergyCarbonCenterController(Controller):
             by_module[item["module"]] += 1
         return Response(content={"code": 200, "msg": "获取成功", "data": {"items": [{"name": name, "value": value} for name, value in sorted(by_module.items(), key=lambda pair: pair[1], reverse=True)]}})
 
-    @get("/api/energy-carbon/trace/{record_type:str}/{record_id:int}", exclude_from_auth=True)
+    @get("/api/energy-carbon/trace/{record_type:str}/{record_id:int}")
     async def get_trace(self, db_session: AsyncSession, record_type: str, record_id: int) -> Response[dict]:
         detail = await self._get_record_detail(db_session, record_type, record_id)
         if not detail:
@@ -4575,7 +4575,7 @@ class EnergyCarbonCenterController(Controller):
         ]
         return Response(content={"code": 200, "msg": "获取成功", "data": {"trace": trace, **detail}})
 
-    @get("/api/energy-carbon/factors", exclude_from_auth=True)
+    @get("/api/energy-carbon/factors")
     async def list_energy_center_factors(
         self,
         db_session: AsyncSession,
@@ -4592,7 +4592,7 @@ class EnergyCarbonCenterController(Controller):
         total = int((await db_session.execute(count_stmt)).scalar_one())
         return Response(content={"code": 200, "msg": "获取成功", "data": {"items": [model_to_dict(item) for item in items], "total": total, "limit": limit, "offset": offset}})
 
-    @get("/api/energy-carbon/factors/stats", exclude_from_auth=True)
+    @get("/api/energy-carbon/factors/stats")
     async def get_energy_center_factor_stats(self, db_session: AsyncSession) -> Response[dict]:
         emission_total = int((await db_session.execute(select(func.count()).select_from(m.EmissionFactor))).scalar_one())
         active_total = int((await db_session.execute(select(func.count()).select_from(m.EmissionFactor).where(m.EmissionFactor.is_active.is_(True)))).scalar_one())
@@ -4615,12 +4615,12 @@ class EnergyCarbonCenterController(Controller):
             }
         )
 
-    @get("/api/energy-carbon/factors/usage", exclude_from_auth=True)
+    @get("/api/energy-carbon/factors/usage")
     async def get_energy_center_factor_usage(self, db_session: AsyncSession) -> Response[dict]:
         records = await CarbonAnalyticsController._load_scope_records(db_session)
         return Response(content={"code": 200, "msg": "获取成功", "data": self._build_factor_usage(records)})
 
-    @get("/api/energy-carbon/factors/categories", exclude_from_auth=True)
+    @get("/api/energy-carbon/factors/categories")
     async def get_energy_center_factor_categories(self, db_session: AsyncSession) -> Response[dict]:
         rows = (
             await db_session.execute(select(m.EmissionFactor.scope, m.EmissionFactor.category, func.count(m.EmissionFactor.id)).group_by(m.EmissionFactor.scope, m.EmissionFactor.category))
@@ -4847,7 +4847,7 @@ class CarbonCRUDController(Controller):
         )
 
     # ---------- Scope1 移动源 ----------
-    @get("/api/carbon/scope1-mobile-combustion", exclude_from_auth=True)
+    @get("/api/carbon/scope1-mobile-combustion")
     async def list_scope1_mobile(
         self,
         scope1_mobile_service: services.Scope1MobileCombustionService,
@@ -4887,7 +4887,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=await _augment_page_items(page, rows, session))
 
-    @get("/api/carbon/scope1-mobile-combustion/{record_id:int}", exclude_from_auth=True)
+    @get("/api/carbon/scope1-mobile-combustion/{record_id:int}")
     async def get_scope1_mobile(
         self, record_id: int, scope1_mobile_service: services.Scope1MobileCombustionService
     ) -> Response[dict]:
@@ -5068,7 +5068,7 @@ class CarbonCRUDController(Controller):
         return Response(content={"code": 200, "msg": "已驳回"})
 
     # ---------- Scope1 固定源 ----------
-    @get("/api/carbon/scope1-stationary-combustion", exclude_from_auth=True)
+    @get("/api/carbon/scope1-stationary-combustion")
     async def list_scope1_stationary(
         self,
         scope1_stationary_service: services.Scope1StationaryCombustionService,
@@ -5108,7 +5108,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=await _augment_page_items(page, rows, session))
 
-    @get("/api/carbon/scope1-stationary-combustion/{record_id:int}", exclude_from_auth=True)
+    @get("/api/carbon/scope1-stationary-combustion/{record_id:int}")
     async def get_scope1_stationary(
         self, record_id: int, scope1_stationary_service: services.Scope1StationaryCombustionService
     ) -> Response[dict]:
@@ -5287,7 +5287,7 @@ class CarbonCRUDController(Controller):
         return Response(content={"code": 200, "msg": "已驳回"})
 
     # ---------- Scope1 逸散（制冷剂）完整 CRUD + 审核 ----------
-    @get("/api/carbon/scope1-refrigerant-leak/{record_id:int}", exclude_from_auth=True)
+    @get("/api/carbon/scope1-refrigerant-leak/{record_id:int}")
     async def get_scope1_refrigerant(
         self, record_id: int, scope1_refrigerant_service: services.Scope1RefrigerantLeakService
     ) -> Response[dict]:
@@ -5466,7 +5466,7 @@ class CarbonCRUDController(Controller):
         return Response(content={"code": 200, "msg": "已驳回"})
 
     # ---------- Scope2 电费账单 完整 CRUD + 审核 ----------
-    @get("/api/carbon/scope2-electricity-bill/{record_id:int}", exclude_from_auth=True)
+    @get("/api/carbon/scope2-electricity-bill/{record_id:int}")
     async def get_scope2_bill(
         self, record_id: int, scope2_bill_service: services.Scope2ElectricityBillService
     ) -> Response[dict]:
@@ -5679,7 +5679,7 @@ class CarbonCRUDController(Controller):
         return Response(content={"code": 200, "msg": "已驳回"})
 
     # ---------- Scope3 废弃物 完整 CRUD + 审核 ----------
-    @get("/api/carbon/scope3-waste-disposal/{record_id:int}", exclude_from_auth=True)
+    @get("/api/carbon/scope3-waste-disposal/{record_id:int}")
     async def get_scope3_waste(
         self, record_id: int, scope3_waste_service: services.Scope3WasteDisposalService
     ) -> Response[dict]:
@@ -5858,7 +5858,7 @@ class CarbonCRUDController(Controller):
         return Response(content={"code": 200, "msg": "已驳回"})
 
     # ---------- Scope3 外购运输 完整 CRUD + 审核 ----------
-    @get("/api/carbon/scope3-third-party-transport/{record_id:int}", exclude_from_auth=True)
+    @get("/api/carbon/scope3-third-party-transport/{record_id:int}")
     async def get_scope3_transport(
         self, record_id: int, scope3_transport_service: services.Scope3ThirdPartyTransportService
     ) -> Response[dict]:
@@ -6035,7 +6035,7 @@ class CarbonCRUDController(Controller):
         return Response(content={"code": 200, "msg": "已驳回"})
 
     # ---------- Scope1 逸散 / Scope2 / Scope3：列表 + 待审核汇总 ----------
-    @get("/api/carbon/scope1-refrigerant-leak", exclude_from_auth=True)
+    @get("/api/carbon/scope1-refrigerant-leak")
     async def list_scope1_refrigerant(
         self,
         scope1_refrigerant_service: services.Scope1RefrigerantLeakService,
@@ -6075,7 +6075,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=await _augment_page_items(page, rows, session))
 
-    @get("/api/carbon/scope2-electricity-bill", exclude_from_auth=True)
+    @get("/api/carbon/scope2-electricity-bill")
     async def list_scope2_bill(
         self,
         scope2_bill_service: services.Scope2ElectricityBillService,
@@ -6115,7 +6115,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=await _augment_page_items(page, rows, session, source_kind="manual_bill"))
 
-    @get("/api/carbon/scope3-waste-disposal", exclude_from_auth=True)
+    @get("/api/carbon/scope3-waste-disposal")
     async def list_scope3_waste(
         self,
         scope3_waste_service: services.Scope3WasteDisposalService,
@@ -6155,7 +6155,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=await _augment_page_items(page, rows, session))
 
-    @get("/api/carbon/scope3-third-party-transport", exclude_from_auth=True)
+    @get("/api/carbon/scope3-third-party-transport")
     async def list_scope3_transport(
         self,
         scope3_transport_service: services.Scope3ThirdPartyTransportService,
@@ -6195,7 +6195,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=await _augment_page_items(page, rows, session))
 
-    @get("/api/carbon/emission-factors", exclude_from_auth=True)
+    @get("/api/carbon/emission-factors")
     async def list_emission_factors(
         self,
         emission_factor_service: services.EmissionFactorService,
@@ -6227,7 +6227,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=page)
 
-    @get("/api/carbon/factor-library/overview", exclude_from_auth=True)
+    @get("/api/carbon/factor-library/overview")
     async def get_factor_library_overview(self, db_session: AsyncSession) -> Response[dict]:
         """Official factor asset library overview."""
         batch = (
@@ -6267,7 +6267,7 @@ class CarbonCRUDController(Controller):
         }
         return Response(content={"code": 200, "msg": "获取成功", "data": data})
 
-    @get("/api/carbon/factor-library/records", exclude_from_auth=True)
+    @get("/api/carbon/factor-library/records")
     async def list_factor_library_records(
         self,
         db_session: AsyncSession,
@@ -6332,14 +6332,14 @@ class CarbonCRUDController(Controller):
             }
         )
 
-    @get("/api/carbon/factor-library/records/{record_id:int}", exclude_from_auth=True)
+    @get("/api/carbon/factor-library/records/{record_id:int}")
     async def get_factor_library_record(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
         item = await db_session.get(m.CarbonFactorRawRecord, record_id)
         if item is None:
             return Response(content={"code": 404, "msg": "记录不存在", "data": None}, status_code=404)
         return Response(content={"code": 200, "msg": "获取成功", "data": _augment_raw_factor_record_dict(model_to_dict(item))})
 
-    @get("/api/carbon/factor-library/categories", exclude_from_auth=True)
+    @get("/api/carbon/factor-library/categories")
     async def list_factor_library_categories(
         self,
         db_session: AsyncSession,
@@ -6358,7 +6358,7 @@ class CarbonCRUDController(Controller):
         rows = (await db_session.execute(stmt)).scalars().all()
         return Response(content={"code": 200, "msg": "获取成功", "data": [model_to_dict(item) for item in rows]})
 
-    @get("/api/carbon/factor-library/category-tree", exclude_from_auth=True)
+    @get("/api/carbon/factor-library/category-tree")
     async def get_factor_library_category_tree(self, db_session: AsyncSession) -> Response[dict]:
         """Return category data as library-grouped expandable trees."""
         libraries = (
@@ -6453,7 +6453,7 @@ class CarbonCRUDController(Controller):
 
         return Response(content={"code": 200, "msg": "获取成功", "data": {"groups": groups}})
 
-    @get("/api/carbon/iot-telemetry", exclude_from_auth=True)
+    @get("/api/carbon/iot-telemetry")
     async def list_iot_telemetry(
         self,
         db_session: AsyncSession,
@@ -6506,7 +6506,7 @@ class CarbonCRUDController(Controller):
             row.update(equipment_map.get(str(row.get("device_id")), {}))
         return Response(content={"code": 200, "data": telemetry_rows})
 
-    @get("/api/carbon/audit-logs", exclude_from_auth=True)
+    @get("/api/carbon/audit-logs")
     async def list_carbon_audit_logs(
         self,
         audit_log_service: services.CarbonAuditLogService,
@@ -6539,7 +6539,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=page)
 
-    @get("/api/carbon/pending", exclude_from_auth=True)
+    @get("/api/carbon/pending")
     async def list_pending(
         self,
         scope1_mobile_service: services.Scope1MobileCombustionService,
@@ -6850,7 +6850,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content={"code": 200, "msg": "已驳回"})
 
-    @get("/api/carbon/scope2-records", exclude_from_auth=True)
+    @get("/api/carbon/scope2-records")
     async def list_scope2_records(
         self,
         db_session: AsyncSession,
@@ -6930,7 +6930,7 @@ class CarbonCRUDController(Controller):
             )
         )
 
-    @get("/api/carbon/scope2-reconciliation", exclude_from_auth=True)
+    @get("/api/carbon/scope2-reconciliation")
     async def get_scope2_reconciliation(
         self,
         db_session: AsyncSession,
@@ -6975,7 +6975,7 @@ class CarbonCRUDController(Controller):
             }
         )
 
-    @get("/api/master-data/areas/tree", exclude_from_auth=True)
+    @get("/api/master-data/areas/tree")
     async def list_master_data_area_tree(
         self,
         db_session: AsyncSession,
@@ -7026,7 +7026,7 @@ class CarbonCRUDController(Controller):
         selected_root = next((node for node in tree if node["id"] == root.id), None)
         return Response(content={"code": 200, "msg": "获取成功", "data": {"items": tree, "root": selected_root}})
 
-    @get("/api/master-data/areas", exclude_from_auth=True)
+    @get("/api/master-data/areas")
     async def list_master_data_areas(
         self,
         db_session: AsyncSession,
@@ -7089,7 +7089,7 @@ class CarbonCRUDController(Controller):
             row["equipment_count"] = int(equipment_counts.get(row.get("id"), 0))
         return Response(content=page)
 
-    @get("/api/master-data/areas/{area_id:int}/summary", exclude_from_auth=True)
+    @get("/api/master-data/areas/{area_id:int}/summary")
     async def get_master_data_area_summary(self, db_session: AsyncSession, area_id: int) -> Response[dict]:
         area = (
             await db_session.execute(
@@ -7272,7 +7272,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @get("/api/master-data/device-types/tree", exclude_from_auth=True)
+    @get("/api/master-data/device-types/tree")
     async def list_master_data_device_type_tree(
         self,
         db_session: AsyncSession,
@@ -7300,7 +7300,7 @@ class CarbonCRUDController(Controller):
         items = [_serialize_device_type(row, child_count=int(child_counts.get(row.id, 0))) for row in rows]
         return Response(content={"code": 200, "msg": "获取成功", "data": {"items": _build_tree(items)}})
 
-    @get("/api/master-data/devices", exclude_from_auth=True)
+    @get("/api/master-data/devices")
     async def list_master_data_devices(
         self,
         db_session: AsyncSession,
@@ -7414,7 +7414,7 @@ class CarbonCRUDController(Controller):
             row["point_count"] = int(point_counts.get(row.get("id"), 0))
         return Response(content=page)
 
-    @get("/api/master-data/devices/{device_id:int}", exclude_from_auth=True)
+    @get("/api/master-data/devices/{device_id:int}")
     async def get_master_data_device_detail(self, db_session: AsyncSession, device_id: int) -> Response[dict]:
         device = (
             await db_session.execute(
@@ -7557,7 +7557,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @get("/api/master-data/device-points", exclude_from_auth=True)
+    @get("/api/master-data/device-points")
     async def list_master_data_device_points(
         self,
         db_session: AsyncSession,
@@ -7700,7 +7700,7 @@ class CarbonCRUDController(Controller):
         return Response(content={"code": 200, "msg": "已删除"})
 
     # ---------- 数据管理: 区域 / 终端 / 视频 / 规则配置 ----------
-    @get("/api/data/monitor-sectors", exclude_from_auth=True)
+    @get("/api/data/monitor-sectors")
     async def list_monitor_sectors(
         self,
         db_session: AsyncSession,
@@ -7900,7 +7900,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @get("/api/data/device-types", exclude_from_auth=True)
+    @get("/api/data/device-types")
     async def list_device_types(
         self,
         db_session: AsyncSession,
@@ -8002,7 +8002,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @get("/api/data/monitor-equipments", exclude_from_auth=True)
+    @get("/api/data/monitor-equipments")
     async def list_monitor_equipments(
         self,
         db_session: AsyncSession,
@@ -8148,7 +8148,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @get("/api/data/device-points", exclude_from_auth=True)
+    @get("/api/data/device-points")
     async def list_device_points(
         self,
         db_session: AsyncSession,
@@ -8285,7 +8285,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @get("/api/data/video-monitors", exclude_from_auth=True)
+    @get("/api/data/video-monitors")
     async def list_video_monitors(
         self,
         video_monitor_service: services.VideoMonitorService,
@@ -8388,7 +8388,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @get("/api/data/warning-rules", exclude_from_auth=True)
+    @get("/api/data/warning-rules")
     async def list_warning_rules(
         self,
         warning_rule_service: services.WarningRuleService,
@@ -8496,7 +8496,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @get("/api/data/api-result-key-mappings", exclude_from_auth=True)
+    @get("/api/data/api-result-key-mappings")
     async def list_api_result_key_mappings(
         self,
         api_result_key_mapping_service: services.ApiResultKeyMappingService,
@@ -8594,7 +8594,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @get("/api/data/energy-storage", exclude_from_auth=True)
+    @get("/api/data/energy-storage")
     async def get_energy_storage_setting(self, db_session: AsyncSession) -> Response[dict]:
         obj = (await db_session.execute(select(m.EnergyStorageValue).order_by(m.EnergyStorageValue.id.desc()).limit(1))).scalars().first()
         return Response(content={"code": 200, "msg": "获取成功", "data": model_to_dict(obj) if obj else None})
@@ -8627,7 +8627,7 @@ class CarbonCRUDController(Controller):
         return Response(content={"code": 200, "msg": "保存成功", "data": model_to_dict(obj)})
 
     # ---------- 数据管理: 事件处理 / 流水只读 ----------
-    @get("/api/data/alarm-events", exclude_from_auth=True)
+    @get("/api/data/alarm-events")
     async def list_alarm_events(
         self,
         alarm_event_service: services.AlarmEventService,
@@ -8750,7 +8750,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content={"code": 200, "msg": "已批量处理", "data": {"count": len(items)}})
 
-    @get("/api/data/video-alarm-events", exclude_from_auth=True)
+    @get("/api/data/video-alarm-events")
     async def list_video_alarm_events(
         self,
         vedio_alarm_event_service: services.VedioAlarmEventService,
@@ -8830,7 +8830,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content={"code": 200, "msg": "已批量处理", "data": {"count": len(items)}})
 
-    @get("/api/data/in-money", exclude_from_auth=True)
+    @get("/api/data/in-money")
     async def list_in_money(
         self,
         in_money_service: services.InMoneyService,
@@ -8854,7 +8854,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=page)
 
-    @get("/api/data/out-money", exclude_from_auth=True)
+    @get("/api/data/out-money")
     async def list_out_money(
         self,
         out_money_service: services.OutMoneyService,
@@ -8878,7 +8878,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=page)
 
-    @get("/api/data/ammeter-values", exclude_from_auth=True)
+    @get("/api/data/ammeter-values")
     async def list_ammeter_values(
         self,
         db_session: AsyncSession,
@@ -8936,7 +8936,7 @@ class CarbonCRUDController(Controller):
         return Response(content=_paged_payload([model_to_dict(row) for row in rows], total or 0, limit_clamped, offset_clamped))
 
     # ---------- 数据管理：员工通勤 ----------
-    @get("/api/data/employee-commute", exclude_from_auth=True)
+    @get("/api/data/employee-commute")
     async def list_employee_commute(
         self,
         employee_commute_service: services.EmployeeCommuteService,
