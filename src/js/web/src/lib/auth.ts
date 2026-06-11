@@ -95,7 +95,7 @@ export const useAuthStore = create<AuthState>()(
           }
           return { mfaRequired: false }
         } catch (error) {
-          set({ user: null, currentTeam: null, isAuthenticated: false })
+          set({ user: null, currentTeam: null, teams: [], isAuthenticated: false })
           if (!(error instanceof HumanVerificationRequiredError)) {
             toast.error("An error occurred", {
               description: error instanceof Error ? error.message : "Unknown error",
@@ -119,7 +119,7 @@ export const useAuthStore = create<AuthState>()(
             // Session cookies are authoritative; profile fetch can reconcile later.
           }
         } catch (error) {
-          set({ user: null, currentTeam: null, isAuthenticated: false })
+          set({ user: null, currentTeam: null, teams: [], isAuthenticated: false })
           toast.error("MFA verification failed", {
             description: error instanceof Error ? error.message : "Unable to complete login",
           })
@@ -131,7 +131,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true })
         try {
           await accountLogout()
-          set({ user: null, currentTeam: null, isAuthenticated: false })
+          set({ user: null, currentTeam: null, teams: [], isAuthenticated: false })
         } finally {
           set({ isLoading: false })
         }
@@ -145,7 +145,7 @@ export const useAuthStore = create<AuthState>()(
           }
           set({ user, isAuthenticated: true })
         } catch {
-          set({ user: null, currentTeam: null, isAuthenticated: false })
+          set({ user: null, currentTeam: null, teams: [], isAuthenticated: false })
         } finally {
           set({ isLoading: false })
         }
@@ -162,6 +162,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
         user: state.user,
+        currentTeam: state.currentTeam,
       }),
     },
   ),

@@ -26,12 +26,35 @@ declare global {
 const queryClient = new QueryClient()
 
 const apiUrl = getApiBaseUrl()
-const rawFetch: typeof fetch = (...args) => globalThis.fetch(...args)
+const rawFetch: typeof fetch = globalThis.fetch.bind(globalThis)
 const publicAuthPaths = ["/login", "/signup", "/forgot-password", "/reset-password"]
+const tenantHeaderName = "X-Team-Id"
 
 const isPublicAuthPath = (pathname: string) => publicAuthPaths.some((path) => pathname.startsWith(path))
 
 const shouldSkipRefresh = (requestUrl: string) => requestUrl.includes("/api/access/refresh") || requestUrl.includes("/api/access/login")
+
+const isApiRequest = (requestUrl: string) => {
+  const url = new URL(requestUrl, window.location.origin)
+  const baseUrl = new URL(apiUrl, window.location.origin)
+  return url.origin === baseUrl.origin && url.pathname.startsWith("/api/")
+}
+
+const withTenantHeader = (request: Request) => {
+  const teamId = useAuthStore.getState().currentTeam?.id
+  if (!teamId || !isApiRequest(request.url) || request.headers.has(tenantHeaderName)) {
+    return request
+  }
+
+  const headers = new Headers(request.headers)
+  headers.set(tenantHeaderName, teamId)
+  return new Request(request, { headers })
+}
+
+globalThis.fetch = (input, init) => {
+  const request = input instanceof Request ? new Request(input, init) : new Request(input, init)
+  return rawFetch(withTenantHeader(request))
+}
 
 client.setConfig({
   baseUrl: apiUrl,
@@ -63,15 +86,16 @@ client.setConfig({
 // Add CSRF token to all non-GET requests
 // litestar-vite injects the token into window.__LITESTAR_CSRF__
 client.interceptors.request.use((request, _options) => {
+  const tenantAwareRequest = withTenantHeader(request)
   const method = request.method?.toUpperCase()
   // Only add CSRF header for unsafe methods (non-GET/HEAD/OPTIONS)
   if (method && !["GET", "HEAD", "OPTIONS"].includes(method)) {
     const csrfToken = window.__LITESTAR_CSRF__
     if (csrfToken) {
-      request.headers.set("X-XSRF-TOKEN", csrfToken)
+      tenantAwareRequest.headers.set("X-XSRF-TOKEN", csrfToken)
     }
   }
-  return request
+  return tenantAwareRequest
 })
 
 // Silent token refresh state
