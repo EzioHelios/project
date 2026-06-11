@@ -26,6 +26,11 @@ export type BigscreenSceneViewerOptions = {
   requestRenderMode: boolean
   maximumRenderTimeChange: number
   msaaSamples: number
+  useBrowserRecommendedResolution: boolean
+  resolutionScale: number
+  fxaa: boolean
+  orderIndependentTranslucency: boolean
+  highDynamicRange: boolean
 }
 
 export type BigscreenSceneImageryProviderConfig = {
@@ -77,6 +82,27 @@ export type BigscreenWarehouseLayerConfig = {
   outlineWidth: number
 }
 
+export type BigscreenSceneFeatureLayerConfig = {
+  dataUrl: string
+  show: boolean
+  outlineColor: string
+  outlineOpacity: number
+  outlineWidth: number
+}
+
+export type BigscreenSceneBuildingLayerConfig = BigscreenSceneFeatureLayerConfig & {
+  defaultHeight: number
+  defaultOpacity: number
+  solarPanelColor: string
+  solarPanelStrokeColor: string
+}
+
+export type BigscreenSceneZoneLayerConfig = BigscreenSceneFeatureLayerConfig & {
+  defaultOpacity: number
+  defaultHeight: number
+  surfaceHeight: number
+}
+
 export type BigscreenSceneLegacyMaplibreConfig = {
   styleUrl: string
   cameraFallback: {
@@ -99,6 +125,9 @@ export type BigscreenSceneConfig = {
   terrainProvider: BigscreenSceneTerrainProviderConfig
   cameraHome: BigscreenSceneCameraHome
   viewerOptions: BigscreenSceneViewerOptions
+  siteLayer?: BigscreenSceneFeatureLayerConfig
+  buildingLayer?: BigscreenSceneBuildingLayerConfig
+  zoneLayer?: BigscreenSceneZoneLayerConfig
   warehouseLayer: BigscreenWarehouseLayerConfig
   futureLayers: {
     tileset: BigscreenFutureTilesetLayer[]

@@ -2,11 +2,14 @@ import type {
   BigscreenLoadedScene,
   BigscreenSceneConfig,
   BigscreenSceneCoordinateSystem,
+  BigscreenSceneBuildingLayerConfig,
+  BigscreenSceneFeatureLayerConfig,
   BigscreenSceneImageryProviderConfig,
   BigscreenSceneInitialCamera,
   BigscreenSceneLngLat,
   BigscreenScenePadding,
   BigscreenSceneTerrainProviderConfig,
+  BigscreenSceneZoneLayerConfig,
   BigscreenWarehouseFeature,
   BigscreenWarehouseFeatureCollection,
   BigscreenWarehouseFeatureProperties,
@@ -40,7 +43,10 @@ const DEFAULT_TERRAIN_PROVIDER: BigscreenSceneTerrainProviderConfig = {
 }
 
 type PartialSceneConfig = Partial<
-  Omit<BigscreenSceneConfig, "cameraHome" | "warehouseLayer" | "futureLayers" | "center" | "imageryProvider" | "terrainProvider" | "viewerOptions">
+  Omit<
+    BigscreenSceneConfig,
+    "cameraHome" | "warehouseLayer" | "futureLayers" | "center" | "imageryProvider" | "terrainProvider" | "viewerOptions" | "siteLayer" | "buildingLayer" | "zoneLayer"
+  >
 > & {
   engine?: "maplibre"
   center?: BigscreenSceneLngLat
@@ -48,6 +54,9 @@ type PartialSceneConfig = Partial<
   terrainProvider?: Partial<Extract<BigscreenSceneTerrainProviderConfig, { kind: "cesium-terrain" }>> | { kind?: "ellipsoid" }
   cameraHome?: Partial<BigscreenSceneConfig["cameraHome"]>
   viewerOptions?: Partial<BigscreenSceneConfig["viewerOptions"]>
+  siteLayer?: Partial<BigscreenSceneFeatureLayerConfig>
+  buildingLayer?: Partial<BigscreenSceneBuildingLayerConfig>
+  zoneLayer?: Partial<BigscreenSceneZoneLayerConfig>
   warehouseLayer?: Partial<BigscreenWarehouseLayerConfig>
   futureLayers?: Partial<BigscreenSceneConfig["futureLayers"]>
   styleUrl?: string
@@ -144,6 +153,49 @@ function normalizeWarehouseLayer(input: PartialSceneConfig, _center: BigscreenSc
   }
 }
 
+function normalizeFeatureLayer(input: Partial<BigscreenSceneFeatureLayerConfig> | undefined, dataUrl: string, outlineColor: string): BigscreenSceneFeatureLayerConfig | undefined {
+  if (!input?.dataUrl?.trim() && !input?.show) {
+    return undefined
+  }
+
+  return {
+    dataUrl: input?.dataUrl?.trim() || dataUrl,
+    show: input?.show ?? true,
+    outlineColor: input?.outlineColor?.trim() || outlineColor,
+    outlineOpacity: input?.outlineOpacity ?? 0.72,
+    outlineWidth: input?.outlineWidth ?? 1,
+  }
+}
+
+function normalizeBuildingLayer(input: Partial<BigscreenSceneBuildingLayerConfig> | undefined): BigscreenSceneBuildingLayerConfig | undefined {
+  const baseLayer = normalizeFeatureLayer(input, "./buildings.geojson", "#dcfbff")
+  if (!baseLayer) {
+    return undefined
+  }
+
+  return {
+    ...baseLayer,
+    defaultHeight: input?.defaultHeight ?? 8,
+    defaultOpacity: input?.defaultOpacity ?? 0.48,
+    solarPanelColor: input?.solarPanelColor?.trim() || "#123d72",
+    solarPanelStrokeColor: input?.solarPanelStrokeColor?.trim() || "#87d8ff",
+  }
+}
+
+function normalizeZoneLayer(input: Partial<BigscreenSceneZoneLayerConfig> | undefined): BigscreenSceneZoneLayerConfig | undefined {
+  const baseLayer = normalizeFeatureLayer(input, "./zones.geojson", "#f8fdff")
+  if (!baseLayer) {
+    return undefined
+  }
+
+  return {
+    ...baseLayer,
+    defaultOpacity: input?.defaultOpacity ?? 0.48,
+    defaultHeight: input?.defaultHeight ?? 0.55,
+    surfaceHeight: input?.surfaceHeight ?? 14.2,
+  }
+}
+
 export function resolveBigscreenPublicUrl(path: string) {
   const baseUrl = import.meta.env.BASE_URL || "/"
   return `${baseUrl}${path.replace(/^\//u, "")}`
@@ -176,7 +228,15 @@ export function normalizeBigscreenSceneConfig(input: PartialSceneConfig): Bigscr
       requestRenderMode: input.viewerOptions?.requestRenderMode ?? false,
       maximumRenderTimeChange: input.viewerOptions?.maximumRenderTimeChange ?? 0,
       msaaSamples: input.viewerOptions?.msaaSamples ?? 4,
+      useBrowserRecommendedResolution: input.viewerOptions?.useBrowserRecommendedResolution ?? false,
+      resolutionScale: input.viewerOptions?.resolutionScale ?? 1,
+      fxaa: input.viewerOptions?.fxaa ?? true,
+      orderIndependentTranslucency: input.viewerOptions?.orderIndependentTranslucency ?? true,
+      highDynamicRange: input.viewerOptions?.highDynamicRange ?? true,
     },
+    siteLayer: normalizeFeatureLayer(input.siteLayer, "./site.geojson", "#d9fbff"),
+    buildingLayer: normalizeBuildingLayer(input.buildingLayer),
+    zoneLayer: normalizeZoneLayer(input.zoneLayer),
     warehouseLayer: normalizeWarehouseLayer(input, center),
     futureLayers: {
       tileset: input.futureLayers?.tileset ?? [],
@@ -213,6 +273,10 @@ export function resolveSceneAssetUrl(url: string, manifestUrl: string) {
   return new URL(url, new URL(manifestUrl, window.location.origin)).toString()
 }
 
+function shouldResolveSceneAssetUrl(url: string) {
+  return url.trim().toLowerCase() !== "none"
+}
+
 export function resolveWarehouseDataUrl(config: BigscreenSceneConfig) {
   return config.warehouseLayer.dataUrl
 }
@@ -224,7 +288,7 @@ export async function loadBigscreenScene(manifestUrl: string): Promise<Bigscreen
     config.imageryProvider.kind === "url-template"
       ? {
           ...config.imageryProvider,
-          url: resolveSceneAssetUrl(config.imageryProvider.url, manifestUrl),
+          url: shouldResolveSceneAssetUrl(config.imageryProvider.url) ? resolveSceneAssetUrl(config.imageryProvider.url, manifestUrl) : config.imageryProvider.url,
         }
       : config.imageryProvider
   const terrainProvider =
@@ -235,6 +299,24 @@ export async function loadBigscreenScene(manifestUrl: string): Promise<Bigscreen
         }
       : config.terrainProvider
   const warehouseDataUrl = resolveSceneAssetUrl(resolveWarehouseDataUrl(config), manifestUrl)
+  const siteLayer = config.siteLayer
+    ? {
+        ...config.siteLayer,
+        dataUrl: resolveSceneAssetUrl(config.siteLayer.dataUrl, manifestUrl),
+      }
+    : undefined
+  const buildingLayer = config.buildingLayer
+    ? {
+        ...config.buildingLayer,
+        dataUrl: resolveSceneAssetUrl(config.buildingLayer.dataUrl, manifestUrl),
+      }
+    : undefined
+  const zoneLayer = config.zoneLayer
+    ? {
+        ...config.zoneLayer,
+        dataUrl: resolveSceneAssetUrl(config.zoneLayer.dataUrl, manifestUrl),
+      }
+    : undefined
   const maplibre = config.maplibre
     ? {
         ...config.maplibre,
@@ -249,6 +331,9 @@ export async function loadBigscreenScene(manifestUrl: string): Promise<Bigscreen
       ...config,
       imageryProvider,
       terrainProvider,
+      siteLayer,
+      buildingLayer,
+      zoneLayer,
       warehouseLayer: {
         ...config.warehouseLayer,
         dataUrl: warehouseDataUrl,

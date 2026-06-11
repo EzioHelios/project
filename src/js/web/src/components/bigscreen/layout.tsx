@@ -13,6 +13,7 @@ import { useBigscreenEnvironment, useBigscreenMeta } from "@/lib/bigscreen/hooks
 const fallbackNav = [
   { label: "企业介绍", path: "/bigscreen/intro" },
   { label: "态势总览", path: "/bigscreen/overview" },
+  { label: "园区模型", path: "/bigscreen/model" },
   { label: "电量监控", path: "/bigscreen/power" },
   { label: "能碳协同", path: "/bigscreen/carbon" },
 ]

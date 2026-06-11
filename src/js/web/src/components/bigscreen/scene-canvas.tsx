@@ -9,7 +9,7 @@ import type { BigscreenLoadedScene, BigscreenSceneEngine, BigscreenSceneEngineKi
 type BigscreenSceneLoadState = { status: "loading"; message: string } | { status: "ready"; message?: string } | { status: "error"; message: string }
 
 export function BigscreenSceneCanvas({
-  manifestUrl = resolveBigscreenPublicUrl("maps/bigscreen/scene.json"),
+  manifestUrl = resolveBigscreenPublicUrl("maps/taizhou-warehouse/scene.json"),
   createEngine = createDefaultBigscreenSceneEngine,
   className,
   variant = "panel",
