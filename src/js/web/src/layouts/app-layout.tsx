@@ -1,12 +1,10 @@
-import { Link, Outlet, useRouterState } from "@tanstack/react-router"
+import { Outlet, useRouterState } from "@tanstack/react-router"
 import { useMemo } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { useAuthStore } from "@/lib/auth"
 
 export function AppLayout() {
-  const currentTeam = useAuthStore((state) => state.currentTeam)
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
@@ -26,7 +24,7 @@ export function AppLayout() {
       return { eyebrow: "团队空间", title: "创建团队" }
     }
     if (pathname.startsWith("/teams/")) {
-      return { eyebrow: "团队空间", title: currentTeam?.name ?? "团队详情" }
+      return { eyebrow: "团队空间", title: "团队详情" }
     }
     if (pathname.startsWith("/admin")) {
       if (pathname === "/admin") return { eyebrow: "权限中心", title: "权限中心概览" }
@@ -108,7 +106,7 @@ export function AppLayout() {
       return { eyebrow: "碳排放管理", title: "碳排放管理" }
     }
     return { eyebrow: "工作台", title: "首页" }
-  }, [currentTeam?.name, pathname])
+  }, [pathname])
 
   if (isBigscreenRoute) {
     return <Outlet />
@@ -130,16 +128,6 @@ export function AppLayout() {
                     <p className="font-heading text-lg font-semibold text-foreground">{header.title}</p>
                   </div>
                 </div>
-                {currentTeam && pathname !== "/teams/new" && !pathname.startsWith(`/teams/${currentTeam.id}`) && (
-                  <Link
-                    to="/teams/$teamId"
-                    params={{ teamId: currentTeam.id }}
-                    className="hidden items-center gap-2 rounded-full border border-border/60 bg-card/80 px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground md:flex"
-                  >
-                    当前团队
-                    <span className="text-foreground">{currentTeam.name}</span>
-                  </Link>
-                )}
               </div>
             </header>
             <Outlet />

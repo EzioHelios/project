@@ -4,9 +4,7 @@ import { AlarmClock, BellRing, Building2, ClipboardList, Cpu, Database, Home, Mo
 import type * as React from "react"
 import { useCallback, useEffect, useMemo } from "react"
 import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
 import { NavUser } from "@/components/nav-user"
-import { TeamSwitcher } from "@/components/team-switcher"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } from "@/components/ui/sidebar"
 import { usePublicConfig } from "@/hooks/use-public-config"
@@ -213,16 +211,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return items
   }, [pathname])
 
-  const teamLinks = useMemo(
-    () =>
-      teams.map((team: Team) => ({
-        name: team.name,
-        to: "/teams/$teamId",
-        params: { teamId: team.id },
-        icon: Users,
-      })),
-    [teams],
-  )
   const teamOptions = teamsData.length > 0 ? teamsData : teams
   const handleTeamSelect = useCallback(
     (team: Team) => {
@@ -247,16 +235,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <div className="truncate text-xs text-muted-foreground">仓库碳管理</div>
           </div>
         </div>
-        <TeamSwitcher teams={teamOptions} currentTeam={currentTeam} onTeamSelect={handleTeamSelect} />
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={navMain} />
-        {teamLinks.length > 0 && <NavProjects label="团队" projects={teamLinks} />}
       </SidebarContent>
       <SidebarFooter>
         <div className="flex items-center gap-2">
           <div className="flex-1 min-w-0">
-            <NavUser />
+            <NavUser teams={teamOptions} currentTeam={currentTeam} onTeamSelect={handleTeamSelect} />
           </div>
           <div className="shrink-0 group-data-[collapsible=icon]:hidden">
             <ThemeToggle />
