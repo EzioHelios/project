@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from uuid import UUID
 
@@ -17,6 +17,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    Time,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -201,6 +202,144 @@ class EnergyUnitConversion(BigIntBase):
     conversion_factor_source: Mapped[str | None] = mapped_column(String(255))
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
+class EnergyUseSystem(TeamScopedMixin, BigIntAuditBase):
+    """用能系统字典, 用于能源分析和策略推荐."""
+
+    __tablename__ = "dataapp_energyusesystem"
+    __table_args__ = (
+        UniqueConstraint("team_id", "code", name="uq_energy_use_system_team_code"),
+        Index("ix_energy_use_system_team_type", "team_id", "system_type"),
+    )
+
+    code: Mapped[str] = mapped_column(String(64), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    system_type: Mapped[str] = mapped_column(String(32), index=True)
+    parent_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
+class EnergyUseSystemBinding(TeamScopedMixin, BigIntAuditBase):
+    """设备、区域与用能系统的归类关系."""
+
+    __tablename__ = "dataapp_energyusesystembinding"
+    __table_args__ = (
+        UniqueConstraint("team_id", "system_code", "equipment_id", name="uq_energy_use_system_binding_equipment"),
+        Index("ix_energy_use_system_binding_system", "team_id", "system_code"),
+        Index("ix_energy_use_system_binding_resource", "equipment_id", "sector_id"),
+    )
+
+    system_code: Mapped[str] = mapped_column(String(64), index=True)
+    equipment_id: Mapped[int | None] = mapped_column(ForeignKey("dataapp_monitorequipment.id", ondelete="SET NULL"), index=True)
+    equipment_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    equipment_name: Mapped[str | None] = mapped_column(String(128))
+    sector_id: Mapped[int | None] = mapped_column(ForeignKey("dataapp_monitorsector.id", ondelete="SET NULL"), index=True)
+    area_id: Mapped[str | None] = mapped_column(String(32), index=True)
+    area_name: Mapped[str | None] = mapped_column(String(128))
+    valid_from: Mapped[date | None] = mapped_column(Date)
+    valid_to: Mapped[date | None] = mapped_column(Date)
+    confidence_level: Mapped[str | None] = mapped_column(String(16))
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
+class EnergyTariffPlan(TeamScopedMixin, BigIntAuditBase):
+    """能源价格方案, 支持尖峰平谷等分时成本分析."""
+
+    __tablename__ = "dataapp_energytariffplan"
+    __table_args__ = (
+        UniqueConstraint("team_id", "code", name="uq_energy_tariff_plan_team_code"),
+        Index("ix_energy_tariff_plan_team_type", "team_id", "energy_type_code"),
+    )
+
+    code: Mapped[str] = mapped_column(String(64), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    energy_type_code: Mapped[str] = mapped_column(String(32), index=True)
+    currency: Mapped[str] = mapped_column(String(8), default="CNY")
+    effective_from: Mapped[date | None] = mapped_column(Date)
+    effective_to: Mapped[date | None] = mapped_column(Date)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
+class EnergyTariffSegment(TeamScopedMixin, BigIntAuditBase):
+    """能源价格方案的分时段价格."""
+
+    __tablename__ = "dataapp_energytariffsegment"
+    __table_args__ = (
+        Index("ix_energy_tariff_segment_plan", "team_id", "plan_id", "segment_type"),
+    )
+
+    plan_id: Mapped[int] = mapped_column(ForeignKey("dataapp_energytariffplan.id", ondelete="CASCADE"), index=True)
+    segment_type: Mapped[str] = mapped_column(String(16), index=True)
+    start_time: Mapped[time] = mapped_column(Time)
+    end_time: Mapped[time] = mapped_column(Time)
+    price: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    unit: Mapped[str] = mapped_column(String(16), default="CNY/kWh")
+    sort_index: Mapped[int] = mapped_column(Integer, default=0)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
+class EnergyIntervalFact(TeamScopedMixin, BigIntAuditBase):
+    """由原始计量数据聚合得到的小时/日能源消费事实."""
+
+    __tablename__ = "dataapp_energyintervalfact"
+    __table_args__ = (
+        UniqueConstraint("team_id", "source_system", "source_record_id", name="uq_energy_interval_team_source_record"),
+        Index("ix_energy_interval_team_period", "team_id", "period_start", "period_end"),
+        Index("ix_energy_interval_resource", "equipment_id", "area_id", "energy_type_code"),
+    )
+
+    source_system: Mapped[str] = mapped_column(String(32), default="meter_interval")
+    source_record_id: Mapped[str] = mapped_column(String(128))
+    energy_type_code: Mapped[str] = mapped_column(String(32), index=True)
+    equipment_id: Mapped[int | None] = mapped_column(ForeignKey("dataapp_monitorequipment.id", ondelete="SET NULL"), index=True)
+    equipment_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    equipment_name: Mapped[str | None] = mapped_column(String(128))
+    area_id: Mapped[str | None] = mapped_column(String(32), index=True)
+    area_name: Mapped[str | None] = mapped_column(String(128))
+    use_system_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    use_system_name: Mapped[str | None] = mapped_column(String(128))
+    granularity: Mapped[str] = mapped_column(String(16), default="hour", index=True)
+    period_start: Mapped[datetime] = mapped_column(DateTime, index=True)
+    period_end: Mapped[datetime] = mapped_column(DateTime, index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    unit: Mapped[str] = mapped_column(String(16), default="kWh")
+    cost_cny: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    tariff_segment_type: Mapped[str | None] = mapped_column(String(16), index=True)
+    reading_count: Mapped[int | None] = mapped_column(Integer)
+    data_quality: Mapped[str] = mapped_column(String(24), default="measured", index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
+class EquipmentWorkloadFact(TeamScopedMixin, BigIntAuditBase):
+    """设备运行时间、处理量、作业次数等负荷事实."""
+
+    __tablename__ = "dataapp_equipmentworkloadfact"
+    __table_args__ = (
+        UniqueConstraint("team_id", "source_system", "source_record_id", name="uq_equipment_workload_team_source_record"),
+        Index("ix_equipment_workload_team_period", "team_id", "period_start", "period_end"),
+        Index("ix_equipment_workload_resource", "equipment_id", "area_id", "workload_type"),
+    )
+
+    source_system: Mapped[str] = mapped_column(String(32), default="manual")
+    source_record_id: Mapped[str] = mapped_column(String(128))
+    equipment_id: Mapped[int | None] = mapped_column(ForeignKey("dataapp_monitorequipment.id", ondelete="SET NULL"), index=True)
+    equipment_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    equipment_name: Mapped[str | None] = mapped_column(String(128))
+    area_id: Mapped[str | None] = mapped_column(String(32), index=True)
+    area_name: Mapped[str | None] = mapped_column(String(128))
+    use_system_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    workload_type: Mapped[str] = mapped_column(String(32), index=True)
+    period_start: Mapped[datetime] = mapped_column(DateTime, index=True)
+    period_end: Mapped[datetime] = mapped_column(DateTime, index=True)
+    workload_amount: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    workload_unit: Mapped[str] = mapped_column(String(16))
+    run_hours: Mapped[Decimal | None] = mapped_column(Numeric(12, 4))
+    record_status: Mapped[str] = mapped_column(String(16), default="confirmed", index=True)
     remark: Mapped[str | None] = mapped_column(Text)
 
 

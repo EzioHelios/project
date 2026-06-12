@@ -18,6 +18,7 @@ from app.domain.accounts.deps import provide_users_service
 from app.domain.accounts.schemas import UserCreate, UserUpdate
 from app.domain.accounts.services import RoleService, UserService
 from app.domain.carbon.calculation_factor_importer import import_calculation_factor_checklist
+from app.domain.carbon.energy_analysis_importer import seed_energy_analysis_data
 from app.domain.carbon.factor_importer import import_ncsc_factor_package
 from app.domain.carbon.production_data_importer import import_wms_production_data
 from app.lib.deps import create_service_provider, provide_services
@@ -275,3 +276,26 @@ def import_wms_production_data_command(limit: int | None, dry_run: bool) -> None
 
     console.rule("Generate WMS production data samples.")
     anyio.run(_import)
+
+
+@carbon_management_group.command(
+    name="seed-energy-analysis-data",
+    help="Generate energy analysis systems, tariff, interval facts and workload samples.",
+)
+def seed_energy_analysis_data_command() -> None:
+    """Generate reusable energy analysis sample data from existing meter readings."""
+    console = get_console()
+
+    async def _seed() -> None:
+        async with alchemy.get_session() as session:
+            result = await seed_energy_analysis_data(session)
+        console.print(
+            "[green]Seeded energy analysis data[/green] "
+            f"use_systems={result.use_systems} bindings={result.use_system_bindings} "
+            f"tariff_plans={result.tariff_plans} tariff_segments={result.tariff_segments} "
+            f"hourly_facts={result.hourly_facts} daily_facts={result.daily_facts} "
+            f"workload_facts={result.workload_facts}"
+        )
+
+    console.rule("Seed energy analysis data.")
+    anyio.run(_seed)

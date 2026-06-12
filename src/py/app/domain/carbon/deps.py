@@ -11,6 +11,12 @@ provide_area_service = create_service_provider(services.AreaService)
 provide_device_type_service = create_service_provider(services.DeviceTypeService)
 provide_energy_type_service = create_service_provider(services.EnergyTypeService)
 provide_energy_unit_conversion_service = create_service_provider(services.EnergyUnitConversionService)
+provide_energy_use_system_service = create_service_provider(services.EnergyUseSystemService)
+provide_energy_use_system_binding_service = create_service_provider(services.EnergyUseSystemBindingService)
+provide_energy_tariff_plan_service = create_service_provider(services.EnergyTariffPlanService)
+provide_energy_tariff_segment_service = create_service_provider(services.EnergyTariffSegmentService)
+provide_energy_interval_fact_service = create_service_provider(services.EnergyIntervalFactService)
+provide_equipment_workload_fact_service = create_service_provider(services.EquipmentWorkloadFactService)
 provide_monitor_equipment_service = create_service_provider(services.MonitorEquipmentService)
 provide_device_service = create_service_provider(services.DeviceService)
 provide_device_point_service = create_service_provider(services.DevicePointService)
@@ -60,10 +66,16 @@ __all__ = (
     "provide_device_type_service",
     "provide_emission_factor_service",
     "provide_employee_commute_service",
+    "provide_energy_interval_fact_service",
     "provide_energy_storage_value_service",
+    "provide_energy_tariff_plan_service",
+    "provide_energy_tariff_segment_service",
     "provide_energy_type_service",
     "provide_energy_unit_conversion_service",
+    "provide_energy_use_system_binding_service",
+    "provide_energy_use_system_service",
     "provide_enterprise_info_service",
+    "provide_equipment_workload_fact_service",
     "provide_in_money_service",
     "provide_iot_telemetry_service",
     "provide_monitor_equipment_service",

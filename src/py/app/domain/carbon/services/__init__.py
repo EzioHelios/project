@@ -73,6 +73,75 @@ class EnergyUnitConversionService(CompositeServiceMixin, service.SQLAlchemyAsync
     repository_type = Repo
 
 
+class EnergyUseSystemService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.EnergyUseSystem]):
+    """Handles database operations for EnergyUseSystem."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.EnergyUseSystem]):
+        """EnergyUseSystem SQLAlchemy Repository."""
+
+        model_type = m.EnergyUseSystem
+
+    repository_type = Repo
+
+
+class EnergyUseSystemBindingService(
+    CompositeServiceMixin,
+    service.SQLAlchemyAsyncRepositoryService[m.EnergyUseSystemBinding],
+):
+    """Handles database operations for EnergyUseSystemBinding."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.EnergyUseSystemBinding]):
+        """EnergyUseSystemBinding SQLAlchemy Repository."""
+
+        model_type = m.EnergyUseSystemBinding
+
+    repository_type = Repo
+
+
+class EnergyTariffPlanService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.EnergyTariffPlan]):
+    """Handles database operations for EnergyTariffPlan."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.EnergyTariffPlan]):
+        """EnergyTariffPlan SQLAlchemy Repository."""
+
+        model_type = m.EnergyTariffPlan
+
+    repository_type = Repo
+
+
+class EnergyTariffSegmentService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.EnergyTariffSegment]):
+    """Handles database operations for EnergyTariffSegment."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.EnergyTariffSegment]):
+        """EnergyTariffSegment SQLAlchemy Repository."""
+
+        model_type = m.EnergyTariffSegment
+
+    repository_type = Repo
+
+
+class EnergyIntervalFactService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.EnergyIntervalFact]):
+    """Handles database operations for EnergyIntervalFact."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.EnergyIntervalFact]):
+        """EnergyIntervalFact SQLAlchemy Repository."""
+
+        model_type = m.EnergyIntervalFact
+
+    repository_type = Repo
+
+
+class EquipmentWorkloadFactService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.EquipmentWorkloadFact]):
+    """Handles database operations for EquipmentWorkloadFact."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.EquipmentWorkloadFact]):
+        """EquipmentWorkloadFact SQLAlchemy Repository."""
+
+        model_type = m.EquipmentWorkloadFact
+
+    repository_type = Repo
+
+
 class MonitorEquipmentService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.MonitorEquipment]):
     """Handles database operations for MonitorEquipment."""
 

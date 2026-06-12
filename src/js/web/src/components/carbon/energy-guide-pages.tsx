@@ -32,6 +32,117 @@ type TrendData = {
   }[]
 }
 
+type EnergyAnalysisSummary = {
+  totals: {
+    record_count: number
+    total_energy: number
+    total_cost: number
+    equipment_count: number
+    area_count: number
+    system_count: number
+    min_period?: string | null
+    max_period?: string | null
+  }
+  workload: {
+    record_count: number
+    workload_amount: number
+    run_hours: number
+    equipment_count: number
+  }
+  performance: {
+    kwh_per_run_hour: number | null
+    cost_per_kwh: number | null
+  }
+  by_system: {
+    use_system_code: string
+    use_system_name: string
+    record_count: number
+    equipment_count: number
+    total_energy: number
+    total_cost: number
+  }[]
+  by_area: {
+    area_id: string
+    area_name: string
+    record_count: number
+    equipment_count: number
+    total_energy: number
+    total_cost: number
+  }[]
+  by_equipment: {
+    equipment_id: number
+    equipment_name: string
+    area_name: string
+    use_system_name: string
+    record_count: number
+    total_energy: number
+    total_cost: number
+  }[]
+  by_tariff: {
+    tariff_segment_type: string
+    record_count: number
+    total_energy: number
+    total_cost: number
+  }[]
+  trend: {
+    period: string
+    total_energy: number
+    total_cost: number
+    equipment_count: number
+  }[]
+}
+
+type EnergyAnalysisAnomaly = {
+  equipment_id: number
+  equipment_name: string
+  area_name: string
+  use_system_name: string
+  period_start: string
+  amount: number
+  cost_cny: number
+  avg_amount: number
+  deviation_score: number | null
+  anomaly_type: string
+}
+
+type EnergyAnalysisAlarm = {
+  id: number
+  alarm_name?: string | null
+  alarm_level?: string | null
+  alarm_category?: string | null
+  event_desc?: string | null
+  event_time?: string | null
+  current_value?: number | null
+  threshold_value?: number | null
+  status?: string | null
+}
+
+type EnergyAnalysisStrategy = {
+  code: string
+  title: string
+  priority: string
+  strategy_type: string
+  target: string
+  evidence: Record<string, unknown>
+  steps: string[]
+  expected_effect: string
+}
+
+type EnergyAnalysisAnomalies = {
+  items: EnergyAnalysisAnomaly[]
+  alarms: EnergyAnalysisAlarm[]
+}
+
+type EnergyAnalysisStrategies = {
+  items: EnergyAnalysisStrategy[]
+  evidence_summary: {
+    total_energy: number
+    total_cost: number
+    anomaly_count: number
+    alarm_count: number
+  }
+}
+
 type FlowData = {
   title: string
   unit: string
@@ -1429,69 +1540,403 @@ export function EnergyIntensityPanel() {
 }
 
 export function EnergyAnalysisPanel() {
-  const [months, setMonths] = useState("12")
+  const [periodStart, setPeriodStart] = useState("")
+  const [periodEnd, setPeriodEnd] = useState("")
+  const [granularity, setGranularity] = useState("day")
   const [areaKeyword, setAreaKeyword] = useState("")
-  const summaryQuery = useEnergySummary()
-  const trendQuery = useEnergyTrend(months)
+  const [useSystemCode, setUseSystemCode] = useState("all")
+  const [tariffSegmentType, setTariffSegmentType] = useState("all")
+  const [appliedFilters, setAppliedFilters] = useState({
+    periodStart: "",
+    periodEnd: "",
+    granularity: "day",
+    areaKeyword: "",
+    useSystemCode: "all",
+    tariffSegmentType: "all",
+  })
+
+  const analysisParams = useMemo(() => {
+    const qs = new URLSearchParams()
+    if (appliedFilters.periodStart) qs.set("period_start", appliedFilters.periodStart)
+    if (appliedFilters.periodEnd) qs.set("period_end", appliedFilters.periodEnd)
+    qs.set("granularity", appliedFilters.granularity)
+    if (appliedFilters.areaKeyword.trim()) qs.set("area_keyword", appliedFilters.areaKeyword.trim())
+    if (appliedFilters.useSystemCode !== "all") qs.set("use_system_code", appliedFilters.useSystemCode)
+    if (appliedFilters.tariffSegmentType !== "all") qs.set("tariff_segment_type", appliedFilters.tariffSegmentType)
+    return qs
+  }, [appliedFilters])
+
+  const strategyParams = useMemo(() => {
+    const qs = new URLSearchParams()
+    if (appliedFilters.periodStart) qs.set("period_start", appliedFilters.periodStart)
+    if (appliedFilters.periodEnd) qs.set("period_end", appliedFilters.periodEnd)
+    qs.set("granularity", appliedFilters.granularity)
+    if (appliedFilters.areaKeyword.trim()) qs.set("area_keyword", appliedFilters.areaKeyword.trim())
+    return qs
+  }, [appliedFilters])
+
+  const summaryQuery = useQuery<ApiEnvelope<EnergyAnalysisSummary>>({
+    queryKey: ["energy", "analysis", "summary", appliedFilters],
+    queryFn: () => fetchCarbonApi<EnergyAnalysisSummary>(`/api/energy/analysis/summary?${analysisParams.toString()}`),
+  })
+  const anomaliesQuery = useQuery<ApiEnvelope<EnergyAnalysisAnomalies>>({
+    queryKey: ["energy", "analysis", "anomalies", appliedFilters],
+    queryFn: () => fetchCarbonApi<EnergyAnalysisAnomalies>(`/api/energy/analysis/anomalies?${strategyParams.toString()}`),
+  })
+  const strategiesQuery = useQuery<ApiEnvelope<EnergyAnalysisStrategies>>({
+    queryKey: ["energy", "analysis", "strategies", appliedFilters],
+    queryFn: () => fetchCarbonApi<EnergyAnalysisStrategies>(`/api/energy/analysis/strategies?${strategyParams.toString()}`),
+  })
+
   const summary = summaryQuery.data?.data
-  const keyword = areaKeyword.trim()
-  const filteredEnergyRanking = useMemo(() => (summary?.energy_by_area ?? []).filter((item) => (!keyword ? true : item.name.includes(keyword))), [keyword, summary?.energy_by_area])
-  const filteredAlertRanking = useMemo(() => (summary?.alerts_by_area ?? []).filter((item) => (!keyword ? true : item.name.includes(keyword))), [keyword, summary?.alerts_by_area])
+  const anomalies = anomaliesQuery.data?.data
+  const strategies = strategiesQuery.data?.data
+  const systemOptions = summary?.by_system ?? []
+  const tariffLabel: Record<string, string> = { peak: "峰段", flat: "平段", valley: "谷段", none: "未分时" }
+
+  function applyFilters() {
+    setAppliedFilters({ periodStart, periodEnd, granularity, areaKeyword, useSystemCode, tariffSegmentType })
+  }
+
+  function resetFilters() {
+    setPeriodStart("")
+    setPeriodEnd("")
+    setGranularity("day")
+    setAreaKeyword("")
+    setUseSystemCode("all")
+    setTariffSegmentType("all")
+    setAppliedFilters({
+      periodStart: "",
+      periodEnd: "",
+      granularity: "day",
+      areaKeyword: "",
+      useSystemCode: "all",
+      tariffSegmentType: "all",
+    })
+  }
 
   return (
     <div className="space-y-6">
       <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
-        <div className="grid gap-3 md:grid-cols-3">
-          <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="筛选区域名称" />
-          <Select value={months} onValueChange={setMonths}>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[160px_160px_140px_1fr_180px_160px_auto]">
+          <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
+          <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
+          <Select value={granularity} onValueChange={setGranularity}>
             <SelectTrigger>
-              <SelectValue placeholder="时间范围" />
+              <SelectValue placeholder="统计粒度" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="6">近 6 个月</SelectItem>
-              <SelectItem value="12">近 12 个月</SelectItem>
-              <SelectItem value="24">近 24 个月</SelectItem>
+              <SelectItem value="day">日</SelectItem>
+              <SelectItem value="hour">小时</SelectItem>
             </SelectContent>
           </Select>
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setAreaKeyword("")
-                setMonths("12")
-              }}
-            >
+          <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="筛选区域名称" />
+          <Select value={useSystemCode} onValueChange={setUseSystemCode}>
+            <SelectTrigger>
+              <SelectValue placeholder="用能系统" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部用能系统</SelectItem>
+              {systemOptions.map((item) => (
+                <SelectItem key={item.use_system_code} value={item.use_system_code}>
+                  {item.use_system_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={tariffSegmentType} onValueChange={setTariffSegmentType}>
+            <SelectTrigger>
+              <SelectValue placeholder="分时时段" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部时段</SelectItem>
+              <SelectItem value="peak">峰段</SelectItem>
+              <SelectItem value="flat">平段</SelectItem>
+              <SelectItem value="valley">谷段</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex justify-end gap-2">
+            <Button onClick={applyFilters} disabled={summaryQuery.isFetching || anomaliesQuery.isFetching || strategiesQuery.isFetching}>
+              查询
+            </Button>
+            <Button variant="outline" onClick={resetFilters}>
               重置
             </Button>
           </div>
         </div>
       </PageSection>
 
-      <PageSection>
-        <CompositeTrendChart
-          title="用能趋势分析"
-          points={trendQuery.data?.data.series ?? []}
-          bars={[{ key: "energy_kwh", label: "总用电量", color: "#fdba74" }]}
-          lines={[{ key: "scope2_co2e", label: "范围2碳排", color: "#2563eb", yAxisIndex: 1 }]}
-          leftAxisName="电量"
-          rightAxisName="碳排"
-          height={360}
-        />
-      </PageSection>
+      <Tabs defaultValue="structure" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="structure">结构分析</TabsTrigger>
+          <TabsTrigger value="cost">成本分析</TabsTrigger>
+          <TabsTrigger value="performance">能效分析</TabsTrigger>
+          <TabsTrigger value="anomaly">异常诊断</TabsTrigger>
+          <TabsTrigger value="strategy">策略建议</TabsTrigger>
+        </TabsList>
 
-      <PageSection className="grid gap-4 xl:grid-cols-3">
-        <RankingList title="区域用能排行" items={filteredEnergyRanking} unit="kWh" height={320} />
-        <RankingList title="区域异常排行" items={filteredAlertRanking} unit="条" height={320} />
-        <DiagnosticsPanel
-          title="策略建议"
-          items={[
-            { label: "补录来源", value: `${(summary?.source_mix ?? []).find((item) => item.name === "manual_bill")?.record_count ?? 0} 条` },
-            { label: "电表聚合", value: `${(summary?.source_mix ?? []).find((item) => item.name === "meter_aggregate")?.record_count ?? 0} 条` },
-            { label: "审核状态", value: (summary?.workflow ?? []).map((item) => `${item.name}:${item.value}`).join(" / ") || "-" },
-            { label: "建议", value: keyword ? `优先检查区域“${keyword}”的电表、告警和回退来源` : "优先检查高耗区域、异常排行和手工补录占比" },
-          ]}
-        />
-      </PageSection>
+        <TabsContent value="structure" className="space-y-4">
+          <PageSection className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>总用电量</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.total_energy, 2)} kWh</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>用能系统</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.system_count, 0)}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>设备数</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.equipment_count, 0)}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>区域数</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.area_count, 0)}</CardContent>
+            </Card>
+          </PageSection>
+          <PageSection className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+            <RankingList title="用能系统排行" items={(summary?.by_system ?? []).map((item) => ({ name: item.use_system_name, value: item.total_energy }))} unit="kWh" height={360} />
+            <DistributionChart title="用能系统结构" items={(summary?.by_system ?? []).map((item) => ({ name: item.use_system_name, value: item.total_energy }))} unit="kWh" height={360} />
+          </PageSection>
+          <PageSection className="grid gap-4 xl:grid-cols-2">
+            <RankingList title="区域用能排行" items={(summary?.by_area ?? []).map((item) => ({ name: item.area_name, value: item.total_energy }))} unit="kWh" />
+            <RankingList title="设备用能排行" items={(summary?.by_equipment ?? []).map((item) => ({ name: item.equipment_name, value: item.total_energy }))} unit="kWh" />
+          </PageSection>
+        </TabsContent>
+
+        <TabsContent value="cost" className="space-y-4">
+          <PageSection className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <CardTitle>估算电费</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.total_cost, 2)} 元</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>平均电价</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.performance.cost_per_kwh, 4)} 元/kWh</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>计费记录</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.record_count, 0)}</CardContent>
+            </Card>
+          </PageSection>
+          <PageSection className="grid gap-4 xl:grid-cols-2">
+            <DistributionChart title="分时成本结构" items={(summary?.by_tariff ?? []).map((item) => ({ name: tariffLabel[item.tariff_segment_type] ?? item.tariff_segment_type, value: item.total_cost }))} unit="元" />
+            <RankingList title="分时电量排行" items={(summary?.by_tariff ?? []).map((item) => ({ name: tariffLabel[item.tariff_segment_type] ?? item.tariff_segment_type, value: item.total_energy }))} unit="kWh" />
+          </PageSection>
+        </TabsContent>
+
+        <TabsContent value="performance" className="space-y-4">
+          <PageSection className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <CardTitle>运行小时</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.workload.run_hours, 2)} h</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>单位运行小时电耗</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.performance.kwh_per_run_hour, 4)} kWh/h</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>作业量记录</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.workload.record_count, 0)}</CardContent>
+            </Card>
+          </PageSection>
+          <PageSection>
+            <CompositeTrendChart
+              title="能耗和成本趋势"
+              points={summary?.trend ?? []}
+              bars={[{ key: "total_energy", label: "电量", color: "#2563eb" }]}
+              lines={[{ key: "total_cost", label: "成本", color: "#d97706", yAxisIndex: 1 }]}
+              leftAxisName="kWh"
+              rightAxisName="元"
+              height={360}
+            />
+          </PageSection>
+          <PageSection>
+            <Card>
+              <CardHeader>
+                <CardTitle>设备能效排行</CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>设备</TableHead>
+                      <TableHead>区域</TableHead>
+                      <TableHead>用能系统</TableHead>
+                      <TableHead className="text-right">用电量(kWh)</TableHead>
+                      <TableHead className="text-right">成本(元)</TableHead>
+                      <TableHead className="text-right">记录数</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(summary?.by_equipment ?? []).map((item) => (
+                      <TableRow key={`${item.equipment_id}-${item.equipment_name}`}>
+                        <TableCell>{item.equipment_name}</TableCell>
+                        <TableCell>{item.area_name}</TableCell>
+                        <TableCell>{item.use_system_name}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.total_energy, 2)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.total_cost, 2)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.record_count, 0)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </PageSection>
+        </TabsContent>
+
+        <TabsContent value="anomaly" className="space-y-4">
+          <PageSection className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>异常时段</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(anomalies?.items.length, 0)}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>能源告警</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(anomalies?.alarms.length, 0)}</CardContent>
+            </Card>
+          </PageSection>
+          <PageSection>
+            <Card>
+              <CardHeader>
+                <CardTitle>异常时段明细</CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>时段</TableHead>
+                      <TableHead>设备</TableHead>
+                      <TableHead>区域</TableHead>
+                      <TableHead>用能系统</TableHead>
+                      <TableHead className="text-right">电量(kWh)</TableHead>
+                      <TableHead className="text-right">均值(kWh)</TableHead>
+                      <TableHead className="text-right">偏离分</TableHead>
+                      <TableHead>类型</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(anomalies?.items ?? []).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                          暂无异常时段
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {(anomalies?.items ?? []).map((item) => (
+                      <TableRow key={`${item.equipment_id}-${item.period_start}`}>
+                        <TableCell>{item.period_start}</TableCell>
+                        <TableCell>{item.equipment_name}</TableCell>
+                        <TableCell>{item.area_name}</TableCell>
+                        <TableCell>{item.use_system_name}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.amount, 2)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.avg_amount, 2)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.deviation_score, 2)}</TableCell>
+                        <TableCell>{item.anomaly_type}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </PageSection>
+        </TabsContent>
+
+        <TabsContent value="strategy" className="space-y-4">
+          <PageSection className="grid gap-4 md:grid-cols-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>策略数</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(strategies?.items.length, 0)}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>证据电量</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(strategies?.evidence_summary.total_energy, 2)} kWh</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>证据成本</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(strategies?.evidence_summary.total_cost, 2)} 元</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>异常证据</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(strategies?.evidence_summary.anomaly_count, 0)}</CardContent>
+            </Card>
+          </PageSection>
+          <PageSection className="space-y-3">
+            {(strategies?.items ?? []).map((item) => (
+              <Card key={item.code}>
+                <CardHeader>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <CardTitle>{item.title}</CardTitle>
+                    <div className="flex gap-2 text-xs text-muted-foreground">
+                      <span className="rounded border px-2 py-1">{item.priority}</span>
+                      <span className="rounded border px-2 py-1">{item.strategy_type}</span>
+                      <span className="rounded border px-2 py-1">{item.target}</span>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+                  <div className="rounded-md border border-border/60">
+                    <div className="border-b px-4 py-3 text-sm font-medium">证据</div>
+                    <div className="divide-y">
+                      {Object.entries(item.evidence).map(([key, value]) => (
+                        <div key={`${item.code}-${key}`} className="grid grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)] gap-3 px-4 py-3 text-sm">
+                          <span className="text-muted-foreground">{key}</span>
+                          <span className="text-right font-medium tabular-nums">{typeof value === "number" ? formatEnergyValue(value, 4) : String(value ?? "-")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-border/60">
+                    <div className="border-b px-4 py-3 text-sm font-medium">实施步骤</div>
+                    <div className="space-y-3 p-4">
+                      {item.steps.map((step, index) => (
+                        <div key={`${item.code}-${index}`} className="flex gap-3 text-sm">
+                          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs tabular-nums">{index + 1}</span>
+                          <span>{step}</span>
+                        </div>
+                      ))}
+                      <div className="border-t pt-3 text-sm font-medium">{item.expected_effect}</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </PageSection>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
