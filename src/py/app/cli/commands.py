@@ -19,6 +19,7 @@ from app.domain.accounts.schemas import UserCreate, UserUpdate
 from app.domain.accounts.services import RoleService, UserService
 from app.domain.carbon.calculation_factor_importer import import_calculation_factor_checklist
 from app.domain.carbon.factor_importer import import_ncsc_factor_package
+from app.domain.carbon.production_data_importer import import_wms_production_data
 from app.lib.deps import create_service_provider, provide_services
 from app.lib.settings import get_settings
 
@@ -246,4 +247,31 @@ def import_calculation_factor_checklist_command(csv_path: Path) -> None:
         )
 
     console.rule("Import calculation factor checklist.")
+    anyio.run(_import)
+
+
+@carbon_management_group.command(
+    name="import-wms-production-data",
+    help="Generate product, product price and product batch quantity samples from WMS records.",
+)
+@click.option("--limit", type=click.INT, default=None, help="Limit inbound and outbound source rows for sampling.")
+@click.option("--dry-run", is_flag=True, default=False, help="Build the data in memory and roll back without writing.")
+def import_wms_production_data_command(limit: int | None, dry_run: bool) -> None:
+    """Generate product denominator samples from inbound and outbound WMS data."""
+    console = get_console()
+
+    async def _import() -> None:
+        async with alchemy.get_session() as session:
+            result = await import_wms_production_data(session, limit=limit, dry_run=dry_run)
+        console.print(
+            "[green]Generated WMS production data[/green] "
+            f"dry_run={dry_run} products={result.products_upserted} "
+            f"prices_inserted={result.prices_inserted} prices_deleted={result.prices_deleted} "
+            f"output_facts={result.output_facts_upserted} "
+            f"skipped_missing_code={result.skipped_missing_code} "
+            f"skipped_missing_date={result.skipped_missing_date} "
+            f"skipped_missing_quantity={result.skipped_missing_quantity}"
+        )
+
+    console.rule("Generate WMS production data samples.")
     anyio.run(_import)

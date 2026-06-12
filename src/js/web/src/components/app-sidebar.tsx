@@ -113,21 +113,31 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "企业与组织",
         to: "/data/company",
         icon: Building2,
-        isActive: pathname.startsWith("/data/company") || pathname.startsWith("/data/monitor-area"),
+        isActive: pathname.startsWith("/data/company") || pathname.startsWith("/data/monitor-area") || pathname.startsWith("/data/production-products"),
         items: [
           { title: "企业基本信息", to: "/data/company" },
           { title: "监测区域", to: "/data/monitor-area" },
+          { title: "产品档案", to: "/data/production-products" },
         ],
       },
       {
         title: "业务活动台账",
         to: "/data/commute",
         icon: ClipboardList,
-        isActive: pathname.startsWith("/data/commute") || pathname.startsWith("/data/inbound") || pathname.startsWith("/data/outbound"),
+        isActive:
+          pathname.startsWith("/data/commute") ||
+          pathname.startsWith("/data/inbound") ||
+          pathname.startsWith("/data/outbound") ||
+          pathname.startsWith("/data/product-prices") ||
+          pathname.startsWith("/data/production-output") ||
+          pathname.startsWith("/data/product-resource-bindings"),
         items: [
           { title: "员工通勤", to: "/data/commute" },
           { title: "入库管理", to: "/data/inbound" },
           { title: "出库管理", to: "/data/outbound" },
+          { title: "产品价格", to: "/data/product-prices" },
+          { title: "产品批次产量", to: "/data/production-output" },
+          { title: "产品产线关联", to: "/data/product-resource-bindings" },
         ],
       },
       {

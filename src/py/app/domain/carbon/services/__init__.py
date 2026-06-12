@@ -364,3 +364,53 @@ class OutMoneyService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositorySe
         model_type = m.OutMoney
 
     repository_type = Repo
+
+
+class ProductionProductService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.ProductionProduct]):
+    """Handles database operations for ProductionProduct."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.ProductionProduct]):
+        """ProductionProduct SQLAlchemy Repository."""
+
+        model_type = m.ProductionProduct
+
+    repository_type = Repo
+
+
+class ProductPriceService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.ProductPrice]):
+    """Handles database operations for ProductPrice."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.ProductPrice]):
+        """ProductPrice SQLAlchemy Repository."""
+
+        model_type = m.ProductPrice
+
+    repository_type = Repo
+
+
+class ProductionOutputFactService(
+    CompositeServiceMixin,
+    service.SQLAlchemyAsyncRepositoryService[m.ProductionOutputFact],
+):
+    """Handles database operations for ProductionOutputFact."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.ProductionOutputFact]):
+        """ProductionOutputFact SQLAlchemy Repository."""
+
+        model_type = m.ProductionOutputFact
+
+    repository_type = Repo
+
+
+class ProductionResourceBindingService(
+    CompositeServiceMixin,
+    service.SQLAlchemyAsyncRepositoryService[m.ProductionResourceBinding],
+):
+    """Handles database operations for ProductionResourceBinding."""
+
+    class Repo(repository.SQLAlchemyAsyncRepository[m.ProductionResourceBinding]):
+        """ProductionResourceBinding SQLAlchemy Repository."""
+
+        model_type = m.ProductionResourceBinding
+
+    repository_type = Repo

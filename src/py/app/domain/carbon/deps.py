@@ -40,6 +40,10 @@ provide_carbon_audit_log_service = create_service_provider(services.CarbonAuditL
 provide_employee_commute_service = create_service_provider(services.EmployeeCommuteService)
 provide_in_money_service = create_service_provider(services.InMoneyService)
 provide_out_money_service = create_service_provider(services.OutMoneyService)
+provide_production_product_service = create_service_provider(services.ProductionProductService)
+provide_product_price_service = create_service_provider(services.ProductPriceService)
+provide_production_output_fact_service = create_service_provider(services.ProductionOutputFactService)
+provide_production_resource_binding_service = create_service_provider(services.ProductionResourceBindingService)
 
 __all__ = (
     "provide_alarm_event_service",
@@ -66,6 +70,10 @@ __all__ = (
     "provide_monitor_sector_photo_service",
     "provide_monitor_sector_service",
     "provide_out_money_service",
+    "provide_product_price_service",
+    "provide_production_output_fact_service",
+    "provide_production_product_service",
+    "provide_production_resource_binding_service",
     "provide_scope1_mobile_combustion_service",
     "provide_scope1_refrigerant_leak_service",
     "provide_scope1_stationary_combustion_service",

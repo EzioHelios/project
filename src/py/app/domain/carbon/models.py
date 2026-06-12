@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from decimal import Decimal
 from uuid import UUID
 
 from advanced_alchemy.base import BigIntAuditBase, BigIntBase
@@ -244,6 +245,110 @@ class OutMoney(TeamScopedMixin, BigIntBase):
     lldh: Mapped[str | None] = mapped_column(String(15))
     ckdd: Mapped[str | None] = mapped_column(String(100))
     add_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ProductionProduct(TeamScopedMixin, BigIntAuditBase):
+    """产品/产出对象字典, 服务能源强度分母, 不承载产品碳足迹模型."""
+
+    __tablename__ = "dataapp_productionproduct"
+    __table_args__ = (
+        UniqueConstraint("team_id", "code", name="uq_dataapp_productionproduct_team_code"),
+        Index("ix_production_product_team_category", "team_id", "category"),
+    )
+
+    code: Mapped[str] = mapped_column(String(64), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    spec: Mapped[str | None] = mapped_column(String(128))
+    category: Mapped[str | None] = mapped_column(String(64), index=True)
+    output_kind: Mapped[str] = mapped_column(String(32), default="product", index=True)
+    default_unit: Mapped[str | None] = mapped_column(String(16))
+    standard_unit: Mapped[str | None] = mapped_column(String(16))
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
+class ProductPrice(TeamScopedMixin, BigIntAuditBase):
+    """产品/产出对象价格台账, 服务产值分母和经济分配辅助."""
+
+    __tablename__ = "dataapp_productprice"
+    __table_args__ = (
+        Index("ix_product_price_team_product_type", "team_id", "product_code", "price_type"),
+        Index("ix_product_price_validity", "valid_from", "valid_to"),
+    )
+
+    product_code: Mapped[str] = mapped_column(String(64), index=True)
+    price_type: Mapped[str] = mapped_column(String(32), index=True)
+    price: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    currency: Mapped[str] = mapped_column(String(8), default="CNY")
+    tax_included: Mapped[bool] = mapped_column(Boolean, default=False)
+    valid_from: Mapped[date] = mapped_column(Date, index=True)
+    valid_to: Mapped[date | None] = mapped_column(Date, index=True)
+    source_system: Mapped[str | None] = mapped_column(String(32))
+    source_record_id: Mapped[str | None] = mapped_column(String(128))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
+class ProductionOutputFact(TeamScopedMixin, BigIntAuditBase):
+    """产量/处理量/作业量事实, 服务能源强度分母."""
+
+    __tablename__ = "dataapp_productionoutputfact"
+    __table_args__ = (
+        UniqueConstraint(
+            "team_id",
+            "source_system",
+            "source_record_id",
+            name="uq_production_output_team_source_record",
+        ),
+        Index("ix_production_output_team_product_period", "team_id", "product_code", "period_start"),
+        Index("ix_production_output_resource", "line_code", "area_id", "equipment_code"),
+    )
+
+    source_system: Mapped[str] = mapped_column(String(32), default="manual")
+    source_record_id: Mapped[str] = mapped_column(String(128))
+    production_order_no: Mapped[str | None] = mapped_column(String(64), index=True)
+    batch_no: Mapped[str | None] = mapped_column(String(64), index=True)
+    product_code: Mapped[str] = mapped_column(String(64), index=True)
+    product_name: Mapped[str | None] = mapped_column(String(128))
+    product_spec: Mapped[str | None] = mapped_column(String(128))
+    output_kind: Mapped[str] = mapped_column(String(32), default="product", index=True)
+    period_start: Mapped[date] = mapped_column(Date, index=True)
+    period_end: Mapped[date] = mapped_column(Date, index=True)
+    good_qty: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    scrap_qty: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    rework_qty: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    unit: Mapped[str] = mapped_column(String(16))
+    standard_qty: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    standard_unit: Mapped[str | None] = mapped_column(String(16))
+    quality_status: Mapped[str | None] = mapped_column(String(32), index=True)
+    record_status: Mapped[str] = mapped_column(String(16), default="confirmed", index=True)
+    work_center_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    line_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    area_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    area_name: Mapped[str | None] = mapped_column(String(128))
+    equipment_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    equipment_name: Mapped[str | None] = mapped_column(String(128))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
+class ProductionResourceBinding(TeamScopedMixin, BigIntAuditBase):
+    """产品/产出对象与产线/区域/设备可选挂接关系."""
+
+    __tablename__ = "dataapp_productionresourcebinding"
+    __table_args__ = (
+        Index("ix_production_binding_team_product", "team_id", "product_code"),
+        Index("ix_production_binding_resource", "work_center_code", "line_code", "area_id", "equipment_id"),
+    )
+
+    product_code: Mapped[str] = mapped_column(String(64), index=True)
+    work_center_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    line_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    area_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    equipment_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    binding_type: Mapped[str] = mapped_column(String(16), default="primary", index=True)
+    valid_from: Mapped[date | None] = mapped_column(Date)
+    valid_to: Mapped[date | None] = mapped_column(Date)
+    confidence_level: Mapped[str | None] = mapped_column(String(16))
+    remark: Mapped[str | None] = mapped_column(Text)
 
 
 class MonitorEquipment(TeamScopedMixin, BigIntBase):

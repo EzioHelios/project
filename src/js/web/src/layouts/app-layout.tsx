@@ -47,9 +47,13 @@ export function AppLayout() {
     if (pathname.startsWith("/data")) {
       if (pathname === "/data/company") return { eyebrow: "企业与组织", title: "企业基本信息" }
       if (pathname === "/data/monitor-area") return { eyebrow: "企业与组织", title: "监测区域" }
+      if (pathname === "/data/production-products") return { eyebrow: "企业与组织", title: "产品档案" }
       if (pathname === "/data/commute") return { eyebrow: "业务活动台账", title: "员工通勤" }
       if (pathname === "/data/inbound") return { eyebrow: "业务活动台账", title: "入库管理" }
       if (pathname === "/data/outbound") return { eyebrow: "业务活动台账", title: "出库管理" }
+      if (pathname === "/data/product-prices") return { eyebrow: "业务活动台账", title: "产品价格" }
+      if (pathname === "/data/production-output") return { eyebrow: "业务活动台账", title: "产品批次产量" }
+      if (pathname === "/data/product-resource-bindings") return { eyebrow: "业务活动台账", title: "产品产线关联" }
       if (pathname === "/data/terminals") return { eyebrow: "采集设备与测点", title: "监控终端" }
       if (pathname === "/data/meter") return { eyebrow: "采集设备与测点", title: "电表电量" }
       if (pathname === "/data/video") return { eyebrow: "采集设备与测点", title: "视频监控" }

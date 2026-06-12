@@ -216,6 +216,81 @@ type EnergyIntensityTrend = {
   denominators: EnergyIntensityDenominators
 }
 
+type ProductionProductRow = {
+  id: number
+  code: string
+  name: string
+  spec?: string | null
+  category?: string | null
+  output_kind?: string | null
+  default_unit?: string | null
+  standard_unit?: string | null
+  is_enabled?: boolean
+}
+
+type ProductIntensityItem = {
+  product_code: string
+  product_name: string
+  product_spec?: string | null
+  category?: string | null
+  output_kind?: string | null
+  standard_unit?: string | null
+  record_count: number
+  total_good_qty: number
+  total_standard_qty: number
+  total_kgce: number | null
+  kgce_per_unit: number | null
+  calculation_status?: string
+}
+
+type ProductIntensitySummary = {
+  energy_totals: {
+    record_count: number
+    total_tce: number
+    total_kgce: number
+    total_co2e: number
+  }
+  production_totals: {
+    record_count: number
+    product_count: number
+    total_good_qty: number
+    total_standard_qty: number
+  }
+  items: ProductIntensityItem[]
+  unit_intensity: number | null
+}
+
+const outputKindOptions = [
+  { label: "产品产量", value: "product" },
+  { label: "库存量", value: "material_storage" },
+  { label: "出入库处理量", value: "material_handling" },
+  { label: "作业量", value: "operation_workload" },
+]
+
+function outputKindLabel(value?: string | null) {
+  return outputKindOptions.find((option) => option.value === value)?.label ?? value ?? "-"
+}
+
+type ValueIntensityItem = ProductIntensityItem & {
+  selected_price_type: string
+  selected_price: number | null
+  selected_output_value: number
+  selected_output_value_10k: number
+  kgce_per_10k_value: number | null
+  price_missing: boolean
+}
+
+type ValueIntensitySummary = {
+  energy_totals: ProductIntensitySummary["energy_totals"]
+  production_totals: ProductIntensitySummary["production_totals"]
+  price_type: string
+  output_value: number
+  output_value_10k: number
+  kgce_per_10k_value: number | null
+  missing_price_products: { product_code: string; product_name?: string | null; price_type: string }[]
+  items: ValueIntensityItem[]
+}
+
 type EnergyHierarchyRow = {
   id: string
   parentId?: string
@@ -680,6 +755,12 @@ export function EnergyIntensityPanel() {
   const [scope, setScope] = useState("all")
   const [energyTypeCode, setEnergyTypeCode] = useState("all")
   const [status, setStatus] = useState("all")
+  const [productCode, setProductCode] = useState("all")
+  const [outputKind, setOutputKind] = useState("all")
+  const [lineCode, setLineCode] = useState("")
+  const [areaId, setAreaId] = useState("")
+  const [equipmentCode, setEquipmentCode] = useState("")
+  const [priceType, setPriceType] = useState("standard_price")
   const [expandedHierarchy, setExpandedHierarchy] = useState<Record<string, boolean>>({ root: true })
   const [appliedFilters, setAppliedFilters] = useState({
     periodStart: "",
@@ -689,6 +770,12 @@ export function EnergyIntensityPanel() {
     scope: "all",
     energyTypeCode: "all",
     status: "all",
+    productCode: "all",
+    outputKind: "all",
+    lineCode: "",
+    areaId: "",
+    equipmentCode: "",
+    priceType: "standard_price",
   })
 
   const summaryParams = useMemo(() => {
@@ -713,6 +800,24 @@ export function EnergyIntensityPanel() {
     return qs
   }, [appliedFilters])
 
+  const productionParams = useMemo(() => {
+    const qs = new URLSearchParams(summaryParams)
+    qs.set("granularity", appliedFilters.granularity)
+    qs.set("record_status", "confirmed")
+    if (appliedFilters.productCode !== "all") qs.set("product_code", appliedFilters.productCode)
+    if (appliedFilters.outputKind !== "all") qs.set("output_kind", appliedFilters.outputKind)
+    if (appliedFilters.lineCode) qs.set("line_code", appliedFilters.lineCode)
+    if (appliedFilters.areaId) qs.set("area_id", appliedFilters.areaId)
+    if (appliedFilters.equipmentCode) qs.set("equipment_code", appliedFilters.equipmentCode)
+    return qs
+  }, [appliedFilters, summaryParams])
+
+  const valueParams = useMemo(() => {
+    const qs = new URLSearchParams(productionParams)
+    qs.set("price_type", appliedFilters.priceType)
+    return qs
+  }, [appliedFilters.priceType, productionParams])
+
   const summaryQuery = useQuery<ApiEnvelope<EnergyIntensitySummary>>({
     queryKey: ["energy", "intensity", "summary", appliedFilters],
     queryFn: () => fetchCarbonApi<EnergyIntensitySummary>(`/api/energy/intensity/summary?${summaryParams.toString()}`),
@@ -725,9 +830,23 @@ export function EnergyIntensityPanel() {
     queryKey: ["energy", "types"],
     queryFn: () => fetchCarbonApi<{ items: EnergyTypeRow[] }>("/api/energy/types"),
   })
+  const productsQuery = useQuery<PageResult<ProductionProductRow>>({
+    queryKey: ["production", "products", "enabled"],
+    queryFn: () => requestPage<ProductionProductRow>("/api/production/products", { limit: 500, is_enabled: true }),
+  })
+  const productSummaryQuery = useQuery<ApiEnvelope<ProductIntensitySummary>>({
+    queryKey: ["energy", "intensity", "product-summary", appliedFilters],
+    queryFn: () => fetchCarbonApi<ProductIntensitySummary>(`/api/energy/intensity/product-summary?${productionParams.toString()}`),
+  })
+  const valueSummaryQuery = useQuery<ApiEnvelope<ValueIntensitySummary>>({
+    queryKey: ["energy", "intensity", "value-summary", appliedFilters],
+    queryFn: () => fetchCarbonApi<ValueIntensitySummary>(`/api/energy/intensity/value-summary?${valueParams.toString()}`),
+  })
 
   const summary = summaryQuery.data?.data
   const trend = trendQuery.data?.data
+  const productSummary = productSummaryQuery.data?.data
+  const valueSummary = valueSummaryQuery.data?.data
   const intensityTrendSeries = useMemo(
     () =>
       (trend?.series ?? []).map((item) => ({
@@ -797,7 +916,7 @@ export function EnergyIntensityPanel() {
   const totalHierarchyTce = Number(summary?.totals.total_tce ?? 0)
 
   function applyFilters() {
-    setAppliedFilters({ periodStart, periodEnd, months, granularity, scope, energyTypeCode, status })
+    setAppliedFilters({ periodStart, periodEnd, months, granularity, scope, energyTypeCode, status, productCode, outputKind, lineCode, areaId, equipmentCode, priceType })
   }
 
   function resetFilters() {
@@ -808,6 +927,12 @@ export function EnergyIntensityPanel() {
     setScope("all")
     setEnergyTypeCode("all")
     setStatus("all")
+    setProductCode("all")
+    setOutputKind("all")
+    setLineCode("")
+    setAreaId("")
+    setEquipmentCode("")
+    setPriceType("standard_price")
     setAppliedFilters({
       periodStart: "",
       periodEnd: "",
@@ -816,6 +941,12 @@ export function EnergyIntensityPanel() {
       scope: "all",
       energyTypeCode: "all",
       status: "all",
+      productCode: "all",
+      outputKind: "all",
+      lineCode: "",
+      areaId: "",
+      equipmentCode: "",
+      priceType: "standard_price",
     })
   }
 
@@ -826,7 +957,7 @@ export function EnergyIntensityPanel() {
   return (
     <div className="space-y-6">
       <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[150px_150px_130px_130px_150px_130px_170px_1fr_auto]">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
           <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
           <Select value={months} onValueChange={setMonths}>
@@ -885,8 +1016,49 @@ export function EnergyIntensityPanel() {
               ))}
             </SelectContent>
           </Select>
-          <JumpLinks items={[{ label: "查看能耗查询", to: "/energy/consumption" }]} />
-          <div className="flex justify-end gap-2">
+          <Select value={productCode} onValueChange={setProductCode}>
+            <SelectTrigger>
+              <SelectValue placeholder="产品" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部产品</SelectItem>
+              {(productsQuery.data?.items ?? []).map((item) => (
+                <SelectItem key={item.code} value={item.code}>
+                  {item.name || item.code}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={outputKind} onValueChange={setOutputKind}>
+            <SelectTrigger>
+              <SelectValue placeholder="业务类型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部业务类型</SelectItem>
+              {outputKindOptions.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input value={lineCode} onChange={(event) => setLineCode(event.target.value)} placeholder="产线编码" />
+          <Input value={areaId} onChange={(event) => setAreaId(event.target.value)} placeholder="区域ID" />
+          <Input value={equipmentCode} onChange={(event) => setEquipmentCode(event.target.value)} placeholder="设备编码" />
+          <Select value={priceType} onValueChange={setPriceType}>
+            <SelectTrigger>
+              <SelectValue placeholder="价格口径" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="standard_price">标准价</SelectItem>
+              <SelectItem value="actual_average_price">实际均价</SelectItem>
+              <SelectItem value="base_period_price">基期价</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="xl:col-span-2">
+            <JumpLinks items={[{ label: "查看能耗查询", to: "/energy/consumption" }]} />
+          </div>
+          <div className="flex justify-end gap-2 xl:col-span-4">
             <Button onClick={applyFilters}>查询</Button>
             <Button variant="outline" onClick={resetFilters}>
               重置
@@ -899,6 +1071,8 @@ export function EnergyIntensityPanel() {
         <TabsList>
           <TabsTrigger value="summary">消费量汇总</TabsTrigger>
           <TabsTrigger value="area">面积强度</TabsTrigger>
+          <TabsTrigger value="product">产品强度</TabsTrigger>
+          <TabsTrigger value="value">产值强度</TabsTrigger>
           <TabsTrigger value="hierarchy">区域设备</TabsTrigger>
           <TabsTrigger value="trend">趋势分析</TabsTrigger>
         </TabsList>
@@ -1006,6 +1180,162 @@ export function EnergyIntensityPanel() {
               ]}
             />
             <DistributionChart title="Scope 综合能耗结构" items={(summary?.by_scope ?? []).map((item) => ({ name: item.scope.toUpperCase(), value: item.total_tce }))} unit="tce" />
+          </PageSection>
+        </TabsContent>
+
+        <TabsContent value="product" className="space-y-4">
+          <PageSection className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>综合能耗</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(productSummary?.energy_totals.total_kgce, 2)} kgce</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>产品产量</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(productSummary?.production_totals.total_good_qty, 2)}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>标准产量</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(productSummary?.production_totals.total_standard_qty, 2)}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>覆盖产品</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(productSummary?.production_totals.product_count, 0)}</CardContent>
+            </Card>
+          </PageSection>
+          <PageSection>
+            <Card>
+              <CardHeader>
+                <CardTitle>产品单位强度</CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>产品</TableHead>
+                      <TableHead>业务类型</TableHead>
+                      <TableHead>规格</TableHead>
+                      <TableHead className="text-right">产量</TableHead>
+                      <TableHead className="text-right">标准产量</TableHead>
+                      <TableHead>单位</TableHead>
+                      <TableHead className="text-right">综合能耗(kgce)</TableHead>
+                      <TableHead className="text-right">kgce/单位</TableHead>
+                      <TableHead className="text-right">记录数</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(productSummary?.items ?? []).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                          暂无产品批次产量数据
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {(productSummary?.items ?? []).map((item) => (
+                      <TableRow key={item.product_code}>
+                        <TableCell>
+                          <div className="font-medium">{item.product_name || item.product_code}</div>
+                          <div className="text-xs text-muted-foreground">{item.product_code}</div>
+                        </TableCell>
+                        <TableCell>{outputKindLabel(item.output_kind)}</TableCell>
+                        <TableCell>{item.product_spec || "-"}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.total_good_qty, 2)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.total_standard_qty, 2)}</TableCell>
+                        <TableCell>{item.standard_unit || "-"}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.total_kgce, 2)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.kgce_per_unit, 6)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.record_count, 0)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </PageSection>
+        </TabsContent>
+
+        <TabsContent value="value" className="space-y-4">
+          <PageSection className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>综合能耗</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(valueSummary?.energy_totals.total_kgce, 2)} kgce</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>产品产值</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(valueSummary?.output_value_10k, 4)} 万元</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>单位产值综合能耗</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(valueSummary?.kgce_per_10k_value, 4)} kgce/万元</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>缺价格产品</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{formatEnergyValue(valueSummary?.missing_price_products.length, 0)}</CardContent>
+            </Card>
+          </PageSection>
+          <PageSection>
+            <Card>
+              <CardHeader>
+                <CardTitle>产值强度明细</CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>产品</TableHead>
+                      <TableHead>业务类型</TableHead>
+                      <TableHead className="text-right">标准产量</TableHead>
+                      <TableHead>单位</TableHead>
+                      <TableHead className="text-right">单价</TableHead>
+                      <TableHead className="text-right">产值(元)</TableHead>
+                      <TableHead className="text-right">综合能耗(kgce)</TableHead>
+                      <TableHead className="text-right">kgce/万元</TableHead>
+                      <TableHead className="text-right">记录数</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(valueSummary?.items ?? []).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                          暂无产品产值数据
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {(valueSummary?.items ?? []).map((item) => (
+                      <TableRow key={item.product_code}>
+                        <TableCell>
+                          <div className="font-medium">{item.product_name || item.product_code}</div>
+                          <div className="text-xs text-muted-foreground">{item.product_code}</div>
+                        </TableCell>
+                        <TableCell>{outputKindLabel(item.output_kind)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.total_standard_qty, 2)}</TableCell>
+                        <TableCell>{item.standard_unit || "-"}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.selected_price, 4)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.selected_output_value, 2)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.total_kgce, 2)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.kgce_per_10k_value, 4)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.record_count, 0)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           </PageSection>
         </TabsContent>
 

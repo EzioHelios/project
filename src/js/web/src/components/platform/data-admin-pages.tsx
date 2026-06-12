@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
-
+import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,7 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
 
 type ApiResponse<T> = { code: number; msg?: string; data: T }
 export type PageResult<T> = { items: T[]; total: number; limit: number; offset: number }
@@ -38,6 +37,17 @@ function display(value: unknown) {
   if (typeof value === "boolean") return value ? "是" : "否"
   if (typeof value === "object") return JSON.stringify(value)
   return String(value)
+}
+
+const outputKindOptions = [
+  { label: "产品产量", value: "product" },
+  { label: "库存量", value: "material_storage" },
+  { label: "出入库处理量", value: "material_handling" },
+  { label: "作业量", value: "operation_workload" },
+]
+
+function outputKindLabel(value: unknown) {
+  return outputKindOptions.find((option) => option.value === value)?.label ?? display(value)
 }
 
 export async function request<T>(url: string, init?: RequestInit) {
@@ -829,6 +839,192 @@ export function ApiKeyMappingPage() {
   )
 }
 
+export function ProductionProductsPage() {
+  return (
+    <CrudDataPage
+      eyebrow="企业与组织"
+      title="产品档案"
+      description=""
+      endpoint="/api/production/products"
+      queryKey={["production", "products"]}
+      searchPlaceholder="按产品编码、名称、规格搜索"
+      columns={[
+        { key: "code", label: "产品编码" },
+        { key: "name", label: "产品名称" },
+        { key: "spec", label: "规格" },
+        { key: "category", label: "类别" },
+        { key: "output_kind", label: "业务类型", render: (row) => outputKindLabel(row.output_kind) },
+        { key: "default_unit", label: "业务单位" },
+        { key: "standard_unit", label: "标准单位" },
+        { key: "is_enabled", label: "状态", render: (row) => (row.is_enabled === false ? "停用" : "启用") },
+      ]}
+      fields={[
+        { name: "code", label: "产品编码", required: true },
+        { name: "name", label: "产品名称", required: true },
+        { name: "spec", label: "规格" },
+        { name: "category", label: "类别" },
+        { name: "output_kind", label: "业务类型", type: "select", required: true, options: outputKindOptions },
+        { name: "default_unit", label: "业务单位" },
+        { name: "standard_unit", label: "标准单位" },
+        { name: "is_enabled", label: "启用状态", type: "boolean" },
+        { name: "remark", label: "备注", type: "textarea" },
+      ]}
+    />
+  )
+}
+
+export function ProductPricesPage() {
+  return (
+    <CrudDataPage
+      eyebrow="业务活动台账"
+      title="产品价格"
+      description=""
+      endpoint="/api/production/product-prices"
+      queryKey={["production", "product-prices"]}
+      searchPlaceholder="按产品编码、来源系统、源记录搜索"
+      columns={[
+        { key: "product_code", label: "产品编码" },
+        { key: "price_type", label: "价格口径" },
+        { key: "price", label: "单价", align: "right" },
+        { key: "currency", label: "币种" },
+        { key: "tax_included", label: "含税", render: (row) => (row.tax_included ? "是" : "否") },
+        { key: "valid_from", label: "生效日期" },
+        { key: "valid_to", label: "失效日期" },
+      ]}
+      fields={[
+        { name: "product_code", label: "产品编码", required: true },
+        {
+          name: "price_type",
+          label: "价格口径",
+          type: "select",
+          required: true,
+          options: [
+            { label: "标准价", value: "standard_price" },
+            { label: "实际均价", value: "actual_average_price" },
+            { label: "基期价", value: "base_period_price" },
+          ],
+        },
+        { name: "price", label: "单价", type: "number", required: true },
+        { name: "currency", label: "币种" },
+        { name: "tax_included", label: "含税", type: "boolean" },
+        { name: "valid_from", label: "生效日期", type: "date" },
+        { name: "valid_to", label: "失效日期", type: "date" },
+        { name: "source_system", label: "来源系统" },
+        { name: "source_record_id", label: "源记录ID" },
+        { name: "remark", label: "备注", type: "textarea" },
+      ]}
+    />
+  )
+}
+
+export function ProductionOutputPage() {
+  return (
+    <CrudDataPage
+      eyebrow="业务活动台账"
+      title="产品批次产量"
+      description=""
+      endpoint="/api/production/output-facts"
+      queryKey={["production", "output-facts"]}
+      searchPlaceholder="按工单、批次、产品、产线、设备搜索"
+      columns={[
+        { key: "period_start", label: "开始日期" },
+        { key: "product_code", label: "产品编码" },
+        { key: "product_name", label: "产品名称" },
+        { key: "output_kind", label: "业务类型", render: (row) => outputKindLabel(row.output_kind) },
+        { key: "batch_no", label: "批次" },
+        { key: "good_qty", label: "产量", align: "right" },
+        { key: "standard_qty", label: "标准产量", align: "right" },
+        { key: "standard_unit", label: "单位" },
+        { key: "line_code", label: "产线" },
+        { key: "area_name", label: "区域" },
+        { key: "equipment_code", label: "设备" },
+        { key: "record_status", label: "状态" },
+      ]}
+      fields={[
+        { name: "source_system", label: "来源系统" },
+        { name: "source_record_id", label: "源记录ID" },
+        { name: "production_order_no", label: "工单号" },
+        { name: "batch_no", label: "批次号" },
+        { name: "product_code", label: "产品编码", required: true },
+        { name: "product_name", label: "产品名称" },
+        { name: "product_spec", label: "产品规格" },
+        { name: "output_kind", label: "业务类型", type: "select", required: true, options: outputKindOptions },
+        { name: "period_start", label: "开始日期", type: "date", required: true },
+        { name: "period_end", label: "结束日期", type: "date" },
+        { name: "good_qty", label: "产量", type: "number", required: true },
+        { name: "scrap_qty", label: "报废量", type: "number" },
+        { name: "rework_qty", label: "返工量", type: "number" },
+        { name: "unit", label: "业务单位", required: true },
+        { name: "standard_qty", label: "标准产量", type: "number" },
+        { name: "standard_unit", label: "标准单位" },
+        { name: "quality_status", label: "质量状态" },
+        {
+          name: "record_status",
+          label: "记录状态",
+          type: "select",
+          options: [
+            { label: "草稿", value: "draft" },
+            { label: "已确认", value: "confirmed" },
+            { label: "已驳回", value: "rejected" },
+          ],
+        },
+        { name: "work_center_code", label: "工作中心" },
+        { name: "line_code", label: "产线编码" },
+        { name: "area_id", label: "区域ID", type: "number" },
+        { name: "area_name", label: "区域名称" },
+        { name: "equipment_code", label: "设备编码" },
+        { name: "equipment_name", label: "设备名称" },
+        { name: "remark", label: "备注", type: "textarea" },
+      ]}
+    />
+  )
+}
+
+export function ProductResourceBindingsPage() {
+  return (
+    <CrudDataPage
+      eyebrow="业务活动台账"
+      title="产品产线关联"
+      description=""
+      endpoint="/api/production/resource-bindings"
+      queryKey={["production", "resource-bindings"]}
+      searchPlaceholder="按产品、工作中心、产线搜索"
+      columns={[
+        { key: "product_code", label: "产品编码" },
+        { key: "work_center_code", label: "工作中心" },
+        { key: "line_code", label: "产线" },
+        { key: "area_id", label: "区域ID" },
+        { key: "equipment_id", label: "设备ID" },
+        { key: "binding_type", label: "关联类型" },
+        { key: "confidence_level", label: "置信等级" },
+        { key: "valid_from", label: "生效日期" },
+        { key: "valid_to", label: "失效日期" },
+      ]}
+      fields={[
+        { name: "product_code", label: "产品编码", required: true },
+        { name: "work_center_code", label: "工作中心" },
+        { name: "line_code", label: "产线编码" },
+        { name: "area_id", label: "区域ID", type: "number" },
+        { name: "equipment_id", label: "设备ID", type: "number" },
+        {
+          name: "binding_type",
+          label: "关联类型",
+          type: "select",
+          options: [
+            { label: "主产线", value: "primary" },
+            { label: "可选产线", value: "optional" },
+            { label: "共用产线", value: "shared" },
+          ],
+        },
+        { name: "valid_from", label: "生效日期", type: "date" },
+        { name: "valid_to", label: "失效日期", type: "date" },
+        { name: "confidence_level", label: "置信等级" },
+        { name: "remark", label: "备注", type: "textarea" },
+      ]}
+    />
+  )
+}
+
 export function EventWorkbenchPage({ title, endpoint, queryKey, video = false }: { title: string; endpoint: string; queryKey: string[]; video?: boolean }) {
   const qc = useQueryClient()
   const [keyword, setKeyword] = useState("")
@@ -934,7 +1130,12 @@ export function EventWorkbenchPage({ title, endpoint, queryKey, video = false }:
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="secondary" onClick={() => row.id && handleOne.mutate(row.id)} disabled={row.is_handle === true || row.status === "resolved" || handleOne.isPending}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => row.id && handleOne.mutate(row.id)}
+                        disabled={row.is_handle === true || row.status === "resolved" || handleOne.isPending}
+                      >
                         处理
                       </Button>
                     </TableCell>
