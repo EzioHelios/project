@@ -20,6 +20,7 @@
 - `/System/Volumes/Data/Users/eziohelios/FriendShare/>nexLCA</政策/工业企业和园区数字化能碳管理中心建设指南.pdf`
 - `docs/评价方案/能碳中心功能重组与Roadmap.md`
 - `docs/评价方案/能碳核算能源品种与Scope归类调研.md`
+- `docs/评价方案/现有数据到DDD领域映射与改造方案.md`
 
 ## 一、12 个指南页面通用 Checklist
 
@@ -29,7 +30,7 @@
 | --- | --- | --- | --- | --- |
 | 能耗查询 | 覆盖煤、油、气、电、热、原料用能、甲醇/乙醇/氢/氨等能源消费数据；支持实时更新、查询、历史追溯 | 单项目、单设备、多设备组合查询；支持导出；小时/日/月/年统计误差 <=0.1%；多园区聚合查询、权限隔离、冷热区分、气/氢标准单位换算 | 100 用户并发查询响应 <2 秒；单园区 10 年历史数据查询不崩溃；新增能源类型无需改代码；断点补录后统计自动修正；能源类型动态增删无需重启 | P0 首版已实现，详见 2026-06-12 进度记录 |
 | 能源消费量和强度计算 | 依据 GB/T 2589 等标准，计算能源消费量、单位产品综合能耗、单位产值/增加值综合能耗 | 企业/园区-车间/区域-设备三级统计；日/月/年维度；计算依据可追溯，误差 <=0.1% | 小时-分钟精细统计，误差 <=0.05%；自动关联产量；批量企业/园区并行计算 >=10 个，响应 <=3 秒 | 面积/产品/产值强度首版已实现，详见 2026-06-12 进度记录 |
-| 能源消费分析与用能策略推荐 | 计算分析用能结构、成本、能效，给出优化用能配置、清洁能源使用等策略 | 完成结构、成本、能效基础分析；生成 2-3 条通用策略；基础图表；策略可导出 Excel | 异常用能时段标注；5-8 条针对性策略；交互式图表；策略附实施步骤 | 待逐页分析 |
+| 能源消费分析与用能策略推荐 | 计算分析用能结构、成本、能效，给出优化用能配置、清洁能源使用等策略 | 完成结构、成本、能效基础分析；生成 2-3 条通用策略；基础图表；策略可导出 Excel | 异常用能时段标注；5-8 条针对性策略；交互式图表；策略附实施步骤 | 首版已建，待逐页 Gap 细化 |
 | 能效对标 | 对用能单元、生产时段、工序、产品、设备进行能效对标，支撑节能管理 | 设备级对标，显示标杆值、实际值、偏差率；误差 <=+-2% | 工序级对标；自动生成节能潜力 >=5% 设备清单；误差 <=+-1% | 待逐页分析 |
 | 能流分析 | 绘制桑基图、能源平衡表，分析输入、转换、分配、利用全过程，识别重点能耗环节 | 静态桑基图；完整路径和关键损耗；手动查询损耗率；能源平衡表误差 <=1% | 5 分钟动态更新；损耗超限标红；路径钻取；自动生成损耗分析报告 | 待逐页分析 |
 | 能效平衡与优化 | 结合能效对标、能流分析，优化工艺和设备运行参数，实现综合平衡与优化调度 | 能效平衡误差 <=0.5%；手动调整 1-2 个关键参数；优化后能效提升 >=3%；记录优化前后对比 | 平衡误差 <=0.3%；自动识别不平衡原因；自动优化 3-5 项参数；多设备协同优化，提升 >=5% | 待逐页分析 |
@@ -39,10 +40,10 @@
 
 | 页面 | 指南功能点 | 基础版拿分要求 | 优秀版拿分要求 | 当前状态 |
 | --- | --- | --- | --- | --- |
-| 碳排放核算 | 依据重点行业规则标准，计算企业/园区周期内碳排放总量和强度，支持来源追踪、趋势分析、超排预警 | 需要至少覆盖 Scope1/Scope2/Scope3 填报、因子调用、计算结果、状态流转、基础趋势与预警 | 需要多标准切换、更细粒度来源追踪、预测预警和责任闭环 | 待逐页分析 |
+| 碳排放核算 | 依据重点行业规则标准，计算企业/园区周期内碳排放总量和强度，支持来源追踪、趋势分析、超排预警 | 需要至少覆盖 Scope1/Scope2/Scope3 填报、因子调用、计算结果、状态流转、基础趋势与预警 | 需要多标准切换、更细粒度来源追踪、预测预警和责任闭环 | Scope 填报和审核首版已建，待逐页 Gap 细化 |
 | 产品碳足迹核算 | 采集原材料、生产、运输、销售、使用、回收处理数据，结合绿电绿证，实现在线核算、报告生成、碳标识认证支撑 | 碳足迹结果符合 ISO 14067 等标准；展示生命周期各环节排放；报告清晰；支持基础建模和绿证抵扣 | 支持不同产品灵活配置；详细排放源分析报告；大数据量处理；绿证与结算单自动匹配；认证状态实时查询 | 待逐页分析 |
 | 供应链碳管理 | 面向上游采集材料用量、能源消费等数据；面向下游提供产品碳足迹核算过程和结果 | 供应商手工填报/Excel 导入；任务状态跟踪；手动审核和驳回；基础披露报告；供应链高碳环节识别 | 供应商 API 对接；批量任务；超期自动催办；审核规则标红；披露报告自定义；风险分级和可视化 | 待逐页分析 |
-| 碳核查支撑 | 支持碳排放核算过程数据和原始凭证追踪溯源，自动生成报告，汇集和导出核查材料 | 数据来源标注；PDF/图片凭证上传；基础碳排放报告；Excel 导出 | 采集-计算-汇总全流程追溯；凭证 OCR；GB/T 32151 和 GHG Protocol 多标准报告；年度差异分析 | 待逐页分析 |
+| 碳核查支撑 | 支持碳排放核算过程数据和原始凭证追踪溯源，自动生成报告，汇集和导出核查材料 | 数据来源标注；PDF/图片凭证上传；基础碳排放报告；Excel 导出 | 采集-计算-汇总全流程追溯；凭证 OCR；GB/T 32151 和 GHG Protocol 多标准报告；年度差异分析 | 追溯/质量/审核日志首版已建，材料包和报告导出待补 |
 | 碳资产管理 | 展示碳配额、CCER 等碳资产，支持履约周期配额录入、新周期测算、配额使用预测预警 | 年度配额录入与余额计算，误差为 0；单项目 CCER 收益法估值；静态交易收益；静态缺口预警 | 月度滚动预测；缺口 >=5% 预警；多币种估值；多模型估值；多场景交易模拟；四档履约风险预警 | 待逐页分析 |
 
 ## 二、页面 Gap 分析：能耗查询
@@ -95,14 +96,14 @@
 
 | 编号 | Gap | 影响拿分 | 当前问题 | 建议优先级 |
 | --- | --- | --- | --- | --- |
-| EC-Q-01 | 页面没有真正的服务端查询条件 | 基础版：组合查询、历史追溯 | 现在只拉 summary 的最新账期 12 条，再在前端按区域和来源筛选；没有账期、设备、能源品种、园区、多设备条件 | P0 |
-| EC-Q-02 | 没有接入 ledger-preview 的分页能力 | 基础版：历史追溯；优秀版：10 年历史查询不崩溃 | 后端已有 `billing_month/source_kind/limit/offset`，但页面未使用；表格无分页、无总数 | P0 |
-| EC-Q-03 | 缺少时间维度筛选 | 基础版：小时/日/月/年统计、历史追溯 | 当前只有账期字段展示，没有起止时间、粒度选择、实时/历史切换 | P0 |
+| EC-Q-01 | 页面没有真正的服务端查询条件 | 基础版：组合查询、历史追溯 | 2026-06-12 已改为 `/api/energy/consumption/facts`、`summary` 服务端筛选；设备/多设备组合选择器仍需补强 | P0 已部分解决 |
+| EC-Q-02 | 没有接入 ledger-preview 的分页能力 | 基础版：历史追溯；优秀版：10 年历史查询不崩溃 | 2026-06-12 已改为事实视图分页查询；10 年历史性能未压测 | P0 已解决，优秀版待验证 |
+| EC-Q-03 | 缺少时间维度筛选 | 基础版：小时/日/月/年统计、历史追溯 | 已支持期间筛选；小时/分钟实时采集链路和断点补录闭环仍需补强 | P0 已部分解决 |
 | EC-Q-04 | 缺少设备/多设备组合查询 | 基础版：单设备、多设备组合查询 | 表格展示电表/户号，但没有设备选择器、设备组、多选查询 | P0 |
-| EC-Q-05 | 缺少能源品种过滤和能源类型模型 | 基础版：12 类能源覆盖；优秀版：动态增删能源类型 | 当前来源筛选是数据来源，不是能源类型；页面和接口基本围绕电力 kWh，没有煤、气、冷、热、水、氢、空压等能源品种 | P0 |
-| EC-Q-06 | 缺少标准单位换算展示 | 基础版：气、氢等统一转换并验证换算系数 | 当前表格只展示 `total_kwh`，没有原始单位、折标/换算系数、标准单位、换算依据 | P0 |
-| EC-Q-07 | 缺少导出动作 | 基础版：支持导出 | 页面没有导出按钮，后端也未看到本页专用 Excel/CSV/PDF 导出接口 | P0 |
-| EC-Q-07A | Scope1/Scope2 能源消费没有统一事实层 | 基础版：能源消费数据完整，不能漏计 | 当前 Scope1 燃料维护在碳核算表中，Scope2 电力维护在电表/账单表中，能耗查询没有统一读取；Scope2 热力/蒸汽/冷量模型缺失 | P0 |
+| EC-Q-05 | 缺少能源品种过滤和能源类型模型 | 基础版：12 类能源覆盖；优秀版：动态增删能源类型 | 2026-06-12 已新增 `EnergyType`、`EnergyUnitConversion` 和 `/api/energy/types`；P0 只纳入真实能源消费，不把水、空调、空压作为能源品种 | P0 已解决，优秀版动态配置待验收 |
+| EC-Q-06 | 缺少标准单位换算展示 | 基础版：气、氢等统一转换并验证换算系数 | 2026-06-12 已输出原始量、标准量、折标煤、转换来源字段；页面仍需增强系数审计体验 | P0 已解决 |
+| EC-Q-07 | 缺少导出动作 | 基础版：支持导出 | 2026-06-12 已新增 `/api/energy/consumption/export` CSV 导出；导出记录审计可后续增强 | P0 已解决 |
+| EC-Q-07A | Scope1/Scope2 能源消费没有统一事实层 | 基础版：能源消费数据完整，不能漏计 | 2026-06-12 已新增 `energy_consumption_fact_v`，统一 Scope1 燃料、Scope2 电力/电表聚合/外购热力蒸汽冷量 | P0 已解决 |
 | EC-Q-08 | 缺少实时数据入口 | 指南：实时更新、查询 | 当前页面是账期/聚合记录视角，不是实时监测视角；没有刷新频率、最新采集时间、延迟提示 | P1 |
 | EC-Q-09 | 多园区/集团聚合能力未在页面表达 | 基础版：多个园区独立统计和同类能源聚合 | 现有区域排行不等于园区层级；没有集团/园区切换、跨园区聚合结果和权限说明 | P1 |
 | EC-Q-10 | 断点补录自动修正没有页面闭环 | 优秀版：跨 5 分钟断点补录后统计自动修正 | 后端有历史估算和回退逻辑，但页面没有断点、补录、修正前后、估算置信度展示 | P1 |
@@ -120,19 +121,19 @@
 | 能源品种 | 对齐指南能源类型覆盖 | 能源类型、计量单位、标准单位、换算系数、启停状态、适用设备类型 |
 | 原始记录 | 追溯底层来源 | 来源类型、户号/电表/测点、账期、原始值、计算值、因子/系数来源、审核状态、详情 |
 
-### 6. 首批开发建议
+### 6. 后续开发建议
 
-P0 只做能拿基础版分的闭环：
+P0 首版已经改为事实视图查询和服务端筛选，后续不再回到旧 `/api/energy-carbon/energy/ledger-preview` 作为主查询接口。下一轮建议围绕基础版验收补齐交互和证据：
 
-1. 页面改为调用 `/api/energy-carbon/energy/ledger-preview`，支持账期、来源、limit、offset，并把分页展示出来。
-2. 查询区新增账期/月、设备关键词或设备选择、区域/园区选择、能源品种选择。
-3. 表格补充原始单位、标准单位、换算系数/依据、数据来源、最近更新时间。
-4. 增加导出按钮，先支持 CSV/Excel；导出条件必须和当前查询条件一致。
-5. 增加详情抽屉，展示底层记录、计算过程、审核状态和跳转底座台账。
+1. 给能耗查询补单设备/多设备组合选择器，并与监测区域树、设备台账打通。
+2. 保留当前 `/api/energy/consumption/facts|summary|export` 主接口，增加设备组、设施、测点等筛选参数时必须继续服务端执行。
+3. 表格和详情抽屉增强系数审计体验：能源品种、原始单位、标准单位、折标煤、转换系数来源、源记录跳转。
+4. 导出记录补审计字段：导出人、导出时间、筛选条件、导出文件名或任务号。
+5. 做基础版验收用例：时间筛选、能源品种、Scope、状态、区域、导出、源记录追溯、租户隔离。
 
-P1 再补优秀版证据：
+优秀版证据后续单独补：
 
-1. 能源类型配置化：新增能源类型或测点不改代码即可进入统计。
+1. 能源类型配置化验收：新增能源类型或测点不改代码即可进入统计。
 2. 断点补录闭环：展示缺失、估算、补录、自动修正后的差异。
 3. 多园区/集团查询：园区独立统计、同类能源聚合、权限隔离验收用例。
 4. 性能验收：100 并发查询和 10 年历史分页查询测试脚本及结果。
@@ -154,14 +155,16 @@ P1 再补优秀版证据：
 
 | 模块 | 已完成内容 | 代码/数据证据 |
 | --- | --- | --- |
-| 能源消费事实层 | 新增 `energy_consumption_fact_v`，统一投影 Scope1 燃料、Scope2 外购电力、电表聚合、外购热力/蒸汽/冷量；排除制冷剂、Scope3、水、空调、空压等非 P0 能源品种 | `src/py/app/db/migrations/versions/2026_06_11_add_energy_consumption_fact_1a2b3c4d5e7.py`、`src/py/app/domain/carbon/controllers.py` |
-| 能源品种与折标口径 | 新增能源品种和单位换算底座，按 GB/T 2589-2020 维护折标煤系数、标准来源、适用 Scope，避免 Scope1/Scope2 品种串用 | `EnergyType`、`EnergyUnitConversion`、`docs/评价方案/能碳核算能源品种与Scope归类调研.md` |
-| Scope2 外购能源 | 新增外购热力、外购蒸汽、外购冷量业务表和维护能力，不复用电力账单字段 | `Scope2PurchasedEnergy`、`/api/carbon/scope2-purchased-energy` |
-| 能耗查询页面 | `/energy/consumption` 已改为事实视图查询；包含汇总查询、明细追溯、能源品种、导出记录；筛选服务端执行，支持分页和 CSV 导出 | `src/js/web/src/components/carbon/energy-guide-pages.tsx`、`/api/energy/consumption/facts`、`/api/energy/consumption/summary`、`/api/energy/consumption/export` |
-| 能源消费量和面积强度 | `/energy/intensity` 已从 `energy_consumption_fact_v` 计算综合能耗、折标煤、电力专项强度，并使用企业仓储面积/园区面积计算面积强度 | `/api/energy/intensity/summary`、`/api/energy/intensity/trend` |
+| 能源消费事实层 | 新增 `energy_consumption_fact_v`，统一投影 Scope1 燃料、Scope2 外购电力、电表聚合、外购热力/蒸汽/冷量；排除制冷剂、Scope3、水、空调、空压等非 P0 能源品种 | `src/py/app/db/migrations/versions/2026_06_11_add_energy_consumption_fact_1a2b3c4d5e7.py`、`src/py/app/domain/energy/queries/consumption.py` |
+| 能源品种与折标口径 | 新增能源品种和单位换算底座，按 GB/T 2589-2020 维护折标煤系数、标准来源、适用 Scope，避免 Scope1/Scope2 品种串用 | `EnergyType`、`EnergyUnitConversion`、`src/py/app/domain/energy/controllers/dictionaries.py`、`docs/评价方案/能碳核算能源品种与Scope归类调研.md` |
+| Scope2 外购能源 | 新增外购热力、外购蒸汽、外购冷量业务表和维护能力，不复用电力账单字段 | `Scope2PurchasedEnergy`、`src/py/app/domain/carbon_accounting/controllers/accounting.py`、`/api/carbon/scope2-purchased-energy` |
+| 能耗查询页面 | `/energy/consumption` 已改为事实视图查询；包含汇总查询、明细追溯、能源品种、导出记录；筛选服务端执行，支持分页和 CSV 导出 | `src/js/web/src/components/carbon/energy-guide-pages.tsx`、`src/py/app/domain/energy/controllers/consumption.py`、`/api/energy/consumption/facts`、`/api/energy/consumption/summary`、`/api/energy/consumption/export` |
+| 能源消费量和面积强度 | `/energy/intensity` 已从 `energy_consumption_fact_v` 计算综合能耗、折标煤、电力专项强度，并使用企业仓储面积/园区面积计算面积强度 | `src/py/app/domain/energy/controllers/intensity.py`、`src/py/app/domain/energy/queries/intensity.py`、`/api/energy/intensity/summary`、`/api/energy/intensity/trend` |
 | 三级区域/设备展示 | 强度页已补企业根节点、区域/设备树状展示，支撑企业/区域/设备三级统计的页面表达 | `/energy/intensity` 区域设备 Tab |
-| 产品/产值分母台账 | 新增产品档案、产品价格、产品批次产量、产品产线关联 4 类底层台账；业务命名以“产品”为主，不把当前表伪装为产品碳足迹核心模型 | `/data/production-products`、`/data/product-prices`、`/data/production-output`、`/data/product-resource-bindings` |
-| 产品强度和产值强度 | 强度页新增产品强度、产值强度；按产品/业务类型/价格口径查询，缺价格不硬算，多产品不同单位不返回混合单位产品强度 | `/api/energy/intensity/product-summary`、`/api/energy/intensity/value-summary`、`/api/energy/intensity/product-trend`、`/api/energy/intensity/value-trend` |
+| 产品/产值分母台账 | 新增产品档案、产品价格、产品批次产量、产品产线关联 4 类底层台账；业务命名以“产品”为主，不把当前表伪装为产品碳足迹核心模型 | `src/py/app/domain/production_denominator/controllers/production.py`、`/data/production-products`、`/data/product-prices`、`/data/production-output`、`/data/product-resource-bindings` |
+| 产品强度和产值强度 | 强度页新增产品强度、产值强度；按产品/业务类型/价格口径查询，缺价格不硬算，多产品不同单位不返回混合单位产品强度 | `src/py/app/domain/production_denominator/queries.py`、`/api/energy/intensity/product-summary`、`/api/energy/intensity/value-summary`、`/api/energy/intensity/product-trend`、`/api/energy/intensity/value-trend` |
+| 能源消费分析 | `/energy/analysis` 已提供趋势、结构、异常排行、策略建议等首版能力；后端查询服务已从 legacy carbon 拆到 energy 域 | `src/py/app/domain/energy/controllers/analysis.py`、`src/py/app/domain/energy/queries/analysis.py`、`/api/energy/analysis/summary`、`/api/energy/analysis/anomalies`、`/api/energy/analysis/strategies` |
+| DDD 领域迁移 | 能源、生产分母、主数据、计量、碳核算、因子库、分析已从 `carbon.controllers.py` 拆出；旧 API 路径保持兼容 | `src/py/app/domain/energy`、`production_denominator`、`master_data`、`metering`、`carbon_accounting`、`factor_library`、`analytics` |
 | WMS 样本数据 | 从现有 WMS 入库/出库流水生成产品、价格和批次处理量样本；导入命令幂等 | `uv run app carbon import-wms-production-data`；当前样本：产品 987、价格 2901、产品批次处理量 27661 |
 
 ### 2. 与《建设指南》功能点对标
@@ -190,7 +193,8 @@ P1 再补优秀版证据：
 1. 在 `/energy/intensity` 增加“有数据期间”默认策略或补 2025 年生产样本，避免默认近 12 个月时生产分母为空。
 2. 给能耗查询补单设备/多设备组合筛选器，并把设备选择与监测区域树打通。
 3. 做基础版验收用例：时间筛选、能源品种、Scope、状态、区域、导出、产品强度、产值强度、租户隔离。
-4. 再进入下一个指南页面：能源消费分析与用能策略推荐。
+4. 对 `/energy/analysis` 做专项 Gap 分析，重点检查结构/成本/能效、异常时段标注、策略数量、策略导出和整改闭环。
+5. 将能源分析事实投影从手工 `uv run app carbon seed-energy-analysis-data` 升级为 SAQ 定时任务或电表读数导入后触发任务；手工命令只保留为历史回填和重建入口。
 
 ## 四、后续逐页分析顺序
 
