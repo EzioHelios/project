@@ -470,8 +470,12 @@ function buildSankeyOption(nodes: FlowNode[], links: FlowLink[]): EChartsOption 
   const colorForCategory = (category?: string) => {
     if (category === "scope") return "#0f172a"
     if (category === "source") return CHART_COLORS.energy
+    if (category === "conversion") return "#6366f1"
+    if (category === "distribution") return "#0ea5e9"
+    if (category === "use_system") return "#14b8a6"
     if (category === "area") return CHART_COLORS.scope2
     if (category === "result") return CHART_COLORS.handled
+    if (category === "loss") return CHART_COLORS.alert
     return CHART_COLORS.neutral
   }
   const sankeyNodes = nodes.map((node) => ({

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react"
 import { type ApiEnvelope, CompositeTrendChart, DiagnosticsPanel, DistributionChart, FlowGraph, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
 import { JumpLinks } from "@/components/carbon/energy-carbon-center"
 import { type PageResult, PaginationBar, requestPage } from "@/components/platform/data-admin-pages"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -148,16 +149,59 @@ type FlowData = {
   unit: string
   nodes: { id: string; name: string; value?: number; category?: string }[]
   links: { source: string; target: string; value: number }[]
+  summary?: EnergyFlowSummary
 }
 
 type BalanceData = {
   billing_month?: string | null
   table: { label: string; value: number; unit: string }[]
   diagnostics: { label: string; value: string | number }[]
+  summary?: EnergyFlowSummary
 }
 
-type TopLinksData = {
-  items: { source: string; target: string; value: number }[]
+type EnergyFlowSummary = {
+  total_input: number
+  transform_loss: number
+  distribution_loss: number
+  total_loss: number
+  loss_rate_pct: number
+  utilized_energy: number
+  high_loss_count: number
+  row_count: number
+  loss_threshold_pct: number
+  data_quality: string
+}
+
+type EnergyFlowLoss = {
+  stage: string
+  source: string
+  target: string
+  input_amount: number
+  loss_amount: number
+  loss_rate_pct: number
+  threshold_pct: number
+  status: string
+  suggestion: string
+}
+
+type EnergyFlowLossData = {
+  items: EnergyFlowLoss[]
+  total: number
+  summary: EnergyFlowSummary
+}
+
+type EnergyFlowReportItem = {
+  title: string
+  priority: string
+  target: string
+  evidence: Record<string, string | number | null>
+  steps: string[]
+  expected_effect: string
+}
+
+type EnergyFlowReportData = {
+  summary: EnergyFlowSummary
+  items: EnergyFlowReportItem[]
 }
 
 type EnergyFact = {
@@ -416,14 +460,14 @@ type EnergyHierarchyRow = {
   hasChildren?: boolean
 }
 
-function useEnergySummary() {
+function _useEnergySummary() {
   return useQuery<ApiEnvelope<EnergySummary>>({
     queryKey: ["energy-carbon", "energy", "summary"],
     queryFn: () => fetchCarbonApi<EnergySummary>("/api/energy-carbon/energy/summary"),
   })
 }
 
-function useEnergyTrend(months: string) {
+function _useEnergyTrend(months: string) {
   return useQuery<ApiEnvelope<TrendData>>({
     queryKey: ["energy-carbon", "energy", "trend", months],
     queryFn: () => fetchCarbonApi<TrendData>(`/api/energy-carbon/energy/trend?months=${months}`),
@@ -1703,8 +1747,18 @@ export function EnergyAnalysisPanel() {
             </Card>
           </PageSection>
           <PageSection className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-            <RankingList title="用能系统排行" items={(summary?.by_system ?? []).map((item) => ({ name: item.use_system_name, value: item.total_energy }))} unit="kWh" height={360} />
-            <DistributionChart title="用能系统结构" items={(summary?.by_system ?? []).map((item) => ({ name: item.use_system_name, value: item.total_energy }))} unit="kWh" height={360} />
+            <RankingList
+              title="用能系统排行"
+              items={(summary?.by_system ?? []).map((item) => ({ name: item.use_system_name, value: item.total_energy }))}
+              unit="kWh"
+              height={360}
+            />
+            <DistributionChart
+              title="用能系统结构"
+              items={(summary?.by_system ?? []).map((item) => ({ name: item.use_system_name, value: item.total_energy }))}
+              unit="kWh"
+              height={360}
+            />
           </PageSection>
           <PageSection className="grid gap-4 xl:grid-cols-2">
             <RankingList title="区域用能排行" items={(summary?.by_area ?? []).map((item) => ({ name: item.area_name, value: item.total_energy }))} unit="kWh" />
@@ -1734,8 +1788,16 @@ export function EnergyAnalysisPanel() {
             </Card>
           </PageSection>
           <PageSection className="grid gap-4 xl:grid-cols-2">
-            <DistributionChart title="分时成本结构" items={(summary?.by_tariff ?? []).map((item) => ({ name: tariffLabel[item.tariff_segment_type] ?? item.tariff_segment_type, value: item.total_cost }))} unit="元" />
-            <RankingList title="分时电量排行" items={(summary?.by_tariff ?? []).map((item) => ({ name: tariffLabel[item.tariff_segment_type] ?? item.tariff_segment_type, value: item.total_energy }))} unit="kWh" />
+            <DistributionChart
+              title="分时成本结构"
+              items={(summary?.by_tariff ?? []).map((item) => ({ name: tariffLabel[item.tariff_segment_type] ?? item.tariff_segment_type, value: item.total_cost }))}
+              unit="元"
+            />
+            <RankingList
+              title="分时电量排行"
+              items={(summary?.by_tariff ?? []).map((item) => ({ name: tariffLabel[item.tariff_segment_type] ?? item.tariff_segment_type, value: item.total_energy }))}
+              unit="kWh"
+            />
           </PageSection>
         </TabsContent>
 
@@ -1942,39 +2004,222 @@ export function EnergyAnalysisPanel() {
 }
 
 export function EnergyFlowPanel() {
-  const [billingMonth, setBillingMonth] = useState("")
-  const [queryMonth, setQueryMonth] = useState("")
+  const [periodStart, setPeriodStart] = useState("")
+  const [periodEnd, setPeriodEnd] = useState("")
+  const [granularity, setGranularity] = useState("day")
+  const [areaKeyword, setAreaKeyword] = useState("")
+  const [lossThreshold, setLossThreshold] = useState("5")
+  const [filters, setFilters] = useState({
+    periodStart: "",
+    periodEnd: "",
+    granularity: "day",
+    areaKeyword: "",
+    lossThreshold: "5",
+  })
+  const queryString = useMemo(() => buildEnergyFlowQuery(filters), [filters])
   const flowQuery = useQuery<ApiEnvelope<FlowData>>({
-    queryKey: ["energy-carbon", "flows", "energy", queryMonth],
-    queryFn: () => fetchCarbonApi<FlowData>(`/api/energy-carbon/flows/energy${queryMonth ? `?billing_month=${queryMonth}` : ""}`),
+    queryKey: ["energy", "flow", "graph", queryString],
+    queryFn: () => fetchCarbonApi<FlowData>(`/api/energy/flow/graph${queryString}`),
   })
-  const topLinksQuery = useQuery<ApiEnvelope<TopLinksData>>({
-    queryKey: ["energy-carbon", "flows", "top-links", queryMonth],
-    queryFn: () => fetchCarbonApi<TopLinksData>(`/api/energy-carbon/flows/energy-top-links${queryMonth ? `?billing_month=${queryMonth}` : ""}`),
+  const balanceQuery = useQuery<ApiEnvelope<BalanceData>>({
+    queryKey: ["energy", "flow", "balance", queryString],
+    queryFn: () => fetchCarbonApi<BalanceData>(`/api/energy/flow/balance${queryString}`),
   })
+  const lossesQuery = useQuery<ApiEnvelope<EnergyFlowLossData>>({
+    queryKey: ["energy", "flow", "losses", queryString],
+    queryFn: () => fetchCarbonApi<EnergyFlowLossData>(`/api/energy/flow/losses${queryString}`),
+  })
+  const reportQuery = useQuery<ApiEnvelope<EnergyFlowReportData>>({
+    queryKey: ["energy", "flow", "report", queryString],
+    queryFn: () => fetchCarbonApi<EnergyFlowReportData>(`/api/energy/flow/report${queryString}`),
+  })
+  const summary = flowQuery.data?.data.summary
 
   return (
     <div className="space-y-6">
-      <MonthFilter billingMonth={billingMonth} setBillingMonth={setBillingMonth} onQuery={() => setQueryMonth(billingMonth)} />
-      <PageSection>
-        <FlowGraph
-          title={flowQuery.data?.data.title ?? "仓库 / 园区能流图"}
-          unit={flowQuery.data?.data.unit}
-          nodes={flowQuery.data?.data.nodes ?? []}
-          links={flowQuery.data?.data.links ?? []}
-          height={640}
-        />
+      <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[160px_160px_150px_minmax(180px,1fr)_140px_auto]">
+          <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
+          <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
+          <Select value={granularity} onValueChange={setGranularity}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hour">小时</SelectItem>
+              <SelectItem value="day">日</SelectItem>
+              <SelectItem value="month">月</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="区域/设备" />
+          <Input value={lossThreshold} onChange={(event) => setLossThreshold(event.target.value)} placeholder="损耗阈值%" />
+          <Button
+            onClick={() =>
+              setFilters({
+                periodStart,
+                periodEnd,
+                granularity,
+                areaKeyword,
+                lossThreshold,
+              })
+            }
+          >
+            查询
+          </Button>
+        </div>
       </PageSection>
-      <PageSection>
-        <RankingList
-          title="关键链路贡献"
-          items={(topLinksQuery.data?.data.items ?? []).map((item) => ({ name: `${item.source} -> ${item.target}`, value: item.value }))}
-          unit="kWh"
-          height={320}
-        />
+      <PageSection className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <EnergyFlowKpi title="输入" value={summary?.total_input} unit="kWh" />
+        <EnergyFlowKpi title="有效利用" value={summary?.utilized_energy} unit="kWh" />
+        <EnergyFlowKpi title="总损耗率" value={summary?.loss_rate_pct} unit="%" />
+        <EnergyFlowKpi title="高损耗链路" value={summary?.high_loss_count} unit="条" />
       </PageSection>
+      <Tabs defaultValue="graph" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="graph">能流图</TabsTrigger>
+          <TabsTrigger value="balance">能量平衡表</TabsTrigger>
+          <TabsTrigger value="losses">损耗诊断</TabsTrigger>
+          <TabsTrigger value="report">分析报告</TabsTrigger>
+        </TabsList>
+        <TabsContent value="graph" className="space-y-4">
+          <PageSection>
+            <FlowGraph
+              title={flowQuery.data?.data.title ?? "园区能流图"}
+              unit={flowQuery.data?.data.unit}
+              nodes={flowQuery.data?.data.nodes ?? []}
+              links={flowQuery.data?.data.links ?? []}
+              height={640}
+            />
+          </PageSection>
+          <PageSection>
+            <RankingList
+              title="关键链路贡献"
+              items={(flowQuery.data?.data.links ?? []).slice(0, 10).map((item) => ({ name: `${item.source} -> ${item.target}`, value: item.value }))}
+              unit="kWh"
+              height={320}
+            />
+          </PageSection>
+        </TabsContent>
+        <TabsContent value="balance">
+          <PageSection className="grid gap-4 xl:grid-cols-2">
+            <DiagnosticsPanel
+              title="能量平衡表"
+              items={(balanceQuery.data?.data.table ?? []).map((item) => ({ label: item.label, value: `${formatEnergyValue(item.value, 4)} ${item.unit}` }))}
+            />
+            <DiagnosticsPanel title="平衡诊断" items={balanceQuery.data?.data.diagnostics ?? []} />
+          </PageSection>
+        </TabsContent>
+        <TabsContent value="losses">
+          <PageSection>
+            <Card>
+              <CardHeader>
+                <CardTitle>损耗诊断</CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>环节</TableHead>
+                      <TableHead>对象</TableHead>
+                      <TableHead className="text-right">输入(kWh)</TableHead>
+                      <TableHead className="text-right">损耗(kWh)</TableHead>
+                      <TableHead className="text-right">损耗率</TableHead>
+                      <TableHead>状态</TableHead>
+                      <TableHead>建议</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(lossesQuery.data?.data.items ?? []).map((item) => (
+                      <TableRow key={`${item.stage}-${item.target}`}>
+                        <TableCell>{item.stage}</TableCell>
+                        <TableCell>{item.target}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.input_amount, 2)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.loss_amount, 2)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.loss_rate_pct, 2)}%</TableCell>
+                        <TableCell>
+                          <Badge variant={item.status === "high_loss" ? "destructive" : "secondary"}>{item.status === "high_loss" ? "高损耗" : "正常"}</Badge>
+                        </TableCell>
+                        <TableCell>{item.suggestion}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </PageSection>
+        </TabsContent>
+        <TabsContent value="report">
+          <PageSection className="space-y-3">
+            {(reportQuery.data?.data.items ?? []).map((item) => (
+              <Card key={`${item.title}-${item.target}`}>
+                <CardHeader>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <CardTitle>{item.title}</CardTitle>
+                    <div className="flex gap-2">
+                      <Badge variant={item.priority === "high" ? "destructive" : "secondary"}>{item.priority}</Badge>
+                      <Badge variant="outline">{item.target}</Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="grid gap-4 xl:grid-cols-2">
+                  <div className="rounded-md border border-border/60">
+                    <div className="border-b px-4 py-3 text-sm font-medium">证据</div>
+                    <div className="divide-y">
+                      {Object.entries(item.evidence).map(([key, value]) => (
+                        <div key={`${item.title}-${key}`} className="grid grid-cols-2 gap-3 px-4 py-3 text-sm">
+                          <span className="text-muted-foreground">{key}</span>
+                          <span className="text-right font-medium tabular-nums">{typeof value === "number" ? formatEnergyValue(value, 4) : String(value ?? "-")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-border/60">
+                    <div className="border-b px-4 py-3 text-sm font-medium">动作</div>
+                    <div className="space-y-3 p-4">
+                      {item.steps.map((step, index) => (
+                        <div key={`${item.title}-${index}`} className="flex gap-3 text-sm">
+                          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs tabular-nums">{index + 1}</span>
+                          <span>{step}</span>
+                        </div>
+                      ))}
+                      <div className="border-t pt-3 text-sm font-medium">{item.expected_effect}</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </PageSection>
+        </TabsContent>
+      </Tabs>
     </div>
   )
+}
+
+function EnergyFlowKpi({ title, value, unit }: { title: string; value?: number; unit: string }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-end justify-between gap-3">
+          <span className="text-2xl font-semibold tabular-nums">{formatEnergyValue(value, unit === "%" ? 2 : 2)}</span>
+          <Badge variant="secondary">{unit}</Badge>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function buildEnergyFlowQuery(filters: { periodStart: string; periodEnd: string; granularity: string; areaKeyword: string; lossThreshold: string }) {
+  const params = new URLSearchParams()
+  if (filters.periodStart) params.set("period_start", filters.periodStart)
+  if (filters.periodEnd) params.set("period_end", filters.periodEnd)
+  if (filters.granularity) params.set("granularity", filters.granularity)
+  if (filters.areaKeyword.trim()) params.set("area_keyword", filters.areaKeyword.trim())
+  if (filters.lossThreshold.trim()) params.set("loss_threshold_pct", filters.lossThreshold.trim())
+  const text = params.toString()
+  return text ? `?${text}` : ""
 }
 
 export function EnergyBalancePanel() {
