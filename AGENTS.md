@@ -127,6 +127,35 @@ Current scope:
 - Frontend uses bun as package manager, biome for linting
 - Test markers: `unit`, `integration`, `slow`, `auth`, `email`, `oauth`, `services`, `models`, `endpoints`, `security`, `teams`
 
+## Standards and Domain Knowledge Management
+
+Energy and carbon modules must be grounded in traceable standards, policy documents, or explicit enterprise assumptions. Do not invent calculation formulas, benchmark thresholds, loss ratios, energy-balance paths, terminology, or optimization rules without recording the source.
+
+When implementing or changing business logic for energy efficiency benchmarking, energy flow, energy balance, energy intensity, carbon accounting, product carbon footprint, or related evaluation pages:
+
+- First check `docs/评价方案/` for existing standard research and terminology notes.
+- If the needed standard is missing or stale, search authoritative sources before implementation. Prefer official sources such as 国家标准全文公开系统, 国家发展改革委, 国家市场监督管理总局, 工信部, 生态环境部, ISO/GHG Protocol official pages, and published industry standards.
+- Record the standard name, standard number, status, implementation date, source URL, applicable module, and implementation implication in a repository Markdown note under `docs/评价方案/`.
+- Any code-level formula or threshold must be traceable to one of:
+  - a cited national/industry/international standard;
+  - a cited policy document;
+  - a clearly labeled enterprise assumption or sample/demo assumption.
+- If using an enterprise or demo assumption, expose it as configuration or data with `source_name`, `standard_code`, `confidence_level`, `valid_from`, or equivalent traceability fields where practical.
+- Product UI must not show developer-facing caveats, but data tables may show neutral audit fields such as source, standard, effective date, confidence, and applicable scope.
+- If standards conflict, are unavailable, or only provide high-level principles, document the gap and avoid presenting the result as certified, official, or fully standards-compliant.
+
+Priority references for current energy-management work include:
+
+- GB/T 2589-2020 `综合能耗计算通则`
+- GB/T 3484-2009 `企业能量平衡通则`
+- GB/T 28749-2012 `企业能量平衡网络图绘制方法`
+- GB/T 36714-2018 `用能单位能效对标指南`
+- GB/T 36713-2018 `能源管理体系 能源基准和能源绩效参数`
+- GB/T 13234-2018 `用能单位节能量计算方法`
+- GB/T 23331-2020 `能源管理体系 要求及使用指南`
+- GB/T 15316-2024 `节能监测技术通则`
+- 国家发展改革委等部门发布的工业重点领域能效标杆/基准水平、重点用能产品设备能效先进/节能/准入水平文件。
+
 ## Frontend Product UI Rules
 
 - Business pages should show data, controls, statuses, results, and actions. Do not show implementation notes, evaluation-guide copy, roadmap text, "how this page works" prose, or developer-facing calculation explanations in the product UI.

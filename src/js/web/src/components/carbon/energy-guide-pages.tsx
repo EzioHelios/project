@@ -1,14 +1,16 @@
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { useMemo, useState } from "react"
+import { toast } from "sonner"
 
 import { type ApiEnvelope, CompositeTrendChart, DiagnosticsPanel, DistributionChart, FlowGraph, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
 import { JumpLinks } from "@/components/carbon/energy-carbon-center"
-import { type PageResult, PaginationBar, requestPage } from "@/components/platform/data-admin-pages"
+import { type PageResult, PaginationBar, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -170,6 +172,85 @@ type EnergyFlowSummary = {
   row_count: number
   loss_threshold_pct: number
   data_quality: string
+}
+
+type EnergyBalanceSummary = {
+  total_input: number
+  effective_energy: number
+  transform_loss: number
+  distribution_loss: number
+  terminal_loss: number
+  total_loss: number
+  inventory_change: number
+  balance_difference: number
+  balance_error_pct: number
+  metering_coverage_pct: number
+  record_count: number
+  equipment_count: number
+  area_count: number
+  total_cost: number
+  estimated_count: number
+  workload_record_count: number
+  run_hours: number
+  workload_amount: number
+  source_distribution: { source_type: string; record_count: number; energy_amount: number }[]
+  quality: string
+  balance_status: string
+}
+
+type EnergyBalanceOverviewData = {
+  summary: EnergyBalanceSummary
+  cards: { label: string; value: number; unit: string }[]
+}
+
+type EnergyBalanceTableData = {
+  rows: { code: string; label: string; value: number; unit: string; source_type: string; source_name: string }[]
+  summary: EnergyBalanceSummary
+}
+
+type EnergyBalanceQualityData = {
+  items: { label: string; value: string | number; status: string }[]
+  source_distribution: { source_type: string; record_count: number; energy_amount: number }[]
+  summary: EnergyBalanceSummary
+}
+
+type EnergyOptimizationScenario = {
+  scenario_type: string
+  scenario_name: string
+  method: string
+  source_name: string
+  default_parameters: Record<string, number>
+  baseline_energy: number
+  baseline_cost: number
+  confidence_level: string
+}
+
+type EnergyOptimizationSimulation = {
+  status: string
+  scenario_type: string
+  scenario_name: string
+  baseline_energy: number
+  expected_energy: number
+  saving_energy: number
+  saving_rate_pct: number
+  cost_delta_cny: number
+  method: string
+  source_name: string
+  source_type: string
+  confidence_level: string
+  before_parameters: Record<string, unknown>
+  after_parameters: Record<string, unknown>
+  assumptions: Record<string, unknown>
+}
+
+type EnergyOptimizationRecord = EnergyOptimizationSimulation & {
+  id: number
+  balance_object_type: string
+  balance_object_code?: string | null
+  balance_object_name?: string | null
+  period_start?: string | null
+  period_end?: string | null
+  created_at?: string | null
 }
 
 type EnergyFlowLoss = {
@@ -2223,28 +2304,333 @@ function buildEnergyFlowQuery(filters: { periodStart: string; periodEnd: string;
 }
 
 export function EnergyBalancePanel() {
-  const [billingMonth, setBillingMonth] = useState("")
-  const [queryMonth, setQueryMonth] = useState("")
-  const balanceQuery = useQuery<ApiEnvelope<BalanceData>>({
-    queryKey: ["energy-carbon", "flows", "balance", queryMonth],
-    queryFn: () => fetchCarbonApi<BalanceData>(`/api/energy-carbon/flows/energy-balance${queryMonth ? `?billing_month=${queryMonth}` : ""}`),
+  const queryClient = useQueryClient()
+  const [periodStart, setPeriodStart] = useState("")
+  const [periodEnd, setPeriodEnd] = useState("")
+  const [granularity, setGranularity] = useState("day")
+  const [balanceObjectType, setBalanceObjectType] = useState("enterprise")
+  const [balanceObjectCode, setBalanceObjectCode] = useState("")
+  const [areaKeyword, setAreaKeyword] = useState("")
+  const [filters, setFilters] = useState(defaultBalanceFilters)
+  const [selectedScenario, setSelectedScenario] = useState("warehouse_lighting")
+  const [scenarioParameters, setScenarioParameters] = useState<Record<string, string>>(defaultBalanceScenarioParameters.warehouse_lighting)
+  const [simulationResult, setSimulationResult] = useState<EnergyOptimizationSimulation | null>(null)
+  const queryString = useMemo(() => buildEnergyBalanceQuery(filters), [filters])
+  const overviewQuery = useQuery<ApiEnvelope<EnergyBalanceOverviewData>>({
+    queryKey: ["energy", "balance", "overview", queryString],
+    queryFn: () => fetchCarbonApi<EnergyBalanceOverviewData>(`/api/energy/balance/overview${queryString}`),
   })
+  const tableQuery = useQuery<ApiEnvelope<EnergyBalanceTableData>>({
+    queryKey: ["energy", "balance", "table", queryString],
+    queryFn: () => fetchCarbonApi<EnergyBalanceTableData>(`/api/energy/balance/table${queryString}`),
+  })
+  const qualityQuery = useQuery<ApiEnvelope<EnergyBalanceQualityData>>({
+    queryKey: ["energy", "balance", "quality", queryString],
+    queryFn: () => fetchCarbonApi<EnergyBalanceQualityData>(`/api/energy/balance/data-quality${queryString}`),
+  })
+  const scenariosQuery = useQuery<ApiEnvelope<{ items: EnergyOptimizationScenario[] }>>({
+    queryKey: ["energy", "balance", "scenarios", queryString],
+    queryFn: () => fetchCarbonApi<{ items: EnergyOptimizationScenario[] }>(`/api/energy/balance/optimization-scenarios${queryString}`),
+  })
+  const recordsQuery = useQuery<PageResult<EnergyOptimizationRecord>>({
+    queryKey: ["energy", "balance", "records"],
+    queryFn: () => requestPage<EnergyOptimizationRecord>("/api/energy/balance/records", { limit: 10 }),
+  })
+  const simulate = useMutation({
+    mutationFn: async () =>
+      (
+        await request<EnergyOptimizationSimulation>("/api/energy/balance/simulate", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            ...filters,
+            period_start: filters.periodStart || null,
+            period_end: filters.periodEnd || null,
+            granularity: filters.granularity,
+            balance_object_type: filters.balanceObjectType,
+            balance_object_code: filters.balanceObjectCode || null,
+            area_keyword: filters.areaKeyword || null,
+            scenario_type: selectedScenario,
+            parameters: numericParameters(scenarioParameters),
+          }),
+        })
+      ).data,
+    onSuccess: (data) => {
+      setSimulationResult(data)
+      toast.success("优化测算已生成")
+    },
+    onError: (error) => toast.error("测算失败", { description: error instanceof Error ? error.message : "请检查参数" }),
+  })
+  const saveRecord = useMutation({
+    mutationFn: async () => {
+      if (!simulationResult) throw new Error("请先完成测算")
+      return request<EnergyOptimizationRecord>("/api/energy/balance/records", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...simulationResult,
+          balance_object_type: filters.balanceObjectType,
+          balance_object_code: filters.balanceObjectCode || null,
+          period_start: filters.periodStart || null,
+          period_end: filters.periodEnd || null,
+        }),
+      })
+    },
+    onSuccess: () => {
+      toast.success("优化记录已保存")
+      queryClient.invalidateQueries({ queryKey: ["energy", "balance", "records"] })
+    },
+    onError: (error) => toast.error("保存失败", { description: error instanceof Error ? error.message : "请稍后重试" }),
+  })
+  const summary = overviewQuery.data?.data.summary
+  const scenarios = scenariosQuery.data?.data.items ?? []
+  const selectedScenarioMeta = scenarios.find((item) => item.scenario_type === selectedScenario)
 
   return (
     <div className="space-y-6">
-      <MonthFilter billingMonth={billingMonth} setBillingMonth={setBillingMonth} onQuery={() => setQueryMonth(billingMonth)} />
-      <PageSection className="grid gap-4 xl:grid-cols-2">
-        <DiagnosticsPanel title="能量平衡表" items={(balanceQuery.data?.data.table ?? []).map((item) => ({ label: item.label, value: `${item.value} ${item.unit}` }))} />
-        <DiagnosticsPanel
-          title="损耗诊断与优化建议"
-          items={[...(balanceQuery.data?.data.diagnostics ?? []), { label: "当前账期", value: balanceQuery.data?.data.billing_month || "自动取最近账期" }]}
-        />
+      <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[150px_150px_130px_150px_minmax(160px,1fr)_minmax(160px,1fr)_auto]">
+          <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
+          <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
+          <Select value={granularity} onValueChange={setGranularity}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hour">小时</SelectItem>
+              <SelectItem value="day">日</SelectItem>
+              <SelectItem value="month">月</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={balanceObjectType} onValueChange={setBalanceObjectType}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="enterprise">企业</SelectItem>
+              <SelectItem value="area">区域</SelectItem>
+              <SelectItem value="use_system">用能系统</SelectItem>
+              <SelectItem value="device">设备</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input value={balanceObjectCode} onChange={(event) => setBalanceObjectCode(event.target.value)} placeholder="对象编码" />
+          <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="区域/设备" />
+          <Button
+            onClick={() =>
+              setFilters({
+                periodStart,
+                periodEnd,
+                granularity,
+                balanceObjectType,
+                balanceObjectCode,
+                areaKeyword,
+              })
+            }
+          >
+            查询
+          </Button>
+        </div>
       </PageSection>
+
+      <PageSection className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        {(overviewQuery.data?.data.cards ?? []).map((item) => (
+          <EnergyFlowKpi key={item.label} title={item.label} value={item.value} unit={item.unit} />
+        ))}
+      </PageSection>
+
+      <Tabs defaultValue="table" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="table">平衡简表</TabsTrigger>
+          <TabsTrigger value="quality">数据质量</TabsTrigger>
+          <TabsTrigger value="optimize">优化测算</TabsTrigger>
+          <TabsTrigger value="records">优化记录</TabsTrigger>
+        </TabsList>
+        <TabsContent value="table">
+          <PageSection>
+            <Card>
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <CardTitle>能量平衡表</CardTitle>
+                  {summary ? balanceQualityBadge(summary.quality) : null}
+                </div>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>项目</TableHead>
+                      <TableHead className="text-right">数值</TableHead>
+                      <TableHead>单位</TableHead>
+                      <TableHead>来源类型</TableHead>
+                      <TableHead>来源</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(tableQuery.data?.data.rows ?? []).map((item) => (
+                      <TableRow key={item.code}>
+                        <TableCell>{item.label}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.value, 4)}</TableCell>
+                        <TableCell>{item.unit}</TableCell>
+                        <TableCell>{sourceTypeLabel(item.source_type)}</TableCell>
+                        <TableCell>{item.source_name}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </PageSection>
+        </TabsContent>
+        <TabsContent value="quality">
+          <PageSection className="grid gap-4 xl:grid-cols-2">
+            <DiagnosticsPanel title="数据质量" items={(qualityQuery.data?.data.items ?? []).map((item) => ({ label: item.label, value: item.value }))} />
+            <Card>
+              <CardHeader>
+                <CardTitle>来源分布</CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>来源类型</TableHead>
+                      <TableHead className="text-right">记录数</TableHead>
+                      <TableHead className="text-right">电量(kWh)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(qualityQuery.data?.data.source_distribution ?? []).map((item) => (
+                      <TableRow key={item.source_type}>
+                        <TableCell>{sourceTypeLabel(item.source_type)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.record_count, 0)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.energy_amount, 2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </PageSection>
+        </TabsContent>
+        <TabsContent value="optimize">
+          <PageSection className="grid gap-4 xl:grid-cols-[380px_1fr]">
+            <Card>
+              <CardHeader>
+                <CardTitle>参数建议</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-2">
+                  <Label>优化场景</Label>
+                  <Select
+                    value={selectedScenario}
+                    onValueChange={(value) => {
+                      setSelectedScenario(value)
+                      setScenarioParameters(defaultBalanceScenarioParameters[value] ?? {})
+                      setSimulationResult(null)
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(scenarios.length ? scenarios : fallbackBalanceScenarios).map((item) => (
+                        <SelectItem key={item.scenario_type} value={item.scenario_type}>
+                          {item.scenario_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {Object.entries(scenarioParameters).map(([key, value]) => (
+                  <div key={key} className="grid gap-2">
+                    <Label>{balanceParameterLabel(key)}</Label>
+                    <Input type="number" value={value} onChange={(event) => setScenarioParameters((state) => ({ ...state, [key]: event.target.value }))} />
+                  </div>
+                ))}
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={() => simulate.mutate()} disabled={simulate.isPending}>
+                    {simulate.isPending ? "测算中" : "测算"}
+                  </Button>
+                  <Button variant="outline" onClick={() => saveRecord.mutate()} disabled={!simulationResult || saveRecord.isPending}>
+                    保存记录
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <CardTitle>{simulationResult?.scenario_name ?? selectedScenarioMeta?.scenario_name ?? "优化前后对比"}</CardTitle>
+                  <Badge variant="outline">{confidenceLabel(simulationResult?.confidence_level ?? selectedScenarioMeta?.confidence_level)}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <BalanceMetric label="基准能耗" value={simulationResult?.baseline_energy} unit="kWh" />
+                  <BalanceMetric label="预计能耗" value={simulationResult?.expected_energy} unit="kWh" />
+                  <BalanceMetric label="节能量" value={simulationResult?.saving_energy} unit="kWh" />
+                  <BalanceMetric label="费用变化" value={simulationResult?.cost_delta_cny} unit="元" />
+                </div>
+                <div className="mt-4 rounded-md border border-border/60">
+                  <div className="grid grid-cols-2 gap-3 px-4 py-3 text-sm">
+                    <span className="text-muted-foreground">节能率</span>
+                    <span className="text-right font-medium tabular-nums">{formatEnergyValue(simulationResult?.saving_rate_pct, 4)}%</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 border-t px-4 py-3 text-sm">
+                    <span className="text-muted-foreground">方法</span>
+                    <span className="text-right font-medium">{methodLabel(simulationResult?.method ?? selectedScenarioMeta?.method)}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 border-t px-4 py-3 text-sm">
+                    <span className="text-muted-foreground">来源</span>
+                    <span className="text-right font-medium">{simulationResult?.source_name ?? selectedScenarioMeta?.source_name ?? "-"}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </PageSection>
+        </TabsContent>
+        <TabsContent value="records">
+          <PageSection>
+            <Card>
+              <CardHeader>
+                <CardTitle>优化记录</CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>场景</TableHead>
+                      <TableHead>期间</TableHead>
+                      <TableHead className="text-right">基准能耗</TableHead>
+                      <TableHead className="text-right">预计能耗</TableHead>
+                      <TableHead className="text-right">节能率</TableHead>
+                      <TableHead>置信度</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(recordsQuery.data?.items ?? []).map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.scenario_name}</TableCell>
+                        <TableCell>{[item.period_start, item.period_end].filter(Boolean).join(" 至 ") || "-"}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.baseline_energy, 2)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.expected_energy, 2)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.saving_rate_pct, 4)}%</TableCell>
+                        <TableCell>{confidenceLabel(item.confidence_level)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </PageSection>
+        </TabsContent>
+      </Tabs>
+
       <PageSection>
         <JumpLinks
           items={[
             { label: "查看能流分析", to: "/energy/flow" },
-            { label: "查看电表台账", to: "/data/meter" },
+            { label: "行业标杆库", to: "/energy/benchmark" },
+            { label: "能耗查询", to: "/energy/consumption" },
           ]}
         />
       </PageSection>
@@ -2252,16 +2638,107 @@ export function EnergyBalancePanel() {
   )
 }
 
-function MonthFilter({ billingMonth, setBillingMonth, onQuery }: { billingMonth: string; setBillingMonth: (value: string) => void; onQuery: () => void }) {
+function BalanceMetric({ label, value, unit }: { label: string; value?: number; unit: string }) {
   return (
-    <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
-      <div className="grid gap-3 md:grid-cols-[220px_1fr_auto]">
-        <Input type="month" value={billingMonth} onChange={(event) => setBillingMonth(event.target.value)} />
-        <JumpLinks items={[{ label: "能耗查询", to: "/energy/consumption" }]} />
-        <div className="flex justify-end">
-          <Button onClick={onQuery}>查询</Button>
-        </div>
+    <div className="rounded-md border border-border/60 p-4">
+      <div className="text-sm text-muted-foreground">{label}</div>
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <span className="text-xl font-semibold tabular-nums">{formatEnergyValue(value, 4)}</span>
+        <Badge variant="secondary">{unit}</Badge>
       </div>
-    </PageSection>
+    </div>
   )
+}
+
+const defaultBalanceFilters = {
+  periodStart: "",
+  periodEnd: "",
+  granularity: "day",
+  balanceObjectType: "enterprise",
+  balanceObjectCode: "",
+  areaKeyword: "",
+}
+
+const defaultBalanceScenarioParameters: Record<string, Record<string, string>> = {
+  warehouse_lighting: { controlled_load_pct: "25", reduction_pct: "30" },
+  warehouse_idle_reduction: { idle_energy_pct: "18", idle_reduction_pct: "35" },
+  off_peak_charging: { shifted_energy_pct: "40", price_delta_cny_per_kwh: "0.35" },
+  compressed_air_pressure: { current_pressure_mpa: "0.8", target_pressure_mpa: "0.75", expected_saving_pct: "5" },
+}
+
+const fallbackBalanceScenarios = [
+  { scenario_type: "warehouse_lighting", scenario_name: "仓库照明分区降载" },
+  { scenario_type: "warehouse_idle_reduction", scenario_name: "仓储设备空转压降" },
+  { scenario_type: "off_peak_charging", scenario_name: "充电负荷错峰" },
+  { scenario_type: "compressed_air_pressure", scenario_name: "空压站参数优化" },
+]
+
+function buildEnergyBalanceQuery(filters: typeof defaultBalanceFilters) {
+  const params = new URLSearchParams()
+  if (filters.periodStart) params.set("period_start", filters.periodStart)
+  if (filters.periodEnd) params.set("period_end", filters.periodEnd)
+  if (filters.granularity) params.set("granularity", filters.granularity)
+  if (filters.balanceObjectType) params.set("balance_object_type", filters.balanceObjectType)
+  if (filters.balanceObjectCode.trim()) params.set("balance_object_code", filters.balanceObjectCode.trim())
+  if (filters.areaKeyword.trim()) params.set("area_keyword", filters.areaKeyword.trim())
+  const text = params.toString()
+  return text ? `?${text}` : ""
+}
+
+function numericParameters(values: Record<string, string>) {
+  return Object.fromEntries(Object.entries(values).map(([key, value]) => [key, Number(value || 0)]))
+}
+
+function balanceQualityBadge(value?: string) {
+  if (value === "good") return <Badge className="bg-emerald-600 hover:bg-emerald-600">良好</Badge>
+  if (value === "warning") return <Badge className="bg-amber-500 hover:bg-amber-500">需复核</Badge>
+  if (value === "low") return <Badge variant="destructive">覆盖不足</Badge>
+  return <Badge variant="outline">暂无数据</Badge>
+}
+
+function sourceTypeLabel(value?: string | null) {
+  const labels: Record<string, string> = {
+    measured: "计量实测",
+    aggregated: "聚合",
+    calculated: "计算",
+    estimated: "估算",
+    manual: "人工录入",
+    missing: "缺失",
+    unknown: "未知",
+  }
+  return labels[value || ""] ?? value ?? "-"
+}
+
+function confidenceLabel(value?: string | null) {
+  const labels: Record<string, string> = {
+    high: "高",
+    medium: "中",
+    low: "低",
+    reference: "参考",
+  }
+  return labels[value || ""] ?? value ?? "-"
+}
+
+function methodLabel(value?: string | null) {
+  const labels: Record<string, string> = {
+    measure_based_rule: "规则测算",
+    tariff_shift: "分时电价测算",
+    engineering_assumption: "工程假设",
+  }
+  return labels[value || ""] ?? value ?? "-"
+}
+
+function balanceParameterLabel(value: string) {
+  const labels: Record<string, string> = {
+    controlled_load_pct: "可控负荷占比(%)",
+    reduction_pct: "降载比例(%)",
+    idle_energy_pct: "空转能耗占比(%)",
+    idle_reduction_pct: "空转压降比例(%)",
+    shifted_energy_pct: "转移电量占比(%)",
+    price_delta_cny_per_kwh: "峰谷价差(元/kWh)",
+    current_pressure_mpa: "当前压力(MPa)",
+    target_pressure_mpa: "目标压力(MPa)",
+    expected_saving_pct: "预计节能率(%)",
+  }
+  return labels[value] ?? value
 }

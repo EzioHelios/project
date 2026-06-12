@@ -339,6 +339,39 @@ class EnergyBenchmarkItem(TeamScopedMixin, BigIntAuditBase):
     )
 
 
+class EnergyOptimizationRecord(TeamScopedMixin, BigIntAuditBase):
+    """能效平衡优化前后对比记录。"""
+
+    __tablename__ = "dataapp_energyoptimizationrecord"
+    __table_args__ = (
+        Index("ix_energy_optimization_record_period", "team_id", "period_start", "period_end"),
+        Index("ix_energy_optimization_record_object", "team_id", "balance_object_type", "balance_object_code"),
+        Index("ix_energy_optimization_record_scenario", "team_id", "scenario_type"),
+    )
+
+    balance_object_type: Mapped[str] = mapped_column(String(32), default="enterprise", index=True)
+    balance_object_code: Mapped[str | None] = mapped_column(String(128), index=True)
+    balance_object_name: Mapped[str | None] = mapped_column(String(128))
+    period_start: Mapped[date | None] = mapped_column(Date, index=True)
+    period_end: Mapped[date | None] = mapped_column(Date, index=True)
+    scenario_type: Mapped[str] = mapped_column(String(48), index=True)
+    scenario_name: Mapped[str] = mapped_column(String(128))
+    before_parameters: Mapped[dict | None] = mapped_column(JSON)
+    after_parameters: Mapped[dict | None] = mapped_column(JSON)
+    baseline_energy: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    expected_energy: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    saving_energy: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    saving_rate_pct: Mapped[Decimal | None] = mapped_column(Numeric(8, 4))
+    cost_delta_cny: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    method: Mapped[str | None] = mapped_column(String(64))
+    assumptions: Mapped[dict | None] = mapped_column(JSON)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    source_type: Mapped[str | None] = mapped_column(String(32))
+    confidence_level: Mapped[str | None] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(24), default="simulated", index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
 class EnergyIntervalFact(TeamScopedMixin, BigIntAuditBase):
     """由原始计量数据聚合得到的小时/日能源消费事实."""
 
