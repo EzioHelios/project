@@ -4,10 +4,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.domain.carbon.controllers import (
-    CarbonValidationError,
-    _normalize_production_output_payload,
-    _normalize_production_product_payload,
+from app.domain.production_denominator.policies import (
+    ProductionDenominatorValidationError,
+    normalize_production_output_payload,
+    normalize_production_product_payload,
 )
 
 
@@ -28,19 +28,19 @@ class _EmptySession:
 
 
 def test_production_product_defaults_to_product_output_kind() -> None:
-    payload = _normalize_production_product_payload({"code": "P001", "name": "A 产品"})
+    payload = normalize_production_product_payload({"code": "P001", "name": "A 产品"})
 
     assert payload["output_kind"] == "product"
 
 
 def test_production_product_rejects_unknown_output_kind() -> None:
-    with pytest.raises(CarbonValidationError):
-        _normalize_production_product_payload({"code": "P001", "name": "A 产品", "output_kind": "pcf_model"})
+    with pytest.raises(ProductionDenominatorValidationError):
+        normalize_production_product_payload({"code": "P001", "name": "A 产品", "output_kind": "pcf_model"})
 
 
 @pytest.mark.anyio
 async def test_production_output_inherits_output_kind_from_output_object() -> None:
-    payload = await _normalize_production_output_payload(
+    payload = await normalize_production_output_payload(
         {
             "product_code": "OPS001",
             "period_start": "2026-06-01",
@@ -57,7 +57,7 @@ async def test_production_output_inherits_output_kind_from_output_object() -> No
 
 @pytest.mark.anyio
 async def test_production_output_allows_material_handling_sample() -> None:
-    payload = await _normalize_production_output_payload(
+    payload = await normalize_production_output_payload(
         {
             "product_code": "MAT001",
             "product_name": "电力物资出库",

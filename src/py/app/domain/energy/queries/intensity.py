@@ -9,13 +9,19 @@ from sqlalchemy import select, text
 from app.db import models as m
 from app.domain.energy.queries.common import jsonable_mapping, positive_float, ratio_or_none
 from app.domain.energy.queries.consumption import EnergyConsumptionQuery, build_energy_fact_filters
+from app.domain.production_denominator.policies import normalize_price_type
+from app.domain.production_denominator.queries import (
+    ProductionDenominatorQueryService,
+    ProductionOutputQuery,
+    period_sql_expr,
+    production_totals,
+    selected_output_value,
+    selected_price,
+    selected_price_missing,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
-
-
-PRODUCTION_PRICE_TYPES = {"actual_average_price", "standard_price", "base_period_price"}
-PRODUCTION_OUTPUT_KINDS = {"product", "material_storage", "material_handling", "operation_workload"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,8 +248,8 @@ class EnergyIntensityQueryService:
 
     async def product_summary(self, query: EnergyIntensityQuery) -> dict[str, Any]:
         energy_totals = await _energy_kgce_totals(self._session, query)
-        product_rows = await production_output_product_rows(self._session, query)
-        production_totals = production_totals_from_products(product_rows)
+        product_rows = await ProductionDenominatorQueryService(self._session).product_rows(_production_query(query))
+        production_totals_payload = production_totals(product_rows)
         can_calculate_unit_intensity = bool(query.product_code and query.product_code != "all") or len(product_rows) == 1
         total_kgce = float(energy_totals.get("total_kgce") or 0)
         rows = []
@@ -260,10 +266,10 @@ class EnergyIntensityQueryService:
             )
         return {
             "energy_totals": energy_totals,
-            "production_totals": production_totals,
+            "production_totals": production_totals_payload,
             "items": rows,
             "unit_intensity": (
-                ratio_or_none(total_kgce, production_totals["total_standard_qty"]) if can_calculate_unit_intensity else None
+                ratio_or_none(total_kgce, production_totals_payload["total_standard_qty"]) if can_calculate_unit_intensity else None
             ),
             "mixed_unit_product_intensity": None,
             "granularity": query.granularity,
@@ -273,7 +279,7 @@ class EnergyIntensityQueryService:
     async def value_summary(self, query: EnergyIntensityQuery) -> dict[str, Any]:
         selected_price_type = normalize_price_type(query.price_type)
         energy_totals = await _energy_kgce_totals(self._session, query)
-        product_rows = await production_output_product_rows(self._session, query)
+        product_rows = await ProductionDenominatorQueryService(self._session).product_rows(_production_query(query))
         total_kgce = float(energy_totals.get("total_kgce") or 0)
         missing_price_products = [
             {"product_code": row.get("product_code"), "product_name": row.get("product_name"), "price_type": selected_price_type}
@@ -302,7 +308,7 @@ class EnergyIntensityQueryService:
             )
         return {
             "energy_totals": energy_totals,
-            "production_totals": production_totals_from_products(product_rows),
+            "production_totals": production_totals(product_rows),
             "price_type": selected_price_type,
             "output_value": output_value,
             "output_value_10k": output_value_10k,
@@ -315,7 +321,7 @@ class EnergyIntensityQueryService:
 
     async def product_trend(self, query: EnergyIntensityQuery) -> dict[str, Any]:
         energy_by_period = await _energy_by_period(self._session, query)
-        production_rows = await production_output_period_rows(self._session, query)
+        production_rows = await ProductionDenominatorQueryService(self._session).period_rows(_production_query(query))
         series = []
         for row in production_rows:
             energy = energy_by_period.get(row["period"], {"total_kgce": 0, "total_tce": 0})
@@ -335,7 +341,7 @@ class EnergyIntensityQueryService:
     async def value_trend(self, query: EnergyIntensityQuery) -> dict[str, Any]:
         selected_price_type = normalize_price_type(query.price_type)
         energy_by_period = await _energy_by_period(self._session, query)
-        production_rows = await production_output_period_rows(self._session, query)
+        production_rows = await ProductionDenominatorQueryService(self._session).period_rows(_production_query(query))
         value_field = {
             "actual_average_price": "output_value_current_price",
             "standard_price": "output_value_standard_price",
@@ -380,173 +386,6 @@ async def energy_area_denominators(session: AsyncSession) -> dict[str, Any]:
         "source_table": "dataapp_enterpriseinfo",
         "source_fields": {"store_area": "store_area", "park_area": "park_area"},
     }
-
-
-async def production_output_product_rows(session: AsyncSession, query: EnergyIntensityQuery) -> list[dict[str, Any]]:
-    where_sql, params = production_output_where_sql(query)
-    return await _rows(
-        session,
-        f"""
-        select
-            o.product_code,
-            coalesce(max(nullif(o.product_name, '')), max(p.name), o.product_code) as product_name,
-            coalesce(max(nullif(o.product_spec, '')), max(p.spec)) as product_spec,
-            max(p.category) as category,
-            coalesce(max(nullif(o.output_kind, '')), max(p.output_kind), 'product') as output_kind,
-            coalesce(max(nullif(o.standard_unit, '')), max(p.standard_unit), max(o.unit)) as standard_unit,
-            count(*)::int as record_count,
-            coalesce(sum(o.good_qty), 0) as total_good_qty,
-            coalesce(sum(coalesce(o.standard_qty, o.good_qty)), 0) as total_standard_qty,
-            coalesce(sum(coalesce(o.standard_qty, o.good_qty) * coalesce(price_actual_average_price.price, 0)), 0) as output_value_current_price,
-            coalesce(sum(coalesce(o.standard_qty, o.good_qty) * coalesce(price_standard_price.price, 0)), 0) as output_value_standard_price,
-            coalesce(sum(coalesce(o.standard_qty, o.good_qty) * coalesce(price_base_period_price.price, 0)), 0) as output_value_base_price,
-            max(price_actual_average_price.price) as actual_average_price,
-            max(price_standard_price.price) as standard_price,
-            max(price_base_period_price.price) as base_period_price,
-            bool_or(price_actual_average_price.price is null) as actual_average_price_missing,
-            bool_or(price_standard_price.price is null) as standard_price_missing,
-            bool_or(price_base_period_price.price is null) as base_period_price_missing
-        from dataapp_productionoutputfact o
-        left join dataapp_productionproduct p on p.team_id = o.team_id and p.code = o.product_code
-        {price_lateral_joins()}
-        {where_sql}
-        group by o.product_code
-        order by sum(coalesce(o.standard_qty, o.good_qty)) desc nulls last, o.product_code asc
-        """,
-        params,
-    )
-
-
-async def production_output_period_rows(session: AsyncSession, query: EnergyIntensityQuery) -> list[dict[str, Any]]:
-    where_sql, params = production_output_where_sql(query)
-    date_part, period_format = period_sql_expr(query.granularity)
-    return await _rows(
-        session,
-        f"""
-        select
-            to_char(date_trunc(:date_part, o.period_start), :period_format) as period,
-            count(*)::int as record_count,
-            count(distinct o.product_code)::int as product_count,
-            coalesce(sum(o.good_qty), 0) as total_good_qty,
-            coalesce(sum(coalesce(o.standard_qty, o.good_qty)), 0) as total_standard_qty,
-            coalesce(sum(coalesce(o.standard_qty, o.good_qty) * coalesce(price_actual_average_price.price, 0)), 0) as output_value_current_price,
-            coalesce(sum(coalesce(o.standard_qty, o.good_qty) * coalesce(price_standard_price.price, 0)), 0) as output_value_standard_price,
-            coalesce(sum(coalesce(o.standard_qty, o.good_qty) * coalesce(price_base_period_price.price, 0)), 0) as output_value_base_price
-        from dataapp_productionoutputfact o
-        left join dataapp_productionproduct p on p.team_id = o.team_id and p.code = o.product_code
-        {price_lateral_joins()}
-        {where_sql}
-        group by date_trunc(:date_part, o.period_start)
-        order by date_trunc(:date_part, o.period_start)
-        """,
-        {**params, "date_part": date_part, "period_format": period_format},
-    )
-
-
-def production_totals_from_products(product_rows: list[dict[str, Any]]) -> dict[str, Any]:
-    return {
-        "record_count": int(sum(row.get("record_count") or 0 for row in product_rows)),
-        "product_count": len(product_rows),
-        "total_good_qty": sum(float(row.get("total_good_qty") or 0) for row in product_rows),
-        "total_standard_qty": sum(float(row.get("total_standard_qty") or 0) for row in product_rows),
-        "output_value_current_price": sum(float(row.get("output_value_current_price") or 0) for row in product_rows),
-        "output_value_standard_price": sum(float(row.get("output_value_standard_price") or 0) for row in product_rows),
-        "output_value_base_price": sum(float(row.get("output_value_base_price") or 0) for row in product_rows),
-    }
-
-
-def production_output_where_sql(query: EnergyIntensityQuery) -> tuple[str, dict[str, Any]]:
-    conditions: list[str] = []
-    params: dict[str, Any] = {}
-    if query.period_start:
-        conditions.append("o.period_end >= :period_start")
-        params["period_start"] = query.period_start
-    if query.period_end:
-        conditions.append("o.period_start <= :period_end")
-        params["period_end"] = query.period_end
-    if query.product_code and query.product_code != "all":
-        conditions.append("o.product_code = :product_code")
-        params["product_code"] = query.product_code
-    if query.category and query.category != "all":
-        conditions.append("p.category = :category")
-        params["category"] = query.category
-    if query.output_kind and query.output_kind != "all":
-        conditions.append("coalesce(o.output_kind, p.output_kind, 'product') = :output_kind")
-        params["output_kind"] = normalize_production_output_kind(query.output_kind)
-    if query.line_code and query.line_code != "all":
-        conditions.append("o.line_code = :line_code")
-        params["line_code"] = query.line_code
-    if query.area_id and str(query.area_id) != "all":
-        conditions.append("o.area_id = :area_id")
-        params["area_id"] = int(query.area_id)
-    if query.equipment_code and query.equipment_code != "all":
-        conditions.append("o.equipment_code = :equipment_code")
-        params["equipment_code"] = query.equipment_code
-    if query.record_status and query.record_status != "all":
-        conditions.append("o.record_status = :record_status")
-        params["record_status"] = query.record_status
-    return (f"where {' and '.join(conditions)}" if conditions else ""), params
-
-
-def period_sql_expr(granularity: str) -> tuple[str, str]:
-    date_part = granularity if granularity in {"day", "month", "year"} else "month"
-    return date_part, {"day": "YYYY-MM-DD", "month": "YYYY-MM", "year": "YYYY"}[date_part]
-
-
-def price_lateral_joins(price_types: tuple[str, ...] = ("actual_average_price", "standard_price", "base_period_price")) -> str:
-    joins = []
-    for price_type in price_types:
-        alias = f"price_{price_type}"
-        joins.append(
-            f"""
-            left join lateral (
-                select pp.price
-                from dataapp_productprice pp
-                where pp.team_id = o.team_id
-                  and pp.product_code = o.product_code
-                  and pp.price_type = '{price_type}'
-                  and pp.valid_from <= o.period_start
-                  and (pp.valid_to is null or pp.valid_to >= o.period_start)
-                order by pp.valid_from desc, pp.id desc
-                limit 1
-            ) {alias} on true
-            """
-        )
-    return "\n".join(joins)
-
-
-def normalize_price_type(value: str | None, default: str = "standard_price") -> str:
-    price_type = (value or default).strip()
-    if price_type not in PRODUCTION_PRICE_TYPES:
-        msg = "价格口径必须为 actual_average_price、standard_price 或 base_period_price。"
-        raise ValueError(msg)
-    return price_type
-
-
-def normalize_production_output_kind(value: str | None, default: str = "product") -> str:
-    output_kind = (value or default).strip()
-    if output_kind not in PRODUCTION_OUTPUT_KINDS:
-        msg = "产出类型必须为 product、material_storage、material_handling 或 operation_workload。"
-        raise ValueError(msg)
-    return output_kind
-
-
-def selected_output_value(row: dict[str, Any], price_type: str) -> float:
-    field = {
-        "actual_average_price": "output_value_current_price",
-        "standard_price": "output_value_standard_price",
-        "base_period_price": "output_value_base_price",
-    }[price_type]
-    return float(row.get(field) or 0)
-
-
-def selected_price(row: dict[str, Any], price_type: str) -> float | None:
-    value = row.get(price_type)
-    return float(value) if value is not None else None
-
-
-def selected_price_missing(row: dict[str, Any], price_type: str) -> bool:
-    return bool(row.get(f"{price_type}_missing"))
 
 
 async def _energy_kgce_totals(session: AsyncSession, query: EnergyIntensityQuery) -> dict[str, Any]:
@@ -603,6 +442,21 @@ def _energy_consumption_query(query: EnergyIntensityQuery) -> EnergyConsumptionQ
         scope=query.scope,
         status=query.status,
         source_record_type=query.source_record_type,
+    )
+
+
+def _production_query(query: EnergyIntensityQuery) -> ProductionOutputQuery:
+    return ProductionOutputQuery(
+        period_start=query.period_start,
+        period_end=query.period_end,
+        granularity=query.granularity,
+        product_code=query.product_code,
+        category=query.category,
+        output_kind=query.output_kind,
+        line_code=query.line_code,
+        area_id=query.area_id,
+        equipment_code=query.equipment_code,
+        record_status=query.record_status,
     )
 
 
