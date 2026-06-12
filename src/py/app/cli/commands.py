@@ -21,6 +21,7 @@ from app.domain.carbon.calculation_factor_importer import import_calculation_fac
 from app.domain.carbon.energy_analysis_importer import seed_energy_analysis_data
 from app.domain.carbon.factor_importer import import_ncsc_factor_package
 from app.domain.carbon.production_data_importer import import_wms_production_data
+from app.domain.energy.benchmark_importer import seed_warehouse_energy_benchmark_data
 from app.lib.deps import create_service_provider, provide_services
 from app.lib.settings import get_settings
 
@@ -298,4 +299,26 @@ def seed_energy_analysis_data_command() -> None:
         )
 
     console.rule("Seed energy analysis data.")
+    anyio.run(_seed)
+
+
+@carbon_management_group.command(
+    name="seed-energy-benchmark-data",
+    help="Generate a warehouse scenario industry benchmark library sample.",
+)
+def seed_energy_benchmark_data_command() -> None:
+    """Generate warehouse scenario benchmark library sample data."""
+    console = get_console()
+
+    async def _seed() -> None:
+        async with alchemy.get_session() as session:
+            result = await seed_warehouse_energy_benchmark_data(session)
+        console.print(
+            "[green]Seeded energy benchmark data[/green] "
+            f"profiles_deleted={result.profiles_deleted} "
+            f"profiles_inserted={result.profiles_inserted} "
+            f"items_inserted={result.items_inserted}"
+        )
+
+    console.rule("Seed energy benchmark data.")
     anyio.run(_seed)

@@ -283,6 +283,62 @@ class EnergyTariffSegment(TeamScopedMixin, BigIntAuditBase):
     remark: Mapped[str | None] = mapped_column(Text)
 
 
+class EnergyBenchmarkProfile(TeamScopedMixin, BigIntAuditBase):
+    """行业标杆方案。"""
+
+    __tablename__ = "dataapp_energybenchmarkprofile"
+    __table_args__ = (
+        Index("ix_energy_benchmark_profile_enabled", "team_id", "is_enabled"),
+    )
+
+    name: Mapped[str] = mapped_column(String(128), index=True)
+    industry_name: Mapped[str | None] = mapped_column(String(128), index=True)
+    scenario: Mapped[str | None] = mapped_column(String(128), index=True)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    valid_from: Mapped[date | None] = mapped_column(Date)
+    valid_to: Mapped[date | None] = mapped_column(Date)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    items: Mapped[list[EnergyBenchmarkItem]] = relationship(
+        back_populates="profile",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
+
+
+class EnergyBenchmarkItem(TeamScopedMixin, BigIntAuditBase):
+    """行业标杆指标项。"""
+
+    __tablename__ = "dataapp_energybenchmarkitem"
+    __table_args__ = (
+        Index("ix_energy_benchmark_item_profile_metric", "team_id", "profile_id", "target_type", "metric_code"),
+        Index("ix_energy_benchmark_item_enabled", "team_id", "is_enabled"),
+        Index("ix_energy_benchmark_item_target", "team_id", "target_type", "target_code"),
+    )
+
+    profile_id: Mapped[int] = mapped_column(ForeignKey("dataapp_energybenchmarkprofile.id", ondelete="CASCADE"), index=True)
+    target_type: Mapped[str] = mapped_column(String(32), index=True)
+    target_code: Mapped[str | None] = mapped_column(String(128), index=True)
+    target_name: Mapped[str | None] = mapped_column(String(128))
+    metric_code: Mapped[str] = mapped_column(String(64), index=True)
+    metric_name: Mapped[str] = mapped_column(String(128))
+    benchmark_value: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    unit: Mapped[str] = mapped_column(String(32))
+    excellent_value: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    warning_threshold_pct: Mapped[Decimal | None] = mapped_column(Numeric(8, 2), default=10)
+    severe_threshold_pct: Mapped[Decimal | None] = mapped_column(Numeric(8, 2), default=25)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    confidence_level: Mapped[str | None] = mapped_column(String(16))
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    profile: Mapped[EnergyBenchmarkProfile] = relationship(
+        back_populates="items",
+        lazy="selectin",
+    )
+
+
 class EnergyIntervalFact(TeamScopedMixin, BigIntAuditBase):
     """由原始计量数据聚合得到的小时/日能源消费事实."""
 
