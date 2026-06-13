@@ -15,6 +15,7 @@ from sqlalchemy import select
 
 from app.db import models as m
 from app.domain.carbon_verification.queries.verification import CarbonVerificationQueryService, VerificationQuery
+from app.domain.carbon_verification.usecases.report_renderer import RenderedReportFile, ReportDocumentRenderer
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -58,19 +59,25 @@ class CarbonVerificationExportUseCase:
         await self._session.flush()
 
         try:
-            archive_path, archive_files = _write_export_archive(
+            export_dir = EXPORT_ROOT / job_no
+            rendered_files = ReportDocumentRenderer(
+                template_path=Path(str(report["template"].get("path") or "")),
+                output_dir=export_dir / "rendered",
+            ).render(report)
+            archive_path, archive_files, manifest_payload = _write_export_archive(
                 job_no=job_no,
                 report=report,
                 package=package,
                 evidence=evidence,
                 issues=issues,
                 audit_trail=audit_trail,
+                rendered_files=rendered_files,
             )
             archive_sha256 = _sha256_file(archive_path)
             job.file_path = str(archive_path)
             job.file_sha256 = archive_sha256
             job.file_size_bytes = archive_path.stat().st_size
-            job.manifest_payload = package.get("manifest")
+            job.manifest_payload = manifest_payload
             job.status = "completed"
             job.completed_at = _utc_now_naive()
             for item in archive_files:
@@ -140,12 +147,12 @@ def _write_export_archive(
     evidence: dict[str, Any],
     issues: dict[str, Any],
     audit_trail: dict[str, Any],
-) -> tuple[Path, list[dict[str, Any]]]:
+    rendered_files: list[RenderedReportFile],
+) -> tuple[Path, list[dict[str, Any]], dict[str, Any]]:
     export_dir = EXPORT_ROOT / job_no
     export_dir.mkdir(parents=True, exist_ok=True)
     archive_path = export_dir / f"{job_no}.zip"
     files = {
-        "manifest.json": package,
         "report/report-context.json": report,
         "data/activity-data.csv": _csv_bytes(report.get("activity_data", [])),
         "data/factor-parameters.csv": _csv_bytes(report.get("factor_parameters", [])),
@@ -155,6 +162,18 @@ def _write_export_archive(
     }
     archive_files: list[dict[str, Any]] = []
     with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for rendered in rendered_files:
+            archive.writestr(rendered.path, rendered.content)
+            archive_files.append(
+                {
+                    "file_type": _file_type(rendered.path),
+                    "path": rendered.path,
+                    "source_name": rendered.source_name,
+                    "content_type": rendered.content_type,
+                    "size_bytes": len(rendered.content),
+                    "sha256": hashlib.sha256(rendered.content).hexdigest(),
+                }
+            )
         for path, content in files.items():
             payload = content if isinstance(content, bytes) else _json_bytes(content)
             archive.writestr(path, payload)
@@ -168,7 +187,24 @@ def _write_export_archive(
                     "sha256": hashlib.sha256(payload).hexdigest(),
                 }
             )
-    return archive_path, archive_files
+        manifest_payload = {
+            **package,
+            "generated_at": _utc_now_naive().isoformat(),
+            "exported_files": list(archive_files),
+        }
+        manifest_content = _json_bytes(manifest_payload)
+        archive.writestr("manifest.json", manifest_content)
+        archive_files.append(
+            {
+                "file_type": "manifest",
+                "path": "manifest.json",
+                "source_name": "carbon_verification.material_package",
+                "content_type": "application/json",
+                "size_bytes": len(manifest_content),
+                "sha256": hashlib.sha256(manifest_content).hexdigest(),
+            }
+        )
+    return archive_path, archive_files, manifest_payload
 
 
 def _csv_bytes(rows: list[dict[str, Any]]) -> bytes:
