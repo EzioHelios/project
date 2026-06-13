@@ -2385,6 +2385,10 @@ export function EnergyBalancePanel() {
   const summary = overviewQuery.data?.data.summary
   const scenarios = scenariosQuery.data?.data.items ?? []
   const selectedScenarioMeta = scenarios.find((item) => item.scenario_type === selectedScenario)
+  const balanceRows = tableQuery.data?.data.rows ?? []
+  const qualityItems = qualityQuery.data?.data.items ?? []
+  const sourceDistribution = qualityQuery.data?.data.source_distribution ?? []
+  const records = recordsQuery.data?.items ?? []
 
   return (
     <div className="space-y-6">
@@ -2433,9 +2437,13 @@ export function EnergyBalancePanel() {
       </PageSection>
 
       <PageSection className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        {(overviewQuery.data?.data.cards ?? []).map((item) => (
-          <EnergyFlowKpi key={item.label} title={item.label} value={item.value} unit={item.unit} />
-        ))}
+        {(overviewQuery.data?.data.cards ?? []).length ? (
+          overviewQuery.data?.data.cards.map((item) => <EnergyFlowKpi key={item.label} title={item.label} value={item.value} unit={item.unit} />)
+        ) : (
+          <Card className="md:col-span-2 xl:col-span-5">
+            <CardContent className="py-8 text-center text-muted-foreground">暂无平衡数据</CardContent>
+          </Card>
+        )}
       </PageSection>
 
       <Tabs defaultValue="table" className="space-y-4">
@@ -2466,15 +2474,23 @@ export function EnergyBalancePanel() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(tableQuery.data?.data.rows ?? []).map((item) => (
-                      <TableRow key={item.code}>
-                        <TableCell>{item.label}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.value, 4)}</TableCell>
-                        <TableCell>{item.unit}</TableCell>
-                        <TableCell>{sourceTypeLabel(item.source_type)}</TableCell>
-                        <TableCell>{item.source_name}</TableCell>
+                    {balanceRows.length ? (
+                      balanceRows.map((item) => (
+                        <TableRow key={item.code}>
+                          <TableCell>{item.label}</TableCell>
+                          <TableCell className="text-right tabular-nums">{formatEnergyValue(item.value, 4)}</TableCell>
+                          <TableCell>{item.unit}</TableCell>
+                          <TableCell>{sourceTypeLabel(item.source_type)}</TableCell>
+                          <TableCell>{item.source_name}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                          暂无平衡表数据
+                        </TableCell>
                       </TableRow>
-                    ))}
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -2483,7 +2499,10 @@ export function EnergyBalancePanel() {
         </TabsContent>
         <TabsContent value="quality">
           <PageSection className="grid gap-4 xl:grid-cols-2">
-            <DiagnosticsPanel title="数据质量" items={(qualityQuery.data?.data.items ?? []).map((item) => ({ label: item.label, value: item.value }))} />
+            <DiagnosticsPanel
+              title="数据质量"
+              items={qualityItems.length ? qualityItems.map((item) => ({ label: item.label, value: item.value })) : [{ label: "数据质量", value: "暂无数据" }]}
+            />
             <Card>
               <CardHeader>
                 <CardTitle>来源分布</CardTitle>
@@ -2498,13 +2517,21 @@ export function EnergyBalancePanel() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(qualityQuery.data?.data.source_distribution ?? []).map((item) => (
-                      <TableRow key={item.source_type}>
-                        <TableCell>{sourceTypeLabel(item.source_type)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.record_count, 0)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.energy_amount, 2)}</TableCell>
+                    {sourceDistribution.length ? (
+                      sourceDistribution.map((item) => (
+                        <TableRow key={item.source_type}>
+                          <TableCell>{sourceTypeLabel(item.source_type)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{formatEnergyValue(item.record_count, 0)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{formatEnergyValue(item.energy_amount, 2)}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={3} className="py-8 text-center text-muted-foreground">
+                          暂无来源分布
+                        </TableCell>
                       </TableRow>
-                    ))}
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -2607,16 +2634,24 @@ export function EnergyBalancePanel() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(recordsQuery.data?.items ?? []).map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.scenario_name}</TableCell>
-                        <TableCell>{[item.period_start, item.period_end].filter(Boolean).join(" 至 ") || "-"}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.baseline_energy, 2)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.expected_energy, 2)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatEnergyValue(item.saving_rate_pct, 4)}%</TableCell>
-                        <TableCell>{confidenceLabel(item.confidence_level)}</TableCell>
+                    {records.length ? (
+                      records.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>{item.scenario_name}</TableCell>
+                          <TableCell>{[item.period_start, item.period_end].filter(Boolean).join(" 至 ") || "-"}</TableCell>
+                          <TableCell className="text-right tabular-nums">{formatEnergyValue(item.baseline_energy, 2)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{formatEnergyValue(item.expected_energy, 2)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{formatEnergyValue(item.saving_rate_pct, 4)}%</TableCell>
+                          <TableCell>{confidenceLabel(item.confidence_level)}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                          暂无优化记录
+                        </TableCell>
                       </TableRow>
-                    ))}
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>

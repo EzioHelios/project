@@ -1,0 +1,1 @@
+"""Energy application use cases."""

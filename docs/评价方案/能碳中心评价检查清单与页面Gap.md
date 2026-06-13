@@ -316,7 +316,8 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | 能效平衡 API | 新增平衡总览、平衡简表、数据质量、优化场景、优化测算、优化记录接口 | `/api/energy/balance/overview`、`/api/energy/balance/table`、`/api/energy/balance/data-quality`、`/api/energy/balance/optimization-scenarios`、`/api/energy/balance/simulate`、`/api/energy/balance/records` |
 | 平衡简表 | 输出能源输入、有效利用、转换损失、输配损失、终端损失/缺失、库存变化和平衡差异 | `src/py/app/domain/energy/queries/balance.py` |
 | 数据质量 | 输出计量覆盖率、估算记录、负荷记录、来源分布和质量状态 | `EnergyBalanceQueryService.data_quality` |
-| 优化测算 | 支持仓库照明分区降载、仓储设备空转压降、充电负荷错峰、空压站参数优化 4 类规则测算 | `EnergyBalanceQueryService.simulate` |
+| 领域分层 | 优化规则从查询服务拆出，规则测算放入纯领域 policy，测算与保存记录由 use case 编排，Controller 仅做 HTTP 适配 | `src/py/app/domain/energy/domain/policies.py`、`src/py/app/domain/energy/usecases/balance.py` |
+| 优化测算 | 支持仓库照明分区降载、仓储设备空转压降、充电负荷错峰、空压站参数优化 4 类规则测算 | `EnergyBalanceOptimizationUseCase.simulate` |
 | 页面前端 | `/energy/balance` 增强为筛选、KPI、平衡简表、数据质量、优化测算和优化记录页面 | `src/js/web/src/components/carbon/energy-guide-pages.tsx` |
 
 ### 6.2 评价要求对照

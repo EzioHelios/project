@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import date
-from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from litestar import Controller, get, post
@@ -11,7 +9,8 @@ from sqlalchemy import func, select
 
 from app.db import models as m
 from app.domain.energy.controllers._utils import model_to_dict, ok_data
-from app.domain.energy.queries.balance import SCENARIOS, EnergyBalanceQuery, EnergyBalanceQueryService
+from app.domain.energy.queries.balance import EnergyBalanceQuery, EnergyBalanceQueryService
+from app.domain.energy.usecases.balance import EnergyBalanceOptimizationUseCase
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -137,7 +136,10 @@ class EnergyBalanceController(Controller):
         db_session: AsyncSession,
         data: dict[str, Any] = BALANCE_BODY,
     ) -> Response[dict]:
-        result = await EnergyBalanceQueryService(db_session).simulate(data)
+        try:
+            result = await EnergyBalanceOptimizationUseCase(db_session).simulate(data)
+        except ValueError as exc:
+            return Response(content={"code": 400, "msg": str(exc), "data": None}, status_code=400)
         return Response(content=ok_data(result))
 
     @get("/api/energy/balance/records")
@@ -162,13 +164,10 @@ class EnergyBalanceController(Controller):
         db_session: AsyncSession,
         data: dict[str, Any] = BALANCE_BODY,
     ) -> Response[dict]:
-        payload = _record_payload(data)
-        if isinstance(payload, Response):
-            return payload
-        obj = m.EnergyOptimizationRecord(**payload)
-        db_session.add(obj)
-        await db_session.commit()
-        await db_session.refresh(obj)
+        try:
+            obj = await EnergyBalanceOptimizationUseCase(db_session).create_record(data)
+        except ValueError as exc:
+            return Response(content={"code": 400, "msg": str(exc), "data": None}, status_code=400)
         return Response(content=ok_data(model_to_dict(obj)))
 
 
@@ -195,64 +194,9 @@ def _query(
     )
 
 
-def _record_payload(data: dict[str, Any]) -> dict[str, Any] | Response[dict]:
-    scenario_type = _str(data.get("scenario_type"))
-    if scenario_type not in SCENARIOS:
-        return Response(content={"code": 400, "msg": "优化场景无效", "data": None}, status_code=400)
-    scenario = SCENARIOS[scenario_type]
-    return {
-        "balance_object_type": _str(data.get("balance_object_type")) or "enterprise",
-        "balance_object_code": _str(data.get("balance_object_code")),
-        "balance_object_name": _str(data.get("balance_object_name")),
-        "period_start": _date_or_none(data.get("period_start")),
-        "period_end": _date_or_none(data.get("period_end")),
-        "scenario_type": scenario_type,
-        "scenario_name": _str(data.get("scenario_name")) or scenario["name"],
-        "before_parameters": _dict_or_none(data.get("before_parameters")),
-        "after_parameters": _dict_or_none(data.get("after_parameters")),
-        "baseline_energy": _decimal_or_none(data.get("baseline_energy")),
-        "expected_energy": _decimal_or_none(data.get("expected_energy")),
-        "saving_energy": _decimal_or_none(data.get("saving_energy")),
-        "saving_rate_pct": _decimal_or_none(data.get("saving_rate_pct")),
-        "cost_delta_cny": _decimal_or_none(data.get("cost_delta_cny")),
-        "method": _str(data.get("method")),
-        "assumptions": _dict_or_none(data.get("assumptions")),
-        "source_name": _str(data.get("source_name")),
-        "source_type": _str(data.get("source_type")),
-        "confidence_level": _str(data.get("confidence_level")),
-        "status": _str(data.get("status")) or "simulated",
-        "remark": _str(data.get("remark")),
-    }
-
-
 def _page(items: list[dict[str, Any]], total: int, limit: int, offset: int) -> dict[str, Any]:
     return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
 def _limit(value: int) -> int:
     return max(1, min(int(value or 20), 200))
-
-
-def _str(value: Any) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
-def _date_or_none(value: Any) -> date | None:
-    text = _str(value)
-    if not text:
-        return None
-    return date.fromisoformat(text[:10])
-
-
-def _decimal_or_none(value: Any) -> Decimal | None:
-    text = _str(value)
-    if text is None:
-        return None
-    return Decimal(text)
-
-
-def _dict_or_none(value: Any) -> dict[str, Any] | None:
-    return value if isinstance(value, dict) else None
