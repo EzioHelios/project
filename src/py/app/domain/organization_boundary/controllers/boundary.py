@@ -153,7 +153,7 @@ class OrganizationBoundaryController(Controller):
             return _error(exc)
         return Response(content=ok_data(model_to_dict(obj)))
 
-    @delete("/api/carbon/organization-boundary/facilities/{facility_id:int}")
+    @delete("/api/carbon/organization-boundary/facilities/{facility_id:int}", status_code=200)
     async def delete_facility(self, db_session: AsyncSession, facility_id: int) -> Response[dict]:
         try:
             await OrganizationBoundaryUseCase(db_session).delete_facility(facility_id)

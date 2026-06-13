@@ -6,8 +6,10 @@ from litestar import Controller, get, patch, post
 from litestar.params import Body
 from litestar.response import File, Response
 
+from app.domain.carbon_verification.queries.attachments import AttachmentQuery, CarbonVerificationAttachmentQueryService
 from app.domain.carbon_verification.queries.findings import CarbonVerificationFindingQueryService, FindingQuery
 from app.domain.carbon_verification.queries.verification import CarbonVerificationQueryService, VerificationQuery
+from app.domain.carbon_verification.usecases.attachments import CarbonVerificationAttachmentUseCase
 from app.domain.carbon_verification.usecases.export import CarbonVerificationExportUseCase
 from app.domain.carbon_verification.usecases.findings import CarbonVerificationFindingUseCase
 from app.domain.energy.controllers._utils import ok_data
@@ -47,6 +49,56 @@ class CarbonVerificationController(Controller):
             _query(year=year, status=status, scope=scope, limit=limit, offset=offset)
         )
         return Response(content=ok_data(data))
+
+    @get("/api/carbon/verification/attachments")
+    async def list_verification_attachments(
+        self,
+        db_session: AsyncSession,
+        source_object_type: str | None = None,
+        source_object_id: int | None = None,
+        status: str | None = None,
+        material_group: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Response[dict]:
+        data = await CarbonVerificationAttachmentQueryService(db_session).list_attachments(
+            AttachmentQuery(
+                source_object_type=source_object_type,
+                source_object_id=source_object_id,
+                status=status,
+                material_group=material_group,
+                limit=max(1, min(limit, 500)),
+                offset=max(0, offset),
+            )
+        )
+        return Response(content=ok_data(data))
+
+    @post("/api/carbon/verification/attachments")
+    async def create_verification_attachment(
+        self,
+        db_session: AsyncSession,
+        data: dict = EXPORT_BODY,
+    ) -> Response[dict]:
+        try:
+            attachment = await CarbonVerificationAttachmentUseCase(db_session).create_attachment(data)
+            payload = await CarbonVerificationAttachmentQueryService(db_session).get_attachment(attachment.id)
+        except ValueError as exc:
+            return Response(content={"code": 400, "msg": str(exc)}, status_code=400)
+        return Response(content=ok_data(payload))
+
+    @patch("/api/carbon/verification/attachments/{attachment_id:int}")
+    async def update_verification_attachment(
+        self,
+        db_session: AsyncSession,
+        attachment_id: int,
+        data: dict = EXPORT_BODY,
+    ) -> Response[dict]:
+        try:
+            attachment = await CarbonVerificationAttachmentUseCase(db_session).update_attachment(attachment_id, data)
+            payload = await CarbonVerificationAttachmentQueryService(db_session).get_attachment(attachment.id)
+        except ValueError as exc:
+            return Response(content={"code": 400, "msg": str(exc)}, status_code=400)
+        return Response(content=ok_data(payload))
 
     @get("/api/carbon/verification/issues")
     async def get_verification_issues(

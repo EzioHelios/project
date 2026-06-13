@@ -99,7 +99,7 @@ flowchart LR
 | `CarbonAccountingBatch` / `carbon_accounting_batch` | `carbon.models` | `carbon_accounting` | 绑定报告主体、报告期和组织边界版本的一次组织碳核算批次 | 已新建租户表；后续补修订流程和活动记录统一锁定。 |
 | `CarbonEmissionInventoryItem` / `carbon_emission_inventory_item` | `carbon.models` | `carbon_accounting` | 组织排放清单快照明细，供核查、碳资产和报告读取 | 已新建租户表；只统计已审核记录并保留质量状态。 |
 | `CarbonVerificationExportJob` / `carbon_verification_export_job` | `carbon.models` | `carbon_verification` | 核查报告/材料包导出任务，记录范围、模板、状态、ZIP 文件路径、哈希和导出人 | 已新建租户表；已接入 DOCX/PDF 渲染；后续接异步队列。 |
-| `CarbonVerificationExportFile` / `carbon_verification_export_file` | `carbon.models` | `carbon_verification` | 导出包内文件清单，记录 DOCX/PDF、manifest、活动数据、因子参数、问题、审核轨迹等文件 | 已新建租户表；后续接独立附件实体和原件打包。 |
+| `CarbonVerificationExportFile` / `carbon_verification_export_file` | `carbon.models` | `carbon_verification` | 导出包内文件清单，记录 DOCX/PDF、manifest、活动数据、因子参数、问题、审核轨迹等文件 | 已新建租户表；后续接附件原件打包和对象存储。 |
 
 目标新增对象/服务：
 
@@ -107,7 +107,8 @@ flowchart LR
 | --- | --- | --- | --- |
 | `ReportTemplateVersion` | `carbon_verification` | 报告模板版本、标准来源、适用行业、文件路径和启停状态 | 通用模板先配置为 `organization_ghg_generic_v2026_06_13`；行业模板后续按标准/行业新增。 |
 | `ReportDocumentRenderer` | `carbon_verification.usecases` | 将 `report_context` 写入 DOCX，转换 PDF，计算哈希并写入导出文件清单 | 已接入导出任务；不放在 Controller；渲染失败应回写导出任务状态和错误信息。 |
-| `VerificationAttachment` | `carbon_verification` | 核查材料原件，关联 Scope 活动、清单项、边界设施、因子来源或整改记录 | 替代当前只读取活动记录单一 `attachment` 字段的临时做法。 |
+| `CarbonVerificationAttachment` / `carbon_verification_attachment` | `carbon_verification` | 核查材料原件元数据，关联 Scope 活动、清单项、边界设施、因子来源或整改记录 | 已新建租户表；替代当前只读取活动记录单一 `attachment` 字段的临时做法。 |
+| `VerificationAttachment` | `carbon_verification` | 核查材料原件，关联来源对象、凭证类型、文件路径、哈希、OCR/备注和版本 | 已实现首版；后续接实际文件上传、OCR 和附件原件入包。 |
 | `CarbonVerificationFinding` / `carbon_verification_finding` | `carbon_verification` | 核查发现生命周期，记录来源问题、关联活动记录、严重等级、状态、整改证据、复核人和关闭时间 | 已新建租户表；由自动问题清单升级为可管理的核查发现生命周期。 |
 | `VerificationFinding` | `carbon_verification` | 文件评审、现场核查、不符合项、整改、复核和关闭状态 | 已实现首版；后续与正式核查项目、附件实体和责任人权限联动。 |
 | `MaterialPackageAssembler` | `carbon_verification.usecases` | 汇集 DOCX/PDF、数据表、附件原件、问题清单和审核轨迹生成 ZIP | manifest 必须记录文件类型、路径、大小、哈希和来源对象。 |

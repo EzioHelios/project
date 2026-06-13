@@ -1825,6 +1825,44 @@ class CarbonVerificationFinding(TeamScopedMixin, BigIntAuditBase):
     remark: Mapped[str | None] = mapped_column(Text)
 
 
+class CarbonVerificationAttachment(TeamScopedMixin, BigIntAuditBase):
+    """Verification material attachment metadata owned by carbon verification."""
+
+    __tablename__ = "carbon_verification_attachment"
+    __table_args__ = (
+        UniqueConstraint("team_id", "attachment_no", name="uq_carbon_verification_attachment_team_no"),
+        Index("ix_carbon_verification_attachment_source", "team_id", "source_object_type", "source_object_id"),
+        Index("ix_carbon_verification_attachment_status", "team_id", "status", "material_group"),
+        Index("ix_carbon_verification_attachment_sha", "team_id", "sha256"),
+    )
+
+    attachment_no: Mapped[str] = mapped_column(String(64), index=True)
+    material_group: Mapped[str] = mapped_column(String(64), default="evidence", index=True)
+    attachment_type: Mapped[str] = mapped_column(String(64), default="supporting_document", index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    source_object_type: Mapped[str] = mapped_column(String(128), index=True)
+    source_object_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    source_object_label: Mapped[str | None] = mapped_column(String(255))
+    source_scope: Mapped[str | None] = mapped_column(String(16), index=True)
+    source_period: Mapped[str | None] = mapped_column(String(16), index=True)
+    file_name: Mapped[str | None] = mapped_column(String(255))
+    file_path: Mapped[str | None] = mapped_column(String(512))
+    content_type: Mapped[str | None] = mapped_column(String(128))
+    file_size_bytes: Mapped[int | None] = mapped_column(Integer)
+    sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    version_no: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(24), default="pending_upload", index=True)
+    uploaded_by: Mapped[str | None] = mapped_column(String(128))
+    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime)
+    reviewed_by: Mapped[str | None] = mapped_column(String(128))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    confidence_level: Mapped[str | None] = mapped_column(String(16))
+    ocr_payload: Mapped[dict | None] = mapped_column(JSON)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
 class CarbonCompliancePeriod(TeamScopedMixin, BigIntAuditBase):
     """Carbon market compliance period bound to an organization inventory."""
 

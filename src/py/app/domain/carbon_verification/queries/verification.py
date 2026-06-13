@@ -64,13 +64,25 @@ class CarbonVerificationQueryService:
 
     async def evidence_manifest(self, query: VerificationQuery) -> dict[str, Any]:
         records = await self._filtered_records(query)
+        attachments = await self._attachment_rows()
+        attachment_keys = {
+            (item.source_object_type, item.source_object_id)
+            for item in attachments
+            if item.source_object_type and item.source_object_id is not None
+        }
         evidence_items = [_evidence_item(record) for record in records if record.get("attachment")]
-        missing_items = [record for record in records if not record.get("attachment")]
+        evidence_items.extend(_attachment_evidence_item(item) for item in attachments)
+        missing_items = [
+            record
+            for record in records
+            if not record.get("attachment") and (record.get("record_type"), record.get("record_id")) not in attachment_keys
+        ]
         return {
             "items": evidence_items,
             "missing": [_record_ref(record) for record in missing_items],
             "summary": {
                 "evidence_count": len(evidence_items),
+                "attachment_count": len(attachments),
                 "missing_evidence_count": len(missing_items),
                 "record_count": len(records),
             },
@@ -110,6 +122,7 @@ class CarbonVerificationQueryService:
             "factor_parameters": _factor_rows(records),
             "quality_issues": issues["items"],
             "verification_findings": await self._finding_rows(),
+            "verification_attachments": [_attachment_context_row(item) for item in await self._attachment_rows()],
             "export_fields": _template_field_map(),
             "filters": _filters(query),
         }
@@ -182,6 +195,17 @@ class CarbonVerificationQueryService:
             for row in rows
         ]
 
+    async def _attachment_rows(self) -> list[m.CarbonVerificationAttachment]:
+        return (
+            (
+                await self._session.execute(
+                    select(m.CarbonVerificationAttachment).order_by(m.CarbonVerificationAttachment.id.desc()).limit(500)
+                )
+            )
+            .scalars()
+            .all()
+        )
+
     async def _enterprise_profile(self) -> dict[str, Any] | None:
         row = await self._session.scalar(select(m.EnterpriseInfo).order_by(m.EnterpriseInfo.id.desc()).limit(1))
         if row is None:
@@ -190,6 +214,10 @@ class CarbonVerificationQueryService:
 
     async def _filtered_records(self, query: VerificationQuery) -> list[dict[str, Any]]:
         records = await self._load_scope_records()
+        attachment_counts = _attachment_counts(await self._attachment_rows())
+        for record in records:
+            record["verification_attachment_count"] = attachment_counts.get((record["record_type"], record["record_id"]), 0)
+            record["material_status"] = record_material_status(record)
         if query.year is not None:
             records = [record for record in records if _period_year(record.get("period")) == query.year]
         if query.status and query.status != "all":
@@ -423,6 +451,52 @@ def _evidence_item(record: dict[str, Any]) -> dict[str, Any]:
         "path": record.get("attachment"),
         "material_status": record.get("material_status"),
     }
+
+
+def _attachment_evidence_item(row: m.CarbonVerificationAttachment) -> dict[str, Any]:
+    return {
+        "evidence_code": row.attachment_no,
+        "record_type": row.source_object_type,
+        "record_id": row.source_object_id,
+        "scope": row.source_scope,
+        "display_name": row.source_object_label or row.title,
+        "period": row.source_period,
+        "path": row.file_path,
+        "material_status": row.status,
+        "attachment_type": row.attachment_type,
+        "file_name": row.file_name,
+        "sha256": row.sha256,
+        "source": "verification_attachment",
+    }
+
+
+def _attachment_context_row(row: m.CarbonVerificationAttachment) -> dict[str, Any]:
+    return {
+        "attachment_no": row.attachment_no,
+        "material_group": row.material_group,
+        "attachment_type": row.attachment_type,
+        "title": row.title,
+        "source_object_type": row.source_object_type,
+        "source_object_id": row.source_object_id,
+        "source_object_label": row.source_object_label,
+        "source_scope": row.source_scope,
+        "source_period": row.source_period,
+        "file_name": row.file_name,
+        "file_path": row.file_path,
+        "sha256": row.sha256,
+        "status": row.status,
+        "confidence_level": row.confidence_level,
+    }
+
+
+def _attachment_counts(rows: list[m.CarbonVerificationAttachment]) -> dict[tuple[str, int], int]:
+    counts: dict[tuple[str, int], int] = {}
+    for row in rows:
+        if row.source_object_id is None:
+            continue
+        key = (row.source_object_type, row.source_object_id)
+        counts[key] = counts.get(key, 0) + 1
+    return counts
 
 
 def _record_ref(record: dict[str, Any]) -> dict[str, Any]:

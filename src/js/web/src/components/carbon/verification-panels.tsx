@@ -24,12 +24,16 @@ type EvidenceManifest = {
   items: {
     evidence_code: string
     record_type: string
-    record_id: number
-    scope: string
+    record_id?: number | null
+    scope?: string | null
     display_name: string
     period?: string | null
-    path: string
+    path?: string | null
     material_status: string
+    attachment_type?: string | null
+    file_name?: string | null
+    sha256?: string | null
+    source?: string | null
   }[]
   missing: {
     record_type: string
@@ -39,7 +43,38 @@ type EvidenceManifest = {
     period?: string | null
     material_status: string
   }[]
-  summary: { evidence_count: number; missing_evidence_count: number; record_count: number }
+  summary: { evidence_count: number; attachment_count: number; missing_evidence_count: number; record_count: number }
+}
+
+type VerificationAttachment = {
+  id: number
+  attachment_no: string
+  material_group: string
+  attachment_type: string
+  title: string
+  source_object_type: string
+  source_object_id?: number | null
+  source_object_label?: string | null
+  source_scope?: string | null
+  source_period?: string | null
+  file_name?: string | null
+  file_path?: string | null
+  file_size_bytes?: number | null
+  sha256?: string | null
+  status: string
+  material_status: string
+}
+
+type VerificationAttachments = {
+  items: VerificationAttachment[]
+  total: number
+  summary: {
+    total: number
+    by_status: Record<string, number>
+    by_group: Record<string, number>
+    ready_count: number
+    pending_count: number
+  }
 }
 
 type VerificationIssue = {
@@ -143,19 +178,51 @@ type ExportJob = {
 }
 
 export function VerificationEvidencePanel() {
+  const queryClient = useQueryClient()
   const evidenceQuery = useQuery<ApiEnvelope<EvidenceManifest>>({
     queryKey: ["carbon-verification", "evidence"],
     queryFn: () => fetchCarbonApi<EvidenceManifest>("/api/carbon/verification/evidence?limit=200"),
   })
+  const attachmentsQuery = useQuery<ApiEnvelope<VerificationAttachments>>({
+    queryKey: ["carbon-verification", "attachments"],
+    queryFn: () => fetchCarbonApi<VerificationAttachments>("/api/carbon/verification/attachments?limit=200"),
+  })
+  const createAttachment = useMutation({
+    mutationFn: (record: EvidenceManifest["missing"][number]) => {
+      const filePath = window.prompt("请输入凭证文件路径或URL", "")
+      if (filePath === null) throw new Error("已取消登记")
+      return postCarbonApi<VerificationAttachment>("/api/carbon/verification/attachments", {
+        title: `${record.display_name} 凭证`,
+        source_object_type: record.record_type,
+        source_object_id: record.record_id,
+        source_object_label: record.display_name,
+        source_scope: record.scope,
+        source_period: record.period,
+        file_path: filePath.trim() || undefined,
+        status: filePath.trim() ? "ready" : "pending_upload",
+        source_name: "carbon_verification.evidence_panel",
+      })
+    },
+    onSuccess: () => {
+      toast.success("凭证已登记")
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "evidence"] })
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "attachments"] })
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "issues"] })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "登记凭证失败")
+    },
+  })
   const data = evidenceQuery.data?.data
+  const attachments = attachmentsQuery.data?.data
 
   return (
     <div className="space-y-4">
       <MetricGrid
         items={[
           { label: "凭证数", value: data?.summary.evidence_count ?? 0, icon: FileText },
+          { label: "独立附件", value: attachments?.summary.total ?? data?.summary.attachment_count ?? 0, icon: PackageCheck },
           { label: "缺失凭证", value: data?.summary.missing_evidence_count ?? 0, icon: TriangleAlert },
-          { label: "关联记录", value: data?.summary.record_count ?? 0, icon: ShieldCheck },
         ]}
       />
       <Card>
@@ -184,10 +251,80 @@ export function VerificationEvidencePanel() {
                   <TableCell>
                     <VerificationStatusBadge status={item.material_status} />
                   </TableCell>
-                  <TableCell className="max-w-[260px] truncate">{item.path}</TableCell>
+                  <TableCell className="max-w-[260px] truncate">{item.path || item.file_name || "-"}</TableCell>
                 </TableRow>
               ))}
               {!data?.items?.length ? <EmptyRow colSpan={6} /> : null}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>缺失凭证</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>范围</TableHead>
+                <TableHead>对象</TableHead>
+                <TableHead>期间</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead className="w-[120px]">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(data?.missing ?? []).map((item) => (
+                <TableRow key={`${item.record_type}-${item.record_id}`}>
+                  <TableCell>{item.scope}</TableCell>
+                  <TableCell>{item.display_name}</TableCell>
+                  <TableCell>{item.period ?? "-"}</TableCell>
+                  <TableCell>
+                    <VerificationStatusBadge status={item.material_status} />
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="outline" size="sm" onClick={() => createAttachment.mutate(item)} disabled={createAttachment.isPending}>
+                      登记
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!data?.missing?.length ? <EmptyRow colSpan={5} /> : null}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>附件台账</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>编号</TableHead>
+                <TableHead>标题</TableHead>
+                <TableHead>对象</TableHead>
+                <TableHead>类型</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead>文件</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(attachments?.items ?? []).map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="max-w-[180px] truncate">{item.attachment_no}</TableCell>
+                  <TableCell>{item.title}</TableCell>
+                  <TableCell>{item.source_object_label ?? item.source_object_type}</TableCell>
+                  <TableCell>{attachmentTypeLabel(item.attachment_type)}</TableCell>
+                  <TableCell>
+                    <VerificationStatusBadge status={item.material_status} />
+                  </TableCell>
+                  <TableCell className="max-w-[260px] truncate">{item.file_path || item.file_name || "-"}</TableCell>
+                </TableRow>
+              ))}
+              {!attachments?.items?.length ? <EmptyRow colSpan={6} /> : null}
             </TableBody>
           </Table>
         </CardContent>
@@ -590,12 +727,22 @@ function VerificationStatusBadge({ status }: { status?: string }) {
   if (status === "ready") return <Badge>就绪</Badge>
   if (status === "attention") return <Badge variant="secondary">待完善</Badge>
   if (status === "blocked") return <Badge variant="destructive">阻塞</Badge>
+  if (status === "pending_upload") return <Badge variant="secondary">待上传</Badge>
   if (status === "missing_evidence") return <Badge variant="secondary">缺凭证</Badge>
   if (status === "missing_factor") return <Badge variant="destructive">缺因子</Badge>
   if (status === "missing_result") return <Badge variant="destructive">缺结果</Badge>
   if (status === "pending_review") return <CarbonStatusBadge status="pending" />
   if (status === "rejected") return <CarbonStatusBadge status="rejected" />
   return <Badge variant="outline">{status || "无数据"}</Badge>
+}
+
+function attachmentTypeLabel(value?: string | null) {
+  if (value === "invoice") return "发票"
+  if (value === "meter_record") return "计量记录"
+  if (value === "calibration_certificate") return "校准证书"
+  if (value === "inspection_report") return "检测报告"
+  if (value === "other") return "其他"
+  return "支撑材料"
 }
 
 function SeverityBadge({ severity }: { severity?: string }) {

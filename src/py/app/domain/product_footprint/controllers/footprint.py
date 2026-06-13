@@ -94,7 +94,7 @@ class ProductFootprintController(Controller):
             return _error(exc)
         return Response(content=ok_data(model_to_dict(obj)))
 
-    @delete("/api/carbon/product-footprint/stages/{stage_id:int}")
+    @delete("/api/carbon/product-footprint/stages/{stage_id:int}", status_code=200)
     async def delete_stage(self, db_session: AsyncSession, stage_id: int) -> Response[dict]:
         try:
             await ProductFootprintUseCase(db_session).delete_stage(stage_id)
@@ -129,7 +129,7 @@ class ProductFootprintController(Controller):
             return _error(exc)
         return Response(content=ok_data(model_to_dict(obj)))
 
-    @delete("/api/carbon/product-footprint/inventory-items/{item_id:int}")
+    @delete("/api/carbon/product-footprint/inventory-items/{item_id:int}", status_code=200)
     async def delete_inventory_item(self, db_session: AsyncSession, item_id: int) -> Response[dict]:
         try:
             await ProductFootprintUseCase(db_session).delete_inventory_item(item_id)
@@ -164,7 +164,7 @@ class ProductFootprintController(Controller):
             return _error(exc)
         return Response(content=ok_data(model_to_dict(obj)))
 
-    @delete("/api/carbon/product-footprint/allocation-rules/{rule_id:int}")
+    @delete("/api/carbon/product-footprint/allocation-rules/{rule_id:int}", status_code=200)
     async def delete_allocation_rule(self, db_session: AsyncSession, rule_id: int) -> Response[dict]:
         try:
             await ProductFootprintUseCase(db_session).delete_allocation_rule(rule_id)
