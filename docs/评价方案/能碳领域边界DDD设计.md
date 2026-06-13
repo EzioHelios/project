@@ -668,8 +668,11 @@ classDiagram
 | --- | --- |
 | `GET/POST/PATCH /api/carbon/product-footprint/studies` | 维护 PCF 研究。 |
 | `GET/PATCH /api/carbon/product-footprint/studies/{id}/boundary` | 维护生命周期边界。 |
+| `GET/POST/PATCH/DELETE /api/carbon/product-footprint/stages` | 维护生命周期阶段。 |
 | `GET/POST/PATCH/DELETE /api/carbon/product-footprint/inventory-items` | 维护清单项。 |
+| `GET/POST/PATCH/DELETE /api/carbon/product-footprint/allocation-rules` | 维护分配规则。 |
 | `POST /api/carbon/product-footprint/studies/{id}/calculate` | 计算足迹结果。 |
+| `GET /api/carbon/product-footprint/results` | 查询结果版本。 |
 | `GET /api/carbon/product-footprint/studies/{id}/report` | 查询报告读模型。 |
 
 页面 Tabs 建议：
@@ -682,6 +685,16 @@ classDiagram
 | 分配与因子 | 维护分配规则、因子匹配、供应商 PCF 引用。 |
 | 核算结果 | 查看阶段贡献、总量、单位足迹、缺口和重算版本。 |
 | 报告生成 | 生成内部报告、导出材料、记录认证/核查状态。 |
+
+2026-06-13 首版实现：
+
+| 层次 | 实现 |
+| --- | --- |
+| 数据模型 | 新增 `ProductFootprintStudy`、`ProductSystemBoundary`、`ProductLifeCycleStage`、`ProductFootprintInventoryItem`、`ProductFootprintAllocationRule`、`ProductFootprintResult` 六类租户模型和迁移。 |
+| 应用层 | 新增 `domain/product_footprint`，按 policy/usecase/query/controller 分层；计算前强制存在生命周期边界；缺活动量或缺因子返回 `incomplete_inventory`，不抛 500。 |
+| API | 首版开放研究、边界、阶段、清单、分配、计算、结果和报告读模型接口，路径统一在 `/api/carbon/product-footprint/*`。 |
+| 前端 | `/carbon/product-footprint` 替换建设中占位，提供“产品与研究、生命周期边界、活动数据清单、分配与因子、核算结果、报告生成”六个业务 Tab。 |
+| 边界保留 | 当前不实现认证/EPD、绿证抵扣、BOM/工序导入、供应链审核数据引用和 DOCX/PDF 报告导出，这些后续独立推进。 |
 
 ### 7.4 供应链碳管理 `supply_chain_carbon`
 

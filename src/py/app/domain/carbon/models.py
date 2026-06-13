@@ -702,6 +702,195 @@ class ProductionResourceBinding(TeamScopedMixin, BigIntAuditBase):
     remark: Mapped[str | None] = mapped_column(Text)
 
 
+class ProductFootprintStudy(TeamScopedMixin, BigIntAuditBase):
+    """Product carbon footprint study aggregate root."""
+
+    __tablename__ = "carbon_product_footprint_study"
+    __table_args__ = (
+        UniqueConstraint("team_id", "study_code", name="uq_product_footprint_study_team_code"),
+        Index("ix_product_footprint_study_product", "team_id", "product_code", "status"),
+        Index("ix_product_footprint_study_period", "team_id", "period_start", "period_end"),
+    )
+
+    study_code: Mapped[str] = mapped_column(String(64), index=True)
+    study_name: Mapped[str] = mapped_column(String(128))
+    product_id: Mapped[int | None] = mapped_column(ForeignKey("dataapp_productionproduct.id", ondelete="SET NULL"), index=True)
+    product_code: Mapped[str] = mapped_column(String(64), index=True)
+    product_name: Mapped[str | None] = mapped_column(String(128))
+    product_spec: Mapped[str | None] = mapped_column(String(128))
+    product_category: Mapped[str | None] = mapped_column(String(64), index=True)
+    standard_code: Mapped[str] = mapped_column(String(64), default="ISO 14067")
+    standard_name: Mapped[str | None] = mapped_column(String(255))
+    pcr_code: Mapped[str | None] = mapped_column(String(128))
+    functional_unit: Mapped[str | None] = mapped_column(String(128))
+    declared_unit: Mapped[str | None] = mapped_column(String(128))
+    period_start: Mapped[date] = mapped_column(Date, index=True)
+    period_end: Mapped[date] = mapped_column(Date, index=True)
+    boundary_type: Mapped[str] = mapped_column(String(32), default="cradle_to_gate", index=True)
+    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    result_status: Mapped[str] = mapped_column(String(32), default="not_calculated", index=True)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    confidence_level: Mapped[str | None] = mapped_column(String(16))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    product: Mapped[ProductionProduct | None] = relationship(lazy="selectin")
+    boundary: Mapped[ProductSystemBoundary | None] = relationship(
+        back_populates="study",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    stages: Mapped[list[ProductLifeCycleStage]] = relationship(
+        back_populates="study",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    inventory_items: Mapped[list[ProductFootprintInventoryItem]] = relationship(
+        back_populates="study",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    allocation_rules: Mapped[list[ProductFootprintAllocationRule]] = relationship(
+        back_populates="study",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    results: Mapped[list[ProductFootprintResult]] = relationship(
+        back_populates="study",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class ProductSystemBoundary(TeamScopedMixin, BigIntAuditBase):
+    """Lifecycle and product-system boundary for one PCF study."""
+
+    __tablename__ = "carbon_product_system_boundary"
+    __table_args__ = (
+        UniqueConstraint("team_id", "study_id", name="uq_product_system_boundary_team_study"),
+        Index("ix_product_system_boundary_type", "team_id", "boundary_type"),
+    )
+
+    study_id: Mapped[int] = mapped_column(ForeignKey("carbon_product_footprint_study.id", ondelete="CASCADE"), index=True)
+    boundary_type: Mapped[str] = mapped_column(String(32), default="cradle_to_gate", index=True)
+    included_stages: Mapped[list | None] = mapped_column(JSON)
+    excluded_stages: Mapped[list | None] = mapped_column(JSON)
+    cutoff_rule: Mapped[str | None] = mapped_column(Text)
+    geography: Mapped[str | None] = mapped_column(String(128))
+    technology_scope: Mapped[str | None] = mapped_column(String(255))
+    temporal_scope: Mapped[str | None] = mapped_column(String(128))
+    assumption: Mapped[str | None] = mapped_column(Text)
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    source_name: Mapped[str | None] = mapped_column(String(128))
+
+    study: Mapped[ProductFootprintStudy] = relationship(back_populates="boundary", lazy="selectin")
+
+
+class ProductLifeCycleStage(TeamScopedMixin, BigIntAuditBase):
+    """Lifecycle stage included in a product carbon footprint study."""
+
+    __tablename__ = "carbon_product_lifecycle_stage"
+    __table_args__ = (
+        UniqueConstraint("team_id", "study_id", "stage_code", name="uq_product_lifecycle_stage_team_code"),
+        Index("ix_product_lifecycle_stage_study", "team_id", "study_id", "sequence"),
+    )
+
+    study_id: Mapped[int] = mapped_column(ForeignKey("carbon_product_footprint_study.id", ondelete="CASCADE"), index=True)
+    stage_code: Mapped[str] = mapped_column(String(64), index=True)
+    stage_name: Mapped[str] = mapped_column(String(128))
+    sequence: Mapped[int] = mapped_column(Integer, default=1)
+    included: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+
+    study: Mapped[ProductFootprintStudy] = relationship(back_populates="stages", lazy="selectin")
+    inventory_items: Mapped[list[ProductFootprintInventoryItem]] = relationship(back_populates="stage", lazy="selectin")
+
+
+class ProductFootprintInventoryItem(TeamScopedMixin, BigIntAuditBase):
+    """Activity-data row inside a product carbon footprint study."""
+
+    __tablename__ = "carbon_product_footprint_inventory_item"
+    __table_args__ = (
+        UniqueConstraint("team_id", "study_id", "item_no", name="uq_product_footprint_item_team_no"),
+        Index("ix_product_footprint_item_stage", "team_id", "study_id", "stage_id"),
+        Index("ix_product_footprint_item_status", "team_id", "study_id", "calc_status"),
+    )
+
+    study_id: Mapped[int] = mapped_column(ForeignKey("carbon_product_footprint_study.id", ondelete="CASCADE"), index=True)
+    stage_id: Mapped[int | None] = mapped_column(ForeignKey("carbon_product_lifecycle_stage.id", ondelete="SET NULL"), index=True)
+    item_no: Mapped[str] = mapped_column(String(64), index=True)
+    activity_type: Mapped[str] = mapped_column(String(32), index=True)
+    item_name: Mapped[str] = mapped_column(String(255))
+    activity_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    activity_unit: Mapped[str | None] = mapped_column(String(32))
+    factor_id: Mapped[int | None] = mapped_column(ForeignKey("dataapp_emissionfactor.id", ondelete="SET NULL"), index=True)
+    factor_value: Mapped[Decimal | None] = mapped_column(Numeric(18, 8))
+    factor_unit: Mapped[str | None] = mapped_column(String(64))
+    factor_source: Mapped[str | None] = mapped_column(String(255))
+    supplier_pcf_value: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    supplier_pcf_unit: Mapped[str | None] = mapped_column(String(64))
+    supplier_name: Mapped[str | None] = mapped_column(String(128))
+    allocation_ratio: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=Decimal(1))
+    computed_co2e: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    calc_status: Mapped[str] = mapped_column(String(32), default="pending_factor", index=True)
+    data_quality: Mapped[str | None] = mapped_column(String(32), index=True)
+    source_type: Mapped[str | None] = mapped_column(String(32), index=True)
+    source_ref: Mapped[str | None] = mapped_column(String(255))
+    evidence_path: Mapped[str | None] = mapped_column(String(512))
+    included: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    study: Mapped[ProductFootprintStudy] = relationship(back_populates="inventory_items", lazy="selectin")
+    stage: Mapped[ProductLifeCycleStage | None] = relationship(back_populates="inventory_items", lazy="selectin")
+    factor: Mapped[EmissionFactor | None] = relationship(lazy="selectin")
+
+
+class ProductFootprintAllocationRule(TeamScopedMixin, BigIntAuditBase):
+    """Allocation rule used by a product carbon footprint study."""
+
+    __tablename__ = "carbon_product_footprint_allocation_rule"
+    __table_args__ = (
+        Index("ix_product_footprint_allocation_study", "team_id", "study_id"),
+        Index("ix_product_footprint_allocation_method", "team_id", "allocation_method"),
+    )
+
+    study_id: Mapped[int] = mapped_column(ForeignKey("carbon_product_footprint_study.id", ondelete="CASCADE"), index=True)
+    process_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    process_name: Mapped[str] = mapped_column(String(128))
+    allocation_method: Mapped[str] = mapped_column(String(32), default="physical", index=True)
+    basis: Mapped[str | None] = mapped_column(String(128))
+    ratio: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=Decimal(1))
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    study: Mapped[ProductFootprintStudy] = relationship(back_populates="allocation_rules", lazy="selectin")
+
+
+class ProductFootprintResult(TeamScopedMixin, BigIntAuditBase):
+    """Versioned calculation result of a product carbon footprint study."""
+
+    __tablename__ = "carbon_product_footprint_result"
+    __table_args__ = (
+        UniqueConstraint("team_id", "study_id", "result_version", name="uq_product_footprint_result_team_version"),
+        Index("ix_product_footprint_result_status", "team_id", "study_id", "result_status"),
+    )
+
+    study_id: Mapped[int] = mapped_column(ForeignKey("carbon_product_footprint_study.id", ondelete="CASCADE"), index=True)
+    result_version: Mapped[int] = mapped_column(Integer, default=1)
+    total_co2e: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    unit: Mapped[str] = mapped_column(String(32), default="kgCO2e")
+    footprint_per_declared_unit: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    result_status: Mapped[str] = mapped_column(String(32), default="calculated", index=True)
+    calculated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    inventory_count: Mapped[int] = mapped_column(Integer, default=0)
+    missing_factor_count: Mapped[int] = mapped_column(Integer, default=0)
+    stage_payload: Mapped[list | None] = mapped_column(JSON)
+    result_payload: Mapped[dict | None] = mapped_column(JSON)
+    report_status: Mapped[str] = mapped_column(String(32), default="draft", index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    study: Mapped[ProductFootprintStudy] = relationship(back_populates="results", lazy="selectin")
+
+
 class MonitorEquipment(TeamScopedMixin, BigIntBase):
     """监控终端：电表、光伏、摄像头（对应 Django dataapp.MonitorEquipment）。"""
 

@@ -1,0 +1,1 @@
+"""Product carbon footprint controllers."""
