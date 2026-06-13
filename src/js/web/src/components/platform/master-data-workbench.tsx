@@ -3,11 +3,10 @@ import { ChevronRight, Plus, RefreshCw } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
-import { AdminPageHeader } from "@/components/admin-ui"
+import { AdminDataTable, AdminPageHeader, AdminPanel, AdminTableStateRow, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -468,16 +467,15 @@ export function MonitorAreaWorkbenchPage() {
       <AdminPageHeader title="区域主数据工作台" />
       <PageSection>
         <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <Card className="min-h-[720px]">
-            <CardHeader className="space-y-3">
-              <div className="flex items-center justify-between">
-                <CardTitle>区域树</CardTitle>
+          <AdminPanel
+            title="区域树"
+            className="min-h-[720px]"
+            actions={
+              <>
                 <Button variant="outline" size="sm" onClick={() => treeQuery.refetch()} disabled={treeQuery.isFetching}>
                   <RefreshCw className="mr-2 size-4" />
                   刷新
                 </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
                 <Button size="sm" onClick={() => openCreate("child")} disabled={!selectedAreaId}>
                   <Plus className="mr-2 size-4" />
                   新增子区域
@@ -485,133 +483,123 @@ export function MonitorAreaWorkbenchPage() {
                 <Button variant="outline" size="sm" onClick={() => openCreate("sibling")} disabled={!selectedAreaId}>
                   新增同级
                 </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {treeItems.map((node) => (
-                <AreaTreeNode
-                  key={node.id}
-                  node={node}
-                  selectedId={selectedAreaId}
-                  expandedIds={expandedIds}
-                  onToggle={(nodeId) =>
-                    setExpandedIds((current) => {
-                      const next = new Set(current)
-                      if (next.has(nodeId)) next.delete(nodeId)
-                      else next.add(nodeId)
-                      return next
-                    })
-                  }
-                  onSelect={(nodeId) => setSelectedAreaId(nodeId)}
-                />
-              ))}
-            </CardContent>
-          </Card>
+              </>
+            }
+            contentClassName="space-y-2"
+          >
+            {treeItems.map((node) => (
+              <AreaTreeNode
+                key={node.id}
+                node={node}
+                selectedId={selectedAreaId}
+                expandedIds={expandedIds}
+                onToggle={(nodeId) =>
+                  setExpandedIds((current) => {
+                    const next = new Set(current)
+                    if (next.has(nodeId)) next.delete(nodeId)
+                    else next.add(nodeId)
+                    return next
+                  })
+                }
+                onSelect={(nodeId) => setSelectedAreaId(nodeId)}
+              />
+            ))}
+          </AdminPanel>
 
-          <Card className="min-h-[720px]">
-            <CardHeader className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>{summaryQuery.data?.area ? areaLabel(summaryQuery.data.area) : "区域详情"}</CardTitle>
-                  <div className="mt-1 text-sm text-muted-foreground">展示基础信息、子区域和本区域设备摘要。</div>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={openEdit} disabled={!summaryQuery.data?.area}>
-                    编辑
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => disableArea.mutate()} disabled={!summaryQuery.data?.area || disableArea.isPending}>
-                    停用
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {summaryQuery.data?.area ? (
-                <>
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    <SummaryMetric label="子区域" value={String(summaryQuery.data.stats.child_area_total)} />
-                    <SummaryMetric label="本区设备" value={String(summaryQuery.data.stats.device_total)} />
-                    <SummaryMetric label="在线设备" value={String(summaryQuery.data.stats.device_online)} />
-                    <SummaryMetric label="故障设备" value={String(summaryQuery.data.stats.device_fault)} />
-                  </div>
+          <AdminPanel
+            title={summaryQuery.data?.area ? areaLabel(summaryQuery.data.area) : "区域详情"}
+            className="min-h-[720px]"
+            actions={
+              <>
+                <Button variant="outline" size="sm" onClick={openEdit} disabled={!summaryQuery.data?.area}>
+                  编辑
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => disableArea.mutate()} disabled={!summaryQuery.data?.area || disableArea.isPending}>
+                  停用
+                </Button>
+              </>
+            }
+            contentClassName="space-y-5"
+          >
+            {summaryQuery.data?.area ? (
+              <>
+                <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
+                  <SummaryMetric label="子区域" value={String(summaryQuery.data.stats.child_area_total)} />
+                  <SummaryMetric label="本区设备" value={String(summaryQuery.data.stats.device_total)} />
+                  <SummaryMetric label="在线设备" value={String(summaryQuery.data.stats.device_online)} />
+                  <SummaryMetric label="故障设备" value={String(summaryQuery.data.stats.device_fault)} />
+                </MetricStrip>
 
-                  <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-                    <DetailCard title="基础信息">
-                      <DetailRow label="编码" value={summaryQuery.data.area.code} />
-                      <DetailRow label="类型" value={summaryQuery.data.area.area_type ?? "-"} />
-                      <DetailRow label="上级区域" value={areaLabel(summaryQuery.data.area.parent ?? undefined)} />
-                      <DetailRow label="负责人" value={summaryQuery.data.area.manager_name ?? "-"} />
-                      <DetailRow label="归属部门" value={summaryQuery.data.area.owner_department ?? "-"} />
-                      <DetailRow label="位置说明" value={summaryQuery.data.area.location_desc ?? "-"} />
-                      <DetailRow label="备注" value={summaryQuery.data.area.remark ?? "-"} />
-                    </DetailCard>
-
-                    <DetailCard title="影响范围">
-                      <div className="space-y-2 text-sm">
-                        <div>子区域数：{summaryQuery.data.children.length}</div>
-                        <div>本区域设备数：{summaryQuery.data.devices.length}</div>
-                        <div>删除前必须先清空子区域与设备。</div>
-                      </div>
-                    </DetailCard>
-                  </div>
-
-                  <DetailCard title="下级区域">
-                    {summaryQuery.data.children.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">暂无子区域</div>
-                    ) : (
-                      <div className="grid gap-2 md:grid-cols-2">
-                        {summaryQuery.data.children.map((child) => (
-                          <button
-                            key={child.id}
-                            type="button"
-                            className="rounded-md border border-border/70 p-3 text-left transition-colors hover:bg-accent/60"
-                            onClick={() => setSelectedAreaId(child.id)}
-                          >
-                            <div className="font-medium">{areaLabel(child)}</div>
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              {child.area_type ?? "zone"} · {child.equipment_count ?? 0} 台设备
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+                  <DetailCard title="基础信息">
+                    <DetailRow label="编码" value={summaryQuery.data.area.code} />
+                    <DetailRow label="类型" value={summaryQuery.data.area.area_type ?? "-"} />
+                    <DetailRow label="上级区域" value={areaLabel(summaryQuery.data.area.parent ?? undefined)} />
+                    <DetailRow label="负责人" value={summaryQuery.data.area.manager_name ?? "-"} />
+                    <DetailRow label="归属部门" value={summaryQuery.data.area.owner_department ?? "-"} />
+                    <DetailRow label="位置说明" value={summaryQuery.data.area.location_desc ?? "-"} />
+                    <DetailRow label="备注" value={summaryQuery.data.area.remark ?? "-"} />
                   </DetailCard>
 
-                  <DetailCard title="本区域设备">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>名称</TableHead>
-                          <TableHead>类型</TableHead>
-                          <TableHead>资产编码</TableHead>
-                          <TableHead>状态</TableHead>
+                  <DetailCard title="影响范围">
+                    <div className="space-y-2 text-sm">
+                      <div>子区域数：{summaryQuery.data.children.length}</div>
+                      <div>本区域设备数：{summaryQuery.data.devices.length}</div>
+                      <div>删除前必须先清空子区域与设备。</div>
+                    </div>
+                  </DetailCard>
+                </div>
+
+                <DetailCard title="下级区域">
+                  {summaryQuery.data.children.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">暂无子区域</div>
+                  ) : (
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {summaryQuery.data.children.map((child) => (
+                        <button
+                          key={child.id}
+                          type="button"
+                          className="rounded-md border border-border/70 p-3 text-left transition-colors hover:bg-accent/60"
+                          onClick={() => setSelectedAreaId(child.id)}
+                        >
+                          <div className="font-medium">{areaLabel(child)}</div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {child.area_type ?? "zone"} · {child.equipment_count ?? 0} 台设备
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </DetailCard>
+
+                <DetailCard title="本区域设备">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>名称</TableHead>
+                        <TableHead>类型</TableHead>
+                        <TableHead>资产编码</TableHead>
+                        <TableHead>状态</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {summaryQuery.data.devices.length === 0 && <AdminTableStateRow colSpan={4}>暂无设备</AdminTableStateRow>}
+                      {summaryQuery.data.devices.map((device) => (
+                        <TableRow key={device.id}>
+                          <TableCell>{deviceLabel(device)}</TableCell>
+                          <TableCell>{device.device_type?.name ?? "-"}</TableCell>
+                          <TableCell>{device.asset_code || "-"}</TableCell>
+                          <TableCell>{device.status === 1 ? "故障" : "在线"}</TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {summaryQuery.data.devices.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={4} className="text-center text-muted-foreground">
-                              暂无设备
-                            </TableCell>
-                          </TableRow>
-                        )}
-                        {summaryQuery.data.devices.map((device) => (
-                          <TableRow key={device.id}>
-                            <TableCell>{deviceLabel(device)}</TableCell>
-                            <TableCell>{device.device_type?.name ?? "-"}</TableCell>
-                            <TableCell>{device.asset_code || "-"}</TableCell>
-                            <TableCell>{device.status === 1 ? "故障" : "在线"}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </DetailCard>
-                </>
-              ) : (
-                <div className="text-sm text-muted-foreground">选择左侧区域后查看详情。</div>
-              )}
-            </CardContent>
-          </Card>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </DetailCard>
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground">选择左侧区域后查看详情。</div>
+            )}
+          </AdminPanel>
         </div>
       </PageSection>
 
@@ -885,92 +873,87 @@ function DeviceWorkbench({ title, initialTab }: { eyebrow: string; title: string
       <AdminPageHeader title={title} />
       <PageSection>
         <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_380px]">
-          <Card className="min-h-[760px]">
-            <CardHeader className="space-y-3">
-              <CardTitle>筛选树</CardTitle>
+          <AdminPanel
+            title="筛选树"
+            className="min-h-[760px]"
+            actions={
               <Button size="sm" onClick={openCreateDevice}>
                 <Plus className="mr-2 size-4" />
                 新增设备
               </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium">区域</div>
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedAreaFilter(null)}>
-                    清除
-                  </Button>
-                </div>
-                {(areaTreeQuery.data?.items ?? []).map((node) => (
-                  <AreaTreeNode
-                    key={node.id}
-                    node={node}
-                    selectedId={selectedAreaFilter}
-                    expandedIds={expandedAreaIds}
-                    onToggle={(nodeId) =>
-                      setExpandedAreaIds((current) => {
-                        const next = new Set(current)
-                        if (next.has(nodeId)) next.delete(nodeId)
-                        else next.add(nodeId)
-                        return next
-                      })
-                    }
-                    onSelect={(nodeId) => setSelectedAreaFilter(nodeId)}
-                  />
-                ))}
-              </div>
-              <Separator />
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium">设备类型</div>
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedTypeFilter(null)}>
-                    清除
-                  </Button>
-                </div>
-                {(deviceTypeTreeQuery.data?.items ?? []).map((node) => (
-                  <DeviceTypeTreeNode
-                    key={node.id}
-                    node={node}
-                    selectedId={selectedTypeFilter}
-                    expandedIds={expandedTypeIds}
-                    onToggle={(nodeId) =>
-                      setExpandedTypeIds((current) => {
-                        const next = new Set(current)
-                        if (next.has(nodeId)) next.delete(nodeId)
-                        else next.add(nodeId)
-                        return next
-                      })
-                    }
-                    onSelect={setSelectedTypeFilter}
-                  />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="min-h-[760px]">
-            <CardHeader className="space-y-3">
+            }
+            contentClassName="space-y-4"
+          >
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <CardTitle>设备列表</CardTitle>
-                <Badge variant="secondary">{devicesQuery.data?.total ?? 0} 台</Badge>
+                <div className="text-sm font-medium">区域</div>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedAreaFilter(null)}>
+                  清除
+                </Button>
               </div>
-              <div className="grid gap-3 md:grid-cols-[1fr_160px]">
-                <Input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索设备名称、编码、资产编码" />
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {(areaTreeQuery.data?.items ?? []).map((node) => (
+                <AreaTreeNode
+                  key={node.id}
+                  node={node}
+                  selectedId={selectedAreaFilter}
+                  expandedIds={expandedAreaIds}
+                  onToggle={(nodeId) =>
+                    setExpandedAreaIds((current) => {
+                      const next = new Set(current)
+                      if (next.has(nodeId)) next.delete(nodeId)
+                      else next.add(nodeId)
+                      return next
+                    })
+                  }
+                  onSelect={(nodeId) => setSelectedAreaFilter(nodeId)}
+                />
+              ))}
+            </div>
+            <Separator />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium">设备类型</div>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedTypeFilter(null)}>
+                  清除
+                </Button>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
+              {(deviceTypeTreeQuery.data?.items ?? []).map((node) => (
+                <DeviceTypeTreeNode
+                  key={node.id}
+                  node={node}
+                  selectedId={selectedTypeFilter}
+                  expandedIds={expandedTypeIds}
+                  onToggle={(nodeId) =>
+                    setExpandedTypeIds((current) => {
+                      const next = new Set(current)
+                      if (next.has(nodeId)) next.delete(nodeId)
+                      else next.add(nodeId)
+                      return next
+                    })
+                  }
+                  onSelect={setSelectedTypeFilter}
+                />
+              ))}
+            </div>
+          </AdminPanel>
+
+          <AdminPanel title="设备列表" className="min-h-[760px]" actions={<Badge variant="secondary">{devicesQuery.data?.total ?? 0} 台</Badge>} contentClassName="space-y-3">
+            <div className="grid gap-3 md:grid-cols-[1fr_160px]">
+              <Input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索设备名称、编码、资产编码" />
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <AdminDataTable>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -982,13 +965,7 @@ function DeviceWorkbench({ title, initialTab }: { eyebrow: string; title: string
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(devicesQuery.data?.items ?? []).length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
-                        暂无设备
-                      </TableCell>
-                    </TableRow>
-                  )}
+                  {(devicesQuery.data?.items ?? []).length === 0 && <AdminTableStateRow colSpan={5}>暂无设备</AdminTableStateRow>}
                   {(devicesQuery.data?.items ?? []).map((device) => (
                     <TableRow key={device.id} className={cn("cursor-pointer", selectedDeviceId === device.id && "bg-primary/5")} onClick={() => setSelectedDeviceId(device.id)}>
                       <TableCell>
@@ -1003,85 +980,82 @@ function DeviceWorkbench({ title, initialTab }: { eyebrow: string; title: string
                   ))}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </AdminDataTable>
+          </AdminPanel>
 
-          <Card className="min-h-[760px]">
-            <CardHeader className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>{detailQuery.data?.device ? deviceLabel(detailQuery.data.device) : "设备详情"}</CardTitle>
-                  <div className="mt-1 text-sm text-muted-foreground">右侧维护归属、子设备和测点。</div>
-                </div>
-                {detailQuery.data?.device && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (detailQuery.data?.device) openEditDevice(detailQuery.data.device)
-                    }}
-                  >
-                    编辑
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {detailQuery.data?.device ? (
-                <Tabs value={detailTab} onValueChange={(value) => setDetailTab(value as typeof detailTab)} className="space-y-4">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="devices">基础</TabsTrigger>
-                    <TabsTrigger value="types">结构</TabsTrigger>
-                    <TabsTrigger value="points">测点</TabsTrigger>
-                  </TabsList>
+          <AdminPanel
+            title={detailQuery.data?.device ? deviceLabel(detailQuery.data.device) : "设备详情"}
+            className="min-h-[760px]"
+            actions={
+              detailQuery.data?.device ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (detailQuery.data?.device) openEditDevice(detailQuery.data.device)
+                  }}
+                >
+                  编辑
+                </Button>
+              ) : null
+            }
+          >
+            {detailQuery.data?.device ? (
+              <Tabs value={detailTab} onValueChange={(value) => setDetailTab(value as typeof detailTab)} className="space-y-4">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="devices">基础</TabsTrigger>
+                  <TabsTrigger value="types">结构</TabsTrigger>
+                  <TabsTrigger value="points">测点</TabsTrigger>
+                </TabsList>
 
-                  <TabsContent value="devices" className="space-y-3">
-                    <DetailRow label="区域" value={detailQuery.data.device.area_name ?? "-"} />
-                    <DetailRow label="设备类型" value={detailQuery.data.device.device_type?.name ?? "-"} />
-                    <DetailRow label="父设备" value={deviceLabel(detailQuery.data.device.parent_device ?? undefined)} />
-                    <DetailRow label="资产编码" value={detailQuery.data.device.asset_code ?? "-"} />
-                    <DetailRow label="采集标识" value={detailQuery.data.device.external_device_id ?? "-"} />
-                    <DetailRow label="位置说明" value={detailQuery.data.device.location_desc ?? "-"} />
-                    <DetailRow label="厂家/型号" value={`${detailQuery.data.device.manufacturer ?? "-"} / ${detailQuery.data.device.model ?? "-"}`} />
-                    <DetailRow label="负责人" value={detailQuery.data.device.maintainer_name ?? "-"} />
-                    <DetailRow label="投运状态" value={detailQuery.data.device.commissioning_status ?? "-"} />
-                    <DetailRow label="备注" value={detailQuery.data.device.remark ?? "-"} />
-                  </TabsContent>
+                <TabsContent value="devices" className="space-y-3">
+                  <DetailRow label="区域" value={detailQuery.data.device.area_name ?? "-"} />
+                  <DetailRow label="设备类型" value={detailQuery.data.device.device_type?.name ?? "-"} />
+                  <DetailRow label="父设备" value={deviceLabel(detailQuery.data.device.parent_device ?? undefined)} />
+                  <DetailRow label="资产编码" value={detailQuery.data.device.asset_code ?? "-"} />
+                  <DetailRow label="采集标识" value={detailQuery.data.device.external_device_id ?? "-"} />
+                  <DetailRow label="位置说明" value={detailQuery.data.device.location_desc ?? "-"} />
+                  <DetailRow label="厂家/型号" value={`${detailQuery.data.device.manufacturer ?? "-"} / ${detailQuery.data.device.model ?? "-"}`} />
+                  <DetailRow label="负责人" value={detailQuery.data.device.maintainer_name ?? "-"} />
+                  <DetailRow label="投运状态" value={detailQuery.data.device.commissioning_status ?? "-"} />
+                  <DetailRow label="备注" value={detailQuery.data.device.remark ?? "-"} />
+                </TabsContent>
 
-                  <TabsContent value="types" className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-medium">子设备</div>
-                      <Badge variant="secondary">{detailQuery.data.children.length}</Badge>
+                <TabsContent value="types" className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium">子设备</div>
+                    <Badge variant="secondary">{detailQuery.data.children.length}</Badge>
+                  </div>
+                  {detailQuery.data.children.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">暂无子设备</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {detailQuery.data.children.map((child) => (
+                        <button
+                          key={child.id}
+                          type="button"
+                          className="w-full rounded-md border border-border/70 p-3 text-left transition-colors hover:bg-accent/60"
+                          onClick={() => setSelectedDeviceId(child.id)}
+                        >
+                          <div className="font-medium">{deviceLabel(child)}</div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {child.device_type?.name ?? "-"} · {child.area_name ?? "-"}
+                          </div>
+                        </button>
+                      ))}
                     </div>
-                    {detailQuery.data.children.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">暂无子设备</div>
-                    ) : (
-                      <div className="space-y-2">
-                        {detailQuery.data.children.map((child) => (
-                          <button
-                            key={child.id}
-                            type="button"
-                            className="w-full rounded-md border border-border/70 p-3 text-left transition-colors hover:bg-accent/60"
-                            onClick={() => setSelectedDeviceId(child.id)}
-                          >
-                            <div className="font-medium">{deviceLabel(child)}</div>
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              {child.device_type?.name ?? "-"} · {child.area_name ?? "-"}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </TabsContent>
+                  )}
+                </TabsContent>
 
-                  <TabsContent value="points" className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-medium">测点</div>
-                      <Button size="sm" onClick={() => openPointDialog()}>
-                        <Plus className="mr-2 size-4" />
-                        新增测点
-                      </Button>
-                    </div>
+                <TabsContent value="points" className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium">测点</div>
+                    <Button size="sm" onClick={() => openPointDialog()}>
+                      <Plus className="mr-2 size-4" />
+                      新增测点
+                    </Button>
+                  </div>
+                  <AdminDataTable>
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -1092,13 +1066,7 @@ function DeviceWorkbench({ title, initialTab }: { eyebrow: string; title: string
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {detailQuery.data.points.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={4} className="text-center text-muted-foreground">
-                              暂无测点
-                            </TableCell>
-                          </TableRow>
-                        )}
+                        {detailQuery.data.points.length === 0 && <AdminTableStateRow colSpan={4}>暂无测点</AdminTableStateRow>}
                         {detailQuery.data.points.map((point) => (
                           <TableRow key={point.id}>
                             <TableCell>{point.point_code}</TableCell>
@@ -1116,13 +1084,13 @@ function DeviceWorkbench({ title, initialTab }: { eyebrow: string; title: string
                         ))}
                       </TableBody>
                     </Table>
-                  </TabsContent>
-                </Tabs>
-              ) : (
-                <div className="text-sm text-muted-foreground">从中间列表选择设备后查看详情。</div>
-              )}
-            </CardContent>
-          </Card>
+                  </AdminDataTable>
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <div className="text-sm text-muted-foreground">从中间列表选择设备后查看详情。</div>
+            )}
+          </AdminPanel>
         </div>
       </PageSection>
 
@@ -1392,12 +1360,7 @@ export function DevicePointsWorkbenchPage() {
 }
 
 function SummaryMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-border/70 bg-muted/20 p-4">
-      <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
-      <div className="mt-2 text-2xl font-semibold">{value}</div>
-    </div>
-  )
+  return <MetricTile label={label} value={value} />
 }
 
 function DetailCard({ title, children }: { title: string; children: ReactNode }) {

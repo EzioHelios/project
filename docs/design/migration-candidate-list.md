@@ -50,6 +50,7 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: `components/carbon/carbon-assets-panel.tsx` migrated asset summary metrics, compliance position, allowance/credit/account/transaction/forecast/risk ledger panels, and table empty rows to the shared Admin UI system; the file no longer imports or renders naked `Card`.
 - Done: `components/carbon/under-construction-module.tsx` migrated the placeholder surface to `AdminPanel`, removed visible developer-style helper copy, and replaced `Tabs` / `TODO` labels with product-facing wording.
 - Done: `components/carbon/data-view.tsx` and `components/carbon/accounting-panels.tsx` migrated the remaining shared data/entry surfaces to `AdminPanel` and `AdminDataTable`; `components/carbon` no longer imports or renders naked `Card`.
+- Done: `components/platform/master-data-workbench.tsx` migrated area tree/detail and device tree/list/detail workbench shells to `AdminPanel`, `MetricStrip`, `MetricTile`, `AdminDataTable`, and `AdminTableStateRow`; the file no longer imports or renders naked `Card`.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 
