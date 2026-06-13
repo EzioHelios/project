@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowRight, FileText, KeyRound, ShieldCheck, Users } from "lucide-react"
 import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
-import { AdminPageHeader } from "@/components/admin-ui"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { AdminPageHeader, AdminPanel } from "@/components/admin-ui"
+import { Button } from "@/components/ui/button"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
 
 export const Route = createFileRoute("/_app/admin/")({
@@ -22,24 +22,27 @@ function AdminDashboardPage() {
       <AdminPageHeader title="权限中心概览" />
       <PermissionCenterNav />
       <PageSection>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <AdminPanel title="权限中心入口" contentClassName="p-0">
           {shortcuts.map((item) => (
-            <Card key={item.to} hover className="border-border/60 bg-card/80">
-              <CardHeader className="space-y-2">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <div key={item.to} className="flex flex-col gap-3 border-border/70 border-b px-4 py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border/70 bg-muted/40 text-muted-foreground">
                   <item.icon className="h-5 w-5" />
                 </div>
-                <CardTitle className="text-base">{item.title}</CardTitle>
-                <CardDescription>{item.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Link to={item.to} className="inline-flex items-center text-sm font-medium text-primary hover:text-primary/80">
-                  进入页面 <ArrowRight className="ml-1 h-4 w-4" />
+                <div className="min-w-0">
+                  <div className="font-medium text-sm">{item.title}</div>
+                  <div className="text-muted-foreground text-xs">{item.description}</div>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link to={item.to}>
+                  进入
+                  <ArrowRight className="ml-1 h-4 w-4" />
                 </Link>
-              </CardContent>
-            </Card>
+              </Button>
+            </div>
           ))}
-        </div>
+        </AdminPanel>
       </PageSection>
     </PageContainer>
   )

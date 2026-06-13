@@ -8,14 +8,14 @@ import { z } from "zod"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { createTeam, listTags } from "@/lib/generated/api"
 
 const createTeamSchema = z.object({
-  name: z.string().min(1, "Team name is required"),
+  name: z.string().min(1, "请输入团队名称"),
   description: z.string().optional(),
 })
 
@@ -74,12 +74,11 @@ export function CreateTeamForm() {
       router.navigate({ to: "/teams" })
     } catch (_error) {
       form.setError("root", {
-        message: "Failed to create team",
+        message: "团队创建失败，请稍后重试。",
       })
     }
   }
 
-  // Filter suggestions based on input
   const tagSuggestions = existingTags.filter((tag) => tag.name.toLowerCase().includes(tagInput.toLowerCase()) && !selectedTags.includes(tag.name.toLowerCase()))
 
   return (
@@ -90,9 +89,9 @@ export function CreateTeamForm() {
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Team Name</FormLabel>
+              <FormLabel>团队名称</FormLabel>
               <FormControl>
-                <Input placeholder="Engineering" {...field} />
+                <Input placeholder="例如：运营管理部" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -103,9 +102,9 @@ export function CreateTeamForm() {
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Description</FormLabel>
+              <FormLabel>团队描述</FormLabel>
               <FormControl>
-                <Textarea placeholder="What does this team do?" className="resize-none" rows={3} {...field} />
+                <Textarea placeholder="填写团队职责或业务范围" className="resize-none" rows={3} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -113,13 +112,12 @@ export function CreateTeamForm() {
         />
 
         <FormItem>
-          <FormLabel>Tags</FormLabel>
-          <FormDescription className="mb-2">Categorize your team for easier discovery</FormDescription>
+          <FormLabel>标签</FormLabel>
           <FormControl>
             <div className="space-y-3">
               <div className="relative">
                 <Input
-                  placeholder="Type a tag and press Enter..."
+                  placeholder="输入标签并按 Enter"
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={handleTagKeyDown}
@@ -129,7 +127,7 @@ export function CreateTeamForm() {
                 {tagInput && (
                   <Button type="button" variant="ghost" size="sm" className="absolute top-1/2 right-1 h-7 w-7 -translate-y-1/2 p-0" onClick={() => addTag(tagInput)}>
                     <Plus className="h-4 w-4" />
-                    <span className="sr-only">Add tag</span>
+                    <span className="sr-only">添加标签</span>
                   </Button>
                 )}
                 {tagInput && tagSuggestions.length > 0 && (
@@ -156,7 +154,7 @@ export function CreateTeamForm() {
                       {tag}
                       <button type="button" onClick={() => removeTag(tag)} className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-muted-foreground/20">
                         <X className="h-3 w-3" />
-                        <span className="sr-only">Remove {tag}</span>
+                        <span className="sr-only">移除 {tag}</span>
                       </button>
                     </Badge>
                   ))}
@@ -177,11 +175,11 @@ export function CreateTeamForm() {
 
         <div className="flex items-center justify-between">
           <Button type="button" variant="ghost" asChild>
-            <Link to="/teams">Cancel</Link>
+            <Link to="/teams">取消</Link>
           </Button>
           <Button type="submit" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {form.formState.isSubmitting ? "Creating..." : "Create Team"}
+            {form.formState.isSubmitting ? "创建中..." : "创建团队"}
           </Button>
         </div>
       </form>

@@ -3,10 +3,10 @@ import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router"
 import { CheckCircle, Users, XCircle } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
+import { AdminPanel } from "@/components/admin-ui"
 import { Icons } from "@/components/icons"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageContainer } from "@/components/ui/page-layout"
 import { acceptTeamInvitation, getTeam, rejectTeamInvitation } from "@/lib/generated/api"
 
@@ -22,7 +22,6 @@ function AcceptInvitationPage() {
   const [status, setStatus] = useState<"pending" | "accepting" | "declining" | "accepted" | "declined" | "error">("pending")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  // Optionally fetch team info for display
   const { data: team, isLoading: isTeamLoading } = useQuery({
     queryKey: ["team", teamId],
     queryFn: async () => {
@@ -37,7 +36,7 @@ function AcceptInvitationPage() {
         path: { team_id: teamId, invitation_id: invitationId },
       })
       if (response.error) {
-        throw new Error(response.error.detail || "Failed to accept invitation")
+        throw new Error(response.error.detail || "接受邀请失败")
       }
       return response.data
     },
@@ -47,8 +46,7 @@ function AcceptInvitationPage() {
     },
     onSuccess: () => {
       setStatus("accepted")
-      toast.success("You've joined the team!")
-      // Navigate to the team page after a short delay
+      toast.success("已加入团队")
       setTimeout(() => {
         navigate({ to: "/teams/$teamId", params: { teamId } })
       }, 1500)
@@ -56,7 +54,7 @@ function AcceptInvitationPage() {
     onError: (error: Error) => {
       setStatus("error")
       setErrorMessage(error.message)
-      toast.error("Failed to accept invitation", {
+      toast.error("接受邀请失败", {
         description: error.message,
       })
     },
@@ -68,7 +66,7 @@ function AcceptInvitationPage() {
         path: { team_id: teamId, invitation_id: invitationId },
       })
       if (response.error) {
-        throw new Error(response.error.detail || "Failed to decline invitation")
+        throw new Error(response.error.detail || "拒绝邀请失败")
       }
       return response.data
     },
@@ -78,8 +76,7 @@ function AcceptInvitationPage() {
     },
     onSuccess: () => {
       setStatus("declined")
-      toast.success("Invitation declined")
-      // Navigate to teams list after a short delay
+      toast.success("已拒绝邀请")
       setTimeout(() => {
         navigate({ to: "/teams" })
       }, 1500)
@@ -87,7 +84,7 @@ function AcceptInvitationPage() {
     onError: (error: Error) => {
       setStatus("error")
       setErrorMessage(error.message)
-      toast.error("Failed to decline invitation", {
+      toast.error("拒绝邀请失败", {
         description: error.message,
       })
     },
@@ -99,9 +96,9 @@ function AcceptInvitationPage() {
 
   return (
     <PageContainer className="flex flex-1 items-center justify-center">
-      <Card className="w-full max-w-md border-border/60 bg-card/80 shadow-xl shadow-primary/15">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+      <AdminPanel title={status === "accepted" ? "已加入团队" : status === "declined" ? "已拒绝邀请" : "团队邀请"} className="w-full max-w-md">
+        <div className="space-y-5 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md border border-border/70 bg-muted/40">
             {status === "accepted" ? (
               <CheckCircle className="h-6 w-6 text-success" />
             ) : status === "declined" ? (
@@ -110,25 +107,20 @@ function AcceptInvitationPage() {
               <Users className="h-6 w-6 text-primary" />
             )}
           </div>
-          <CardTitle>{status === "accepted" ? "Welcome to the team!" : status === "declined" ? "Invitation declined" : "Team Invitation"}</CardTitle>
-          <CardDescription>
+          <div className="text-muted-foreground text-sm">
             {status === "accepted" ? (
-              "You're now a member. Redirecting..."
+              "正在跳转到团队详情。"
             ) : status === "declined" ? (
-              "You won't be added to this team."
+              "你不会加入该团队。"
             ) : isTeamLoading ? (
-              "Loading invitation details..."
+              "正在加载邀请信息。"
             ) : team ? (
-              <>
-                You've been invited to join <strong>{team.name}</strong>
-              </>
+              <>你被邀请加入 {team.name}</>
             ) : (
-              "You've been invited to join a team"
+              "你收到了一条团队邀请。"
             )}
-          </CardDescription>
-        </CardHeader>
+          </div>
 
-        <CardContent>
           {status === "error" && errorMessage && (
             <Alert variant="destructive" className="mb-4">
               <AlertDescription>{errorMessage}</AlertDescription>
@@ -138,29 +130,29 @@ function AcceptInvitationPage() {
           {isProcessing && (
             <div className="flex flex-col items-center space-y-3 py-4">
               <Icons.spinner className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">{status === "accepting" ? "Joining team..." : "Declining invitation..."}</p>
+              <p className="text-sm text-muted-foreground">{status === "accepting" ? "正在加入团队" : "正在拒绝邀请"}</p>
             </div>
           )}
 
           {isComplete && (
             <div className="flex flex-col items-center space-y-3 py-4">
               <Icons.spinner className="h-6 w-6 animate-spin text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Redirecting...</p>
+              <p className="text-sm text-muted-foreground">正在跳转</p>
             </div>
           )}
-        </CardContent>
 
-        {(isPending || status === "error") && (
-          <CardFooter className="flex flex-col gap-2">
-            <Button className="w-full" onClick={() => acceptMutation.mutate()} disabled={isProcessing}>
-              Accept Invitation
-            </Button>
-            <Button variant="outline" className="w-full" onClick={() => declineMutation.mutate()} disabled={isProcessing}>
-              Decline
-            </Button>
-          </CardFooter>
-        )}
-      </Card>
+          {(isPending || status === "error") && (
+            <div className="flex flex-col gap-2">
+              <Button className="w-full" onClick={() => acceptMutation.mutate()} disabled={isProcessing}>
+                接受邀请
+              </Button>
+              <Button variant="outline" className="w-full" onClick={() => declineMutation.mutate()} disabled={isProcessing}>
+                拒绝
+              </Button>
+            </div>
+          )}
+        </div>
+      </AdminPanel>
     </PageContainer>
   )
 }

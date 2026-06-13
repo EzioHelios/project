@@ -5,14 +5,14 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createTeamInvitation, type TeamRoles } from "@/lib/generated/api"
 
 const inviteSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
+  email: z.string().email("请输入有效邮箱地址"),
   role: z.enum(["MEMBER", "ADMIN"] as const),
 })
 
@@ -54,7 +54,7 @@ export function InviteMemberDialog({ teamId }: InviteMemberDialogProps) {
     } catch (error) {
       console.error("Failed to send invitation:", error)
       form.setError("root", {
-        message: "Failed to send invitation. The user may already be invited.",
+        message: "邀请发送失败，该用户可能已在邀请列表中。",
       })
     }
   }
@@ -62,14 +62,14 @@ export function InviteMemberDialog({ teamId }: InviteMemberDialogProps) {
   const roleOptions = [
     {
       value: "MEMBER" as const,
-      label: "Member",
-      description: "Can view and collaborate on team content",
+      label: "成员",
+      description: "查看并参与团队协作",
       icon: User,
     },
     {
       value: "ADMIN" as const,
-      label: "Admin",
-      description: "Can invite members and manage team settings",
+      label: "管理员",
+      description: "邀请成员并维护团队设置",
       icon: ShieldCheck,
     },
   ]
@@ -81,13 +81,12 @@ export function InviteMemberDialog({ teamId }: InviteMemberDialogProps) {
       <DialogTrigger asChild>
         <Button size="sm">
           <UserPlus className="mr-2 h-4 w-4" />
-          Invite
+          邀请成员
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Invite Team Member</DialogTitle>
-          <DialogDescription>Send an invitation to join this team. They'll receive an email to accept or decline.</DialogDescription>
+          <DialogTitle>邀请团队成员</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
@@ -96,7 +95,7 @@ export function InviteMemberDialog({ teamId }: InviteMemberDialogProps) {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email address</FormLabel>
+                  <FormLabel>邮箱地址</FormLabel>
                   <FormControl>
                     <Input {...field} type="email" placeholder="colleague@company.com" />
                   </FormControl>
@@ -109,11 +108,11 @@ export function InviteMemberDialog({ teamId }: InviteMemberDialogProps) {
               name="role"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Role</FormLabel>
+                  <FormLabel>角色</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a role">
+                        <SelectValue placeholder="选择角色">
                           {selectedRole && (
                             <span className="flex items-center gap-2">
                               <selectedRole.icon className="h-4 w-4 text-muted-foreground" />
@@ -137,7 +136,6 @@ export function InviteMemberDialog({ teamId }: InviteMemberDialogProps) {
                       ))}
                     </SelectContent>
                   </Select>
-                  <FormDescription>Choose the permissions level for this member.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -149,10 +147,10 @@ export function InviteMemberDialog({ teamId }: InviteMemberDialogProps) {
             )}
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-                Cancel
+                取消
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Sending..." : "Send Invitation"}
+                {form.formState.isSubmitting ? "发送中..." : "发送邀请"}
               </Button>
             </div>
           </form>

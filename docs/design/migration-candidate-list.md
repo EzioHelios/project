@@ -54,6 +54,8 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: `/home` replaced colorful card entry tiles and explanatory card copy with restrained `AdminPanel` sections and neutral action rows; the route no longer imports or renders naked `Card`.
 - Done: `ChartPanel` and shared carbon chart wrappers no longer accept chart `description`; migrated energy-carbon factor, monitor, carbon, alert, and quality charts now use title/unit/axis/legend/tooltip instead of explanatory chart prose.
 - Done: `/auth/users` and `/admin/roles` migrated from naked `Card` / `CardDescription` shells to `AdminPanel`, `AdminDataTable`, `AdminTableStateRow`, and status badges; the unauthorized users header no longer uses `meta` as a disguised subtitle.
+- Done: team management surfaces (`TeamList`, `/teams/new`, `/teams/$teamId`, invitation acceptance, and invite dialog) moved away from colorful card grids, tips sidebars, and English helper copy toward `AdminPanel`, neutral list rows, concise status fields, and localized operational labels.
+- Done: `/admin` permission-center overview replaced shortcut cards and `CardDescription` copy with a compact `AdminPanel` action list.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 
