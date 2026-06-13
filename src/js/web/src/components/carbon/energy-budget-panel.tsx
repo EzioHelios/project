@@ -4,11 +4,11 @@ import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
+import { AdminDataTable, AdminEmptyState, AdminPanel, AdminTableStateRow, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -318,62 +318,64 @@ export function EnergyBudgetPanel() {
 
   return (
     <PageSection className="space-y-4">
-      <Card>
-        <CardContent className="grid gap-3 pt-6 md:grid-cols-[140px_minmax(180px,1fr)_auto_auto]">
-          <Input value={year} onChange={(event) => setYear(event.target.value)} placeholder="年度" />
-          <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
-            <SelectTrigger>
-              <SelectValue placeholder="预算方案" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="auto">最新预算方案</SelectItem>
-              {plans.map((item) => (
-                <SelectItem key={item.id} value={String(item.id)}>
-                  {item.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" onClick={refreshAll}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            刷新
-          </Button>
-          <Dialog open={planOpen} onOpenChange={setPlanOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                新增目标
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>新增预算目标</DialogTitle>
-              </DialogHeader>
-              <BudgetPlanForm value={planForm} onChange={setPlanForm} />
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setPlanOpen(false)}>
-                  取消
+      <ContextBar
+        className="[&>div:first-child]:md:grid-cols-[140px_minmax(180px,1fr)] [&>div:first-child]:xl:grid-cols-[140px_minmax(180px,1fr)]"
+        actions={
+          <>
+            <Button variant="outline" onClick={refreshAll}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              刷新
+            </Button>
+            <Dialog open={planOpen} onOpenChange={setPlanOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  新增目标
                 </Button>
-                <Button onClick={() => createPlan.mutate()} disabled={!planForm.name.trim() || createPlan.isPending}>
-                  保存
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </CardContent>
-      </Card>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>新增预算目标</DialogTitle>
+                </DialogHeader>
+                <BudgetPlanForm value={planForm} onChange={setPlanForm} />
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setPlanOpen(false)}>
+                    取消
+                  </Button>
+                  <Button onClick={() => createPlan.mutate()} disabled={!planForm.name.trim() || createPlan.isPending}>
+                    保存
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </>
+        }
+      >
+        <Input value={year} onChange={(event) => setYear(event.target.value)} placeholder="年度" />
+        <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+          <SelectTrigger>
+            <SelectValue placeholder="预算方案" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="auto">最新预算方案</SelectItem>
+            {plans.map((item) => (
+              <SelectItem key={item.id} value={String(item.id)}>
+                {item.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </ContextBar>
 
       {plan ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
           <BudgetStat label="能耗预算" value={totals?.budget_tce} unit="tce" status={totals?.energy_status} />
           <BudgetStat label="实际能耗" value={totals?.actual_tce} unit="tce" rate={totals?.energy_execution_rate_pct} />
           <BudgetStat label="碳预算" value={totals?.budget_co2e} unit="tCO2e" status={totals?.carbon_status} />
           <BudgetStat label="实际排放" value={totals?.actual_co2e} unit="tCO2e" rate={totals?.carbon_execution_rate_pct} />
-        </div>
+        </MetricStrip>
       ) : (
-        <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">暂无预算方案</CardContent>
-        </Card>
+        <AdminEmptyState title="暂无预算方案" />
       )}
 
       <Tabs defaultValue="target" className="space-y-4">
@@ -386,12 +388,8 @@ export function EnergyBudgetPanel() {
         </TabsList>
 
         <TabsContent value="target">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-3">
-              <CardTitle>{plan?.name ?? "年度目标"}</CardTitle>
-              {plan ? statusBadge(plan.status) : null}
-            </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <AdminPanel title={plan?.name ?? "年度目标"} actions={plan ? statusBadge(plan.status) : null}>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <InfoCell label="预算年度" value={plan?.budget_year} />
               <InfoCell label="适用范围" value={targetScopeLabel(plan?.target_scope)} />
               <InfoCell label="对象" value={plan?.target_name || plan?.target_code || "全企业"} />
@@ -400,8 +398,8 @@ export function EnergyBudgetPanel() {
               <InfoCell label="碳排目标" value={`${formatNumber(plan?.carbon_budget_co2e)} tCO2e`} />
               <InfoCell label="分母计划" value={`${formatNumber(plan?.denominator_plan)} ${plan?.denominator_unit || ""}`} />
               <InfoCell label="置信度" value={plan?.confidence_level || "-"} />
-            </CardContent>
-          </Card>
+            </div>
+          </AdminPanel>
         </TabsContent>
 
         <TabsContent value="allocation" className="space-y-4">
@@ -420,40 +418,30 @@ export function EnergyBudgetPanel() {
 
         <TabsContent value="forecast">
           <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-            <Card>
-              <CardHeader>
-                <CardTitle>预测结果</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <InfoCell label="已发生月份" value={`${forecast?.elapsed_months ?? 0} / ${forecast?.total_months ?? 0}`} />
-                <InfoCell label="预测能耗" value={`${formatNumber(forecast?.forecast_tce)} tce`} />
-                <InfoCell label="预测排放" value={`${formatNumber(forecast?.forecast_co2e)} tCO2e`} />
-                <div className="flex flex-wrap gap-2">
-                  {statusBadge(forecast?.energy_status)}
-                  {statusBadge(forecast?.carbon_status)}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>规则建议</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {recommendations.map((item) => (
-                  <div key={`${item.code}-${item.target}`} className="rounded-md border border-border/60 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="font-medium">{item.title}</div>
-                        <div className="mt-1 text-sm text-muted-foreground">{item.target}</div>
-                      </div>
-                      <Badge variant={item.priority === "high" ? "destructive" : "secondary"}>{item.priority === "high" ? "高" : "中"}</Badge>
+            <AdminPanel title="预测结果" contentClassName="space-y-4">
+              <InfoCell label="已发生月份" value={`${forecast?.elapsed_months ?? 0} / ${forecast?.total_months ?? 0}`} />
+              <InfoCell label="预测能耗" value={`${formatNumber(forecast?.forecast_tce)} tce`} />
+              <InfoCell label="预测排放" value={`${formatNumber(forecast?.forecast_co2e)} tCO2e`} />
+              <div className="flex flex-wrap gap-2">
+                {statusBadge(forecast?.energy_status)}
+                {statusBadge(forecast?.carbon_status)}
+              </div>
+            </AdminPanel>
+            <AdminPanel title="规则建议" contentClassName="space-y-3">
+              {recommendations.map((item) => (
+                <div key={`${item.code}-${item.target}`} className="rounded-md border border-border/60 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-medium">{item.title}</div>
+                      <div className="mt-1 text-sm text-muted-foreground">{item.target}</div>
                     </div>
-                    <div className="mt-3 text-sm">{item.action}</div>
+                    <Badge variant={item.priority === "high" ? "destructive" : "secondary"}>{item.priority === "high" ? "高" : "中"}</Badge>
                   </div>
-                ))}
-                {recommendations.length === 0 && <EmptyText text="暂无建议" />}
-              </CardContent>
-            </Card>
+                  <div className="mt-3 text-sm">{item.action}</div>
+                </div>
+              ))}
+              {recommendations.length === 0 && <EmptyText text="暂无建议" />}
+            </AdminPanel>
           </div>
         </TabsContent>
 
@@ -486,36 +474,13 @@ export function EnergyBudgetPanel() {
         </TabsContent>
       </Tabs>
 
-      {alerts.length ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>当前预警</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <VarianceTable rows={alerts} compact />
-          </CardContent>
-        </Card>
-      ) : null}
+      {alerts.length ? <VarianceTable rows={alerts} compact title="当前预警" /> : null}
     </PageSection>
   )
 }
 
 function BudgetStat({ label, value, unit, rate, status }: { label: string; value?: number | null; unit: string; rate?: number | null; status?: string | null }) {
-  return (
-    <Card>
-      <CardContent className="pt-5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-xs text-muted-foreground">{label}</div>
-          {status ? statusBadge(status) : null}
-        </div>
-        <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-2xl font-semibold tabular-nums">{formatNumber(value)}</span>
-          <span className="text-xs text-muted-foreground">{unit}</span>
-        </div>
-        {rate !== undefined ? <div className="mt-2 text-xs text-muted-foreground">执行率 {formatNumber(rate, 2)}%</div> : null}
-      </CardContent>
-    </Card>
-  )
+  return <MetricTile label={label} value={formatNumber(value)} unit={unit} meta={rate !== undefined ? `执行率 ${formatNumber(rate, 2)}%` : status ? statusBadge(status) : null} />
 }
 
 function InfoCell({ label, value }: { label: string; value: unknown }) {
@@ -529,11 +494,8 @@ function InfoCell({ label, value }: { label: string; value: unknown }) {
 
 function MonthlyBudgetTable({ rows }: { rows: BudgetProgressRow[] }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>月度预算</CardTitle>
-      </CardHeader>
-      <CardContent className="overflow-x-auto">
+    <AdminPanel title="月度预算" contentClassName="p-0">
+      <AdminDataTable className="rounded-none border-0">
         <Table>
           <TableHeader>
             <TableRow>
@@ -564,18 +526,15 @@ function MonthlyBudgetTable({ rows }: { rows: BudgetProgressRow[] }) {
             {rows.length === 0 && <EmptyRow colSpan={6} />}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </AdminDataTable>
+    </AdminPanel>
   )
 }
 
-function VarianceTable({ rows, compact = false }: { rows: BudgetProgressRow[]; compact?: boolean }) {
+function VarianceTable({ rows, compact = false, title = "执行偏差" }: { rows: BudgetProgressRow[]; compact?: boolean; title?: string }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>执行偏差</CardTitle>
-      </CardHeader>
-      <CardContent className="overflow-x-auto">
+    <AdminPanel title={title} contentClassName="p-0">
+      <AdminDataTable className="rounded-none border-0">
         <Table>
           <TableHeader>
             <TableRow>
@@ -608,18 +567,15 @@ function VarianceTable({ rows, compact = false }: { rows: BudgetProgressRow[]; c
             {rows.length === 0 && <EmptyRow colSpan={compact ? 6 : 7} />}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </AdminDataTable>
+    </AdminPanel>
   )
 }
 
 function AdjustmentTable({ rows }: { rows: BudgetAdjustment[] }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>调整记录</CardTitle>
-      </CardHeader>
-      <CardContent className="overflow-x-auto">
+    <AdminPanel title="调整记录" contentClassName="p-0">
+      <AdminDataTable className="rounded-none border-0">
         <Table>
           <TableHeader>
             <TableRow>
@@ -645,8 +601,8 @@ function AdjustmentTable({ rows }: { rows: BudgetAdjustment[] }) {
             {rows.length === 0 && <EmptyRow colSpan={6} />}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </AdminDataTable>
+    </AdminPanel>
   )
 }
 
@@ -762,15 +718,9 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function EmptyRow({ colSpan }: { colSpan: number }) {
-  return (
-    <TableRow>
-      <TableCell colSpan={colSpan} className="py-8 text-center text-muted-foreground">
-        暂无数据
-      </TableCell>
-    </TableRow>
-  )
+  return <AdminTableStateRow colSpan={colSpan}>暂无数据</AdminTableStateRow>
 }
 
 function EmptyText({ text }: { text: string }) {
-  return <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">{text}</div>
+  return <AdminEmptyState title={text} />
 }
