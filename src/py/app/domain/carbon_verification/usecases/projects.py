@@ -118,7 +118,9 @@ class CarbonVerificationProjectUseCase:
             "missing_evidence_count": missing_evidence_count,
             "missing_result_count": missing_result_count,
         }
-        if project.accounting_batch_id is None and project.boundary_id is None:
+        if project.accounting_batch and (project.accounting_batch.status != "locked" or project.accounting_batch.inventory_status != "locked"):
+            project.readiness_status = "blocked"
+        elif project.accounting_batch_id is None and project.boundary_id is None:
             project.readiness_status = "empty"
         else:
             project.readiness_status = project_readiness(

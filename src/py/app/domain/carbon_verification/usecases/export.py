@@ -33,12 +33,23 @@ class CarbonVerificationExportUseCase:
         self._session = session
 
     async def create_export_job(self, data: dict[str, Any]) -> m.CarbonVerificationExportJob:
-        query = _query_from_data(data)
         export_type = str(data.get("export_type") or "material_package")
         requested_by = _str_or_none(data.get("requested_by"))
         project_id = _int_or_none(data.get("project_id"))
+        project = None
         if project_id is not None:
-            await self._get_project_or_raise(project_id)
+            project = await self._get_project_or_raise(project_id)
+            if project.accounting_batch_id is None:
+                msg = "核查项目未绑定组织排放清单批次"
+                raise ValueError(msg)
+            batch = await self._session.get(m.CarbonAccountingBatch, project.accounting_batch_id)
+            if batch is None:
+                msg = "核查项目绑定的组织排放清单批次不存在"
+                raise ValueError(msg)
+            if batch.status != "locked" or batch.inventory_status != "locked":
+                msg = "核查项目绑定的组织排放清单尚未锁定"
+                raise ValueError(msg)
+        query = _query_from_data(data, project=project)
         job_no = _job_no(query, export_type)
         query_service = CarbonVerificationQueryService(self._session)
         report = await query_service.report_context(query)
@@ -146,11 +157,13 @@ class CarbonVerificationExportUseCase:
         return project
 
 
-def _query_from_data(data: dict[str, Any]) -> VerificationQuery:
+def _query_from_data(data: dict[str, Any], *, project: m.CarbonVerificationProject | None = None) -> VerificationQuery:
     return VerificationQuery(
-        year=_int_or_none(data.get("year")),
+        year=_int_or_none(data.get("year")) or (project.verification_year if project else None),
         status=_str_or_none(data.get("status")),
         scope=_str_or_none(data.get("scope")),
+        project_id=project.id if project else _int_or_none(data.get("project_id")),
+        accounting_batch_id=project.accounting_batch_id if project else _int_or_none(data.get("accounting_batch_id")),
         limit=max(1, min(_int_or_none(data.get("limit")) or 500, 500)),
         offset=max(0, _int_or_none(data.get("offset")) or 0),
     )

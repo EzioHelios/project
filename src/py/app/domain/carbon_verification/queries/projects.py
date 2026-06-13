@@ -89,6 +89,10 @@ class CarbonVerificationProjectQueryService:
             "accounting_batch_id": row.accounting_batch_id,
             "batch_no": row.accounting_batch.batch_no if row.accounting_batch else None,
             "batch_name": row.accounting_batch.batch_name if row.accounting_batch else None,
+            "batch_status": row.accounting_batch.status if row.accounting_batch else None,
+            "batch_inventory_status": row.accounting_batch.inventory_status if row.accounting_batch else None,
+            "batch_locked": _batch_locked(row.accounting_batch) if row.accounting_batch else False,
+            "batch_locked_at": row.accounting_batch.locked_at.isoformat() if row.accounting_batch and row.accounting_batch.locked_at else None,
             "template_version_id": row.template_version_id,
             "template_name": row.template_version.template_name if row.template_version else None,
             "template_version": row.template_version.version if row.template_version else None,
@@ -142,6 +146,10 @@ def _count_by(rows: list[m.CarbonVerificationProject], attr: str) -> dict[str, i
         value = str(getattr(row, attr, None) or "unknown")
         result[value] = result.get(value, 0) + 1
     return result
+
+
+def _batch_locked(batch: m.CarbonAccountingBatch) -> bool:
+    return batch.status == "locked" and batch.inventory_status == "locked"
 
 
 def _filters(query: ProjectQuery) -> dict[str, Any]:

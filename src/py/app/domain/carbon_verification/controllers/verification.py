@@ -35,8 +35,12 @@ class CarbonVerificationController(Controller):
         year: int | None = None,
         status: str | None = None,
         scope: str | None = None,
+        project_id: int | None = None,
+        accounting_batch_id: int | None = None,
     ) -> Response[dict]:
-        data = await CarbonVerificationQueryService(db_session).summary(_query(year=year, status=status, scope=scope))
+        data = await CarbonVerificationQueryService(db_session).summary(
+            _query(year=year, status=status, scope=scope, project_id=project_id, accounting_batch_id=accounting_batch_id)
+        )
         return Response(content=ok_data(data))
 
     @get("/api/carbon/verification/evidence")
@@ -46,11 +50,13 @@ class CarbonVerificationController(Controller):
         year: int | None = None,
         status: str | None = None,
         scope: str | None = None,
+        project_id: int | None = None,
+        accounting_batch_id: int | None = None,
         limit: int = 200,
         offset: int = 0,
     ) -> Response[dict]:
         data = await CarbonVerificationQueryService(db_session).evidence_manifest(
-            _query(year=year, status=status, scope=scope, limit=limit, offset=offset)
+            _query(year=year, status=status, scope=scope, project_id=project_id, accounting_batch_id=accounting_batch_id, limit=limit, offset=offset)
         )
         return Response(content=ok_data(data))
 
@@ -113,11 +119,13 @@ class CarbonVerificationController(Controller):
         year: int | None = None,
         status: str | None = None,
         scope: str | None = None,
+        project_id: int | None = None,
+        accounting_batch_id: int | None = None,
         limit: int = 200,
         offset: int = 0,
     ) -> Response[dict]:
         data = await CarbonVerificationQueryService(db_session).issues(
-            _query(year=year, status=status, scope=scope, limit=limit, offset=offset)
+            _query(year=year, status=status, scope=scope, project_id=project_id, accounting_batch_id=accounting_batch_id, limit=limit, offset=offset)
         )
         return Response(content=ok_data(data))
 
@@ -247,11 +255,13 @@ class CarbonVerificationController(Controller):
         year: int | None = None,
         status: str | None = None,
         scope: str | None = None,
+        project_id: int | None = None,
+        accounting_batch_id: int | None = None,
         limit: int = 200,
         offset: int = 0,
     ) -> Response[dict]:
         data = await CarbonVerificationQueryService(db_session).audit_trail(
-            _query(year=year, status=status, scope=scope, limit=limit, offset=offset)
+            _query(year=year, status=status, scope=scope, project_id=project_id, accounting_batch_id=accounting_batch_id, limit=limit, offset=offset)
         )
         return Response(content=ok_data(data))
 
@@ -262,11 +272,13 @@ class CarbonVerificationController(Controller):
         year: int | None = None,
         status: str | None = None,
         scope: str | None = None,
+        project_id: int | None = None,
+        accounting_batch_id: int | None = None,
         limit: int = 200,
         offset: int = 0,
     ) -> Response[dict]:
         data = await CarbonVerificationQueryService(db_session).material_package(
-            _query(year=year, status=status, scope=scope, limit=limit, offset=offset)
+            _query(year=year, status=status, scope=scope, project_id=project_id, accounting_batch_id=accounting_batch_id, limit=limit, offset=offset)
         )
         return Response(content=ok_data(data))
 
@@ -324,11 +336,13 @@ class CarbonVerificationController(Controller):
         year: int | None = None,
         status: str | None = None,
         scope: str | None = None,
+        project_id: int | None = None,
+        accounting_batch_id: int | None = None,
         limit: int = 200,
         offset: int = 0,
     ) -> Response[dict]:
         data = await CarbonVerificationQueryService(db_session).report_context(
-            _query(year=year, status=status, scope=scope, limit=limit, offset=offset)
+            _query(year=year, status=status, scope=scope, project_id=project_id, accounting_batch_id=accounting_batch_id, limit=limit, offset=offset)
         )
         return Response(content=ok_data(data))
 
@@ -379,7 +393,17 @@ def _query(
     year: int | None = None,
     status: str | None = None,
     scope: str | None = None,
+    project_id: int | None = None,
+    accounting_batch_id: int | None = None,
     limit: int = 200,
     offset: int = 0,
 ) -> VerificationQuery:
-    return VerificationQuery(year=year, status=status, scope=scope, limit=max(1, min(limit, 500)), offset=max(0, offset))
+    return VerificationQuery(
+        year=year,
+        status=status,
+        scope=scope,
+        project_id=project_id,
+        accounting_batch_id=accounting_batch_id,
+        limit=max(1, min(limit, 500)),
+        offset=max(0, offset),
+    )

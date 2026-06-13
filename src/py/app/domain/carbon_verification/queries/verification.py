@@ -35,6 +35,8 @@ class VerificationQuery:
     year: int | None = None
     status: str | None = None
     scope: str | None = None
+    project_id: int | None = None
+    accounting_batch_id: int | None = None
     limit: int = 200
     offset: int = 0
 
@@ -55,6 +57,7 @@ class CarbonVerificationQueryService:
         return {
             "enterprise": enterprise,
             "reporting_period": _reporting_period(query.year, records),
+            "inventory_source": await self._inventory_source(query),
             "standard": _standard_payload(template),
             "totals": totals,
             "status_summary": _count_by(records, "material_status"),
@@ -67,7 +70,7 @@ class CarbonVerificationQueryService:
 
     async def evidence_manifest(self, query: VerificationQuery) -> dict[str, Any]:
         records = await self._filtered_records(query)
-        attachments = await self._attachment_rows()
+        attachments = await self._attachment_rows(query)
         attachment_keys = {
             (item.source_object_type, item.source_object_id)
             for item in attachments
@@ -89,6 +92,7 @@ class CarbonVerificationQueryService:
                 "missing_evidence_count": len(missing_items),
                 "record_count": len(records),
             },
+            "inventory_source": await self._inventory_source(query),
             "filters": _filters(query),
         }
 
@@ -97,7 +101,7 @@ class CarbonVerificationQueryService:
         evidence = await self.evidence_manifest(query)
         issues = await self.issues(query)
         audit_trail = await self.audit_trail(query)
-        finding_count = int(await self._session.scalar(select(func.count(m.CarbonVerificationFinding.id))) or 0)
+        finding_count = await self._finding_count(query)
         groups = _material_groups(records, evidence, issues, audit_trail, finding_count=finding_count)
         template = await CarbonVerificationTemplateQueryService(self._session).active_template()
         return {
@@ -105,6 +109,7 @@ class CarbonVerificationQueryService:
             "readiness": material_readiness([record["material_status"] for record in records]),
             "groups": groups,
             "manifest": _package_manifest(query, groups, template=template),
+            "inventory_source": await self._inventory_source(query),
             "filters": _filters(query),
         }
 
@@ -122,13 +127,15 @@ class CarbonVerificationQueryService:
                 "totals": summary["totals"],
                 "scope_summary": summary["scope_summary"],
                 "source_summary": _source_summary(records),
+                "source": summary["inventory_source"],
             },
             "activity_data": [_activity_row(record) for record in records],
             "factor_parameters": _factor_rows(records),
             "quality_issues": issues["items"],
-            "verification_findings": await self._finding_rows(),
-            "verification_attachments": [_attachment_context_row(item) for item in await self._attachment_rows()],
+            "verification_findings": await self._finding_rows(query),
+            "verification_attachments": [_attachment_context_row(item) for item in await self._attachment_rows(query)],
             "export_fields": _template_field_map(),
+            "inventory_source": summary["inventory_source"],
             "filters": _filters(query),
         }
 
@@ -170,12 +177,14 @@ class CarbonVerificationQueryService:
         ]
         return {"items": items, "total": len(items), "filters": _filters(query)}
 
-    async def _finding_rows(self) -> list[dict[str, Any]]:
+    async def _finding_rows(self, query: VerificationQuery | None = None) -> list[dict[str, Any]]:
+        stmt = select(m.CarbonVerificationFinding)
+        if query and query.project_id is not None:
+            stmt = stmt.where(m.CarbonVerificationFinding.project_id == query.project_id)
+        stmt = stmt.order_by(m.CarbonVerificationFinding.id.desc()).limit(200)
         rows = (
             (
-                await self._session.execute(
-                    select(m.CarbonVerificationFinding).order_by(m.CarbonVerificationFinding.id.desc()).limit(200)
-                )
+                await self._session.execute(stmt)
             )
             .scalars()
             .all()
@@ -200,12 +209,20 @@ class CarbonVerificationQueryService:
             for row in rows
         ]
 
-    async def _attachment_rows(self) -> list[m.CarbonVerificationAttachment]:
+    async def _finding_count(self, query: VerificationQuery) -> int:
+        stmt = select(func.count(m.CarbonVerificationFinding.id))
+        if query.project_id is not None:
+            stmt = stmt.where(m.CarbonVerificationFinding.project_id == query.project_id)
+        return int(await self._session.scalar(stmt) or 0)
+
+    async def _attachment_rows(self, query: VerificationQuery | None = None) -> list[m.CarbonVerificationAttachment]:
+        stmt = select(m.CarbonVerificationAttachment)
+        if query and query.project_id is not None:
+            stmt = stmt.where(m.CarbonVerificationAttachment.project_id == query.project_id)
+        stmt = stmt.order_by(m.CarbonVerificationAttachment.id.desc()).limit(500)
         return (
             (
-                await self._session.execute(
-                    select(m.CarbonVerificationAttachment).order_by(m.CarbonVerificationAttachment.id.desc()).limit(500)
-                )
+                await self._session.execute(stmt)
             )
             .scalars()
             .all()
@@ -218,8 +235,10 @@ class CarbonVerificationQueryService:
         return model_to_dict(row)
 
     async def _filtered_records(self, query: VerificationQuery) -> list[dict[str, Any]]:
-        records = await self._load_scope_records()
-        attachment_counts = _attachment_counts(await self._attachment_rows())
+        records = await self._load_locked_inventory_records(query)
+        if records is None:
+            records = await self._load_scope_records()
+        attachment_counts = _attachment_counts(await self._attachment_rows(query))
         for record in records:
             record["verification_attachment_count"] = attachment_counts.get((record["record_type"], record["record_id"]), 0)
             record["material_status"] = record_material_status(record)
@@ -231,6 +250,54 @@ class CarbonVerificationQueryService:
             records = [record for record in records if record.get("scope") == query.scope]
         records.sort(key=lambda item: (_sort_period_key(item.get("period")), item["record_id"]), reverse=True)
         return records[query.offset : query.offset + max(1, min(query.limit, 500))]
+
+    async def _load_locked_inventory_records(self, query: VerificationQuery) -> list[dict[str, Any]] | None:
+        batch = await self._query_batch(query)
+        if batch is None:
+            return None
+        if not _batch_locked(batch):
+            return []
+        rows = (
+            await self._session.execute(
+                select(m.CarbonEmissionInventoryItem)
+                .where(m.CarbonEmissionInventoryItem.batch_id == batch.id, m.CarbonEmissionInventoryItem.included.is_(True))
+                .order_by(m.CarbonEmissionInventoryItem.scope.asc(), m.CarbonEmissionInventoryItem.id.asc())
+            )
+        ).scalars().all()
+        return [_inventory_record_payload(row) for row in rows]
+
+    async def _inventory_source(self, query: VerificationQuery) -> dict[str, Any]:
+        batch = await self._query_batch(query)
+        if batch is None:
+            return {
+                "mode": "scope_records",
+                "status": "legacy_scope_records",
+                "locked": False,
+                "message": "当前核查读模型按 Scope 活动记录生成",
+            }
+        status = "locked_inventory" if _batch_locked(batch) else "unlocked_inventory"
+        return {
+            "mode": "locked_inventory",
+            "status": status,
+            "locked": _batch_locked(batch),
+            "message": "已使用锁定组织排放清单" if _batch_locked(batch) else "项目绑定的组织排放清单尚未锁定",
+            "accounting_batch_id": batch.id,
+            "batch_no": batch.batch_no,
+            "batch_name": batch.batch_name,
+            "batch_status": batch.status,
+            "inventory_status": batch.inventory_status,
+            "locked_at": batch.locked_at.isoformat() if batch.locked_at else None,
+        }
+
+    async def _query_batch(self, query: VerificationQuery) -> m.CarbonAccountingBatch | None:
+        if query.accounting_batch_id is not None:
+            return await self._session.get(m.CarbonAccountingBatch, query.accounting_batch_id)
+        if query.project_id is None:
+            return None
+        project = await self._session.get(m.CarbonVerificationProject, query.project_id)
+        if project is None or project.accounting_batch_id is None:
+            return None
+        return await self._session.get(m.CarbonAccountingBatch, project.accounting_batch_id)
 
     async def _load_scope_records(self) -> list[dict[str, Any]]:
         specs = [
@@ -324,6 +391,37 @@ def _activity_spec(row: Any) -> tuple[str, str, str, Any, str, int | None] | Non
         year = row.created_at.year if row.created_at else None
         return ("scope3", "transport", row.vehicle_type, amount, "t·km", year)
     return None
+
+
+def _inventory_record_payload(row: m.CarbonEmissionInventoryItem) -> dict[str, Any]:
+    source = row.source_payload or {}
+    payload = {
+        "record_type": row.record_type,
+        "record_label": row.record_label,
+        "record_id": row.record_id,
+        "scope": row.scope,
+        "display_name": row.display_name,
+        "period": row.period,
+        "status": source.get("status") or "approved",
+        "attachment": source.get("attachment"),
+        "activity_amount": _float(row.activity_amount),
+        "activity_unit": row.activity_unit,
+        "computed_co2e": _float(row.computed_co2e),
+        "factor_source": row.factor_source,
+        "factor_year": row.factor_year,
+        "factor_unit": row.factor_unit,
+        "calc_status": row.calc_status,
+        "quality_status": row.quality_status,
+        "source": source,
+        "inventory_item_id": row.id,
+        "inventory_batch_id": row.batch_id,
+    }
+    payload["material_status"] = record_material_status(payload)
+    return payload
+
+
+def _batch_locked(batch: m.CarbonAccountingBatch) -> bool:
+    return batch.status == "locked" and batch.inventory_status == "locked"
 
 
 def _display_name(row: Any) -> str:
@@ -592,7 +690,15 @@ def _standard_payload(template: dict[str, Any] | None = None) -> dict[str, str]:
 
 
 def _filters(query: VerificationQuery) -> dict[str, Any]:
-    return {"year": query.year, "status": query.status, "scope": query.scope, "limit": query.limit, "offset": query.offset}
+    return {
+        "year": query.year,
+        "status": query.status,
+        "scope": query.scope,
+        "project_id": query.project_id,
+        "accounting_batch_id": query.accounting_batch_id,
+        "limit": query.limit,
+        "offset": query.offset,
+    }
 
 
 def _count_by(items: list[dict[str, Any]], key: str) -> dict[str, int]:

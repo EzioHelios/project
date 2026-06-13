@@ -231,6 +231,10 @@ type VerificationProject = {
   period_name?: string | null
   boundary_name?: string | null
   batch_name?: string | null
+  batch_status?: string | null
+  batch_inventory_status?: string | null
+  batch_locked?: boolean
+  batch_locked_at?: string | null
   template_name?: string | null
   template_version?: string | null
   planned_start?: string | null
@@ -339,6 +343,7 @@ export function VerificationProjectsPanel() {
                 <TableHead>项目</TableHead>
                 <TableHead>范围</TableHead>
                 <TableHead>模板</TableHead>
+                <TableHead>清单</TableHead>
                 <TableHead>材料</TableHead>
                 <TableHead>状态</TableHead>
                 <TableHead>就绪</TableHead>
@@ -361,6 +366,9 @@ export function VerificationProjectsPanel() {
                     <div className="text-xs text-muted-foreground">{project.template_version ?? "-"}</div>
                   </TableCell>
                   <TableCell>
+                    <InventoryLockBadge project={project} />
+                  </TableCell>
+                  <TableCell>
                     {project.artifact_counts.attachment_count} 附件 / {project.artifact_counts.finding_count} 发现 / {project.artifact_counts.export_count} 导出
                   </TableCell>
                   <TableCell>
@@ -380,7 +388,7 @@ export function VerificationProjectsPanel() {
                   </TableCell>
                 </TableRow>
               ))}
-              {!projects.length ? <EmptyRow colSpan={7} /> : null}
+              {!projects.length ? <EmptyRow colSpan={8} /> : null}
             </TableBody>
           </Table>
         </CardContent>
@@ -1028,6 +1036,17 @@ function VerificationStatusBadge({ status }: { status?: string }) {
   if (status === "pending_review") return <CarbonStatusBadge status="pending" />
   if (status === "rejected") return <CarbonStatusBadge status="rejected" />
   return <Badge variant="outline">{status || "无数据"}</Badge>
+}
+
+function InventoryLockBadge({ project }: { project: VerificationProject }) {
+  if (!project.accounting_batch_id) return <Badge variant="secondary">未绑定</Badge>
+  if (project.batch_locked) return <Badge>已锁定</Badge>
+  return (
+    <div className="flex flex-col gap-1">
+      <Badge variant="destructive">未锁定</Badge>
+      <span className="text-xs text-muted-foreground">{project.batch_status ?? project.batch_inventory_status ?? "-"}</span>
+    </div>
+  )
 }
 
 function attachmentTypeLabel(value?: string | null) {

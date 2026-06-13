@@ -489,7 +489,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | 核算批次 | `GET/POST /api/carbon/accounting/batches` 创建和查询批次；批次绑定已发布组织边界、报告主体和报告期 | 后续补批次复制、修订原因和跨边界差异比较 |
 | 清单重建 | `POST /api/carbon/accounting/batches/{batch_id}/rebuild-inventory` 按报告期纳入已审核 Scope1/2/3 记录并生成清单快照 | 后续补更精细的设施/设备级活动记录映射和重建任务异步化 |
 | 清单锁定 | `PATCH /api/carbon/accounting/batches/{batch_id}/lock` 锁定已生成清单的批次 | 后续补 Scope 活动记录统一 lock 状态和正式修订流程 |
-| 清单查询 | `GET /api/carbon/accounting/inventories` 查询清单明细；`GET /api/carbon/accounting/batches/{batch_id}/summary` 查询总量、Scope 汇总和质量状态；`carbon_assets` 履约缺口已只接受锁定清单批次 | 后续让 `carbon_verification` 默认读取已锁定清单 |
+| 清单查询 | `GET /api/carbon/accounting/inventories` 查询清单明细；`GET /api/carbon/accounting/batches/{batch_id}/summary` 查询总量、Scope 汇总和质量状态；`carbon_assets` 履约缺口和 `carbon_verification` 项目报告/项目导出已只接受锁定清单批次 | 后续补 Scope 活动记录统一 lock 状态和正式修订流程 |
 
 新增租户表：`carbon_accounting_batch`、`carbon_emission_inventory_item`。清单总量只统计 included 且有 `computed_co2e` 的记录；缺因子、缺核算结果和边界外记录进入质量状态，不硬算为正式排放。
 
@@ -502,7 +502,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 
 ### 3. 领域关系
 
-`carbon_accounting` 现在拥有 `CarbonAccountingBatch` 和 `CarbonEmissionInventoryItem` 的生命周期。`organization_boundary` 仍只定义边界，不计算排放；`carbon_assets` 的履约缺口和滚动预测已只使用 `status=locked` 且 `inventory_status=locked` 的批次总量，未绑定、未锁定或缺总量时返回业务状态；`carbon_verification` 后续应优先读取锁定后的 `CarbonEmissionInventoryItem`，而不是重新扫描活动记录。
+`carbon_accounting` 现在拥有 `CarbonAccountingBatch` 和 `CarbonEmissionInventoryItem` 的生命周期。`organization_boundary` 仍只定义边界，不计算排放；`carbon_assets` 的履约缺口和滚动预测已只使用 `status=locked` 且 `inventory_status=locked` 的批次总量，未绑定、未锁定或缺总量时返回业务状态；`carbon_verification` 的项目报告、项目凭证清单、项目材料包和项目导出已读取锁定后的 `CarbonEmissionInventoryItem`，无项目筛选的全局视图保留旧 Scope 读模型兼容。
 
 ## 十二、2026-06-13 碳核查支撑开发进度记录
 
@@ -512,15 +512,15 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 
 | 能力 | 当前实现 | 后续缺口 |
 | --- | --- | --- |
-| 核查项目 | `GET/POST/PATCH /api/carbon/verification/projects` 维护正式核查项目；`POST /api/carbon/verification/projects/{project_id}/refresh` 刷新项目就绪状态；项目可引用报告主体、报告期、边界、核算批次和模板版本，并归集附件、发现和导出任务 | 后续补项目成员权限、消息通知、核查计划和工作底稿任务分派 |
-| 核查摘要 | `GET /api/carbon/verification/summary` 汇总企业信息、报告期、排放总量、Scope 汇总、问题数和模板信息 | 接 `organization_boundary` 后按边界版本锁定报告范围 |
+| 核查项目 | `GET/POST/PATCH /api/carbon/verification/projects` 维护正式核查项目；`POST /api/carbon/verification/projects/{project_id}/refresh` 刷新项目就绪状态；项目可引用报告主体、报告期、边界、核算批次和模板版本，并归集附件、发现和导出任务；绑定批次未锁定时项目就绪为阻塞 | 后续补项目成员权限、消息通知、核查计划和工作底稿任务分派 |
+| 核查摘要 | `GET /api/carbon/verification/summary` 汇总企业信息、报告期、排放总量、Scope 汇总、问题数和模板信息；传入 `project_id` 或 `accounting_batch_id` 时读取锁定清单快照 | 无项目筛选的全局视图保留旧 Scope 读模型兼容 |
 | 凭证清单 | `GET /api/carbon/verification/evidence` 汇总 Scope 记录附件字段和 `CarbonVerificationAttachment` 独立附件，生成凭证清单和缺失凭证列表 | 后续补附件原件对象存储、OCR 结果和附件复核权限 |
 | 核查问题 | `GET /api/carbon/verification/issues` 按缺凭证、缺因子、缺核算结果、待审核、已驳回生成问题清单 | 补问题生命周期、责任人、整改复核和关闭状态 |
 | 审核轨迹 | `GET /api/carbon/verification/audit-trail` 读取 `CarbonAuditLog` 并按盘查范围过滤 | 补核查机构/核查员视角的独立核查记录 |
-| 材料包目录 | `GET /api/carbon/verification/material-package` 输出材料组、就绪状态和导出 manifest，质量和证据计数已纳入独立附件 | 已接本地可访问附件原件入包；后续接对象存储、远程文件拉取和大文件保留策略 |
-| 报告上下文 | `GET /api/carbon/verification/report` 输出通用 DOCX 模板字段、活动数据、因子参数、排放汇总和问题清单 | 已接入导出任务 DOCX/PDF 渲染和模板版本读取 |
+| 材料包目录 | `GET /api/carbon/verification/material-package` 输出材料组、就绪状态和导出 manifest，质量和证据计数已纳入独立附件；项目材料包读取锁定清单，未锁定不作为正式项目导出口径 | 已接本地可访问附件原件入包；后续接对象存储、远程文件拉取和大文件保留策略 |
+| 报告上下文 | `GET /api/carbon/verification/report` 输出通用 DOCX 模板字段、活动数据、因子参数、排放汇总和问题清单；项目报告读取锁定清单快照 | 已接入导出任务 DOCX/PDF 渲染和模板版本读取 |
 | 报告模板版本 | `GET/POST/PATCH /api/carbon/verification/templates` 管理模板名称、版本、标准来源、适用行业、文件路径、启停和默认模板；`POST /api/carbon/verification/templates/ensure-default` 登记仓库内置通用模板 | 后续补行业模板导入、模板文件上传和审批发布 |
-| 导出任务 | `POST /api/carbon/verification/export-jobs` 生成 ZIP；`GET /api/carbon/verification/export-jobs` 查看历史；`GET /api/carbon/verification/export-jobs/{job_id}/download` 下载文件；ZIP 已包含 DOCX/PDF、数据表、问题、审核轨迹和本地可访问附件原件，`manifest.json.evidence_files` 记录未入包原因 | 后续补异步队列、大文件存储、导出保留期和失败重试 |
+| 导出任务 | `POST /api/carbon/verification/export-jobs` 生成 ZIP；传入 `project_id` 时要求项目绑定已锁定清单；`GET /api/carbon/verification/export-jobs` 查看历史；`GET /api/carbon/verification/export-jobs/{job_id}/download` 下载文件；ZIP 已包含 DOCX/PDF、数据表、问题、审核轨迹和本地可访问附件原件，`manifest.json.evidence_files` 记录未入包原因 | 后续补异步队列、大文件存储、导出保留期和失败重试 |
 | 核查发现 | `GET/POST/PATCH /api/carbon/verification/findings` 维护自动问题升级、整改中、待复核和关闭状态，支持按 `project_id` 归集到核查项目 | 后续补责任人权限、附件证据和消息通知 |
 | 核查附件 | `GET/POST/PATCH /api/carbon/verification/attachments` 维护凭证原件元数据、来源对象、类型、路径、哈希、状态和版本；本地可访问路径会随材料包写入 `evidence/{year}/` | 后续补实际文件上传、对象存储和 OCR |
 
@@ -528,7 +528,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 
 | Tab | 当前状态 |
 | --- | --- |
-| 核查项目 | 已接入核查项目台账，支持创建项目、启动、送审、完成、归档、刷新就绪状态和生成项目材料包 |
+| 核查项目 | 已接入核查项目台账，支持创建项目、启动、送审、完成、归档、刷新就绪状态、展示清单锁定状态和生成项目材料包 |
 | 凭证清单 | 已接入凭证清单和独立附件接口，展示凭证数、独立附件数、缺失凭证、凭证明细和附件台账，并支持登记凭证路径或 URL |
 | 质量问题 | 已接入自动问题和核查发现接口，支持把自动问题升级为发现，并维护整改中、待复核和关闭状态 |
 | 核查材料包 | 已接入材料组、manifest 和本地附件原件入包，不再显示建设中说明 |
@@ -536,7 +536,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 
 ### 3. 领域关系
 
-`carbon_verification` 当前拥有读模型、正式核查项目、模板版本、独立附件、核查发现、报告渲染器和导出任务：只读取 `carbon_accounting`、`factor_library`、`master_data` 和 `CarbonAuditLog`，不修改 Scope 活动事实；核查项目落到 `CarbonVerificationProject`，承接一次组织碳盘查/核查工作的范围、状态、负责人、模板版本、核算批次引用和就绪摘要，并通过 `project_id` 归集附件、发现和导出任务；模板版本落到 `CarbonVerificationTemplateVersion`，承接模板名称、版本、标准来源、适用行业、文件路径、启停和默认模板；独立附件落到 `CarbonVerificationAttachment`，承接凭证原件元数据、来源对象、文件路径、哈希、状态和版本；核查发现落到 `CarbonVerificationFinding`，承接自动问题升级、整改、复核和关闭；导出任务落到 `CarbonVerificationExportJob` 和 `CarbonVerificationExportFile`，生成 ZIP 包中的 manifest、DOCX/PDF 报告、报告上下文、活动数据、因子参数、问题清单、审核轨迹和本地可访问附件原件，未入包原因写入 `manifest.json.evidence_files`。后续应继续补对象存储/OCR、项目成员权限和消息通知，并保持对核算事实只读。
+`carbon_verification` 当前拥有读模型、正式核查项目、模板版本、独立附件、核查发现、报告渲染器和导出任务：只读取 `carbon_accounting`、`factor_library`、`master_data` 和 `CarbonAuditLog`，不修改 Scope 活动事实；核查项目落到 `CarbonVerificationProject`，承接一次组织碳盘查/核查工作的范围、状态、负责人、模板版本、核算批次引用和就绪摘要，并通过 `project_id` 归集附件、发现和导出任务；项目报告、项目材料包和项目导出读取已锁定 `CarbonEmissionInventoryItem` 快照，绑定批次未锁定时阻塞项目导出；模板版本落到 `CarbonVerificationTemplateVersion`，承接模板名称、版本、标准来源、适用行业、文件路径、启停和默认模板；独立附件落到 `CarbonVerificationAttachment`，承接凭证原件元数据、来源对象、文件路径、哈希、状态和版本；核查发现落到 `CarbonVerificationFinding`，承接自动问题升级、整改、复核和关闭；导出任务落到 `CarbonVerificationExportJob` 和 `CarbonVerificationExportFile`，生成 ZIP 包中的 manifest、DOCX/PDF 报告、报告上下文、活动数据、因子参数、问题清单、审核轨迹和本地可访问附件原件，未入包原因写入 `manifest.json.evidence_files`。后续应继续补对象存储/OCR、项目成员权限和消息通知，并保持对核算事实只读。
 
 ## 十三、2026-06-13 组织碳盘查报告模板与材料包导出设计记录
 
@@ -574,7 +574,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | 模板版本 | 已实现首版，报告上下文和材料包读取启用模板，页面可登记默认模板、设默认和启停模板版本 |
 | 附件实体 | 已实现首版，凭证原件、校准证书、检测报告等不再只依赖 Scope 记录的单一附件字段；本地可访问原件已随材料包入包 |
 | 核查发现 | 已实现首版，自动问题可升级为可整改、复核、关闭的核查发现 |
-| 锁定清单 | 正式导出优先读取已发布组织边界和已锁定组织排放清单 |
+| 锁定清单 | 项目报告和项目导出已读取已锁定组织排放清单；未锁定项目批次会阻塞正式材料包导出 |
 
 ## 十四、2026-06-13 产品碳足迹核算开发进度记录
 
