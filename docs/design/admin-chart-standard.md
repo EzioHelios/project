@@ -31,7 +31,8 @@ Domain pages should call the shared builder with data and business semantics. Th
 
 - `src/js/web/src/components/admin-ui/chart-panel.tsx` exists and should be the default chart wrapper.
 - `src/js/web/src/lib/admin-chart-theme.ts` exists and owns the shared palette, axis helpers, and `createAdminChartOption()`.
-- Domain pages should migrate toward this layer instead of continuing local ECharts styling.
+- Shared chart builders for trend, combo trend, ranking, distribution, gauge, and sankey have been added to `src/js/web/src/lib/admin-chart-theme.ts`.
+- Domain pages should migrate toward this layer instead of continuing local ECharts styling. Heat-grid and any future specialized chart types should be added to the shared chart layer before page adoption.
 
 ## ChartPanel Contract
 
@@ -100,19 +101,22 @@ Allowed domain-level option fields:
 
 If a chart needs a new visual style, first extend `admin-chart-theme.ts`, then consume the shared helper from the domain page.
 
-## Shared Builder Backlog
+## Shared Builder Status
 
-The current codebase already has partial shared wrappers in `components/carbon/analytics-panels.tsx`, but that file still contains local visual option details. Migrate it into a proper chart-builder layer before cleaning page-by-page call sites.
+The current codebase has shared wrappers in `components/carbon/analytics-panels.tsx`, and their visual ECharts option details have been moved into `src/js/web/src/lib/admin-chart-theme.ts`. This keeps route and domain components focused on data mapping and business labels.
 
-Priority builders:
+Current builders:
 
-1. `createTrendChartOption(points, series, { unit, source })`
-2. `createComboTrendChartOption(points, bars, lines, { leftUnit, rightUnit })`
-3. `createRankingChartOption(items, { unit, colorKey })`
-4. `createDistributionChartOption(items, { unit, maxSlices })`
-5. `createGaugeChartOption(value, { unit, thresholds })`
-6. `createSankeyChartOption(nodes, links, { unit, categoryColorMap })`
-7. `createHeatGridChartOption(cells, { xUnit, yUnit })`
+1. `createTrendChartOption(points, series, { periodKey })`
+2. `createComboTrendChartOption(points, { bars, lines, leftAxisName, rightAxisName, periodKey })`
+3. `createRankingChartOption(items, { unit, colorKey, limit })`
+4. `createDistributionChartOption(items, { unit })`
+5. `createGaugeChartOption(value, { suffix })`
+6. `createSankeyChartOption(nodes, links, { categoryColorMap })`
+
+Remaining builder:
+
+1. `createHeatGridChartOption(cells, { xUnit, yUnit })`
 
 Each builder must live in the shared chart layer or a shared domain chart package, not inside a route component.
 

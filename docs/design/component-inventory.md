@@ -23,7 +23,7 @@ This file records the reusable UI layer needed for a consistent industrial energ
 | `AdminPageHeader` | Added | Compact page title, status, meta, and actions. No eyebrow or default description. |
 | `ChartPanel` | Added | Unified chart container with title, unit, source, updated time, empty state, and ECharts rendering shell. |
 | `adminChartPalette`, `createAdminChartOption` | Added | Shared ECharts palette, grid, tooltip, legend, axis, and series defaults. |
-| Shared chart builders | Planned | Trend, combo trend, ranking, distribution, gauge, sankey, and heat-grid option builders so visual option details do not leak into pages. |
+| Shared chart builders | Partial | Trend, combo trend, ranking, distribution, gauge, and sankey option builders live in `admin-chart-theme.ts`; heat-grid remains to add when needed. |
 | `AdminTableToolbar` | Added | Shared search, filter, refresh, reset, create, import/export, and batch-action row. |
 | `AdminDataTable`, `AdminTableStateRow` | Added | Shared table frame and loading/empty/error rows for Ledger and Reference Data pages. |
 | `CrudPageShell` | Planned | Page header, context bar, toolbar, table, detail drawer, and import action. |

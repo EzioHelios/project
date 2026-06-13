@@ -33,7 +33,8 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: common row detail drawers now prefer business field labels from configured columns/fields instead of showing only raw backend keys.
 - Done: authenticated admin routes/components no longer render `AdminPageHeader` eyebrow/description or legacy `<PageHeader>` in the page body.
 - Done: obvious `AdminPageHeader meta` misuse in platform placeholder/home pages has been removed; `meta` should not be used as a disguised subtitle.
-- Remaining: `components/carbon/analytics-panels.tsx` still contains shared chart visual option details (`tooltip`, `grid`, `axisLabel`, `splitLine`, `itemStyle`) and `ChartPanel description` passthroughs. This is the next chart-system priority because many energy-carbon pages consume it.
+- Done: shared chart visual option details for trend, combo trend, ranking, distribution, gauge, and sankey have moved from `components/carbon/analytics-panels.tsx` into `src/js/web/src/lib/admin-chart-theme.ts`.
+- Done: `components/carbon/analytics-panels.tsx` no longer passes explanatory `description` strings into `ChartPanel`.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 
@@ -51,7 +52,7 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Convert verification, pending, and audit pages to Audit templates.
 - Convert energy flow, balance, benchmark, budget, and intensity pages to Analysis templates.
 - First migrate shared chart wrappers/builders, then migrate individual analysis routes.
-- Move visual ECharts option details out of `components/carbon/analytics-panels.tsx` into `src/js/web/src/lib/admin-chart-theme.ts` or a shared chart-builder module.
+- Continue moving any newly discovered visual ECharts option details into `src/js/web/src/lib/admin-chart-theme.ts` or a shared chart-builder module.
 - Standardize chart panel headers, legends, units, source/freshness metadata, empty/loading states, and drilldown actions.
 - Remove hardcoded chart palettes and page-local tooltip/legend/axis/grid styling from domain components.
 - Remove explanatory `ChartPanel description` strings unless they represent a required legal/audit notice; use title, unit, source, updated time, axis labels, legends, and tooltip values instead.
