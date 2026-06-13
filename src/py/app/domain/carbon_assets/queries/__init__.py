@@ -1,0 +1,2 @@
+"""Carbon assets read models."""
+

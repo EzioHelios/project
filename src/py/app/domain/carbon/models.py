@@ -1788,6 +1788,186 @@ class CarbonVerificationExportFile(TeamScopedMixin, BigIntAuditBase):
     )
 
 
+class CarbonCompliancePeriod(TeamScopedMixin, BigIntAuditBase):
+    """Carbon market compliance period bound to an organization inventory."""
+
+    __tablename__ = "carbon_compliance_period"
+    __table_args__ = (
+        UniqueConstraint("team_id", "period_code", name="uq_carbon_compliance_period_team_code"),
+        Index("ix_carbon_compliance_period_status", "team_id", "status", "market"),
+        Index("ix_carbon_compliance_period_range", "team_id", "period_start", "period_end"),
+    )
+
+    period_code: Mapped[str] = mapped_column(String(64), index=True)
+    period_name: Mapped[str] = mapped_column(String(128))
+    market: Mapped[str] = mapped_column(String(64), default="national", index=True)
+    period_start: Mapped[date] = mapped_column(Date, index=True)
+    period_end: Mapped[date] = mapped_column(Date, index=True)
+    surrender_due_date: Mapped[date | None] = mapped_column(Date)
+    boundary_id: Mapped[int | None] = mapped_column(ForeignKey("carbon_organization_boundary.id", ondelete="SET NULL"), index=True)
+    accounting_batch_id: Mapped[int | None] = mapped_column(ForeignKey("carbon_accounting_batch.id", ondelete="SET NULL"), index=True)
+    status: Mapped[str] = mapped_column(String(24), default="open", index=True)
+    risk_threshold_yellow: Mapped[Decimal] = mapped_column(Numeric(8, 4), default=Decimal("0.0300"))
+    risk_threshold_orange: Mapped[Decimal] = mapped_column(Numeric(8, 4), default=Decimal("0.0800"))
+    risk_threshold_red: Mapped[Decimal] = mapped_column(Numeric(8, 4), default=Decimal("0.1500"))
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    confidence_level: Mapped[str | None] = mapped_column(String(16))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    boundary: Mapped[OrganizationBoundary | None] = relationship(lazy="selectin")
+    accounting_batch: Mapped[CarbonAccountingBatch | None] = relationship(lazy="selectin")
+    allowances: Mapped[list[CarbonQuotaAllocation]] = relationship(back_populates="period", lazy="selectin")
+    surrenders: Mapped[list[CarbonSurrenderRecord]] = relationship(back_populates="period", lazy="selectin")
+
+
+class CarbonAssetAccount(TeamScopedMixin, BigIntAuditBase):
+    """Registry or internal ledger account for quota, credit, CCER, or green certificate assets."""
+
+    __tablename__ = "carbon_asset_account"
+    __table_args__ = (
+        UniqueConstraint("team_id", "account_code", name="uq_carbon_asset_account_team_code"),
+        Index("ix_carbon_asset_account_type_status", "team_id", "asset_type", "status"),
+        Index("ix_carbon_asset_account_market", "team_id", "market"),
+    )
+
+    account_code: Mapped[str] = mapped_column(String(64), index=True)
+    account_name: Mapped[str] = mapped_column(String(128))
+    asset_type: Mapped[str] = mapped_column(String(32), index=True)
+    market: Mapped[str] = mapped_column(String(64), default="national", index=True)
+    currency: Mapped[str] = mapped_column(String(16), default="CNY")
+    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
+    registry_account_no: Mapped[str | None] = mapped_column(String(128))
+    owner_name: Mapped[str | None] = mapped_column(String(128))
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    allowances: Mapped[list[CarbonQuotaAllocation]] = relationship(back_populates="account", lazy="selectin")
+    credits: Mapped[list[CarbonCreditHolding]] = relationship(back_populates="account", lazy="selectin")
+
+
+class CarbonQuotaAllocation(TeamScopedMixin, BigIntAuditBase):
+    """Quota allocation and usable balance in a compliance period."""
+
+    __tablename__ = "carbon_quota_allocation"
+    __table_args__ = (
+        UniqueConstraint("team_id", "allocation_no", name="uq_carbon_quota_allocation_team_no"),
+        Index("ix_carbon_quota_allocation_period", "team_id", "period_id", "quota_type"),
+        Index("ix_carbon_quota_allocation_account", "team_id", "account_id"),
+    )
+
+    period_id: Mapped[int] = mapped_column(ForeignKey("carbon_compliance_period.id", ondelete="CASCADE"), index=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("carbon_asset_account.id", ondelete="CASCADE"), index=True)
+    allocation_no: Mapped[str] = mapped_column(String(64), index=True)
+    quota_type: Mapped[str] = mapped_column(String(32), default="CEA", index=True)
+    allocated_amount: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    adjustment_amount: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    used_amount: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    frozen_amount: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    unit: Mapped[str] = mapped_column(String(32), default="tCO2e")
+    valid_from: Mapped[date | None] = mapped_column(Date)
+    valid_to: Mapped[date | None] = mapped_column(Date)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    period: Mapped[CarbonCompliancePeriod] = relationship(back_populates="allowances", lazy="selectin")
+    account: Mapped[CarbonAssetAccount] = relationship(back_populates="allowances", lazy="selectin")
+
+
+class CarbonCreditHolding(TeamScopedMixin, BigIntAuditBase):
+    """CCER, green certificate, or other carbon credit holding."""
+
+    __tablename__ = "carbon_credit_holding"
+    __table_args__ = (
+        UniqueConstraint("team_id", "holding_no", name="uq_carbon_credit_holding_team_no"),
+        Index("ix_carbon_credit_holding_account", "team_id", "account_id", "credit_type"),
+        Index("ix_carbon_credit_holding_status", "team_id", "status"),
+    )
+
+    account_id: Mapped[int] = mapped_column(ForeignKey("carbon_asset_account.id", ondelete="CASCADE"), index=True)
+    holding_no: Mapped[str] = mapped_column(String(64), index=True)
+    credit_type: Mapped[str] = mapped_column(String(32), index=True)
+    project_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    project_name: Mapped[str | None] = mapped_column(String(128))
+    registry: Mapped[str | None] = mapped_column(String(128))
+    vintage_year: Mapped[int | None] = mapped_column(Integer, index=True)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    used_quantity: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    frozen_quantity: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    unit: Mapped[str] = mapped_column(String(32), default="tCO2e")
+    market_price: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    currency: Mapped[str] = mapped_column(String(16), default="CNY")
+    valid_from: Mapped[date | None] = mapped_column(Date)
+    valid_to: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    account: Mapped[CarbonAssetAccount] = relationship(back_populates="credits", lazy="selectin")
+
+
+class CarbonAssetTransaction(TeamScopedMixin, BigIntAuditBase):
+    """Carbon asset transaction or transaction simulation record."""
+
+    __tablename__ = "carbon_asset_transaction"
+    __table_args__ = (
+        UniqueConstraint("team_id", "transaction_no", name="uq_carbon_asset_transaction_team_no"),
+        Index("ix_carbon_asset_transaction_account", "team_id", "account_id", "asset_type"),
+        Index("ix_carbon_asset_transaction_date", "team_id", "trade_date", "status"),
+    )
+
+    account_id: Mapped[int] = mapped_column(ForeignKey("carbon_asset_account.id", ondelete="CASCADE"), index=True)
+    transaction_no: Mapped[str] = mapped_column(String(64), index=True)
+    asset_type: Mapped[str] = mapped_column(String(32), index=True)
+    transaction_type: Mapped[str] = mapped_column(String(32), index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    currency: Mapped[str] = mapped_column(String(16), default="CNY")
+    fee_rate: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=Decimal(0))
+    tax_rate: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=Decimal(0))
+    trade_date: Mapped[date | None] = mapped_column(Date, index=True)
+    counterparty: Mapped[str | None] = mapped_column(String(128))
+    status: Mapped[str] = mapped_column(String(24), default="simulated", index=True)
+    scenario_payload: Mapped[dict | None] = mapped_column(JSON)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    account: Mapped[CarbonAssetAccount] = relationship(lazy="selectin")
+
+
+class CarbonSurrenderRecord(TeamScopedMixin, BigIntAuditBase):
+    """Surrender, cancellation, or offset use record for compliance."""
+
+    __tablename__ = "carbon_surrender_record"
+    __table_args__ = (
+        UniqueConstraint("team_id", "surrender_no", name="uq_carbon_surrender_record_team_no"),
+        Index("ix_carbon_surrender_record_period", "team_id", "period_id", "asset_type"),
+        Index("ix_carbon_surrender_record_status", "team_id", "status"),
+    )
+
+    period_id: Mapped[int] = mapped_column(ForeignKey("carbon_compliance_period.id", ondelete="CASCADE"), index=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("carbon_asset_account.id", ondelete="CASCADE"), index=True)
+    surrender_no: Mapped[str] = mapped_column(String(64), index=True)
+    asset_type: Mapped[str] = mapped_column(String(32), index=True)
+    quota_allocation_id: Mapped[int | None] = mapped_column(ForeignKey("carbon_quota_allocation.id", ondelete="SET NULL"), index=True)
+    credit_holding_id: Mapped[int | None] = mapped_column(ForeignKey("carbon_credit_holding.id", ondelete="SET NULL"), index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    unit: Mapped[str] = mapped_column(String(32), default="tCO2e")
+    status: Mapped[str] = mapped_column(String(24), default="completed", index=True)
+    surrendered_at: Mapped[datetime | None] = mapped_column(DateTime)
+    purpose: Mapped[str] = mapped_column(String(64), default="compliance")
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    period: Mapped[CarbonCompliancePeriod] = relationship(back_populates="surrenders", lazy="selectin")
+    account: Mapped[CarbonAssetAccount] = relationship(lazy="selectin")
+    quota_allocation: Mapped[CarbonQuotaAllocation | None] = relationship(lazy="selectin")
+    credit_holding: Mapped[CarbonCreditHolding | None] = relationship(lazy="selectin")
+
+
 class ReportingOrganization(TeamScopedMixin, BigIntAuditBase):
     """Reporting organization for organization-level GHG inventories."""
 

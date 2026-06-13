@@ -895,9 +895,11 @@ classDiagram
 | `GET/POST/PATCH /api/carbon/assets/accounts` | 资产账户。 |
 | `GET/POST/PATCH /api/carbon/assets/allowances` | 配额台账。 |
 | `GET/POST/PATCH /api/carbon/assets/credits` | CCER/绿证/碳信用持仓。 |
+| `GET /api/carbon/assets/transactions` | 查询交易模拟记录。 |
 | `POST /api/carbon/assets/transactions/simulate` | 交易模拟。 |
-| `POST /api/carbon/assets/surrenders` | 清缴/注销。 |
+| `GET/POST /api/carbon/assets/surrenders` | 清缴/注销。 |
 | `GET /api/carbon/assets/compliance-position` | 履约缺口与风险预警。 |
+| `GET /api/carbon/assets/summary`、`GET /api/carbon/assets/alerts`、`GET /api/carbon/assets/recommendations` | 汇总、风险预警和规则建议。 |
 
 页面 Tabs 建议：
 
@@ -909,6 +911,15 @@ classDiagram
 | 交易模拟 | 买入/卖出/抵消组合模拟，不生成正式交易。 |
 | 风险预警 | 缺口、缺口率、资产价值、建议组合和处理状态。 |
 
+首版落地状态：
+
+| 层次 | 当前实现 |
+| --- | --- |
+| 数据模型 | `carbon_compliance_period`、`carbon_asset_account`、`carbon_quota_allocation`、`carbon_credit_holding`、`carbon_asset_transaction`、`carbon_surrender_record` 六张租户表，均有 RLS policy 和常用索引。 |
+| 后端领域 | `src/py/app/domain/carbon_assets` 已拆分 `domain/policies.py`、`usecases/assets.py`、`queries/assets.py` 和 `controllers/assets.py`。 |
+| 前端 | `/carbon/assets` 已替换建设中占位，提供“配额台账、CCER/绿证、履约周期、交易模拟、风险预警”五个业务 Tab。 |
+| 边界保留 | 当前不实现真实交易下单、交割结算、碳中和声明、多币种估值和自动履约预测；这些后续独立建模。 |
+
 ### 7.6 碳排放管理页面开发顺序
 
 | 顺序 | 页面/领域 | 原因 | 首批验收口径 |
@@ -916,7 +927,7 @@ classDiagram
 | 1 | `organization_boundary` + 碳核算增强 | 组织边界是组织核算、核查和配额履约的共同前提 | 能创建报告期、边界版本、边界设施；核算批次绑定边界。 |
 | 2 | `/carbon/product-footprint` | 产品足迹依赖产品分母、能源事实、因子库和供应商数据，但可先做内部清单 | 能创建 PCF 研究、生命周期边界、清单项、计算结果和报告读模型。 |
 | 3 | `/carbon/supply-chain` | 供应链数据会反哺 Scope3 和 PCF，上线后能提高数据质量 | 能维护供应商、任务、填报数据、证据、审核和分析。 |
-| 4 | `/carbon/assets` | 配额履约依赖稳定的组织排放清单，最后建设风险最小 | 能维护配额/信用、读取清单、计算余额和缺口、做模拟。 |
+| 4 | `/carbon/assets` | 配额履约依赖稳定的组织排放清单，最后建设风险最小 | 已能维护配额/信用、读取清单、计算余额和缺口、做模拟；后续补滚动预测和真实交易/交割审计。 |
 
 ## 8. 需要特别避免的设计错误
 

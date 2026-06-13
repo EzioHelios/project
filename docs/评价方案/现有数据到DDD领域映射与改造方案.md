@@ -151,7 +151,7 @@ flowchart LR
 | `organization_boundary` | `EnterpriseInfo`、`MonitorSector`、`MonitorEquipment`、`team_id` | `EnterpriseInfo` 不能直接等同于报告边界 | 报告主体、报告期、组织/运营边界、边界设施、版本 | 首版已新建报告主体、报告期、边界版本和边界设施表；碳核算批次后续必须绑定边界版本。 |
 | `product_footprint` | `ProductionProduct`、`ProductionOutputFact`、`ProductionResourceBinding`、`EnergyIntervalFact`、`EmissionFactor` | `ProductionProduct`、`ProductionOutputFact` 不能冒充 PCF 研究和生命周期清单 | PCF 研究、产品系统、生命周期阶段、清单项、分配规则、结果和报告 | 2026-06-13 已新增 PCF 聚合表和 `domain/product_footprint` 首版；已有产品/产量/能源事实仍只作为输入。 |
 | `supply_chain_carbon` | `Scope3ThirdPartyTransport`、`Scope3WasteDisposal`、`InMoney`、`OutMoney`、产品和供应商相关外部数据 | 运输/废弃物 Scope3 表不能冒充供应商协同任务 | 供应商档案、填报任务、供应商活动数据、PCF 数据、证据、审核、披露 | 2026-06-13 已新增供应链碳聚合表和 `domain/supply_chain_carbon` 首版；审核通过后再通过显式发布/转换用例供 Scope3 或 PCF 使用。 |
-| `carbon_assets` | `energy_consumption_fact_v` 的碳排读数、`carbon_accounting` 组织排放清单、`energy_budget` 预算结果 | `EnergyCarbonBudgetPlan` 不能冒充配额；Scope 活动不能冒充资产持仓 | 履约周期、配额账户、CCER/绿证、交易、清缴、履约缺口 | 新建资产账户、持仓、交易和清缴表；只读取锁定清单计算缺口。 |
+| `carbon_assets` | `carbon_accounting` 组织排放清单批次、组织边界版本、资产账户和持仓台账 | `EnergyCarbonBudgetPlan` 不能冒充配额；Scope 活动不能冒充资产持仓 | 履约周期、配额账户、CCER/绿证、交易、清缴、履约缺口 | 2026-06-13 已新增履约周期、资产账户、配额、信用/绿证、交易模拟和清缴表；缺口读模型只读取组织清单批次和资产余额。 |
 
 ## 3. 现有接口到目标领域映射
 
