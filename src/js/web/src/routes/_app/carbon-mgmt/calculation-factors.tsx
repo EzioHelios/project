@@ -95,56 +95,67 @@ function CalculationFactorsPage() {
       <PageSection>
         <AdminPanel title="因子列表" actions={<div className="text-muted-foreground text-sm">共 {formatNumber(factorsQuery.data?.total)} 条</div>} contentClassName="space-y-3">
           <AdminTableToolbar
-            search={
-              <Input
-                value={keyword}
-                onChange={(event) => {
-                  setKeyword(event.target.value)
-                  setPageIndex(0)
-                }}
-                placeholder="搜索：范围/类别/子类/单位/来源"
-              />
-            }
-            filters={
-              <>
-                <Select
-                  value={scope}
-                  onValueChange={(value) => {
-                    setScope(value)
-                    setPageIndex(0)
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="范围" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">全部范围</SelectItem>
-                    <SelectItem value="scope1">范围1</SelectItem>
-                    <SelectItem value="scope2">范围2</SelectItem>
-                    <SelectItem value="scope3">范围3</SelectItem>
-                    <SelectItem value="Scope1">范围1</SelectItem>
-                    <SelectItem value="Scope2">范围2</SelectItem>
-                    <SelectItem value="Scope3">范围3</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={active}
-                  onValueChange={(value) => {
-                    setActive(value)
-                    setPageIndex(0)
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="状态" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">全部状态</SelectItem>
-                    <SelectItem value="active">启用</SelectItem>
-                    <SelectItem value="inactive">停用</SelectItem>
-                  </SelectContent>
-                </Select>
-              </>
-            }
+            fields={[
+              {
+                key: "keyword",
+                node: (
+                  <Input
+                    value={keyword}
+                    onChange={(event) => {
+                      setKeyword(event.target.value)
+                      setPageIndex(0)
+                    }}
+                    placeholder="搜索：范围/类别/子类/单位/来源"
+                  />
+                ),
+              },
+              {
+                key: "scope",
+                node: (
+                  <Select
+                    value={scope}
+                    onValueChange={(value) => {
+                      setScope(value)
+                      setPageIndex(0)
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="范围" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全部范围</SelectItem>
+                      <SelectItem value="scope1">范围1</SelectItem>
+                      <SelectItem value="scope2">范围2</SelectItem>
+                      <SelectItem value="scope3">范围3</SelectItem>
+                      <SelectItem value="Scope1">范围1</SelectItem>
+                      <SelectItem value="Scope2">范围2</SelectItem>
+                      <SelectItem value="Scope3">范围3</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ),
+              },
+              {
+                key: "active",
+                node: (
+                  <Select
+                    value={active}
+                    onValueChange={(value) => {
+                      setActive(value)
+                      setPageIndex(0)
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="状态" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全部状态</SelectItem>
+                      <SelectItem value="active">启用</SelectItem>
+                      <SelectItem value="inactive">停用</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ),
+              },
+            ]}
           />
           {factorsQuery.isLoading && <div className="text-muted-foreground text-sm">正在加载...</div>}
           {factorsQuery.isError && <div className="text-destructive text-sm">加载失败，请检查后端接口。</div>}

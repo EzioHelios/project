@@ -92,12 +92,17 @@ export function TeamList() {
     >
       {teamsData.length > 3 && (
         <AdminTableToolbar
-          search={
-            <div className="relative">
-              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="搜索团队" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
-            </div>
-          }
+          fields={[
+            {
+              key: "search",
+              node: (
+                <div className="relative">
+                  <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input placeholder="搜索团队" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+                </div>
+              ),
+            },
+          ]}
           className="rounded-md border border-border/70 bg-muted/20"
         />
       )}

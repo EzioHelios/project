@@ -72,6 +72,8 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: MFA and master-data dialogs now keep operation guidance screen-reader only instead of rendering visible subtitle copy under modal titles; the mobile sidebar default description is localized.
 - Done: shared `AdminPanel`, `AdminPageHeader`, `MetricTile`, `ChartPanel`, and `admin-chart-theme` now enforce compact title bars, industrial panel surfaces, title-bar chart metadata, and a muted cross-chart palette/axis/tooltip grammar for authenticated admin pages.
 - Done: added `AdminFilterBar` and `AdminPageScaffold`; `ContextBar` and `AdminTableToolbar` can now enforce a standard filter row with the first 4 fields visible and `显示全部` expansion. Budget, benchmark, commute, and event ledger pages started using the fixed tabs/filter/metrics/content ordering.
+- Done: migrated remaining high-frequency admin table toolbars in team, permission audit, platform CRUD/ledger, Scope entry templates, Scope2 records, carbon pending/audit, IoT telemetry, official factor, calculation factor, and reconciliation pages to the shared `fields` API, so filter height, primary 4-field visibility, expansion behavior, and action placement are controlled globally.
+- Done: added `bun run audit:admin-visual` and `docs/design/admin-visual-goal-prompt.md` to support faster batch migration: scan repeated visual debt first, migrate shared templates/call sites in large batches, and run build only at phase close.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 

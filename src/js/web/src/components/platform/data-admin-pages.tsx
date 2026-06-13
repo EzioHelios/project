@@ -341,59 +341,65 @@ export function CrudDataPage({
         <AdminPanel title={`${title}列表`}>
           <div className="space-y-3">
             <AdminTableToolbar
-              search={
-                <Input
-                  value={keyword}
-                  onChange={(event) => {
-                    setKeyword(event.target.value)
-                  }}
-                  placeholder={searchPlaceholder}
-                />
-              }
+              fields={[
+                {
+                  key: "keyword",
+                  node: (
+                    <Input
+                      value={keyword}
+                      onChange={(event) => {
+                        setKeyword(event.target.value)
+                      }}
+                      placeholder={searchPlaceholder}
+                    />
+                  ),
+                },
+              ]}
               actions={
-                <Dialog open={open} onOpenChange={setOpen}>
-                  <DialogTrigger asChild>
-                    <Button onClick={startCreate}>新增</Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-                    <DialogHeader>
-                      <DialogTitle>
-                        {editing ? "编辑" : "新增"}
-                        {title}
-                      </DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      {fields.map((field) => (
-                        <div key={field.name} className={field.type === "textarea" || field.type === "json" ? "grid gap-2 sm:col-span-2" : "grid gap-2"}>
-                          <Label>{field.label}</Label>
-                          <FieldControl field={field} value={form[field.name] ?? ""} onChange={(value) => setForm((state) => ({ ...state, [field.name]: value }))} />
-                        </div>
-                      ))}
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setOpen(false)}>
-                        取消
-                      </Button>
-                      <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending || fields.some((field) => field.required && !form[field.name]?.trim())}>
-                        保存
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setAppliedKeyword(keyword)
+                      setPageIndex(0)
+                      if (keyword === appliedKeyword) void listQuery.refetch()
+                    }}
+                    disabled={listQuery.isFetching}
+                  >
+                    查询
+                  </Button>
+                  <Dialog open={open} onOpenChange={setOpen}>
+                    <DialogTrigger asChild>
+                      <Button onClick={startCreate}>新增</Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>
+                          {editing ? "编辑" : "新增"}
+                          {title}
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {fields.map((field) => (
+                          <div key={field.name} className={field.type === "textarea" || field.type === "json" ? "grid gap-2 sm:col-span-2" : "grid gap-2"}>
+                            <Label>{field.label}</Label>
+                            <FieldControl field={field} value={form[field.name] ?? ""} onChange={(value) => setForm((state) => ({ ...state, [field.name]: value }))} />
+                          </div>
+                        ))}
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setOpen(false)}>
+                          取消
+                        </Button>
+                        <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending || fields.some((field) => field.required && !form[field.name]?.trim())}>
+                          保存
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </>
               }
-            >
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setAppliedKeyword(keyword)
-                  setPageIndex(0)
-                  if (keyword === appliedKeyword) void listQuery.refetch()
-                }}
-                disabled={listQuery.isFetching}
-              >
-                查询
-              </Button>
-            </AdminTableToolbar>
+            />
             <AdminDataTable>
               <Table>
                 <TableHeader>
@@ -1164,28 +1170,34 @@ export function ReadonlyLedgerPage({ title, endpoint, queryKey, columns }: { tit
         <AdminPanel title={`${title}台账`}>
           <div className="space-y-3">
             <AdminTableToolbar
-              search={
-                <Input
-                  value={keyword}
-                  onChange={(event) => {
-                    setKeyword(event.target.value)
+              fields={[
+                {
+                  key: "keyword",
+                  node: (
+                    <Input
+                      value={keyword}
+                      onChange={(event) => {
+                        setKeyword(event.target.value)
+                      }}
+                      placeholder="搜索关键字"
+                    />
+                  ),
+                },
+              ]}
+              actions={
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setAppliedKeyword(keyword)
+                    setPageIndex(0)
+                    if (keyword === appliedKeyword) void query.refetch()
                   }}
-                  placeholder="搜索关键字"
-                />
+                  disabled={query.isFetching}
+                >
+                  查询
+                </Button>
               }
-            >
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setAppliedKeyword(keyword)
-                  setPageIndex(0)
-                  if (keyword === appliedKeyword) void query.refetch()
-                }}
-                disabled={query.isFetching}
-              >
-                查询
-              </Button>
-            </AdminTableToolbar>
+            />
             <AdminDataTable>
               <Table>
                 <TableHeader>

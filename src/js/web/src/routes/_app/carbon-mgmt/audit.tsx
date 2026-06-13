@@ -64,9 +64,23 @@ export function AuditLogPanel() {
   return (
     <AdminPanel title="日志列表" contentClassName="space-y-3">
       <AdminTableToolbar
-        filters={
-          <>
-            <div className="w-[200px]">
+        fields={[
+          {
+            key: "keyword",
+            node: (
+              <Input
+                value={keyword}
+                onChange={(e) => {
+                  setKeyword(e.target.value)
+                  setPageIndex(0)
+                }}
+                placeholder="搜索：记录ID/说明…"
+              />
+            ),
+          },
+          {
+            key: "recordType",
+            node: (
               <Select
                 value={recordType}
                 onValueChange={(value) => {
@@ -87,8 +101,11 @@ export function AuditLogPanel() {
                   <SelectItem value="Scope3ThirdPartyTransport">Scope3ThirdPartyTransport</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="w-[160px]">
+            ),
+          },
+          {
+            key: "action",
+            node: (
               <Select
                 value={action}
                 onValueChange={(value) => {
@@ -106,21 +123,9 @@ export function AuditLogPanel() {
                   <SelectItem value="reject">reject</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          </>
-        }
-        search={
-          <div className="min-w-[260px] flex-1">
-            <Input
-              value={keyword}
-              onChange={(e) => {
-                setKeyword(e.target.value)
-                setPageIndex(0)
-              }}
-              placeholder="搜索：记录ID/说明…"
-            />
-          </div>
-        }
+            ),
+          },
+        ]}
         actions={
           <Button type="button" variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
             查询

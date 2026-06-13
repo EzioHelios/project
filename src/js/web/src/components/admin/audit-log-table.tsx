@@ -45,16 +45,14 @@ export function AuditLogTable() {
   return (
     <AdminPanel title="审计日志" contentClassName="space-y-4">
       <AdminTableToolbar
-        filters={
-          <div className="grid w-full gap-3 md:grid-cols-6">
-            <Input placeholder="搜索关键字" value={search} onChange={(event) => setSearch(event.target.value)} />
-            <Input placeholder="动作" value={action} onChange={(event) => setAction(event.target.value)} />
-            <Input placeholder="操作者 ID" value={actorId} onChange={(event) => setActorId(event.target.value)} />
-            <Input placeholder="目标类型" value={targetType} onChange={(event) => setTargetType(event.target.value)} />
-            <Input placeholder="创建于之后（ISO）" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-            <Input placeholder="创建于之前（ISO）" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
-          </div>
-        }
+        fields={[
+          { key: "search", node: <Input placeholder="搜索关键字" value={search} onChange={(event) => setSearch(event.target.value)} /> },
+          { key: "action", node: <Input placeholder="动作" value={action} onChange={(event) => setAction(event.target.value)} /> },
+          { key: "actorId", node: <Input placeholder="操作者 ID" value={actorId} onChange={(event) => setActorId(event.target.value)} /> },
+          { key: "targetType", node: <Input placeholder="目标类型" value={targetType} onChange={(event) => setTargetType(event.target.value)} /> },
+          { key: "startDate", node: <Input placeholder="创建于之后（ISO）" value={startDate} onChange={(event) => setStartDate(event.target.value)} /> },
+          { key: "endDate", node: <Input placeholder="创建于之前（ISO）" value={endDate} onChange={(event) => setEndDate(event.target.value)} /> },
+        ]}
         className="rounded-md border border-border/70 bg-muted/20"
       />
       <AdminDataTable className="rounded-none border-0">

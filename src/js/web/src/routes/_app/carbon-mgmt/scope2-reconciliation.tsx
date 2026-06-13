@@ -64,11 +64,7 @@ function Scope2ReconciliationPage() {
       <PageSection>
         <AdminPanel title="月度对账" contentClassName="space-y-4">
           <AdminTableToolbar
-            filters={
-              <div className="w-[180px]">
-                <Input value={billingMonth} onChange={(event) => setBillingMonth(event.target.value)} placeholder="账期 YYYY-MM" />
-              </div>
-            }
+            fields={[{ key: "billingMonth", node: <Input value={billingMonth} onChange={(event) => setBillingMonth(event.target.value)} placeholder="账期 YYYY-MM" /> }]}
             actions={
               <>
                 <Button variant="outline" size="sm" onClick={() => reconciliationQuery.refetch()} disabled={!billingMonth.trim() || reconciliationQuery.isFetching}>

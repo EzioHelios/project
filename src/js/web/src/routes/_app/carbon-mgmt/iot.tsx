@@ -57,31 +57,26 @@ function IotPage() {
       <PageSection>
         <AdminPanel title="数据列表" contentClassName="space-y-3">
           <AdminTableToolbar
-            search={
-              <>
-                <div className="w-[160px]">
-                  <Input value={siteId} onChange={(e) => setSiteId(e.target.value)} placeholder="站点ID(site_id)" />
-                </div>
-                <div className="w-[180px]">
-                  <Input value={deviceId} onChange={(e) => setDeviceId(e.target.value)} placeholder="设备ID(device_id)" />
-                </div>
-              </>
-            }
-            filters={
-              <div className="w-[140px]">
-                <Select value={limit} onValueChange={setLimit}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="条数" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="100">最近 100 条</SelectItem>
-                    <SelectItem value="200">最近 200 条</SelectItem>
-                    <SelectItem value="500">最近 500 条</SelectItem>
-                    <SelectItem value="1000">最近 1000 条</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            }
+            fields={[
+              { key: "siteId", node: <Input value={siteId} onChange={(e) => setSiteId(e.target.value)} placeholder="站点ID(site_id)" /> },
+              { key: "deviceId", node: <Input value={deviceId} onChange={(e) => setDeviceId(e.target.value)} placeholder="设备ID(device_id)" /> },
+              {
+                key: "limit",
+                node: (
+                  <Select value={limit} onValueChange={setLimit}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="条数" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="100">最近 100 条</SelectItem>
+                      <SelectItem value="200">最近 200 条</SelectItem>
+                      <SelectItem value="500">最近 500 条</SelectItem>
+                      <SelectItem value="1000">最近 1000 条</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ),
+              },
+            ]}
             actions={
               <Button type="button" variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
                 查询

@@ -77,28 +77,27 @@ export function PendingReviewPanel() {
   return (
     <AdminPanel title="待审核记录" contentClassName="space-y-3">
       <AdminTableToolbar
-        search={
-          <div className="min-w-[260px] flex-1">
-            <Input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索：记录类型/来源/备注…" />
-          </div>
-        }
-        filters={
-          <div className="w-[220px]">
-            <Select value={recordType} onValueChange={setRecordType}>
-              <SelectTrigger>
-                <SelectValue placeholder="记录类型" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部记录</SelectItem>
-                {Object.keys(basePathByType).map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {value}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        }
+        fields={[
+          { key: "keyword", node: <Input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索：记录类型/来源/备注…" /> },
+          {
+            key: "recordType",
+            node: (
+              <Select value={recordType} onValueChange={setRecordType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="记录类型" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部记录</SelectItem>
+                  {Object.keys(basePathByType).map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ),
+          },
+        ]}
         actions={
           <Button variant="outline" size="sm" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>
             查询

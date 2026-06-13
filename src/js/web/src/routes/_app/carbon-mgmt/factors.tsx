@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getConversionStatusLabel } from "@/lib/carbon-factor-labels"
 import { cn } from "@/lib/utils"
@@ -276,34 +276,42 @@ function FactorsPage() {
             {selectedCategory ? selectedCategory.category_path : "全部分类"} · 共 {formatNumber(recordsPage?.total)} 条
           </div>
           <AdminTableToolbar
-            search={
-              <Input
-                value={keyword}
-                onChange={(event) => {
-                  setKeyword(event.target.value)
-                  setOffset(0)
-                }}
-                placeholder="搜索：因子名称/分类/单位/发布方"
-              />
-            }
-            filters={
-              <Select
-                value={projectionStatus}
-                onValueChange={(value) => {
-                  setProjectionStatus(value)
-                  setOffset(0)
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="转换状态" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部状态</SelectItem>
-                  <SelectItem value="candidate">可转换</SelectItem>
-                  <SelectItem value="raw_only">仅原始保留</SelectItem>
-                </SelectContent>
-              </Select>
-            }
+            fields={[
+              {
+                key: "keyword",
+                node: (
+                  <Input
+                    value={keyword}
+                    onChange={(event) => {
+                      setKeyword(event.target.value)
+                      setOffset(0)
+                    }}
+                    placeholder="搜索：因子名称/分类/单位/发布方"
+                  />
+                ),
+              },
+              {
+                key: "projectionStatus",
+                node: (
+                  <Select
+                    value={projectionStatus}
+                    onValueChange={(value) => {
+                      setProjectionStatus(value)
+                      setOffset(0)
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="转换状态" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全部状态</SelectItem>
+                      <SelectItem value="candidate">可转换</SelectItem>
+                      <SelectItem value="raw_only">仅原始保留</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ),
+              },
+            ]}
             className="rounded-md border border-border/70 bg-muted/20"
           />
           {recordsQuery.isLoading && <div className="text-muted-foreground text-sm">正在加载...</div>}
@@ -422,11 +430,11 @@ function RecordDetailSheet({ record, onOpenChange }: { record: RawFactorRecord |
       <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
         <SheetHeader>
           <SheetTitle>因子追溯</SheetTitle>
-          <SheetDescription>{record?.snapshot_id ?? "-"}</SheetDescription>
         </SheetHeader>
         {record && (
           <div className="space-y-4 px-4 pb-4">
             <div className="grid gap-3 rounded-md border border-border/70 p-4 text-sm">
+              <DetailRow label="批次" value={record.snapshot_id ?? "-"} />
               <DetailRow label="库" value={`${record.library_year ?? "-"} ${record.library_code ?? ""} ${record.library_name ?? ""}`} />
               <DetailRow label="分类" value={record.category_path} />
               <DetailRow label="名称" value={record.display_factor_name ?? record.factor_name} />
@@ -436,12 +444,54 @@ function RecordDetailSheet({ record, onOpenChange }: { record: RawFactorRecord |
               <DetailRow label="气体" value={record.gas_raw ?? "-"} />
               <DetailRow label="发布方" value={record.provider ?? "-"} />
             </div>
-            <pre className="max-h-[460px] overflow-auto rounded-md bg-muted p-4 text-xs">{JSON.stringify(record.raw_payload ?? {}, null, 2)}</pre>
+            <RawPayloadTable payload={record.raw_payload} />
           </div>
         )}
       </SheetContent>
     </Sheet>
   )
+}
+
+function RawPayloadTable({ payload }: { payload: unknown }) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null
+  const entries = Object.entries(payload).sort(([a], [b]) => a.localeCompare(b))
+  if (entries.length === 0) return null
+
+  return (
+    <AdminPanel title="原始字段" contentClassName="p-0">
+      <AdminDataTable className="rounded-none border-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>字段</TableHead>
+              <TableHead>值</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {entries.map(([key, value]) => (
+              <TableRow key={key}>
+                <TableCell className="text-muted-foreground">{key}</TableCell>
+                <TableCell className="break-words font-medium">{formatPayloadValue(value)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </AdminDataTable>
+    </AdminPanel>
+  )
+}
+
+function formatPayloadValue(value: unknown) {
+  if (value === null || value === undefined) return "-"
+  if (typeof value === "number") return Number.isFinite(value) ? value.toLocaleString("zh-CN") : String(value)
+  if (typeof value === "boolean") return value ? "是" : "否"
+  if (typeof value === "string") return value
+  if (Array.isArray(value)) return value.map(formatPayloadValue).join("、")
+  if (typeof value === "object")
+    return Object.entries(value)
+      .map(([key, nested]) => `${key}: ${formatPayloadValue(nested)}`)
+      .join("；")
+  return String(value)
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
