@@ -9,7 +9,6 @@ import { JumpLinks } from "@/components/carbon/energy-carbon-center"
 import { type PageResult, PaginationBar, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PageSection } from "@/components/ui/page-layout"
@@ -732,32 +731,12 @@ export function EnergyConsumptionPanel() {
         </TabsList>
 
         <TabsContent value="summary" className="space-y-4">
-          <PageSection className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>记录数</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{summary?.totals.record_count ?? 0}</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>原始消费量</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatNumber(summary?.totals.original_amount)}</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>折标煤</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatNumber(summary?.totals.tce_amount)} tce</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>CO2e</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatNumber(summary?.totals.co2e_amount, 2)} kg</CardContent>
-            </Card>
-          </PageSection>
+          <MetricStrip className="md:grid-cols-4 xl:grid-cols-4">
+            <MetricTile label="记录数" value={summary?.totals.record_count ?? 0} />
+            <MetricTile label="原始消费量" value={formatNumber(summary?.totals.original_amount)} />
+            <MetricTile label="折标煤" value={formatNumber(summary?.totals.tce_amount)} unit="tce" />
+            <MetricTile label="CO2e" value={formatNumber(summary?.totals.co2e_amount, 2)} unit="kg" />
+          </MetricStrip>
           <PageSection>
             <AdminPanel title="按能源品种汇总" contentClassName="p-0">
               <AdminDataTable className="rounded-none border-0">
@@ -801,11 +780,8 @@ export function EnergyConsumptionPanel() {
 
         <TabsContent value="facts">
           <PageSection>
-            <Card>
-              <CardHeader>
-                <CardTitle>能源消费明细</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <AdminPanel title="能源消费明细" contentClassName="space-y-3 p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -824,13 +800,7 @@ export function EnergyConsumptionPanel() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {facts.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
-                          暂无数据
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    {facts.length === 0 && <AdminTableStateRow colSpan={12}>暂无数据</AdminTableStateRow>}
                     {facts.map((row) => (
                       <TableRow key={`${row.source_record_type}-${row.source_record_id}`}>
                         <TableCell>{row.source_record_type}</TableCell>
@@ -861,6 +831,8 @@ export function EnergyConsumptionPanel() {
                     ))}
                   </TableBody>
                 </Table>
+              </AdminDataTable>
+              <div className="px-4 pb-4">
                 <PaginationBar
                   page={factsQuery.data ?? { items: [], total: 0, limit: pageSize, offset: pageIndex * pageSize }}
                   pageIndex={pageIndex}
@@ -871,8 +843,8 @@ export function EnergyConsumptionPanel() {
                     setPageIndex(0)
                   }}
                 />
-              </CardContent>
-            </Card>
+              </div>
+            </AdminPanel>
           </PageSection>
         </TabsContent>
 
@@ -946,16 +918,11 @@ export function EnergyConsumptionPanel() {
 
         <TabsContent value="export">
           <PageSection>
-            <Card>
-              <CardHeader>
-                <CardTitle>导出</CardTitle>
-              </CardHeader>
-              <CardContent className="flex justify-end">
-                <Button asChild>
-                  <a href={exportUrl}>导出 CSV</a>
-                </Button>
-              </CardContent>
-            </Card>
+            <AdminPanel title="导出" contentClassName="flex justify-end">
+              <Button asChild>
+                <a href={exportUrl}>导出 CSV</a>
+              </Button>
+            </AdminPanel>
           </PageSection>
         </TabsContent>
       </Tabs>
@@ -1824,43 +1791,42 @@ export function EnergyAnalysisPanel() {
           </MetricStrip>
           <PageSection className="space-y-3">
             {(strategies?.items ?? []).map((item) => (
-              <Card key={item.code}>
-                <CardHeader>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <CardTitle>{item.title}</CardTitle>
-                    <div className="flex gap-2 text-xs text-muted-foreground">
-                      <span className="rounded border px-2 py-1">{item.priority}</span>
-                      <span className="rounded border px-2 py-1">{item.strategy_type}</span>
-                      <span className="rounded border px-2 py-1">{item.target}</span>
-                    </div>
+              <AdminPanel
+                key={item.code}
+                title={item.title}
+                actions={
+                  <>
+                    <Badge variant="outline">{item.priority}</Badge>
+                    <Badge variant="outline">{item.strategy_type}</Badge>
+                    <Badge variant="outline">{item.target}</Badge>
+                  </>
+                }
+                contentClassName="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]"
+              >
+                <div className="rounded-md border border-border/60">
+                  <div className="border-b px-4 py-3 text-sm font-medium">证据</div>
+                  <div className="divide-y">
+                    {Object.entries(item.evidence).map(([key, value]) => (
+                      <div key={`${item.code}-${key}`} className="grid grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)] gap-3 px-4 py-3 text-sm">
+                        <span className="text-muted-foreground">{key}</span>
+                        <span className="text-right font-medium tabular-nums">{typeof value === "number" ? formatEnergyValue(value, 4) : String(value ?? "-")}</span>
+                      </div>
+                    ))}
                   </div>
-                </CardHeader>
-                <CardContent className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-                  <div className="rounded-md border border-border/60">
-                    <div className="border-b px-4 py-3 text-sm font-medium">证据</div>
-                    <div className="divide-y">
-                      {Object.entries(item.evidence).map(([key, value]) => (
-                        <div key={`${item.code}-${key}`} className="grid grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)] gap-3 px-4 py-3 text-sm">
-                          <span className="text-muted-foreground">{key}</span>
-                          <span className="text-right font-medium tabular-nums">{typeof value === "number" ? formatEnergyValue(value, 4) : String(value ?? "-")}</span>
-                        </div>
-                      ))}
-                    </div>
+                </div>
+                <div className="rounded-md border border-border/60">
+                  <div className="border-b px-4 py-3 text-sm font-medium">实施步骤</div>
+                  <div className="space-y-3 p-4">
+                    {item.steps.map((step, index) => (
+                      <div key={`${item.code}-${index}`} className="flex gap-3 text-sm">
+                        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs tabular-nums">{index + 1}</span>
+                        <span>{step}</span>
+                      </div>
+                    ))}
+                    <div className="border-t pt-3 text-sm font-medium">{item.expected_effect}</div>
                   </div>
-                  <div className="rounded-md border border-border/60">
-                    <div className="border-b px-4 py-3 text-sm font-medium">实施步骤</div>
-                    <div className="space-y-3 p-4">
-                      {item.steps.map((step, index) => (
-                        <div key={`${item.code}-${index}`} className="flex gap-3 text-sm">
-                          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs tabular-nums">{index + 1}</span>
-                          <span>{step}</span>
-                        </div>
-                      ))}
-                      <div className="border-t pt-3 text-sm font-medium">{item.expected_effect}</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </AdminPanel>
             ))}
           </PageSection>
         </TabsContent>
@@ -2015,42 +1981,41 @@ export function EnergyFlowPanel() {
         <TabsContent value="report">
           <PageSection className="space-y-3">
             {(reportQuery.data?.data.items ?? []).map((item) => (
-              <Card key={`${item.title}-${item.target}`}>
-                <CardHeader>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <CardTitle>{item.title}</CardTitle>
-                    <div className="flex gap-2">
-                      <Badge variant={item.priority === "high" ? "destructive" : "secondary"}>{item.priority}</Badge>
-                      <Badge variant="outline">{item.target}</Badge>
-                    </div>
+              <AdminPanel
+                key={`${item.title}-${item.target}`}
+                title={item.title}
+                actions={
+                  <>
+                    <Badge variant={item.priority === "high" ? "destructive" : "secondary"}>{item.priority}</Badge>
+                    <Badge variant="outline">{item.target}</Badge>
+                  </>
+                }
+                contentClassName="grid gap-4 xl:grid-cols-2"
+              >
+                <div className="rounded-md border border-border/60">
+                  <div className="border-b px-4 py-3 text-sm font-medium">证据</div>
+                  <div className="divide-y">
+                    {Object.entries(item.evidence).map(([key, value]) => (
+                      <div key={`${item.title}-${key}`} className="grid grid-cols-2 gap-3 px-4 py-3 text-sm">
+                        <span className="text-muted-foreground">{key}</span>
+                        <span className="text-right font-medium tabular-nums">{typeof value === "number" ? formatEnergyValue(value, 4) : String(value ?? "-")}</span>
+                      </div>
+                    ))}
                   </div>
-                </CardHeader>
-                <CardContent className="grid gap-4 xl:grid-cols-2">
-                  <div className="rounded-md border border-border/60">
-                    <div className="border-b px-4 py-3 text-sm font-medium">证据</div>
-                    <div className="divide-y">
-                      {Object.entries(item.evidence).map(([key, value]) => (
-                        <div key={`${item.title}-${key}`} className="grid grid-cols-2 gap-3 px-4 py-3 text-sm">
-                          <span className="text-muted-foreground">{key}</span>
-                          <span className="text-right font-medium tabular-nums">{typeof value === "number" ? formatEnergyValue(value, 4) : String(value ?? "-")}</span>
-                        </div>
-                      ))}
-                    </div>
+                </div>
+                <div className="rounded-md border border-border/60">
+                  <div className="border-b px-4 py-3 text-sm font-medium">动作</div>
+                  <div className="space-y-3 p-4">
+                    {item.steps.map((step, index) => (
+                      <div key={`${item.title}-${index}`} className="flex gap-3 text-sm">
+                        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs tabular-nums">{index + 1}</span>
+                        <span>{step}</span>
+                      </div>
+                    ))}
+                    <div className="border-t pt-3 text-sm font-medium">{item.expected_effect}</div>
                   </div>
-                  <div className="rounded-md border border-border/60">
-                    <div className="border-b px-4 py-3 text-sm font-medium">动作</div>
-                    <div className="space-y-3 p-4">
-                      {item.steps.map((step, index) => (
-                        <div key={`${item.title}-${index}`} className="flex gap-3 text-sm">
-                          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs tabular-nums">{index + 1}</span>
-                          <span>{step}</span>
-                        </div>
-                      ))}
-                      <div className="border-t pt-3 text-sm font-medium">{item.expected_effect}</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </AdminPanel>
             ))}
           </PageSection>
         </TabsContent>
@@ -2294,79 +2259,70 @@ export function EnergyBalancePanel() {
         </TabsContent>
         <TabsContent value="optimize">
           <PageSection className="grid gap-4 xl:grid-cols-[380px_1fr]">
-            <Card>
-              <CardHeader>
-                <CardTitle>参数建议</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-2">
-                  <Label>优化场景</Label>
-                  <Select
-                    value={selectedScenario}
-                    onValueChange={(value) => {
-                      setSelectedScenario(value)
-                      setScenarioParameters(defaultBalanceScenarioParameters[value] ?? {})
-                      setSimulationResult(null)
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(scenarios.length ? scenarios : fallbackBalanceScenarios).map((item) => (
-                        <SelectItem key={item.scenario_type} value={item.scenario_type}>
-                          {item.scenario_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            <AdminPanel title="参数建议" contentClassName="space-y-4">
+              <div className="grid gap-2">
+                <Label>优化场景</Label>
+                <Select
+                  value={selectedScenario}
+                  onValueChange={(value) => {
+                    setSelectedScenario(value)
+                    setScenarioParameters(defaultBalanceScenarioParameters[value] ?? {})
+                    setSimulationResult(null)
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(scenarios.length ? scenarios : fallbackBalanceScenarios).map((item) => (
+                      <SelectItem key={item.scenario_type} value={item.scenario_type}>
+                        {item.scenario_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {Object.entries(scenarioParameters).map(([key, value]) => (
+                <div key={key} className="grid gap-2">
+                  <Label>{balanceParameterLabel(key)}</Label>
+                  <Input type="number" value={value} onChange={(event) => setScenarioParameters((state) => ({ ...state, [key]: event.target.value }))} />
                 </div>
-                {Object.entries(scenarioParameters).map(([key, value]) => (
-                  <div key={key} className="grid gap-2">
-                    <Label>{balanceParameterLabel(key)}</Label>
-                    <Input type="number" value={value} onChange={(event) => setScenarioParameters((state) => ({ ...state, [key]: event.target.value }))} />
-                  </div>
-                ))}
-                <div className="flex flex-wrap gap-2">
-                  <Button onClick={() => simulate.mutate()} disabled={simulate.isPending}>
-                    {simulate.isPending ? "测算中" : "测算"}
-                  </Button>
-                  <Button variant="outline" onClick={() => saveRecord.mutate()} disabled={!simulationResult || saveRecord.isPending}>
-                    保存记录
-                  </Button>
+              ))}
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => simulate.mutate()} disabled={simulate.isPending}>
+                  {simulate.isPending ? "测算中" : "测算"}
+                </Button>
+                <Button variant="outline" onClick={() => saveRecord.mutate()} disabled={!simulationResult || saveRecord.isPending}>
+                  保存记录
+                </Button>
+              </div>
+            </AdminPanel>
+            <AdminPanel
+              title={simulationResult?.scenario_name ?? selectedScenarioMeta?.scenario_name ?? "优化前后对比"}
+              actions={<Badge variant="outline">{confidenceLabel(simulationResult?.confidence_level ?? selectedScenarioMeta?.confidence_level)}</Badge>}
+              contentClassName="space-y-4"
+            >
+              <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
+                <BalanceMetric label="基准能耗" value={simulationResult?.baseline_energy} unit="kWh" />
+                <BalanceMetric label="预计能耗" value={simulationResult?.expected_energy} unit="kWh" />
+                <BalanceMetric label="节能量" value={simulationResult?.saving_energy} unit="kWh" />
+                <BalanceMetric label="费用变化" value={simulationResult?.cost_delta_cny} unit="元" />
+              </MetricStrip>
+              <div className="rounded-md border border-border/60">
+                <div className="grid grid-cols-2 gap-3 px-4 py-3 text-sm">
+                  <span className="text-muted-foreground">节能率</span>
+                  <span className="text-right font-medium tabular-nums">{formatEnergyValue(simulationResult?.saving_rate_pct, 4)}%</span>
                 </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <CardTitle>{simulationResult?.scenario_name ?? selectedScenarioMeta?.scenario_name ?? "优化前后对比"}</CardTitle>
-                  <Badge variant="outline">{confidenceLabel(simulationResult?.confidence_level ?? selectedScenarioMeta?.confidence_level)}</Badge>
+                <div className="grid grid-cols-2 gap-3 border-t px-4 py-3 text-sm">
+                  <span className="text-muted-foreground">方法</span>
+                  <span className="text-right font-medium">{methodLabel(simulationResult?.method ?? selectedScenarioMeta?.method)}</span>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  <BalanceMetric label="基准能耗" value={simulationResult?.baseline_energy} unit="kWh" />
-                  <BalanceMetric label="预计能耗" value={simulationResult?.expected_energy} unit="kWh" />
-                  <BalanceMetric label="节能量" value={simulationResult?.saving_energy} unit="kWh" />
-                  <BalanceMetric label="费用变化" value={simulationResult?.cost_delta_cny} unit="元" />
+                <div className="grid grid-cols-2 gap-3 border-t px-4 py-3 text-sm">
+                  <span className="text-muted-foreground">来源</span>
+                  <span className="text-right font-medium">{simulationResult?.source_name ?? selectedScenarioMeta?.source_name ?? "-"}</span>
                 </div>
-                <div className="mt-4 rounded-md border border-border/60">
-                  <div className="grid grid-cols-2 gap-3 px-4 py-3 text-sm">
-                    <span className="text-muted-foreground">节能率</span>
-                    <span className="text-right font-medium tabular-nums">{formatEnergyValue(simulationResult?.saving_rate_pct, 4)}%</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 border-t px-4 py-3 text-sm">
-                    <span className="text-muted-foreground">方法</span>
-                    <span className="text-right font-medium">{methodLabel(simulationResult?.method ?? selectedScenarioMeta?.method)}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 border-t px-4 py-3 text-sm">
-                    <span className="text-muted-foreground">来源</span>
-                    <span className="text-right font-medium">{simulationResult?.source_name ?? selectedScenarioMeta?.source_name ?? "-"}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+              </div>
+            </AdminPanel>
           </PageSection>
         </TabsContent>
         <TabsContent value="records">
