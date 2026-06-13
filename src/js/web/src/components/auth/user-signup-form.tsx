@@ -18,21 +18,21 @@ import { DEFAULT_AUTH_REDIRECT } from "@/lib/redirect-utils"
 
 const signupSchema = z
   .object({
-    email: z.string().email("Invalid email address"),
+    email: z.string().email("请输入有效邮箱地址"),
     password: z
       .string()
-      .min(1, "Password is required")
+      .min(1, "请输入密码")
       .superRefine((value, ctx) => {
         const error = validatePassword(value)
         if (error) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: error })
         }
       }),
-    name: z.string().min(1, "Name is required"),
-    confirmPassword: z.string().min(1, "Please confirm your password"),
+    name: z.string().min(1, "请输入姓名"),
+    confirmPassword: z.string().min(1, "请再次输入密码"),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
+    message: "两次输入的密码不一致",
     path: ["confirmPassword"],
   })
 
@@ -72,16 +72,16 @@ export function UserSignupForm({ className, redirectUrl, ...props }: UserSignupF
       })
 
       if (response.data) {
-        toast.success("Account created! Please check your email to verify your account.")
+        toast.success("账号已创建，请前往邮箱完成验证")
         // Preserve redirect URL when navigating to login
         const loginSearch = redirectUrl ? { redirect: redirectUrl } : undefined
         navigate({ to: "/login", search: loginSearch })
         return
       }
 
-      toast.error(response.error?.detail || "Signup failed")
+      toast.error(response.error?.detail || "注册失败")
     } catch (_error) {
-      toast.error("An error occurred during signup")
+      toast.error("注册过程中发生错误")
     }
   }
 
@@ -140,15 +140,7 @@ export function UserSignupForm({ className, redirectUrl, ...props }: UserSignupF
                 <FormItem>
                   <FormLabel>确认密码</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="请再次输入密码"
-                      autoCapitalize="none"
-                      autoComplete="new-password"
-                      autoCorrect="off"
-                      {...field}
-                      type="password"
-                      disabled={isLoading}
-                    />
+                    <Input placeholder="请再次输入密码" autoCapitalize="none" autoComplete="new-password" autoCorrect="off" {...field} type="password" disabled={isLoading} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

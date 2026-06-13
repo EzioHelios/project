@@ -63,7 +63,7 @@ function CompanyPage() {
 
         {isError && (
           <AdminPanel title="组织档案">
-            <AdminEmptyState title="企业信息加载失败" description="请稍后重试。" className="min-h-40 text-destructive" />
+            <AdminEmptyState title="企业信息加载失败" className="min-h-40 text-destructive" />
           </AdminPanel>
         )}
 

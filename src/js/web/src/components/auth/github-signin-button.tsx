@@ -28,7 +28,7 @@ export function GitHubSignInButton({ variant = "signin", onSuccess, onError, red
       })
 
       if (response.error) {
-        throw new Error("Failed to initiate GitHub OAuth")
+        throw new Error("无法启动 GitHub 授权")
       }
 
       return response.data
@@ -44,13 +44,13 @@ export function GitHubSignInButton({ variant = "signin", onSuccess, onError, red
         // Redirect to GitHub OAuth
         window.location.href = data.authorizationUrl
       } else {
-        toast.error("Failed to get authorization URL")
-        onError?.("Failed to get authorization URL")
+        toast.error("无法获取 GitHub 授权地址")
+        onError?.("无法获取 GitHub 授权地址")
       }
       onSuccess?.()
     },
     onError: (error: Error) => {
-      const message = error.message || "Failed to sign in with GitHub"
+      const message = error.message || "GitHub 登录失败"
       toast.error(message)
       onError?.(message)
     },
@@ -63,11 +63,11 @@ export function GitHubSignInButton({ variant = "signin", onSuccess, onError, red
   const getButtonText = () => {
     switch (variant) {
       case "signup":
-        return "Sign up with GitHub"
+        return "使用 GitHub 注册"
       case "link":
-        return "Link GitHub Account"
+        return "关联 GitHub 账号"
       default:
-        return "Sign in with GitHub"
+        return "使用 GitHub 登录"
     }
   }
 

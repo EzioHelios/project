@@ -28,7 +28,7 @@ export function GoogleSignInButton({ variant = "signin", onSuccess, onError, red
       })
 
       if (response.error) {
-        throw new Error("Failed to initiate OAuth")
+        throw new Error("无法启动 Google 授权")
       }
 
       return response.data
@@ -44,13 +44,13 @@ export function GoogleSignInButton({ variant = "signin", onSuccess, onError, red
         // Redirect to Google OAuth
         window.location.href = data.authorizationUrl
       } else {
-        toast.error("Failed to get authorization URL")
-        onError?.("Failed to get authorization URL")
+        toast.error("无法获取 Google 授权地址")
+        onError?.("无法获取 Google 授权地址")
       }
       onSuccess?.()
     },
     onError: (error: Error) => {
-      const message = error.message || "Failed to sign in with Google"
+      const message = error.message || "Google 登录失败"
       toast.error(message)
       onError?.(message)
     },
@@ -63,11 +63,11 @@ export function GoogleSignInButton({ variant = "signin", onSuccess, onError, red
   const getButtonText = () => {
     switch (variant) {
       case "signup":
-        return "Sign up with Google"
+        return "使用 Google 注册"
       case "link":
-        return "Link Google Account"
+        return "关联 Google 账号"
       default:
-        return "Sign in with Google"
+        return "使用 Google 登录"
     }
   }
 

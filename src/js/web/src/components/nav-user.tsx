@@ -33,11 +33,10 @@ function getInitials(value: string) {
     .slice(0, 2)
 }
 
-function MenuActionRow({ title, description }: { title: string; description: string }) {
+function MenuActionRow({ title }: { title: string }) {
   return (
     <span className="grid min-w-0 flex-1 gap-0.5 text-left">
       <span className="truncate text-sm font-medium">{title}</span>
-      <span className="truncate text-xs text-muted-foreground">{description}</span>
     </span>
   )
 }
@@ -56,7 +55,7 @@ export function NavUser({ teams, currentTeam, onTeamSelect }: NavUserProps) {
     return null
   }
 
-  const displayName = user.name || user.username || "Account"
+  const displayName = user.name || user.username || "账号"
   const initials = getInitials(displayName)
   const activeTeam = currentTeam ?? teams[0] ?? null
   const activeTeamInitials = activeTeam ? getInitials(activeTeam.name) : "租"
@@ -129,12 +128,12 @@ export function NavUser({ teams, currentTeam, onTeamSelect }: NavUserProps) {
             {activeTeam && (
               <DropdownMenuItem className="h-auto cursor-pointer items-start gap-3 px-2 py-2" onClick={() => navigate({ to: "/teams/$teamId", params: { teamId: activeTeam.id } })}>
                 <Building2 className="mt-0.5 size-4" />
-                <MenuActionRow title="租户资料" description="成员、邀请与基础信息" />
+                <MenuActionRow title="租户资料" />
               </DropdownMenuItem>
             )}
             <DropdownMenuItem className="h-auto cursor-pointer items-start gap-3 px-2 py-2" onClick={() => navigate({ to: "/profile" })}>
               <User className="mt-0.5 size-4" />
-              <MenuActionRow title="个人资料" description="账号、安全与第三方登录" />
+              <MenuActionRow title="个人资料" />
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="cursor-pointer" onClick={() => navigate({ to: "/teams/new" })}>
@@ -145,7 +144,7 @@ export function NavUser({ teams, currentTeam, onTeamSelect }: NavUserProps) {
               <ShieldCheck />
               MFA
               <Badge variant={user.isTwoFactorEnabled ? "default" : "secondary"} className="ml-auto">
-                {user.isTwoFactorEnabled ? "Enabled" : "Disabled"}
+                {user.isTwoFactorEnabled ? "已启用" : "未启用"}
               </Badge>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
