@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
-
+import { AdminPageHeader } from "@/components/admin-ui"
 import { type ApiEnvelope, DistributionChart, fetchCarbonApi, RankingList, TrendChart } from "@/components/carbon/analytics-panels"
 import { DetailPanel, FacetNavigation, IssueSummaryStrip, TraceTimeline } from "@/components/carbon/energy-carbon-center"
 import { Button } from "@/components/ui/button"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 type QualityIssue = {
@@ -116,8 +116,8 @@ export function QualityTracePage({ embedded = false }: { embedded?: boolean } = 
           description="不是为了看图，而是为了确认问题是在扩大还是在收敛。"
           points={trendQuery.data?.data.series ?? []}
           lines={[
-            { key: "alerts_count", label: "问题数", color: "#dc2626" },
-            { key: "handled_count", label: "非高风险问题", color: "#16a34a" },
+            { key: "alerts_count", label: "问题数", colorKey: "danger" },
+            { key: "handled_count", label: "非高风险问题", colorKey: "success" },
           ]}
           height={300}
         />
@@ -227,8 +227,8 @@ export function QualityTracePage({ embedded = false }: { embedded?: boolean } = 
   }
 
   return (
-    <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
-      <PageHeader eyebrow="碳排放管理" title="碳核查支撑" description="围绕数据质量、过程追溯、原始凭证和审核记录组织材料，支撑碳核查、问题整改和材料汇集。" actions={actions} />
+    <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
+      <AdminPageHeader title="碳核查支撑" actions={actions} />
       {content}
     </PageContainer>
   )

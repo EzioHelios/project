@@ -12,7 +12,7 @@ export function AppLayout() {
 
   const header = useMemo(() => {
     if (pathname === "/home") {
-      return { eyebrow: "首页", title: "能碳中心工作台" }
+      return { eyebrow: "工作台", title: "能碳中心" }
     }
     if (pathname === "/platform") {
       return { eyebrow: "首页", title: "数据管理平台" }
@@ -88,14 +88,14 @@ export function AppLayout() {
       return { eyebrow: "监测告警运维", title: "告警中心" }
     }
     if (pathname === "/energy" || pathname.startsWith("/energy/")) {
-      if (pathname === "/energy/consumption") return { eyebrow: "能源管理", title: "能耗查询" }
-      if (pathname === "/energy/intensity") return { eyebrow: "能源管理", title: "能源消费量和强度计算" }
-      if (pathname === "/energy/analysis") return { eyebrow: "能源管理", title: "能源消费分析与用能策略推荐" }
-      if (pathname === "/energy/benchmark") return { eyebrow: "能源管理", title: "能效对标" }
-      if (pathname === "/energy/flow") return { eyebrow: "能源管理", title: "能流分析" }
-      if (pathname === "/energy/balance") return { eyebrow: "能源管理", title: "能效平衡与优化" }
-      if (pathname === "/energy/budget") return { eyebrow: "能源管理", title: "用能与碳排放预算管理" }
-      return { eyebrow: "能源管理", title: "能源管理" }
+      if (pathname === "/energy/consumption") return { eyebrow: "能源运营", title: "能耗查询" }
+      if (pathname === "/energy/intensity") return { eyebrow: "能源运营", title: "能耗强度" }
+      if (pathname === "/energy/analysis") return { eyebrow: "能源运营", title: "用能分析" }
+      if (pathname === "/energy/benchmark") return { eyebrow: "能源运营", title: "能效对标" }
+      if (pathname === "/energy/flow") return { eyebrow: "能源运营", title: "能流分析" }
+      if (pathname === "/energy/balance") return { eyebrow: "能源运营", title: "能效平衡" }
+      if (pathname === "/energy/budget") return { eyebrow: "能源运营", title: "用能预算" }
+      return { eyebrow: "能源运营", title: "能源运营" }
     }
     if (pathname.startsWith("/carbon")) {
       if (pathname === "/carbon/accounting") return { eyebrow: "碳排放管理", title: "碳排放核算" }
@@ -118,14 +118,15 @@ export function AppLayout() {
         <SidebarProvider>
           <AppSidebar />
           <SidebarInset>
-            <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border/60 bg-background/80 backdrop-blur">
+            <header className="flex h-14 shrink-0 items-center gap-2 border-border/70 border-b bg-background/86 backdrop-blur">
               <div className="flex w-full items-center justify-between gap-4 px-4">
                 <div className="flex items-center gap-2">
                   <SidebarTrigger className="-ml-1" />
                   <Separator orientation="vertical" className="mr-2 h-4" />
-                  <div>
-                    <p className="text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{header.eyebrow}</p>
-                    <p className="font-heading text-lg font-semibold text-foreground">{header.title}</p>
+                  <div className="flex min-w-0 items-center gap-2 text-sm">
+                    <span className="font-medium text-muted-foreground">{header.eyebrow}</span>
+                    <span className="text-muted-foreground/50">/</span>
+                    <span className="truncate font-medium text-foreground">{header.title}</span>
                   </div>
                 </div>
               </div>

@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { ChevronRight, Shield, Tag, UserPlus, Users } from "lucide-react"
+import { AdminPageHeader } from "@/components/admin-ui"
 import { CreateTeamForm } from "@/components/teams/create-team-form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { PageContainer, PageHeader } from "@/components/ui/page-layout"
+import { PageContainer } from "@/components/ui/page-layout"
 
 export const Route = createFileRoute("/_app/teams/new")({
   component: NewTeamPage,
@@ -33,8 +34,8 @@ const tips = [
 
 function NewTeamPage() {
   return (
-    <PageContainer className="flex-1 space-y-8">
-      <PageHeader eyebrow="Teams" title="Create New Team" description="Set up a new team to organize members and manage access." />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title="Create New Team" />
 
       <div className="flex gap-6">
         {/* Main form */}

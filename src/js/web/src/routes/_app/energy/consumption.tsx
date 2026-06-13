@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import { AdminPageHeader } from "@/components/admin-ui"
 import { EnergyConsumptionPanel } from "@/components/carbon/energy-guide-pages"
-import { PageContainer, PageHeader } from "@/components/ui/page-layout"
+import { PageContainer } from "@/components/ui/page-layout"
 
 export const Route = createFileRoute("/_app/energy/consumption")({
   component: EnergyConsumptionPage,
@@ -9,8 +10,8 @@ export const Route = createFileRoute("/_app/energy/consumption")({
 
 function EnergyConsumptionPage() {
   return (
-    <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
-      <PageHeader eyebrow="能源管理" title="能耗查询" />
+    <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
+      <AdminPageHeader title="能耗查询" />
       <EnergyConsumptionPanel />
     </PageContainer>
   )

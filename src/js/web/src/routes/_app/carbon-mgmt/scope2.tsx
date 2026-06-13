@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 
+import { AdminPageHeader, AdminPanel } from "@/components/admin-ui"
 import { Scope2RecordsPanel } from "@/components/carbon/scope2-records-panel"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export const Route = createFileRoute("/_app/carbon-mgmt/scope2")({
@@ -12,8 +12,8 @@ export const Route = createFileRoute("/_app/carbon-mgmt/scope2")({
 
 function Scope2Page() {
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="碳核算模型" title="[范围2] 用电核算" description="以电表月聚合为主来源进行范围2用电核算，账单补录与数据对账作为辅助视图。" />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title="[范围2] 用电核算" />
 
       <PageSection>
         <Tabs defaultValue="records">
@@ -62,16 +62,12 @@ function SubViewEntryCard({
   to: "/carbon-mgmt/scope2-bill" | "/carbon-mgmt/scope2-reconciliation"
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <AdminPanel title={title} description={description}>
+      <div>
         <Button asChild>
           <Link to={to}>{actionLabel}</Link>
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </AdminPanel>
   )
 }

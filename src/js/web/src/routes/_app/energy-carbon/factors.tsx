@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useState } from "react"
-
+import { AdminPageHeader } from "@/components/admin-ui"
 import { type ApiEnvelope, DistributionChart, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
 import { JumpLinks } from "@/components/carbon/energy-carbon-center"
 import { Button } from "@/components/ui/button"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
@@ -67,11 +67,9 @@ function EnergyCarbonFactorsPage() {
   })
 
   return (
-    <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
-      <PageHeader
-        eyebrow="能碳中心"
+    <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
+      <AdminPageHeader
         title="因子库管理"
-        description="集中管理排放因子和计算因子的口径、版本、适用范围与使用健康度，支撑碳排数据库和核算模型。"
         actions={
           <JumpLinks
             items={[

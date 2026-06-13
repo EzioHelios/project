@@ -1,61 +1,122 @@
 import { Link } from "@tanstack/react-router"
-import { ClipboardCheck, Fuel, PlugZap, Truck } from "lucide-react"
+import { ArrowRight, ClipboardCheck, Fuel, Landmark, PlugZap, Truck } from "lucide-react"
 
+import { AdminPanel, MetricStrip, MetricTile, StatusBadge } from "@/components/admin-ui"
 import { CarbonAccountingResultsPanel } from "@/components/carbon/accounting-inventory-panel"
 import { ScopeRecordPage } from "@/components/carbon/scope-record-page"
 import { Scope2RecordsPanel } from "@/components/carbon/scope2-records-panel"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PendingReviewPanel } from "@/routes/_app/carbon-mgmt/pending"
 
 export function AccountingOverviewPanel() {
   const entries = [
-    { label: "Scope1 填报", description: "移动源、固定源和制冷剂逸散活动数据。", icon: Fuel },
-    { label: "Scope2 填报", description: "电表月聚合、账单补录和用电核算记录。", icon: PlugZap },
-    { label: "Scope3 填报", description: "废弃物处理和外购运输活动数据。", icon: Truck },
-    { label: "待审核", description: "集中处理已送审的各类核算记录。", icon: ClipboardCheck },
+    { label: "Scope 1", description: "移动源、固定源、制冷剂", icon: Fuel, to: "/carbon-mgmt/scope1-mobile" },
+    { label: "Scope 2", description: "电表、账单、外购能源", icon: PlugZap, to: "/carbon-mgmt/scope2-records" },
+    { label: "Scope 3", description: "废弃物、外购运输", icon: Truck, to: "/carbon-mgmt/scope3-waste" },
+    { label: "审核队列", description: "待复核记录与核算结果", icon: ClipboardCheck, to: "/carbon-mgmt/pending" },
+  ] as const
+
+  const readiness = [
+    { label: "企业档案", to: "/data/company" },
+    { label: "排放因子", to: "/carbon-mgmt/factors" },
+    { label: "计算因子", to: "/carbon-mgmt/calculation-factors" },
+    { label: "电表台账", to: "/data/meter" },
   ] as const
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-      <Card>
-        <CardHeader>
-          <CardTitle>核算业务闭环</CardTitle>
-          <CardDescription>本页承载组织碳排放核算的业务动作：填报、核算、送审、审核和结果追踪。</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2">
-          {entries.map((item) => (
-            <div key={item.label} className="rounded-lg border border-border/60 bg-card/60 p-4">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <item.icon className="h-5 w-5" />
-              </div>
-              <div className="text-sm font-medium">{item.label}</div>
-              <div className="mt-1 text-xs leading-5 text-muted-foreground">{item.description}</div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
+      <AdminPanel
+        title="本期核算工作台"
+        description="组织边界、活动数据、排放清单、审核归档"
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link to="/carbon/accounting">
+              查看核算结果
+              <ArrowRight className="size-4" />
+            </Link>
+          </Button>
+        }
+      >
+        <div className="space-y-5">
+          <MetricStrip>
+            <MetricTile label="边界确认" value="01" meta="组织与账期" />
+            <MetricTile label="活动数据" value="02" meta="范围 1/2/3" />
+            <MetricTile label="排放清单" value="03" meta="计算与质检" />
+            <MetricTile label="审核归档" value="04" meta="核查与锁定" />
+          </MetricStrip>
+          <div className="grid gap-3 md:grid-cols-2">
+            {entries.map((item) => (
+              <Link
+                key={item.label}
+                to={item.to}
+                className="group rounded-lg border border-border/70 bg-background/70 p-4 transition-colors hover:border-primary/25 hover:bg-accent/35"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent text-accent-foreground">
+                    <item.icon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-medium text-sm">{item.label}</div>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                    </div>
+                    <div className="mt-1 text-muted-foreground text-xs leading-5">{item.description}</div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </AdminPanel>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>底座数据入口</CardTitle>
-          <CardDescription>因子、设备和电表属于底座能力，从业务页跳转使用，不作为碳排放管理 Tab。</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-2">
-          <Button asChild variant="outline" className="justify-start">
-            <Link to="/carbon-mgmt/factors">排放因子库</Link>
-          </Button>
-          <Button asChild variant="outline" className="justify-start">
-            <Link to="/carbon-mgmt/calculation-factors">计算因子库</Link>
-          </Button>
-          <Button asChild variant="outline" className="justify-start">
-            <Link to="/data/meter">电表电量台账</Link>
-          </Button>
-          <Button asChild variant="outline" className="justify-start">
-            <Link to="/data/company">企业基本信息</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <AdminPanel title="待办入口">
+          <div className="grid gap-2">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-muted-foreground text-xs">审核状态</span>
+              <StatusBadge status="pending" />
+            </div>
+            <Button asChild className="justify-between">
+              <Link to="/carbon-mgmt/pending">
+                待审核记录
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="justify-between">
+              <Link to="/carbon-mgmt/scope2-reconciliation">
+                范围 2 对账
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="justify-between">
+              <Link to="/carbon/verification">
+                核查支撑
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+          </div>
+        </AdminPanel>
+
+        <AdminPanel
+          title={
+            <span className="flex items-center gap-2">
+              <Landmark className="h-4 w-4 text-muted-foreground" />
+              <span>数据准备</span>
+            </span>
+          }
+        >
+          <div className="grid gap-2">
+            {readiness.map((item) => (
+              <Button key={item.label} asChild variant="outline" className="justify-between">
+                <Link to={item.to}>
+                  {item.label}
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+            ))}
+          </div>
+        </AdminPanel>
+      </div>
     </div>
   )
 }

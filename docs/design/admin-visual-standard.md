@@ -44,12 +44,64 @@ Chart colors must come from the shared energy-carbon palette. Do not let every c
 - Large page titles should be controlled and workbench-like, not marketing-scale.
 - Keep labels short and scannable.
 
+### Header Density
+
+Backend page headers must be compact and single-purpose. The page title area should identify the current work surface, not repeat navigation context.
+
+- Use one visible page title only.
+- Do not show an eyebrow/subtitle above the title when the same context already appears in breadcrumb or sidebar.
+- Do not render both `碳排放管理 / 碳排放核算` and another `碳核算 / 碳排放核算` block in the same first viewport.
+- Default header height should stay compact: title row plus optional action row, not a marketing hero.
+- Page description is off by default. Do not use `meta` as a second title line. Use metadata chips, status badges, or context fields instead of prose.
+- If a page needs context, put it in `ContextBar`, breadcrumb, status badge, or audit footer.
+
+Header density budget:
+
+- Content header target height: 48px to 64px when no `ContextBar` is present.
+- Content header maximum height: 80px including wrapped actions. If it exceeds this, actions must move into a more menu or the context must move below the header.
+- Title size: 24px to 28px. Do not use display or hero typography in admin routes.
+- One optional meta row is allowed only for machine-auditable facts: period, organization, lock state, data freshness, approval state, or permission scope.
+- Explanatory text such as "用于查看...", "帮助用户...", "当前页面..." is not header metadata.
+
+Recommended compact header structure:
+
+1. Breadcrumb or module path in the app top bar.
+2. Content header with title, status, and actions.
+3. ContextBar immediately below when filters or operating scope are needed.
+
+Anti-pattern:
+
+```tsx
+<TopBar>碳排放管理 / 碳排放核算</TopBar>
+<PageHeader eyebrow="碳核算" title="碳排放核算" />
+```
+
+Preferred:
+
+```tsx
+<TopBar>碳排放管理 / 碳排放核算</TopBar>
+<AdminPageHeader title="碳排放核算" status={<StatusBadge status="pending" />} />
+```
+
 ### Surfaces
 
 - Cards are for grouped business objects only.
 - Prefer borders, dividers, section headers, and table density over stacked card boxes.
 - Avoid heavy shadows and glowing effects.
 - Inner controls should have tighter radius than outer containers.
+
+### Charts
+
+The project uses `echarts` / `echarts-for-react`, which supports global theme registration and option-level customization. Chart styling must be centralized.
+
+- Do not define chart colors inside page components.
+- Do not use default ECharts blue, random pie colors, or saturated dashboard palettes.
+- Do not let chart cards use a visual style separate from `AdminPanel`.
+- All charts must pass through `ChartPanel` and a shared `createAdminChartOption()` / `adminChartTheme`.
+- Axes, grid, legend, tooltip, labels, loading, empty, and drilldown affordances must be consistent across analysis pages.
+- Chart panel descriptions are off by default. Each chart should communicate through title, unit, source, updated time, legend, axis name, tooltip, and drilldown target.
+- Page components may choose data, chart type, labels, units, thresholds, source, updated time, and drilldown behavior. They must not own visual option details.
+- Pie/donut charts are allowed only when part-to-whole comparison is genuinely the task; prefer bar, stacked bar, trend, heat grid, and ranked lists for operational analysis.
 
 ## Page Rules
 

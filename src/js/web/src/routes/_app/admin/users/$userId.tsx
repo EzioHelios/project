@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowLeft } from "lucide-react"
 import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
+import { AdminPageHeader } from "@/components/admin-ui"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { SkeletonCard } from "@/components/ui/skeleton"
 import { useAdminUpdateUser, useAdminUser } from "@/lib/api/hooks/admin"
 
@@ -18,8 +19,8 @@ function AdminUserDetailPage() {
 
   if (isLoading) {
     return (
-      <PageContainer className="flex-1 space-y-8">
-        <PageHeader eyebrow="权限中心" title="用户详情" />
+      <PageContainer className="flex-1 space-y-4">
+        <AdminPageHeader title="用户详情" />
         <PermissionCenterNav />
         <PageSection>
           <SkeletonCard />
@@ -30,9 +31,8 @@ function AdminUserDetailPage() {
 
   if (isError || !data) {
     return (
-      <PageContainer className="flex-1 space-y-8">
-        <PageHeader
-          eyebrow="权限中心"
+      <PageContainer className="flex-1 space-y-4">
+        <AdminPageHeader
           title="用户详情"
           actions={
             <Button variant="outline" size="sm" asChild>
@@ -56,11 +56,9 @@ function AdminUserDetailPage() {
   }
 
   return (
-    <PageContainer className="flex-1 space-y-8">
-      <PageHeader
-        eyebrow="权限中心"
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader
         title={data.name ?? data.email}
-        description="管理用户账号状态和权限。"
         actions={
           <Button variant="outline" size="sm" asChild>
             <Link to="/admin/users">

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-
+import { AdminPageHeader, StatusBadge } from "@/components/admin-ui"
 import {
   AccountingOverviewPanel,
   CarbonAccountingResultsPanel,
@@ -9,7 +9,7 @@ import {
   Scope3AccountingPanel,
 } from "@/components/carbon/accounting-panels"
 import { OrganizationBoundaryPanel } from "@/components/carbon/organization-boundary-panel"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export const Route = createFileRoute("/_app/carbon/accounting")({
@@ -18,8 +18,8 @@ export const Route = createFileRoute("/_app/carbon/accounting")({
 
 function CarbonAccountingPage() {
   return (
-    <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
-      <PageHeader eyebrow="碳排放管理" title="碳排放核算" />
+    <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
+      <AdminPageHeader title="碳排放核算" status={<StatusBadge status="pending" label="本期待处理" />} />
       <PageSection>
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList className="grid w-full grid-cols-2 lg:grid-cols-7">

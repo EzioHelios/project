@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
-
+import { AdminPageHeader } from "@/components/admin-ui"
 import { type ApiEnvelope, CompositeTrendChart, DistributionChart, FlowGraph, fetchCarbonApi, LedgerTable } from "@/components/carbon/analytics-panels"
 import { DetailPanel, JumpLinks, sourceLabel, TraceTimeline } from "@/components/carbon/energy-carbon-center"
 import { Button } from "@/components/ui/button"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 type CarbonRecordsPage = {
@@ -102,11 +102,9 @@ function CarbonWorkbenchPage() {
   const summary = recordsQuery.data?.data.summary
 
   return (
-    <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
-      <PageHeader
-        eyebrow="能碳中心"
+    <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
+      <AdminPageHeader
         title="碳排放核算"
-        description="汇总 Scope 1/2/3 活动数据、核算结果、范围结构、缺失项和审核状态，支撑组织碳盘查与排放核算。"
         actions={
           <JumpLinks
             items={[
@@ -140,11 +138,11 @@ function CarbonWorkbenchPage() {
           description="看范围1/2/3 的期间波动，确认当前碳排贡献结构。"
           points={trendQuery.data?.data.series ?? []}
           bars={[
-            { key: "scope1_co2e", label: "范围1", color: "#fca5a5", stack: "scope" },
-            { key: "scope2_co2e", label: "范围2", color: "#93c5fd", stack: "scope" },
-            { key: "scope3_co2e", label: "范围3", color: "#99f6e4", stack: "scope" },
+            { key: "scope1_co2e", label: "范围1", colorKey: "scope1", stack: "scope" },
+            { key: "scope2_co2e", label: "范围2", colorKey: "scope2", stack: "scope" },
+            { key: "scope3_co2e", label: "范围3", colorKey: "scope3", stack: "scope" },
           ]}
-          lines={[{ key: "carbon_co2e", label: "总碳排", color: "#0f172a", yAxisIndex: 1 }]}
+          lines={[{ key: "carbon_co2e", label: "总碳排", colorKey: "carbon", yAxisIndex: 1 }]}
           leftAxisName="分范围碳排"
           rightAxisName="总碳排"
           height={320}

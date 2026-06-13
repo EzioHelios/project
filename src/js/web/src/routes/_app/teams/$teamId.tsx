@@ -2,11 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useParams } from "@tanstack/react-router"
 import { ArrowLeft, Clock, Mail, X } from "lucide-react"
 import { useEffect } from "react"
+import { AdminPageHeader } from "@/components/admin-ui"
 import { InviteMemberDialog } from "@/components/teams/invite-member-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Separator } from "@/components/ui/separator"
 import { useAuthStore } from "@/lib/auth"
 import { deleteTeamInvitation, getTeam, listTeamInvitations, removeMemberFromTeam, type TeamInvitation, type TeamMember } from "@/lib/generated/api"
@@ -103,11 +104,9 @@ function TeamDetail() {
   }
 
   return (
-    <PageContainer className="flex-1 space-y-8">
-      <PageHeader
-        eyebrow="Teams"
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader
         title={team.name}
-        description={team.description || "No description provided."}
         actions={
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" asChild>

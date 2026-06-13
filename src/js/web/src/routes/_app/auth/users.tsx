@@ -1,13 +1,14 @@
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
+import { AdminPageHeader } from "@/components/admin-ui"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { SkeletonTable } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useAdminUsers } from "@/lib/api/hooks/admin"
 import { useAuthStore } from "@/lib/auth"
-import { Button } from "@/components/ui/button"
 
 export const Route = createFileRoute("/_app/auth/users")({
   component: UsersManagePage,
@@ -21,8 +22,8 @@ function UsersManagePage() {
 
   if (!user?.isSuperuser) {
     return (
-      <PageContainer className="flex-1 space-y-6">
-        <PageHeader eyebrow="权限中心" title="用户管理" description="该功能仅管理员可用。" />
+      <PageContainer className="flex-1 space-y-4">
+        <AdminPageHeader title="用户管理" meta="仅管理员可用" />
         <PermissionCenterNav />
         <PageSection>
           <Card>
@@ -42,8 +43,8 @@ function UsersManagePage() {
   }
 
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="权限中心" title="用户管理" description="查看并管理系统用户。" />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title="用户管理" />
       <PermissionCenterNav />
       <PageSection>
         {isLoading && <SkeletonTable rows={6} />}
@@ -121,4 +122,3 @@ function UsersManagePage() {
     </PageContainer>
   )
 }
-

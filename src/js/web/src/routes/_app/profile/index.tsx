@@ -3,9 +3,10 @@ import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
+import { AdminPageHeader } from "@/components/admin-ui"
 import { ConnectedAccounts } from "@/components/profile/connected-accounts"
 import { MfaSection } from "@/components/profile/mfa-section"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { profileOAuthAccountsQueryKey } from "@/lib/generated/api/@tanstack/react-query.gen"
 
 const profileSearchSchema = z
@@ -45,8 +46,8 @@ function ProfilePage() {
   }, [searchParams, queryClient, navigate])
 
   return (
-    <PageContainer className="flex-1 space-y-8">
-      <PageHeader eyebrow="Account" title="Profile settings" description="Manage security, connected accounts, and authentication options." />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title="Profile settings" />
       <PageSection>
         <div className="grid gap-6 lg:grid-cols-2">
           <MfaSection />

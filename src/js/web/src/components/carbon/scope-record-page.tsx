@@ -2,15 +2,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
+import { AdminDataTable, AdminPageHeader, AdminPanel, AdminTableStateRow, AdminTableToolbar } from "@/components/admin-ui"
 import { CarbonRecordActions } from "@/components/carbon/record-actions"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { PaginationBar, requestPage } from "@/components/platform/data-admin-pages"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -163,10 +163,59 @@ export function ScopeRecordPage<T extends ScopeRow>({
   const content = (
     <>
       <PageSection>
-        <Card>
-          <CardHeader className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <CardTitle>数据列表</CardTitle>
+        <AdminPanel title="数据列表" description={embedded ? undefined : description}>
+          <div className="space-y-3">
+            <AdminTableToolbar
+              search={
+                <Input
+                  value={keyword}
+                  onChange={(event) => {
+                    setKeyword(event.target.value)
+                    setPageIndex(0)
+                  }}
+                  placeholder={searchPlaceholder}
+                />
+              }
+              filters={
+                <div className="w-[160px]">
+                  <Select
+                    value={status}
+                    onValueChange={(value) => {
+                      setStatus(value)
+                      setPageIndex(0)
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="状态" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全部状态</SelectItem>
+                      <SelectItem value="draft">草稿</SelectItem>
+                      <SelectItem value="pending">待审核</SelectItem>
+                      <SelectItem value="approved">已通过</SelectItem>
+                      <SelectItem value="rejected">已驳回</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              }
+              actions={
+                <>
+                  <Button variant="secondary" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>
+                    查询
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setKeyword("")
+                      setStatus("all")
+                      setPageIndex(0)
+                    }}
+                  >
+                    重置
+                  </Button>
+                </>
+              }
+            >
               <div className="flex flex-wrap gap-2">
                 <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                   <DialogTrigger asChild>
@@ -194,62 +243,22 @@ export function ScopeRecordPage<T extends ScopeRow>({
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setKeyword("")
-                    setStatus("all")
-                    setPageIndex(0)
-                  }}
-                >
-                  重置
-                </Button>
               </div>
-            </div>
+            </AdminTableToolbar>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="min-w-[260px] flex-1">
-                <Input
-                  value={keyword}
-                  onChange={(event) => {
-                    setKeyword(event.target.value)
-                    setPageIndex(0)
-                  }}
-                  placeholder={searchPlaceholder}
-                />
-              </div>
-              <div className="w-[160px]">
-                <Select
-                  value={status}
-                  onValueChange={(value) => {
-                    setStatus(value)
-                    setPageIndex(0)
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="状态" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">全部状态</SelectItem>
-                    <SelectItem value="draft">草稿</SelectItem>
-                    <SelectItem value="pending">待审核</SelectItem>
-                    <SelectItem value="approved">已通过</SelectItem>
-                    <SelectItem value="rejected">已驳回</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button variant="secondary" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>
-                查询
-              </Button>
-            </div>
-          </CardHeader>
-
-          <CardContent className="space-y-3">
-            {listQuery.isLoading && <div className="text-sm text-muted-foreground">正在加载…</div>}
-            {listQuery.isError && <div className="text-sm text-destructive">加载失败，请检查后端接口。</div>}
-
-            {!listQuery.isLoading && !listQuery.isError && (
-              <>
+            <AdminDataTable>
+              {listQuery.isLoading || listQuery.isError ? (
+                <Table>
+                  <TableBody>
+                    {listQuery.isLoading && <AdminTableStateRow colSpan={columns.length + 3}>正在加载数据…</AdminTableStateRow>}
+                    {listQuery.isError && (
+                      <AdminTableStateRow colSpan={columns.length + 3} tone="danger">
+                        加载失败，请检查后端接口。
+                      </AdminTableStateRow>
+                    )}
+                  </TableBody>
+                </Table>
+              ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -264,13 +273,7 @@ export function ScopeRecordPage<T extends ScopeRow>({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {items.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={columns.length + 3} className="h-24 text-center text-muted-foreground">
-                          暂无数据
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    {items.length === 0 && <AdminTableStateRow colSpan={columns.length + 3}>暂无数据</AdminTableStateRow>}
                     {items.map((row) => (
                       <TableRow key={row.id}>
                         {columns.map((column) => (
@@ -294,21 +297,23 @@ export function ScopeRecordPage<T extends ScopeRow>({
                     ))}
                   </TableBody>
                 </Table>
+              )}
+            </AdminDataTable>
 
-                <PaginationBar
-                  page={listQuery.data ?? { items: [], total: 0, limit: pageSize, offset: pageIndex * pageSize }}
-                  pageIndex={pageIndex}
-                  pageSize={pageSize}
-                  onPageChange={setPageIndex}
-                  onPageSizeChange={(value) => {
-                    setPageSize(value)
-                    setPageIndex(0)
-                  }}
-                />
-              </>
+            {!listQuery.isLoading && !listQuery.isError && (
+              <PaginationBar
+                page={listQuery.data ?? { items: [], total: 0, limit: pageSize, offset: pageIndex * pageSize }}
+                pageIndex={pageIndex}
+                pageSize={pageSize}
+                onPageChange={setPageIndex}
+                onPageSizeChange={(value) => {
+                  setPageSize(value)
+                  setPageIndex(0)
+                }}
+              />
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </AdminPanel>
       </PageSection>
 
       <Sheet open={Boolean(detail)} onOpenChange={(open) => !open && setDetail(null)}>
@@ -336,8 +341,8 @@ export function ScopeRecordPage<T extends ScopeRow>({
   }
 
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="碳核算模型" title={title} description={description} />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title={title} />
       {content}
     </PageContainer>
   )

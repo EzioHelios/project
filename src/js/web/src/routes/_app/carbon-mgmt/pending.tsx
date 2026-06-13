@@ -2,13 +2,14 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 
+import { AdminPageHeader } from "@/components/admin-ui"
 import { CarbonRecordActions } from "@/components/carbon/record-actions"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { PaginationBar, requestPage } from "@/components/platform/data-admin-pages"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
@@ -37,8 +38,8 @@ export const Route = createFileRoute("/_app/carbon-mgmt/pending")({
 
 function PendingWorkbenchPage() {
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="碳核算模型" title="待审核工作台" description="统一处理各 Scope 的待审记录与电表聚合记录。" />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title="待审核工作台" />
       <PageSection>
         <PendingReviewPanel />
       </PageSection>

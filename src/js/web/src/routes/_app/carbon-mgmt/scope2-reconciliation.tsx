@@ -3,10 +3,11 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import { toast } from "sonner"
 
+import { AdminPageHeader } from "@/components/admin-ui"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 
 type ReconciliationResponse = {
   billing_month: string
@@ -59,8 +60,8 @@ function Scope2ReconciliationPage() {
   const data = reconciliationQuery.data
 
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="碳核算模型" title="[范围2] 数据对账" description="对比人工电费账单与电表月聚合结果，识别范围2用电差异和缺失点位。" />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title="[范围2] 数据对账" />
       <PageSection>
         <Card>
           <CardHeader className="space-y-3">

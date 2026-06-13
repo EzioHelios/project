@@ -1,15 +1,11 @@
 import type { EChartsOption, SeriesOption } from "echarts"
-import { BarChart, GaugeChart, LineChart, PieChart, SankeyChart } from "echarts/charts"
-import { GridComponent, LegendComponent, TitleComponent, TooltipComponent } from "echarts/components"
-import * as echarts from "echarts/core"
-import { CanvasRenderer } from "echarts/renderers"
-import ReactEChartsCore from "echarts-for-react/lib/core"
 import { AlertTriangle, ArrowRight, GitBranch, TrendingUp } from "lucide-react"
-import type * as React from "react"
 
+import { ChartPanel } from "@/components/admin-ui"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { type AdminChartColorKey, adminChartAxis, adminChartPalette, createAdminChartOption, getAdminChartColor } from "@/lib/admin-chart-theme"
 import { cn } from "@/lib/utils"
 
 export type ApiEnvelope<T> = {
@@ -66,36 +62,25 @@ export type FlowLink = {
   value: number
 }
 
-type ChartShellProps = {
-  title: string
-  description?: string
-  badge?: string
-  action?: React.ReactNode
-  option?: EChartsOption
-  height?: number
-  emptyLabel?: string
-  className?: string
-}
-
 type DistributionItem = {
   name: string
   value: number
 }
 
-const CHART_COLORS = {
-  energy: "#d97706",
-  carbon: "#0f766e",
-  scope2: "#2563eb",
-  alert: "#dc2626",
-  handled: "#16a34a",
-  neutral: "#64748b",
-  soft: "#94a3b8",
-  slate: "#475569",
+type SeriesConfig = {
+  key: keyof TrendPoint
+  label: string
+  color?: string
+  colorKey?: AdminChartColorKey
 }
 
-const PIE_COLORS = ["#2563eb", "#0f766e", "#d97706", "#dc2626", "#7c3aed", "#0891b2", "#64748b"]
+type BarSeriesConfig = SeriesConfig & {
+  stack?: string
+}
 
-echarts.use([LineChart, BarChart, PieChart, GaugeChart, SankeyChart, GridComponent, LegendComponent, TitleComponent, TooltipComponent, CanvasRenderer])
+type LineSeriesConfig = SeriesConfig & {
+  yAxisIndex?: number
+}
 
 export async function fetchCarbonApi<T>(url: string) {
   const res = await fetch(url)
@@ -131,113 +116,43 @@ function sourceLabel(value?: string | null) {
   return value || "未标注"
 }
 
-function createChartOption(option: EChartsOption): EChartsOption {
-  return {
-    animationDuration: 450,
-    animationDurationUpdate: 280,
-    textStyle: {
-      color: "#0f172a",
-      fontFamily: "inherit",
-    },
-    grid: {
-      top: 42,
-      left: 14,
-      right: 18,
-      bottom: 16,
-      containLabel: true,
-    },
-    tooltip: {
-      trigger: "axis",
-      backgroundColor: "rgba(15, 23, 42, 0.96)",
-      borderWidth: 0,
-      padding: [10, 12],
-      textStyle: {
-        color: "#f8fafc",
-        fontSize: 12,
-      },
-      extraCssText: "border-radius:12px;box-shadow:0 12px 36px rgba(15,23,42,.28);",
-    },
-    ...option,
-  }
+function resolveSeriesColor(series: SeriesConfig, index: number) {
+  return series.color ?? getAdminChartColor(series.colorKey, index)
 }
 
-function ChartShell({ title, description, badge, action, option, height = 320, emptyLabel = "暂无图表数据", className }: ChartShellProps) {
-  return (
-    <Card className={cn("border-border/60 shadow-sm", className)}>
-      <CardHeader className="space-y-3 pb-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <CardTitle>{title}</CardTitle>
-              {badge && <Badge variant="secondary">{badge}</Badge>}
-            </div>
-            {description && <CardDescription>{description}</CardDescription>}
-          </div>
-          {action}
-        </div>
-      </CardHeader>
-      <CardContent>
-        {option ? (
-          <ReactEChartsCore echarts={echarts} option={option} style={{ height: `${height}px`, width: "100%" }} notMerge lazyUpdate />
-        ) : (
-          <div
-            className="flex items-center justify-center rounded-lg border border-dashed border-border/80 bg-muted/20 text-sm text-muted-foreground"
-            style={{ height: `${height}px` }}
-          >
-            {emptyLabel}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function buildLineSeries(points: TrendPoint[], lines: { key: keyof TrendPoint; label: string; color: string }[]): SeriesOption[] {
+function buildLineSeries(points: TrendPoint[], lines: SeriesConfig[]): SeriesOption[] {
   return lines
     .filter((line) => points.some((point) => Number(point[line.key] ?? 0) > 0))
-    .map((line) => ({
-      type: "line",
-      name: line.label,
-      smooth: true,
-      showSymbol: false,
-      symbol: "circle",
-      symbolSize: 8,
-      lineStyle: {
-        width: 3,
-        color: line.color,
-      },
-      itemStyle: {
-        color: line.color,
-      },
-      areaStyle: line.key === "energy_kwh" ? { color: `${line.color}10` } : undefined,
-      data: points.map((point) => Number(point[line.key] ?? 0)),
-    }))
+    .map((line, index) => {
+      const color = resolveSeriesColor(line, index)
+      return {
+        type: "line",
+        name: line.label,
+        smooth: true,
+        showSymbol: false,
+        symbol: "circle",
+        symbolSize: 6,
+        lineStyle: {
+          width: 2,
+          color,
+        },
+        itemStyle: {
+          color,
+        },
+        areaStyle: line.key === "energy_kwh" ? { color: `${color}14` } : undefined,
+        data: points.map((point) => Number(point[line.key] ?? 0)),
+      }
+    })
 }
 
-function buildTrendOption(points: TrendPoint[], lines: { key: keyof TrendPoint; label: string; color: string }[]): EChartsOption | undefined {
+function buildTrendOption(points: TrendPoint[], lines: SeriesConfig[]): EChartsOption | undefined {
   if (points.length === 0) return undefined
-  return createChartOption({
-    legend: {
-      top: 0,
-      left: 0,
-      icon: "circle",
-      itemWidth: 10,
-      itemHeight: 10,
-      textStyle: { color: "#475569" },
-    },
+  return createAdminChartOption({
     xAxis: {
-      type: "category",
-      data: points.map((point) => point.period),
+      ...adminChartAxis.category(points.map((point) => point.period)),
       boundaryGap: false,
-      axisTick: { show: false },
-      axisLine: { lineStyle: { color: "#cbd5e1" } },
-      axisLabel: { color: "#64748b" },
     },
-    yAxis: {
-      type: "value",
-      axisLabel: { color: "#64748b" },
-      splitLine: { lineStyle: { color: "#e2e8f0" } },
-    },
+    yAxis: adminChartAxis.value(),
     series: buildLineSeries(points, lines),
   })
 }
@@ -245,8 +160,8 @@ function buildTrendOption(points: TrendPoint[], lines: { key: keyof TrendPoint; 
 function buildComboTrendOption(
   points: TrendPoint[],
   config: {
-    bars: { key: keyof TrendPoint; label: string; color: string; stack?: string }[]
-    lines: { key: keyof TrendPoint; label: string; color: string; yAxisIndex?: number }[]
+    bars: BarSeriesConfig[]
+    lines: LineSeriesConfig[]
     leftAxisName?: string
     rightAxisName?: string
   },
@@ -254,63 +169,44 @@ function buildComboTrendOption(
   if (points.length === 0) return undefined
   const barSeries = config.bars
     .filter((bar) => points.some((point) => Number(point[bar.key] ?? 0) > 0))
-    .map<SeriesOption>((bar) => ({
+    .map<SeriesOption>((bar, index) => ({
       type: "bar",
       name: bar.label,
       stack: bar.stack,
-      barMaxWidth: 18,
+      barMaxWidth: 16,
       itemStyle: {
-        color: bar.color,
-        borderRadius: [8, 8, 0, 0],
+        color: resolveSeriesColor(bar, index),
+        borderRadius: [4, 4, 0, 0],
       },
       emphasis: { focus: "series" },
       data: points.map((point) => Number(point[bar.key] ?? 0)),
     }))
   const lineSeries = config.lines
     .filter((line) => points.some((point) => Number(point[line.key] ?? 0) > 0))
-    .map<SeriesOption>((line) => ({
+    .map<SeriesOption>((line, index) => ({
       type: "line",
       name: line.label,
       smooth: true,
       showSymbol: false,
       yAxisIndex: line.yAxisIndex ?? 1,
       lineStyle: {
-        width: 3,
-        color: line.color,
+        width: 2,
+        color: resolveSeriesColor(line, index + config.bars.length),
       },
       itemStyle: {
-        color: line.color,
+        color: resolveSeriesColor(line, index + config.bars.length),
       },
       data: points.map((point) => Number(point[line.key] ?? 0)),
     }))
   if (barSeries.length === 0 && lineSeries.length === 0) return undefined
-  return createChartOption({
-    legend: {
-      top: 0,
-      left: 0,
-      icon: "circle",
-      itemWidth: 10,
-      itemHeight: 10,
-      textStyle: { color: "#475569" },
-    },
-    xAxis: {
-      type: "category",
-      data: points.map((point) => point.period),
-      axisTick: { show: false },
-      axisLine: { lineStyle: { color: "#cbd5e1" } },
-      axisLabel: { color: "#64748b" },
-    },
+  return createAdminChartOption({
+    xAxis: adminChartAxis.category(points.map((point) => point.period)),
     yAxis: [
+      adminChartAxis.value(config.leftAxisName),
       {
-        type: "value",
-        name: config.leftAxisName,
-        axisLabel: { color: "#64748b" },
-        splitLine: { lineStyle: { color: "#e2e8f0" } },
-      },
-      {
+        ...adminChartAxis.value(config.rightAxisName),
         type: "value",
         name: config.rightAxisName,
-        axisLabel: { color: "#64748b" },
         splitLine: { show: false },
       },
     ],
@@ -321,15 +217,9 @@ function buildComboTrendOption(
 function buildRankingOption(items: RankingItem[], unit?: string): EChartsOption | undefined {
   if (items.length === 0) return undefined
   const sliced = items.slice(0, 10)
-  return createChartOption({
+  return createAdminChartOption({
     tooltip: {
       trigger: "item",
-      backgroundColor: "rgba(15, 23, 42, 0.96)",
-      borderWidth: 0,
-      textStyle: {
-        color: "#f8fafc",
-        fontSize: 12,
-      },
       formatter: (params: { name: string; value: number }) => `${params.name}<br/>${formatNumber(params.value, 2)}${unit ? ` ${unit}` : ""}`,
     },
     grid: {
@@ -341,9 +231,9 @@ function buildRankingOption(items: RankingItem[], unit?: string): EChartsOption 
     },
     xAxis: {
       type: "value",
-      splitLine: { lineStyle: { color: "#eef2f7" } },
+      splitLine: { lineStyle: { color: adminChartPalette.grid, type: "dashed" } },
       axisLabel: {
-        color: "#64748b",
+        color: adminChartPalette.axis,
         formatter: (value: number) => `${formatNumber(value, 0)}${unit ? ` ${unit}` : ""}`,
       },
     },
@@ -353,7 +243,7 @@ function buildRankingOption(items: RankingItem[], unit?: string): EChartsOption 
       axisTick: { show: false },
       axisLine: { show: false },
       axisLabel: {
-        color: "#334155",
+        color: adminChartPalette.label,
         width: 150,
         overflow: "truncate",
       },
@@ -365,13 +255,13 @@ function buildRankingOption(items: RankingItem[], unit?: string): EChartsOption 
         data: sliced.map((item) => item.value),
         barWidth: 14,
         itemStyle: {
-          borderRadius: [0, 8, 8, 0],
-          color: CHART_COLORS.scope2,
+          borderRadius: [0, 4, 4, 0],
+          color: adminChartPalette.energy,
         },
         label: {
           show: true,
           position: "right",
-          color: "#475569",
+          color: adminChartPalette.label,
           formatter: ({ value }: { value: number }) => `${formatNumber(value, 2)}${unit ? ` ${unit}` : ""}`,
         },
       },
@@ -381,24 +271,10 @@ function buildRankingOption(items: RankingItem[], unit?: string): EChartsOption 
 
 function buildDistributionOption(items: DistributionItem[], unit = ""): EChartsOption | undefined {
   if (items.length === 0) return undefined
-  return createChartOption({
+  return createAdminChartOption({
     tooltip: {
       trigger: "item",
-      backgroundColor: "rgba(15, 23, 42, 0.96)",
-      borderWidth: 0,
-      textStyle: {
-        color: "#f8fafc",
-        fontSize: 12,
-      },
       formatter: (params: { name: string; value: number; percent: number }) => `${params.name}<br/>${formatNumber(params.value, 2)}${unit ? ` ${unit}` : ""} (${params.percent}%)`,
-    },
-    legend: {
-      top: 0,
-      left: 0,
-      icon: "circle",
-      itemWidth: 10,
-      itemHeight: 10,
-      textStyle: { color: "#475569" },
     },
     series: [
       {
@@ -408,13 +284,12 @@ function buildDistributionOption(items: DistributionItem[], unit = ""): EChartsO
         avoidLabelOverlap: true,
         label: {
           formatter: "{b}",
-          color: "#475569",
+          color: adminChartPalette.label,
         },
         itemStyle: {
-          borderColor: "#fff",
-          borderWidth: 3,
+          borderColor: adminChartPalette.panel,
+          borderWidth: 2,
         },
-        color: PIE_COLORS,
         data: items,
       },
     ],
@@ -422,7 +297,7 @@ function buildDistributionOption(items: DistributionItem[], unit = ""): EChartsO
 }
 
 function buildGaugeOption(value: number, suffix: string): EChartsOption {
-  return createChartOption({
+  return createAdminChartOption({
     tooltip: { show: false },
     series: [
       {
@@ -437,13 +312,13 @@ function buildGaugeOption(value: number, suffix: string): EChartsOption {
           roundCap: true,
           width: 10,
           itemStyle: {
-            color: value >= 80 ? CHART_COLORS.handled : value >= 50 ? CHART_COLORS.energy : CHART_COLORS.alert,
+            color: value >= 80 ? adminChartPalette.success : value >= 50 ? adminChartPalette.warning : adminChartPalette.danger,
           },
         },
         axisLine: {
           lineStyle: {
             width: 10,
-            color: [[1, "#e2e8f0"]],
+            color: [[1, adminChartPalette.grid]],
           },
         },
         axisTick: { show: false },
@@ -456,7 +331,7 @@ function buildGaugeOption(value: number, suffix: string): EChartsOption {
           fontSize: 24,
           fontWeight: 700,
           formatter: `{value}${suffix}`,
-          color: "#0f172a",
+          color: adminChartPalette.text,
         },
         data: [{ value }],
       },
@@ -468,22 +343,22 @@ function buildSankeyOption(nodes: FlowNode[], links: FlowLink[]): EChartsOption 
   if (nodes.length === 0 || links.length === 0) return undefined
   const nameMap = new Map(nodes.map((node) => [node.id, node]))
   const colorForCategory = (category?: string) => {
-    if (category === "scope") return "#0f172a"
-    if (category === "source") return CHART_COLORS.energy
-    if (category === "conversion") return "#6366f1"
-    if (category === "distribution") return "#0ea5e9"
-    if (category === "use_system") return "#14b8a6"
-    if (category === "area") return CHART_COLORS.scope2
-    if (category === "result") return CHART_COLORS.handled
-    if (category === "loss") return CHART_COLORS.alert
-    return CHART_COLORS.neutral
+    if (category === "scope") return adminChartPalette.text
+    if (category === "source") return adminChartPalette.energy
+    if (category === "conversion") return adminChartPalette.cost
+    if (category === "distribution") return adminChartPalette.scope2
+    if (category === "use_system") return adminChartPalette.carbon
+    if (category === "area") return adminChartPalette.scope3
+    if (category === "result") return adminChartPalette.success
+    if (category === "loss") return adminChartPalette.danger
+    return adminChartPalette.neutral
   }
   const sankeyNodes = nodes.map((node) => ({
     name: node.id,
     value: node.value ?? 0,
     itemStyle: { color: colorForCategory(node.category) },
     label: {
-      color: "#334155",
+      color: adminChartPalette.label,
       fontSize: 12,
       formatter: () => {
         const amount = node.value && node.value > 0 ? `\n${formatNumber(node.value, 2)}` : ""
@@ -504,12 +379,9 @@ function buildSankeyOption(nodes: FlowNode[], links: FlowLink[]): EChartsOption 
       },
     }))
   if (sankeyLinks.length === 0) return undefined
-  return createChartOption({
+  return createAdminChartOption({
     tooltip: {
       trigger: "item",
-      backgroundColor: "rgba(15, 23, 42, 0.96)",
-      borderWidth: 0,
-      textStyle: { color: "#f8fafc", fontSize: 12 },
       formatter: (params: { dataType?: string; data?: { source?: string; target?: string; value?: number }; name?: string; value?: number }) => {
         if (params.dataType === "edge" && params.data) {
           const sourceNode = nameMap.get(params.data.source ?? "")
@@ -535,13 +407,13 @@ function buildSankeyOption(nodes: FlowNode[], links: FlowLink[]): EChartsOption 
         nodeWidth: 18,
         emphasis: { focus: "adjacency" },
         levels: [
-          { depth: 0, itemStyle: { color: "#0f172a" }, lineStyle: { color: "source", opacity: 0.35 } },
-          { depth: 1, itemStyle: { color: CHART_COLORS.energy }, lineStyle: { color: "source", opacity: 0.42 } },
-          { depth: 2, itemStyle: { color: CHART_COLORS.scope2 }, lineStyle: { color: "source", opacity: 0.48 } },
-          { depth: 3, itemStyle: { color: CHART_COLORS.handled }, lineStyle: { color: "source", opacity: 0.55 } },
+          { depth: 0, itemStyle: { color: adminChartPalette.text }, lineStyle: { color: "source", opacity: 0.35 } },
+          { depth: 1, itemStyle: { color: adminChartPalette.energy }, lineStyle: { color: "source", opacity: 0.42 } },
+          { depth: 2, itemStyle: { color: adminChartPalette.scope2 }, lineStyle: { color: "source", opacity: 0.48 } },
+          { depth: 3, itemStyle: { color: adminChartPalette.success }, lineStyle: { color: "source", opacity: 0.55 } },
         ],
         label: {
-          color: "#334155",
+          color: adminChartPalette.label,
           fontSize: 12,
           formatter: ({ name }: { name: string }) => {
             const node = nameMap.get(name)
@@ -588,10 +460,10 @@ export function TrendChart({
   title: string
   description?: string
   points: TrendPoint[]
-  lines: { key: keyof TrendPoint; label: string; color: string }[]
+  lines: SeriesConfig[]
   height?: number
 }) {
-  return <ChartShell title={title} description={description} option={buildTrendOption(points, lines)} height={height} emptyLabel="暂无趋势数据" />
+  return <ChartPanel title={title} description={description} option={buildTrendOption(points, lines)} height={height} emptyLabel="暂无趋势数据" />
 }
 
 export function CompositeTrendChart({
@@ -607,14 +479,14 @@ export function CompositeTrendChart({
   title: string
   description?: string
   points: TrendPoint[]
-  bars: { key: keyof TrendPoint; label: string; color: string; stack?: string }[]
-  lines: { key: keyof TrendPoint; label: string; color: string; yAxisIndex?: number }[]
+  bars: BarSeriesConfig[]
+  lines: LineSeriesConfig[]
   height?: number
   leftAxisName?: string
   rightAxisName?: string
 }) {
   return (
-    <ChartShell
+    <ChartPanel
       title={title}
       description={description}
       option={buildComboTrendOption(points, { bars, lines, leftAxisName, rightAxisName })}
@@ -625,7 +497,7 @@ export function CompositeTrendChart({
 }
 
 export function RankingList({ title, description, items, unit, height = 320 }: { title: string; description?: string; items: RankingItem[]; unit?: string; height?: number }) {
-  return <ChartShell title={title} description={description} option={buildRankingOption(items, unit)} height={height} emptyLabel="暂无排行数据" />
+  return <ChartPanel title={title} description={description} unit={unit} option={buildRankingOption(items, unit)} height={height} emptyLabel="暂无排行数据" />
 }
 
 export function DistributionChart({
@@ -641,11 +513,11 @@ export function DistributionChart({
   unit?: string
   height?: number
 }) {
-  return <ChartShell title={title} description={description} option={buildDistributionOption(items, unit)} height={height} emptyLabel="暂无分布数据" />
+  return <ChartPanel title={title} description={description} unit={unit} option={buildDistributionOption(items, unit)} height={height} emptyLabel="暂无分布数据" />
 }
 
 export function GaugeStatCard({ title, description, value, suffix, height = 240 }: { title: string; description?: string; value: number; suffix?: string; height?: number }) {
-  return <ChartShell title={title} description={description} option={buildGaugeOption(value, suffix ?? "")} height={height} emptyLabel="暂无完成度数据" />
+  return <ChartPanel title={title} description={description} unit={suffix} option={buildGaugeOption(value, suffix ?? "")} height={height} emptyLabel="暂无完成度数据" />
 }
 
 export function DiagnosticsPanel({ title, items }: { title: string; items: { label: string; value: string | number | null | undefined }[] }) {
@@ -681,7 +553,7 @@ export function FlowGraph({
   links: FlowLink[]
   height?: number
 }) {
-  return <ChartShell title={title} description={description} badge={unit} option={buildSankeyOption(nodes, links)} height={height} emptyLabel="暂无流向数据" />
+  return <ChartPanel title={title} description={description} unit={unit} option={buildSankeyOption(nodes, links)} height={height} emptyLabel="暂无流向数据" />
 }
 
 export function LedgerTable({
@@ -738,7 +610,16 @@ export function LedgerTable({
 
 export function ScopeSummary({ items }: { items: RankingItem[] }) {
   const chartItems = items.map((item) => ({ name: item.name, value: item.value }))
-  return <ChartShell title="范围贡献" description="当前已纳入核算的范围级碳排分布" option={buildDistributionOption(chartItems, "kgCO2e")} height={260} emptyLabel="暂无范围汇总" />
+  return (
+    <ChartPanel
+      title="范围贡献"
+      description="当前已纳入核算的范围级碳排分布"
+      unit="kgCO2e"
+      option={buildDistributionOption(chartItems, "kgCO2e")}
+      height={260}
+      emptyLabel="暂无范围汇总"
+    />
+  )
 }
 
 export function InsightCallout({ title, description, tone = "default" }: { title: string; description: string; tone?: "default" | "warning" }) {
@@ -795,10 +676,10 @@ export function TrendComparison({ title, description, points }: { title: string;
       title={title}
       description={description}
       points={points}
-      bars={[{ key: "energy_kwh", label: "总能耗", color: "#fdba74" }]}
+      bars={[{ key: "energy_kwh", label: "总能耗", colorKey: "energy" }]}
       lines={[
-        { key: "carbon_co2e", label: "总碳排", color: CHART_COLORS.carbon, yAxisIndex: 1 },
-        { key: "alerts_count", label: "告警数", color: CHART_COLORS.alert, yAxisIndex: 1 },
+        { key: "carbon_co2e", label: "总碳排", colorKey: "carbon", yAxisIndex: 1 },
+        { key: "alerts_count", label: "告警数", colorKey: "danger", yAxisIndex: 1 },
       ]}
       leftAxisName="能耗"
       rightAxisName="碳排 / 告警"

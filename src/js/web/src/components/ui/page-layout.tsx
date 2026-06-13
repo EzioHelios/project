@@ -23,7 +23,7 @@ const maxWidthClasses = {
 }
 
 export function PageContainer({ children, className, maxWidth = "2xl" }: PageContainerProps) {
-  return <div className={cn("w-full px-4 py-8 md:px-6 md:py-10", maxWidthClasses[maxWidth], className)}>{children}</div>
+  return <div className={cn("w-full px-4 py-4 md:px-7 md:py-5", maxWidthClasses[maxWidth], className)}>{children}</div>
 }
 
 interface PageHeaderProps {
@@ -37,11 +37,11 @@ interface PageHeaderProps {
 
 export function PageHeader({ eyebrow, title, description, actions, className, animated = true }: PageHeaderProps) {
   const content = (
-    <div className={cn("mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between", className)}>
-      <div className="space-y-2">
-        {eyebrow && <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{eyebrow}</p>}
-        <h1 className="font-heading text-3xl font-semibold tracking-tight md:text-4xl">{title}</h1>
-        {description && <p className="max-w-2xl text-muted-foreground">{description}</p>}
+    <div className={cn("mb-4 flex flex-col gap-3 border-border/70 border-b pb-3 md:flex-row md:items-center md:justify-between", className)}>
+      <div className="space-y-1.5">
+        {eyebrow && <p className="text-[0.72rem] font-semibold tracking-[0.16em] text-muted-foreground">{eyebrow}</p>}
+        <h1 className="font-heading text-2xl font-semibold tracking-normal">{title}</h1>
+        {description && <p className="max-w-2xl text-muted-foreground text-sm leading-6">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-3">{actions}</div>}
     </div>
@@ -50,7 +50,7 @@ export function PageHeader({ eyebrow, title, description, actions, className, an
   if (!animated) return content
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
       {content}
     </motion.div>
   )
@@ -69,7 +69,7 @@ export function PageSection({ children, className, delay = 0, animated = true }:
   }
 
   return (
-    <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay, duration: 0.4 }} className={cn("space-y-6", className)}>
+    <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay, duration: 0.28 }} className={cn("space-y-6", className)}>
       {children}
     </motion.section>
   )

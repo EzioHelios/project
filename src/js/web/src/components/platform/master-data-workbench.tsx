@@ -3,19 +3,20 @@ import { ChevronRight, Plus, RefreshCw } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
+import { AdminPageHeader } from "@/components/admin-ui"
+import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { request, requestPage, type PageResult } from "@/components/platform/data-admin-pages"
 import { cn } from "@/lib/utils"
 
 type Id = number
@@ -395,7 +396,7 @@ export function MonitorAreaWorkbenchPage() {
 
   function openCreate(mode: "child" | "sibling") {
     const selected = flatAreas.find((item) => item.id === selectedAreaId)
-    const nextParentId = mode === "child" ? selected?.id ?? null : (selected?.parent_id ?? null)
+    const nextParentId = mode === "child" ? (selected?.id ?? null) : (selected?.parent_id ?? null)
     setEditingArea(null)
     setParentId(nextParentId)
     setForm(emptyAreaForm())
@@ -453,7 +454,8 @@ export function MonitorAreaWorkbenchPage() {
   })
 
   const disableArea = useMutation({
-    mutationFn: async () => request(`/api/master-data/areas/${selectedAreaId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ is_enabled: false }) }),
+    mutationFn: async () =>
+      request(`/api/master-data/areas/${selectedAreaId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ is_enabled: false }) }),
     onSuccess: async () => {
       toast.success("区域已停用")
       await qc.invalidateQueries({ queryKey: ["master-data", "areas"] })
@@ -462,8 +464,8 @@ export function MonitorAreaWorkbenchPage() {
   })
 
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="监控运维" title="区域主数据工作台" description="用一棵空间树组织园区、仓库、车间和设备归属，而不是继续维护孤立平表。" />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title="区域主数据工作台" />
       <PageSection>
         <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
           <Card className="min-h-[720px]">
@@ -684,17 +686,7 @@ export function MonitorAreaWorkbenchPage() {
   )
 }
 
-function DeviceWorkbench({
-  eyebrow,
-  title,
-  description,
-  initialTab,
-}: {
-  eyebrow: string
-  title: string
-  description: string
-  initialTab: "devices" | "types" | "points"
-}) {
+function DeviceWorkbench({ title, initialTab }: { eyebrow: string; title: string; description: string; initialTab: "devices" | "types" | "points" }) {
   const qc = useQueryClient()
   const [expandedAreaIds, setExpandedAreaIds] = useState<Set<number>>(new Set())
   const [expandedTypeIds, setExpandedTypeIds] = useState<Set<number>>(new Set())
@@ -889,8 +881,8 @@ function DeviceWorkbench({
   })
 
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow={eyebrow} title={title} description={description} />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title={title} />
       <PageSection>
         <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_380px]">
           <Card className="min-h-[760px]">
@@ -998,11 +990,7 @@ function DeviceWorkbench({
                     </TableRow>
                   )}
                   {(devicesQuery.data?.items ?? []).map((device) => (
-                    <TableRow
-                      key={device.id}
-                      className={cn("cursor-pointer", selectedDeviceId === device.id && "bg-primary/5")}
-                      onClick={() => setSelectedDeviceId(device.id)}
-                    >
+                    <TableRow key={device.id} className={cn("cursor-pointer", selectedDeviceId === device.id && "bg-primary/5")} onClick={() => setSelectedDeviceId(device.id)}>
                       <TableCell>
                         <div className="font-medium">{deviceLabel(device)}</div>
                         <div className="text-xs text-muted-foreground">{device.code}</div>
@@ -1026,7 +1014,13 @@ function DeviceWorkbench({
                   <div className="mt-1 text-sm text-muted-foreground">右侧维护归属、子设备和测点。</div>
                 </div>
                 {detailQuery.data?.device && (
-                  <Button variant="outline" size="sm" onClick={() => openEditDevice(detailQuery.data!.device)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (detailQuery.data?.device) openEditDevice(detailQuery.data.device)
+                    }}
+                  >
                     编辑
                   </Button>
                 )}
@@ -1151,11 +1145,13 @@ function DeviceWorkbench({
                   <SelectValue placeholder="选择区域" />
                 </SelectTrigger>
                 <SelectContent>
-                  {flatAreas.filter((item) => item.code !== "ROOT").map((area) => (
-                    <SelectItem key={area.id} value={String(area.id)}>
-                      {areaLabel(area)}
-                    </SelectItem>
-                  ))}
+                  {flatAreas
+                    .filter((item) => item.code !== "ROOT")
+                    .map((area) => (
+                      <SelectItem key={area.id} value={String(area.id)}>
+                        {areaLabel(area)}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </Field>
@@ -1174,7 +1170,10 @@ function DeviceWorkbench({
               </Select>
             </Field>
             <Field label="父设备">
-              <Select value={deviceForm.parent_device_id || "none"} onValueChange={(value) => setDeviceForm((state) => ({ ...state, parent_device_id: value === "none" ? "" : value }))}>
+              <Select
+                value={deviceForm.parent_device_id || "none"}
+                onValueChange={(value) => setDeviceForm((state) => ({ ...state, parent_device_id: value === "none" ? "" : value }))}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -1194,10 +1193,7 @@ function DeviceWorkbench({
               <Input value={deviceForm.asset_code} onChange={(event) => setDeviceForm((state) => ({ ...state, asset_code: event.target.value }))} />
             </Field>
             <Field label="采集标识">
-              <Input
-                value={deviceForm.external_device_id}
-                onChange={(event) => setDeviceForm((state) => ({ ...state, external_device_id: event.target.value }))}
-              />
+              <Input value={deviceForm.external_device_id} onChange={(event) => setDeviceForm((state) => ({ ...state, external_device_id: event.target.value }))} />
             </Field>
             <Field label="厂家">
               <Input value={deviceForm.manufacturer} onChange={(event) => setDeviceForm((state) => ({ ...state, manufacturer: event.target.value }))} />
@@ -1281,7 +1277,10 @@ function DeviceWorkbench({
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               取消
             </Button>
-            <Button onClick={() => saveDevice.mutate()} disabled={saveDevice.isPending || !deviceForm.code.trim() || !deviceForm.name.trim() || !deviceForm.area_id || !deviceForm.device_type_id}>
+            <Button
+              onClick={() => saveDevice.mutate()}
+              disabled={saveDevice.isPending || !deviceForm.code.trim() || !deviceForm.name.trim() || !deviceForm.area_id || !deviceForm.device_type_id}
+            >
               保存
             </Button>
           </DialogFooter>
@@ -1381,36 +1380,15 @@ function DeviceWorkbench({
 }
 
 export function TerminalsWorkbenchPage() {
-  return (
-    <DeviceWorkbench
-      eyebrow="监控运维"
-      title="设备主数据工作台"
-      description="把设备、区域、类型、子设备和测点放进一张可维护的工作台。"
-      initialTab="devices"
-    />
-  )
+  return <DeviceWorkbench eyebrow="监控运维" title="设备主数据工作台" description="把设备、区域、类型、子设备和测点放进一张可维护的工作台。" initialTab="devices" />
 }
 
 export function DeviceTypesWorkbenchPage() {
-  return (
-    <DeviceWorkbench
-      eyebrow="监控运维"
-      title="设备类型与结构工作台"
-      description="先从类型树和设备结构切入，再进入设备详情和测点维护。"
-      initialTab="types"
-    />
-  )
+  return <DeviceWorkbench eyebrow="监控运维" title="设备类型与结构工作台" description="先从类型树和设备结构切入，再进入设备详情和测点维护。" initialTab="types" />
 }
 
 export function DevicePointsWorkbenchPage() {
-  return (
-    <DeviceWorkbench
-      eyebrow="监控运维"
-      title="设备测点工作台"
-      description="测点不再脱离设备上下文维护，而是直接挂在设备详情下。"
-      initialTab="points"
-    />
-  )
+  return <DeviceWorkbench eyebrow="监控运维" title="设备测点工作台" description="测点不再脱离设备上下文维护，而是直接挂在设备详情下。" initialTab="points" />
 }
 
 function SummaryMetric({ label, value }: { label: string; value: string }) {

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import { AdminPageHeader } from "@/components/admin-ui"
 import {
   VerificationEvidencePanel,
   VerificationIssuesPanel,
@@ -7,7 +8,7 @@ import {
   VerificationProjectsPanel,
   VerificationReportPanel,
 } from "@/components/carbon/verification-panels"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AuditLogPanel } from "@/routes/_app/carbon-mgmt/audit"
 import { QualityTracePage } from "@/routes/_app/energy-carbon/quality"
@@ -18,8 +19,8 @@ export const Route = createFileRoute("/_app/carbon/verification")({
 
 function CarbonVerificationPage() {
   return (
-    <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
-      <PageHeader eyebrow="碳排放管理" title="碳核查支撑" />
+    <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
+      <AdminPageHeader title="碳核查支撑" />
       <PageSection>
         <Tabs defaultValue="package" className="space-y-4">
           <TabsList className="grid w-full grid-cols-2 lg:grid-cols-7">

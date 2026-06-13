@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
-
+import { AdminPageHeader } from "@/components/admin-ui"
 import { type ApiEnvelope, CompositeTrendChart, DistributionChart, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
 import { DetailPanel, FacetNavigation, severityLabel, statusBadge } from "@/components/carbon/energy-carbon-center"
 import { Button } from "@/components/ui/button"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 type AlertSummary = {
@@ -102,8 +102,8 @@ function AlertsCenterPage() {
   ]
 
   return (
-    <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
-      <PageHeader eyebrow="能碳中心" title="碳告警与预警" description="统一展示设备、视频和碳排异常，按风险等级、来源、区域和处理状态支撑预警处置闭环。" />
+    <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
+      <AdminPageHeader title="碳告警与预警" />
 
       <PageSection className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         {[
@@ -125,8 +125,8 @@ function AlertsCenterPage() {
           title="告警新增与处理趋势"
           description="用趋势判断问题是否正在扩大，还是已经开始收敛。"
           points={trendQuery.data?.data.series ?? []}
-          bars={[{ key: "alerts_count", label: "新增告警", color: "#fca5a5" }]}
-          lines={[{ key: "handled_count", label: "已处理", color: "#16a34a", yAxisIndex: 1 }]}
+          bars={[{ key: "alerts_count", label: "新增告警", colorKey: "danger" }]}
+          lines={[{ key: "handled_count", label: "已处理", colorKey: "success", yAxisIndex: 1 }]}
           leftAxisName="新增"
           rightAxisName="处理"
           height={320}

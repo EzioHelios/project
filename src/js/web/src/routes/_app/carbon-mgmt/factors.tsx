@@ -7,15 +7,16 @@
  */
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Archive, CheckCircle2, ChevronRight, FileSearch, Layers3, ShieldCheck } from "lucide-react"
+import { Archive, CheckCircle2, ChevronRight, Layers3, ShieldCheck } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
+import { AdminPageHeader } from "@/components/admin-ui"
 import { SummaryMetricCard } from "@/components/summary-metric-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -194,8 +195,8 @@ function FactorsPage() {
   }
 
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="碳排放管理" title="排放因子库" description="官方原始因子检索、分类筛选与来源追溯。" />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title="排放因子库" />
 
       <PageSection className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-4">
         <SummaryMetricCard icon={ShieldCheck} label="官方库" value={formatNumber(overview?.library_count)} meta={batch?.source_system ?? "未导入"} />
@@ -388,10 +389,7 @@ function CategoryTreeNode({
   return (
     <div>
       <div
-        className={cn(
-          "flex items-center rounded-md text-sm transition-colors hover:bg-accent",
-          selected && "bg-primary/10 font-medium text-primary",
-        )}
+        className={cn("flex items-center rounded-md text-sm transition-colors hover:bg-accent", selected && "bg-primary/10 font-medium text-primary")}
         style={{ paddingLeft: `${Math.min(node.depth, 5) * 14}px` }}
       >
         <button
@@ -411,14 +409,7 @@ function CategoryTreeNode({
       {hasChildren && expanded && (
         <div>
           {node.children.map((child) => (
-            <CategoryTreeNode
-              key={child.source_category_id}
-              node={child}
-              expandedIds={expandedIds}
-              selectedPath={selectedPath}
-              onToggle={onToggle}
-              onSelect={onSelect}
-            />
+            <CategoryTreeNode key={child.source_category_id} node={child} expandedIds={expandedIds} selectedPath={selectedPath} onToggle={onToggle} onSelect={onSelect} />
           ))}
         </div>
       )}

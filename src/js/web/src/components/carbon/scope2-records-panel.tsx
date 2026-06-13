@@ -2,11 +2,11 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import { toast } from "sonner"
 
+import { AdminDataTable, AdminPanel, AdminTableStateRow, AdminTableToolbar } from "@/components/admin-ui"
 import { CarbonRecordActions } from "@/components/carbon/record-actions"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { PaginationBar, requestPage } from "@/components/platform/data-admin-pages"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -91,98 +91,105 @@ export function Scope2RecordsPanel({ defaultSourceKind = "meter_aggregate" }: { 
   const page = listQuery.data ?? { items: [], total: 0, limit: pageSize, offset: pageIndex * pageSize }
 
   return (
-    <Card>
-      <CardHeader className="space-y-3">
-        <CardTitle>核算记录</CardTitle>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="w-[180px]">
-            <Input value={billingMonth} onChange={(event) => setBillingMonth(event.target.value)} placeholder="账期 YYYY-MM" />
-          </div>
-          <div className="w-[180px]">
-            <Select value={sourceKind} onValueChange={(value) => setSourceKind(value as "meter_aggregate" | "manual_bill" | "all")}>
-              <SelectTrigger>
-                <SelectValue placeholder="来源类型" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="meter_aggregate">电表聚合</SelectItem>
-                <SelectItem value="manual_bill">账单补录</SelectItem>
-                <SelectItem value="all">全部来源</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="w-[160px]">
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="状态" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部状态</SelectItem>
-                <SelectItem value="draft">草稿</SelectItem>
-                <SelectItem value="pending">待审核</SelectItem>
-                <SelectItem value="approved">已通过</SelectItem>
-                <SelectItem value="rejected">已驳回</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Button variant="secondary" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>
-            查询
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setBillingMonth("")
-              setSourceKind(defaultSourceKind)
-              setStatus("all")
-              setPageIndex(0)
-            }}
-          >
-            重置
-          </Button>
-          <Button onClick={() => rebuildMut.mutate()} disabled={!billingMonth.trim() || rebuildMut.isPending}>
-            执行月聚合
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>来源类型</TableHead>
-              <TableHead>电表 / 户号</TableHead>
-              <TableHead>账期</TableHead>
-              <TableHead className="text-right">总电量(kWh)</TableHead>
-              <TableHead className="text-right">核算结果</TableHead>
-              <TableHead>聚合状态</TableHead>
-              <TableHead>审核状态</TableHead>
-              <TableHead className="text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {page.items.length === 0 && (
+    <AdminPanel title="核算记录">
+      <div className="space-y-3">
+        <AdminTableToolbar
+          search={<Input value={billingMonth} onChange={(event) => setBillingMonth(event.target.value)} placeholder="账期 YYYY-MM" />}
+          filters={
+            <>
+              <div className="w-[180px]">
+                <Select value={sourceKind} onValueChange={(value) => setSourceKind(value as "meter_aggregate" | "manual_bill" | "all")}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="来源类型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="meter_aggregate">电表聚合</SelectItem>
+                    <SelectItem value="manual_bill">账单补录</SelectItem>
+                    <SelectItem value="all">全部来源</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-[160px]">
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="状态" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部状态</SelectItem>
+                    <SelectItem value="draft">草稿</SelectItem>
+                    <SelectItem value="pending">待审核</SelectItem>
+                    <SelectItem value="approved">已通过</SelectItem>
+                    <SelectItem value="rejected">已驳回</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          }
+          actions={
+            <>
+              <Button variant="secondary" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>
+                查询
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setBillingMonth("")
+                  setSourceKind(defaultSourceKind)
+                  setStatus("all")
+                  setPageIndex(0)
+                }}
+              >
+                重置
+              </Button>
+              <Button onClick={() => rebuildMut.mutate()} disabled={!billingMonth.trim() || rebuildMut.isPending}>
+                执行月聚合
+              </Button>
+            </>
+          }
+        />
+        <AdminDataTable>
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                  暂无记录
-                </TableCell>
+                <TableHead>来源类型</TableHead>
+                <TableHead>电表 / 户号</TableHead>
+                <TableHead>账期</TableHead>
+                <TableHead className="text-right">总电量(kWh)</TableHead>
+                <TableHead className="text-right">核算结果</TableHead>
+                <TableHead>聚合状态</TableHead>
+                <TableHead>审核状态</TableHead>
+                <TableHead className="text-right">操作</TableHead>
               </TableRow>
-            )}
-            {page.items.map((row) => (
-              <TableRow key={`${row.record_type}-${row.record_id}`}>
-                <TableCell>{sourceLabel(row.source_kind)}</TableCell>
-                <TableCell>{row.display_name ?? "-"}</TableCell>
-                <TableCell>{row.billing_month}</TableCell>
-                <TableCell className="text-right">{row.total_kwh ?? "-"}</TableCell>
-                <TableCell className="text-right">{row.computed_co2e === null || row.computed_co2e === undefined ? "-" : `${row.computed_co2e} kgCO2e`}</TableCell>
-                <TableCell>{calcStatusLabel(row.calc_status)}</TableCell>
-                <TableCell>
-                  <CarbonStatusBadge status={row.status} />
-                </TableCell>
-                <TableCell className="text-right">
-                  <CarbonRecordActions id={row.record_id} status={row.status} basePath={basePathByType[row.record_type]} invalidateKey={["carbon-mgmt", "scope2-records"]} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {listQuery.isLoading && <AdminTableStateRow colSpan={8}>正在加载记录...</AdminTableStateRow>}
+              {listQuery.isError && (
+                <AdminTableStateRow colSpan={8} tone="danger">
+                  加载失败，请检查后端接口。
+                </AdminTableStateRow>
+              )}
+              {!listQuery.isLoading && !listQuery.isError && page.items.length === 0 && <AdminTableStateRow colSpan={8}>暂无记录</AdminTableStateRow>}
+              {!listQuery.isLoading &&
+                !listQuery.isError &&
+                page.items.map((row) => (
+                  <TableRow key={`${row.record_type}-${row.record_id}`}>
+                    <TableCell>{sourceLabel(row.source_kind)}</TableCell>
+                    <TableCell>{row.display_name ?? "-"}</TableCell>
+                    <TableCell>{row.billing_month}</TableCell>
+                    <TableCell className="text-right">{row.total_kwh ?? "-"}</TableCell>
+                    <TableCell className="text-right">{row.computed_co2e === null || row.computed_co2e === undefined ? "-" : `${row.computed_co2e} kgCO2e`}</TableCell>
+                    <TableCell>{calcStatusLabel(row.calc_status)}</TableCell>
+                    <TableCell>
+                      <CarbonStatusBadge status={row.status} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <CarbonRecordActions id={row.record_id} status={row.status} basePath={basePathByType[row.record_type]} invalidateKey={["carbon-mgmt", "scope2-records"]} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+            </TableBody>
+          </Table>
+        </AdminDataTable>
 
         <PaginationBar
           page={page}
@@ -194,7 +201,7 @@ export function Scope2RecordsPanel({ defaultSourceKind = "meter_aggregate" }: { 
             setPageIndex(0)
           }}
         />
-      </CardContent>
-    </Card>
+      </div>
+    </AdminPanel>
   )
 }

@@ -3,14 +3,15 @@ import { Link, useNavigate } from "@tanstack/react-router"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
+
 import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
+import { AdminDataTable, AdminPageHeader, AdminPanel, AdminTableStateRow, AdminTableToolbar } from "@/components/admin-ui"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -234,22 +235,22 @@ function FieldControl({ field, value, onChange }: { field: Field; value: string;
   )
 }
 
-function RowDetail({ row, title, onClose }: { row: Row | null; title: string; onClose: () => void }) {
+function RowDetail({ row, title, labels, onClose }: { row: Row | null; title: string; labels?: Record<string, string>; onClose: () => void }) {
+  const visibleEntries = row ? Object.entries(row).filter(([key]) => key !== "id") : []
   return (
     <Sheet open={Boolean(row)} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
-          <SheetDescription>查看完整字段与关联信息。</SheetDescription>
+          <SheetDescription>查看关键业务字段与关联信息。</SheetDescription>
         </SheetHeader>
         <div className="space-y-2 px-4 pb-6">
-          {row &&
-            Object.entries(row).map(([key, value]) => (
-              <div key={key} className="grid grid-cols-[120px_1fr] gap-3 rounded-md border px-3 py-2 text-sm">
-                <div className="text-muted-foreground">{key}</div>
-                <div className="min-w-0 break-all">{display(value)}</div>
-              </div>
-            ))}
+          {visibleEntries.map(([key, value]) => (
+            <div key={key} className="grid grid-cols-[120px_1fr] gap-3 rounded-md border px-3 py-2 text-sm">
+              <div className="text-muted-foreground">{labels?.[key] ?? key}</div>
+              <div className="min-w-0 break-all">{display(value)}</div>
+            </div>
+          ))}
         </div>
       </SheetContent>
     </Sheet>
@@ -257,9 +258,7 @@ function RowDetail({ row, title, onClose }: { row: Row | null; title: string; on
 }
 
 export function CrudDataPage({
-  eyebrow = "数据管理",
   title,
-  description,
   endpoint,
   queryKey,
   columns,
@@ -289,6 +288,10 @@ export function CrudDataPage({
   const [detail, setDetail] = useState<Row | null>(null)
   const [form, setForm] = useState<Record<string, string>>(makeInitial(fields))
   const { query: listQuery, pageIndex, setPageIndex, pageSize, setPageSize } = usePagedResource<Row>({ endpoint, queryKey, keyword: appliedKeyword })
+  const detailLabels = useMemo(
+    () => Object.fromEntries([...columns.map((column) => [column.key, column.label] as const), ...fields.map((field) => [field.name, field.label] as const)]),
+    [columns, fields],
+  )
 
   function startCreate() {
     setEditing(null)
@@ -334,53 +337,54 @@ export function CrudDataPage({
   })
 
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow={eyebrow} title={title} description={description} />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title={title} />
       {topContent}
       <PageSection>
-        <Card>
-          <CardHeader className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <CardTitle>{title}列表</CardTitle>
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button onClick={startCreate}>新增</Button>
-                </DialogTrigger>
-                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>
-                      {editing ? "编辑" : "新增"}
-                      {title}
-                    </DialogTitle>
-                  </DialogHeader>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {fields.map((field) => (
-                      <div key={field.name} className={field.type === "textarea" || field.type === "json" ? "grid gap-2 sm:col-span-2" : "grid gap-2"}>
-                        <Label>{field.label}</Label>
-                        <FieldControl field={field} value={form[field.name] ?? ""} onChange={(value) => setForm((state) => ({ ...state, [field.name]: value }))} />
-                      </div>
-                    ))}
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setOpen(false)}>
-                      取消
-                    </Button>
-                    <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending || fields.some((field) => field.required && !form[field.name]?.trim())}>
-                      保存
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Input
-                className="min-w-[260px] flex-1"
-                value={keyword}
-                onChange={(event) => {
-                  setKeyword(event.target.value)
-                }}
-                placeholder={searchPlaceholder}
-              />
+        <AdminPanel title={`${title}列表`}>
+          <div className="space-y-3">
+            <AdminTableToolbar
+              search={
+                <Input
+                  value={keyword}
+                  onChange={(event) => {
+                    setKeyword(event.target.value)
+                  }}
+                  placeholder={searchPlaceholder}
+                />
+              }
+              actions={
+                <Dialog open={open} onOpenChange={setOpen}>
+                  <DialogTrigger asChild>
+                    <Button onClick={startCreate}>新增</Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>
+                        {editing ? "编辑" : "新增"}
+                        {title}
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {fields.map((field) => (
+                        <div key={field.name} className={field.type === "textarea" || field.type === "json" ? "grid gap-2 sm:col-span-2" : "grid gap-2"}>
+                          <Label>{field.label}</Label>
+                          <FieldControl field={field} value={form[field.name] ?? ""} onChange={(value) => setForm((state) => ({ ...state, [field.name]: value }))} />
+                        </div>
+                      ))}
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setOpen(false)}>
+                        取消
+                      </Button>
+                      <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending || fields.some((field) => field.required && !form[field.name]?.trim())}>
+                        保存
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              }
+            >
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -392,56 +396,60 @@ export function CrudDataPage({
               >
                 查询
               </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {columns.map((column) => (
-                    <TableHead key={column.key} className={column.align === "right" ? "text-right" : undefined}>
-                      {column.label}
-                    </TableHead>
-                  ))}
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(listQuery.data?.items ?? []).length === 0 && (
+            </AdminTableToolbar>
+            <AdminDataTable>
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={columns.length + 1} className="h-24 text-center text-muted-foreground">
-                      暂无数据
-                    </TableCell>
-                  </TableRow>
-                )}
-                {(listQuery.data?.items ?? []).map((row) => (
-                  <TableRow key={String(row.id)}>
                     {columns.map((column) => (
-                      <TableCell key={column.key} className={column.align === "right" ? "text-right" : undefined}>
-                        {column.render ? column.render(row) : display(row[column.key])}
-                      </TableCell>
+                      <TableHead key={column.key} className={column.align === "right" ? "text-right" : undefined}>
+                        {column.label}
+                      </TableHead>
                     ))}
-                    <TableCell className="space-x-2 text-right">
-                      <Button variant="secondary" size="sm" onClick={() => setDetail(row)}>
-                        详情
-                      </Button>
-                      {rowActions?.(row)}
-                      <Button variant="outline" size="sm" onClick={() => startEdit(row)}>
-                        编辑
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={() => row.id && deleteMut.mutate(row.id)} disabled={deleteMut.isPending}>
-                        删除
-                      </Button>
-                    </TableCell>
+                    <TableHead className="text-right">操作</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {listQuery.isLoading && <AdminTableStateRow colSpan={columns.length + 1}>正在加载数据...</AdminTableStateRow>}
+                  {listQuery.isError && (
+                    <AdminTableStateRow colSpan={columns.length + 1} tone="danger">
+                      加载失败，请检查后端接口。
+                    </AdminTableStateRow>
+                  )}
+                  {!listQuery.isLoading && !listQuery.isError && (listQuery.data?.items ?? []).length === 0 && (
+                    <AdminTableStateRow colSpan={columns.length + 1}>暂无数据</AdminTableStateRow>
+                  )}
+                  {!listQuery.isLoading &&
+                    !listQuery.isError &&
+                    (listQuery.data?.items ?? []).map((row) => (
+                      <TableRow key={String(row.id)}>
+                        {columns.map((column) => (
+                          <TableCell key={column.key} className={column.align === "right" ? "text-right" : undefined}>
+                            {column.render ? column.render(row) : display(row[column.key])}
+                          </TableCell>
+                        ))}
+                        <TableCell className="space-x-2 text-right">
+                          <Button variant="secondary" size="sm" onClick={() => setDetail(row)}>
+                            详情
+                          </Button>
+                          {rowActions?.(row)}
+                          <Button variant="outline" size="sm" onClick={() => startEdit(row)}>
+                            编辑
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => row.id && deleteMut.mutate(row.id)} disabled={deleteMut.isPending}>
+                            删除
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </AdminDataTable>
             <PaginationBar page={listQuery.data ?? emptyPage} pageIndex={pageIndex} pageSize={pageSize} onPageChange={setPageIndex} onPageSizeChange={setPageSize} />
-          </CardContent>
-        </Card>
+          </div>
+        </AdminPanel>
       </PageSection>
-      <RowDetail row={detail} title={`${title}详情`} onClose={() => setDetail(null)} />
+      <RowDetail row={detail} title={`${title}详情`} labels={detailLabels} onClose={() => setDetail(null)} />
     </PageContainer>
   )
 }
@@ -511,14 +519,11 @@ export function EnergyStoragePage() {
     onError: (error) => toast.error("保存失败", { description: error instanceof Error ? error.message : "请检查输入" }),
   })
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="数据管理" title="储能数值设置" description="维护储能容量与比例参数，供电能监测大屏读取。" />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title="储能数值设置" />
       <PageSection>
-        <Card>
-          <CardHeader>
-            <CardTitle>储能参数</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
+        <AdminPanel title="储能参数">
+          <div className="grid gap-4 sm:grid-cols-2">
             {fields.map((field) => (
               <div key={field.name} className="grid gap-2">
                 <Label>{field.label}</Label>
@@ -530,8 +535,8 @@ export function EnergyStoragePage() {
                 保存设置
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </AdminPanel>
       </PageSection>
     </PageContainer>
   )
@@ -1025,7 +1030,7 @@ export function ProductResourceBindingsPage() {
   )
 }
 
-export function EventWorkbenchPage({ title, endpoint, queryKey, video = false }: { title: string; endpoint: string; queryKey: string[]; video?: boolean }) {
+export function EventWorkbenchPage({ title, endpoint, queryKey }: { title: string; endpoint: string; queryKey: string[]; video?: boolean }) {
   const qc = useQueryClient()
   const [keyword, setKeyword] = useState("")
   const [appliedKeyword, setAppliedKeyword] = useState("")
@@ -1051,42 +1056,47 @@ export function EventWorkbenchPage({ title, endpoint, queryKey, video = false }:
     },
   })
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="数据管理" title={title} description={video ? "查看视频识别预警事件并完成处理闭环。" : "查看规则触发的预警事件并完成处理闭环。"} />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title={title} />
       <PageSection>
-        <Card>
-          <CardHeader className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <CardTitle>事件列表</CardTitle>
-              <Button onClick={() => handleBatch.mutate()} disabled={unhandledIds.length === 0 || handleBatch.isPending}>
-                处理当前未处理
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Input
-                className="min-w-[260px] flex-1"
-                value={keyword}
-                onChange={(event) => {
-                  setKeyword(event.target.value)
-                }}
-                placeholder="搜索事件说明"
-              />
-              <Select
-                value={handled}
-                onValueChange={(value) => {
-                  setHandled(value)
-                  setPageIndex(0)
-                }}
-              >
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部状态</SelectItem>
-                  <SelectItem value="false">未处理</SelectItem>
-                  <SelectItem value="true">已处理</SelectItem>
-                </SelectContent>
-              </Select>
+        <AdminPanel title="事件列表">
+          <div className="space-y-3">
+            <AdminTableToolbar
+              search={
+                <Input
+                  value={keyword}
+                  onChange={(event) => {
+                    setKeyword(event.target.value)
+                  }}
+                  placeholder="搜索事件说明"
+                />
+              }
+              filters={
+                <div className="w-[160px]">
+                  <Select
+                    value={handled}
+                    onValueChange={(value) => {
+                      setHandled(value)
+                      setPageIndex(0)
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全部状态</SelectItem>
+                      <SelectItem value="false">未处理</SelectItem>
+                      <SelectItem value="true">已处理</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              }
+              actions={
+                <Button onClick={() => handleBatch.mutate()} disabled={unhandledIds.length === 0 || handleBatch.isPending}>
+                  处理当前未处理
+                </Button>
+              }
+            >
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -1098,93 +1108,85 @@ export function EventWorkbenchPage({ title, endpoint, queryKey, video = false }:
               >
                 查询
               </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>类型</TableHead>
-                  <TableHead>说明</TableHead>
-                  <TableHead>时间</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(query.data?.items ?? []).length === 0 && (
+            </AdminTableToolbar>
+            <AdminDataTable>
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                      暂无事件
-                    </TableCell>
+                    <TableHead>类型</TableHead>
+                    <TableHead>说明</TableHead>
+                    <TableHead>时间</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
                   </TableRow>
-                )}
-                {(query.data?.items ?? []).map((row) => (
-                  <TableRow key={String(row.id)}>
-                    <TableCell>{display(row.alarm_name) || display(row.event_type)}</TableCell>
-                    <TableCell className="max-w-[520px] whitespace-normal">{display(row.event_desc)}</TableCell>
-                    <TableCell>{display(row.event_time)}</TableCell>
-                    <TableCell>
-                      <Badge variant={row.status === "resolved" || row.is_handle ? "secondary" : row.alarm_level === "critical" ? "destructive" : "outline"}>
-                        {display(row.status) || (row.is_handle ? "resolved" : "open")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => row.id && handleOne.mutate(row.id)}
-                        disabled={row.is_handle === true || row.status === "resolved" || handleOne.isPending}
-                      >
-                        处理
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {query.isLoading && <AdminTableStateRow colSpan={5}>正在加载事件...</AdminTableStateRow>}
+                  {query.isError && (
+                    <AdminTableStateRow colSpan={5} tone="danger">
+                      加载失败，请检查后端接口。
+                    </AdminTableStateRow>
+                  )}
+                  {!query.isLoading && !query.isError && (query.data?.items ?? []).length === 0 && <AdminTableStateRow colSpan={5}>暂无事件</AdminTableStateRow>}
+                  {!query.isLoading &&
+                    !query.isError &&
+                    (query.data?.items ?? []).map((row) => (
+                      <TableRow key={String(row.id)}>
+                        <TableCell>{display(row.alarm_name) || display(row.event_type)}</TableCell>
+                        <TableCell className="max-w-[520px] whitespace-normal">{display(row.event_desc)}</TableCell>
+                        <TableCell>{display(row.event_time)}</TableCell>
+                        <TableCell>
+                          <Badge variant={row.status === "resolved" || row.is_handle ? "secondary" : row.alarm_level === "critical" ? "destructive" : "outline"}>
+                            {display(row.status) || (row.is_handle ? "resolved" : "open")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => row.id && handleOne.mutate(row.id)}
+                            disabled={row.is_handle === true || row.status === "resolved" || handleOne.isPending}
+                          >
+                            处理
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </AdminDataTable>
             <PaginationBar page={query.data ?? emptyPage} pageIndex={pageIndex} pageSize={pageSize} onPageChange={setPageIndex} onPageSizeChange={setPageSize} />
-          </CardContent>
-        </Card>
+          </div>
+        </AdminPanel>
       </PageSection>
     </PageContainer>
   )
 }
 
-export function ReadonlyLedgerPage({
-  title,
-  description,
-  endpoint,
-  queryKey,
-  columns,
-}: {
-  title: string
-  description: string
-  endpoint: string
-  queryKey: string[]
-  columns: Column[]
-}) {
+export function ReadonlyLedgerPage({ title, endpoint, queryKey, columns }: { title: string; description: string; endpoint: string; queryKey: string[]; columns: Column[] }) {
   const [keyword, setKeyword] = useState("")
   const [appliedKeyword, setAppliedKeyword] = useState("")
   const [detail, setDetail] = useState<Row | null>(null)
   const { query, pageIndex, setPageIndex, pageSize, setPageSize } = usePagedResource<Row>({ endpoint, queryKey, keyword: appliedKeyword })
   const items = query.data?.items ?? []
+  const detailLabels = useMemo(() => Object.fromEntries(columns.map((column) => [column.key, column.label] as const)), [columns])
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="数据管理" title={title} description={description} />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title={title} />
       <PageSection>
-        <Card>
-          <CardHeader className="space-y-3">
-            <CardTitle>{title}台账</CardTitle>
-            <div className="flex flex-wrap gap-3">
-              <Input
-                className="min-w-[260px] flex-1"
-                value={keyword}
-                onChange={(event) => {
-                  setKeyword(event.target.value)
-                }}
-                placeholder="搜索关键字"
-              />
+        <AdminPanel title={`${title}台账`}>
+          <div className="space-y-3">
+            <AdminTableToolbar
+              search={
+                <Input
+                  value={keyword}
+                  onChange={(event) => {
+                    setKeyword(event.target.value)
+                  }}
+                  placeholder="搜索关键字"
+                />
+              }
+            >
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -1196,45 +1198,47 @@ export function ReadonlyLedgerPage({
               >
                 查询
               </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {columns.map((column) => (
-                    <TableHead key={column.key}>{column.label}</TableHead>
-                  ))}
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.length === 0 && (
+            </AdminTableToolbar>
+            <AdminDataTable>
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={columns.length + 1} className="h-24 text-center text-muted-foreground">
-                      暂无数据
-                    </TableCell>
-                  </TableRow>
-                )}
-                {items.map((row) => (
-                  <TableRow key={String(row.id)}>
                     {columns.map((column) => (
-                      <TableCell key={column.key}>{column.render ? column.render(row) : display(row[column.key])}</TableCell>
+                      <TableHead key={column.key}>{column.label}</TableHead>
                     ))}
-                    <TableCell className="text-right">
-                      <Button size="sm" variant="secondary" onClick={() => setDetail(row)}>
-                        详情
-                      </Button>
-                    </TableCell>
+                    <TableHead className="text-right">操作</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {query.isLoading && <AdminTableStateRow colSpan={columns.length + 1}>正在加载数据...</AdminTableStateRow>}
+                  {query.isError && (
+                    <AdminTableStateRow colSpan={columns.length + 1} tone="danger">
+                      加载失败，请检查后端接口。
+                    </AdminTableStateRow>
+                  )}
+                  {!query.isLoading && !query.isError && items.length === 0 && <AdminTableStateRow colSpan={columns.length + 1}>暂无数据</AdminTableStateRow>}
+                  {!query.isLoading &&
+                    !query.isError &&
+                    items.map((row) => (
+                      <TableRow key={String(row.id)}>
+                        {columns.map((column) => (
+                          <TableCell key={column.key}>{column.render ? column.render(row) : display(row[column.key])}</TableCell>
+                        ))}
+                        <TableCell className="text-right">
+                          <Button size="sm" variant="secondary" onClick={() => setDetail(row)}>
+                            详情
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </AdminDataTable>
             <PaginationBar page={query.data ?? emptyPage} pageIndex={pageIndex} pageSize={pageSize} onPageChange={setPageIndex} onPageSizeChange={setPageSize} />
-          </CardContent>
-        </Card>
+          </div>
+        </AdminPanel>
       </PageSection>
-      <RowDetail row={detail} title={`${title}详情`} onClose={() => setDetail(null)} />
+      <RowDetail row={detail} title={`${title}详情`} labels={detailLabels} onClose={() => setDetail(null)} />
     </PageContainer>
   )
 }
@@ -1253,14 +1257,11 @@ export function TasksPage({ mode }: { mode: "interval" | "crontab" | "schedules"
   }, [mode, query.data?.data])
   const title = mode === "interval" ? "时间间隔设置" : mode === "crontab" ? "crontab设置" : "定时任务设置"
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="定时任务" title={title} description="当前任务来自后端 SAQ 静态配置，本页只读展示，不提供在线修改。" />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title={title} />
       <PageSection>
-        <Card>
-          <CardHeader>
-            <CardTitle>任务配置</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <AdminPanel title="任务配置">
+          <AdminDataTable>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -1273,27 +1274,29 @@ export function TasksPage({ mode }: { mode: "interval" | "crontab" | "schedules"
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                      暂无任务
-                    </TableCell>
-                  </TableRow>
+                {query.isLoading && <AdminTableStateRow colSpan={6}>正在加载任务...</AdminTableStateRow>}
+                {query.isError && (
+                  <AdminTableStateRow colSpan={6} tone="danger">
+                    加载失败，请检查后端接口。
+                  </AdminTableStateRow>
                 )}
-                {rows.map((row) => (
-                  <TableRow key={`${row.name}-${row.cron ?? "task"}`}>
-                    <TableCell>{display(row.name)}</TableCell>
-                    <TableCell>{display(row.module)}</TableCell>
-                    <TableCell>{display(row.queue)}</TableCell>
-                    <TableCell>{display(row.cron)}</TableCell>
-                    <TableCell>{display(row.timeout)}</TableCell>
-                    <TableCell>{display(row.ttl)}</TableCell>
-                  </TableRow>
-                ))}
+                {!query.isLoading && !query.isError && rows.length === 0 && <AdminTableStateRow colSpan={6}>暂无任务</AdminTableStateRow>}
+                {!query.isLoading &&
+                  !query.isError &&
+                  rows.map((row) => (
+                    <TableRow key={`${row.name}-${row.cron ?? "task"}`}>
+                      <TableCell>{display(row.name)}</TableCell>
+                      <TableCell>{display(row.module)}</TableCell>
+                      <TableCell>{display(row.queue)}</TableCell>
+                      <TableCell>{display(row.cron)}</TableCell>
+                      <TableCell>{display(row.timeout)}</TableCell>
+                      <TableCell>{display(row.ttl)}</TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+          </AdminDataTable>
+        </AdminPanel>
       </PageSection>
     </PageContainer>
   )

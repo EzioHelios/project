@@ -160,7 +160,8 @@ Priority references for current energy-management work include:
 
 - Business pages should show data, controls, statuses, results, and actions. Do not show implementation notes, evaluation-guide copy, roadmap text, "how this page works" prose, or developer-facing calculation explanations in the product UI.
 - Do not add visible tabs/cards/sections titled like `口径说明`, `计算口径`, `使用说明`, `功能说明`, `数据来源说明`, or similar explanatory surfaces. Put those details in docs, specs, admin configuration, or field-level data tables only when the business user needs to edit or audit the value itself.
-- Page headers should usually be just eyebrow + title + actions. Avoid descriptive paragraphs unless they are real user data or legally required notices.
+- Page headers should be compact workbench headers: title + optional status/meta + actions. Do not add an eyebrow or repeated subtitle when the module path already appears in the shell, sidebar, or breadcrumb.
+- Header descriptions are off by default. Do not use `meta` as a disguised subtitle. Use concise meta chips only for operational facts such as period, lock state, data freshness, tenant, or approval status.
 - Chart and card descriptions should be omitted by default. Use concise labels, units, legends, filters, and table columns instead of prose explaining what the chart means.
 
 ### Backend Admin Visual Standard
@@ -172,6 +173,7 @@ Before changing or creating admin UI, read the relevant design docs first:
 - `docs/design/admin-visual-standard.md` — visual direction and product UI guardrails.
 - `docs/design/admin-page-archetypes.md` — page archetypes and layout rules.
 - `docs/design/admin-crud-standard.md` — CRUD, table, form, import, detail, and audit patterns.
+- `docs/design/admin-chart-standard.md` — chart theme, panel, palette, tooltip, axis, and drilldown rules.
 - `docs/design/admin-visual-system-roadmap.md` — phased global refactor roadmap.
 
 For UI/UX work, prefer global visual-system changes over one-off page rewrites. Start with tokens, shared components, page archetypes, and CRUD templates; only then migrate individual pages. Do not create a bespoke visual direction for a single route unless the design docs explicitly identify it as a separate surface.
@@ -188,6 +190,8 @@ Navigation and page structure:
 - Business modules should be grouped around workflows such as energy operations, carbon accounting, data ledgers, monitoring, factors/standards, and system administration.
 - Permissions, scheduled jobs, API mappings, and low-level platform tools should not visually compete with core energy-carbon workflows.
 - Page titles should not be duplicated between the application shell and the page body.
+- Admin pages must use `AdminPageHeader` instead of adding page-local title blocks. The default header must not render an eyebrow or descriptive paragraph.
+- Admin headers must fit a compact workbench rhythm: one title row plus optional actions/meta. If context needs more than one short row, move it to `ContextBar`, a table column, or an audit field.
 
 Component rules:
 - Cards are for grouped business objects only. Do not wrap every section in generic card boxes.
@@ -195,4 +199,6 @@ Component rules:
 - Empty/loading/error states must match the page structure and should not use generic spinners or casual copy.
 - Do not expose backend field names, UUIDs, raw JSON, raw API names, or implementation identifiers unless the page is explicitly a system/debug tool.
 - CRUD pages should follow `docs/design/admin-crud-standard.md`: ContextBar, TableToolbar, DataTable, DetailDrawer, ImportWizard, StatusBadge, and audit trail patterns before bespoke layouts.
+- Chart pages must use `ChartPanel` plus `createAdminChartOption()` from `src/js/web/src/lib/admin-chart-theme.ts`; do not define page-local color arrays, default ECharts palettes, tooltip shells, legend styling, axis styling, chart card wrappers, or chart description prose in domain pages.
+- When a chart needs a new visual behavior, add or extend a shared chart helper in `src/js/web/src/lib/admin-chart-theme.ts` or a shared chart wrapper first. Page components may pass data, labels, units, source, updated time, thresholds, and drilldown metadata only.
 - Every admin route should map to an archetype from `docs/design/admin-page-archetypes.md` before implementation: Workbench, Ledger, Analysis, Audit, Reference Data, or Settings.

@@ -6,11 +6,12 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 
+import { AdminPageHeader } from "@/components/admin-ui"
 import { PaginationBar, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
@@ -30,8 +31,8 @@ export const Route = createFileRoute("/_app/carbon-mgmt/audit")({
 
 function AuditPage() {
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="碳排放管理" title="审核操作日志" description="查看碳排放相关记录的送审/通过/驳回操作轨迹。" />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title="审核操作日志" />
       <PageSection>
         <AuditLogPanel />
       </PageSection>

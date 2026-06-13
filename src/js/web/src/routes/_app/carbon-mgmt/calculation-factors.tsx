@@ -7,12 +7,13 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Calculator, CheckCircle2, Database } from "lucide-react"
 import { useState } from "react"
 
+import { AdminPageHeader } from "@/components/admin-ui"
 import { PaginationBar, requestPage } from "@/components/platform/data-admin-pages"
 import { SummaryMetricCard } from "@/components/summary-metric-card"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getActivityUnitLabel, getCategoryLabel, getImportMethodLabel, getScopeLabel, getSourceSystemLabel, getSubCategoryLabel } from "@/lib/carbon-factor-labels"
@@ -83,8 +84,8 @@ function CalculationFactorsPage() {
   const sourceCount = new Set(factors.map((factor) => factor.source_system || factor.source).filter(Boolean)).size
 
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="碳排放管理" title="计算因子库" description="平台核算引擎实际使用的活动量换算因子。" />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title="计算因子库" />
 
       <PageSection className="grid items-stretch gap-4 md:grid-cols-3">
         <SummaryMetricCard icon={Calculator} label="计算因子" value={formatNumber(factorsQuery.data?.total)} meta="可用于 活动量 × 因子" />

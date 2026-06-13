@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
 import { AuditLogTable } from "@/components/admin/audit-log-table"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
+import { AdminPageHeader } from "@/components/admin-ui"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 
 export const Route = createFileRoute("/_app/admin/audit")({
   component: AdminAuditPage,
@@ -9,8 +10,8 @@ export const Route = createFileRoute("/_app/admin/audit")({
 
 function AdminAuditPage() {
   return (
-    <PageContainer className="flex-1 space-y-8">
-      <PageHeader eyebrow="权限中心" title="审计日志" description="查看权限变更、登录操作和关键业务动作。" />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title="审计日志" />
       <PermissionCenterNav />
       <PageSection>
         <AuditLogTable />

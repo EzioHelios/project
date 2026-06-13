@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
-
+import { AdminPageHeader } from "@/components/admin-ui"
 import { type ApiEnvelope, DistributionChart, fetchCarbonApi, MiniStatList, TrendChart } from "@/components/carbon/analytics-panels"
 import { DetailPanel, EmptyStateCard, FacetNavigation, statusBadge } from "@/components/carbon/energy-carbon-center"
 import { Input } from "@/components/ui/input"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -120,8 +120,8 @@ function MonitorCenterPage() {
   const areaDistribution = areas.slice(0, 8).map((item) => ({ name: item.name, value: item.alert_unhandled }))
 
   return (
-    <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
-      <PageHeader eyebrow="能碳中心" title="数据采集与监测" description="聚合区域、设备、测点、电表、IoT 时序和视频监控数据，支撑能源与碳排放数据采集管理。" />
+    <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
+      <AdminPageHeader title="数据采集与监测" />
 
       <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -170,7 +170,7 @@ function MonitorCenterPage() {
           title="设备近时段测点趋势"
           description="优先看当前选中设备的短周期趋势，避免只剩静态字段。"
           points={timeseriesQuery.data?.data.series ?? []}
-          lines={[{ key: "energy_kwh", label: "设备测点", color: "#2563eb" }]}
+          lines={[{ key: "energy_kwh", label: "设备测点", colorKey: "energy" }]}
           height={280}
         />
       </PageSection>

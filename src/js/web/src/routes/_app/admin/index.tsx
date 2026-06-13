@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { ArrowRight, KeyRound, ShieldCheck, Users, FileText } from "lucide-react"
+import { ArrowRight, FileText, KeyRound, ShieldCheck, Users } from "lucide-react"
 import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
+import { AdminPageHeader } from "@/components/admin-ui"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 
 export const Route = createFileRoute("/_app/admin/")({
   component: AdminDashboardPage,
@@ -17,8 +18,8 @@ const shortcuts = [
 
 function AdminDashboardPage() {
   return (
-    <PageContainer className="flex-1 space-y-8">
-      <PageHeader eyebrow="权限中心" title="权限中心概览" description="统一管理用户、角色、权限配置和审计日志。" />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title="权限中心概览" />
       <PermissionCenterNav />
       <PageSection>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

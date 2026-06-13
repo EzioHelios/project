@@ -36,6 +36,21 @@
 
 目标：停止继续逐页自由发挥，先盘点现状。
 
+### 2.0 试点复盘修正
+
+第一轮 `/carbon/accounting` 与 `/energy/analysis` 试点暴露出两个必须先修正的系统问题：
+
+1. Page Header 仍然偏大，并且出现了面包屑 / 顶栏 / eyebrow / title 的语义重复。
+2. 图表只迁移了外层页面结构，没有建立统一图表主题，仍然带有各图表组件自行定义颜色和样式的问题。
+
+当前修正方向：
+
+1. `AdminPageHeader` 已收敛为紧凑标题、状态 / meta、操作，不再默认渲染 eyebrow 或 description。
+2. `ChartPanel` 与 `createAdminChartOption()` 已建立，后续图表迁移必须删除页面内散落的颜色、tooltip、legend、axis 和 grid 样式。
+3. `AdminTableToolbar`、`AdminDataTable` 与 `AdminTableStateRow` 已建立，下一步应优先迁移高频 Ledger / CRUD 页面，而不是继续复制旧 Card 表格。
+
+因此下一轮不得继续按页面自由美化。必须先用这些组件修正试点页，再批量迁移 Ledger、Analysis、Audit 三类高频页面。
+
 ### 2.1 动作
 
 - 盘点所有后台路由。
@@ -143,7 +158,7 @@ const adminDensity = {
 ### 4.1 必做组件
 
 1. `AdminShell`：左导航、顶部栏、内容区。
-2. `AdminPageHeader`：标题、描述、状态、主操作、次操作。
+2. `AdminPageHeader`：紧凑标题、状态、主操作、次操作；默认不显示 eyebrow / description。
 3. `ContextBar`：业务上下文筛选。
 4. `FilterDrawer`：高级筛选。
 5. `DataTable`：统一表格封装。
@@ -152,13 +167,14 @@ const adminDensity = {
 8. `QualityBadge`：数据质量体系。
 9. `MetricStrip`：KPI strip。
 10. `ChartPanel`：统一图表容器。
-11. `ObjectDetailDrawer`：列表详情抽屉。
-12. `AuditTimeline`：审核和变更记录。
-13. `EvidenceUploader`：证据附件。
-14. `ImportWizard`：导入流程。
-15. `FactorSelector`：因子匹配。
-16. `CalculationTrace`：计算追踪。
-17. `EmptyState` / `ErrorState`：状态页。
+11. `createAdminChartOption` / `adminChartTheme`：统一 ECharts 主题、轴线、网格、tooltip、legend、series 样式。
+12. `ObjectDetailDrawer`：列表详情抽屉。
+13. `AuditTimeline`：审核和变更记录。
+14. `EvidenceUploader`：证据附件。
+15. `ImportWizard`：导入流程。
+16. `FactorSelector`：因子匹配。
+17. `CalculationTrace`：计算追踪。
+18. `EmptyState` / `ErrorState`：状态页。
 
 ### 4.2 组件约束
 
@@ -168,13 +184,14 @@ const adminDensity = {
 - 所有主筛选必须通过 `ContextBar`。
 - 所有导入必须通过 `ImportWizard`。
 - 所有证据附件必须通过 `EvidenceUploader`。
+- 所有页面标题必须通过 `AdminPageHeader`，并遵守“无重复 eyebrow、无默认 description”的紧凑规则。
+- 所有 ECharts 必须通过 `ChartPanel` 和统一 theme / option factory，不允许页面组件直接定义全量视觉 option。
 
 ### 4.3 组件 API 示例
 
 ```tsx
 <AdminPageHeader
   title="活动数据台账"
-  description="维护核算周期内的排放活动数据和证据。"
   status={<StatusBadge status="reviewing" />}
   primaryAction={{ label: '新增活动数据', onClick: openCreate }}
   secondaryActions={[
@@ -240,6 +257,12 @@ const adminDensity = {
 - Chart grid
 - Breakdown table
 - Drilldown drawer
+
+Header 要求：
+
+- 顶部栏或面包屑显示模块路径，例如“能源运营 / 用能分析”。
+- 页面内容区只显示“用能分析”一个标题。
+- 不在标题下方显示“能源运营”或解释性段落。
 
 ### 5.4 AuditTemplate
 
@@ -381,6 +404,24 @@ const adminDensity = {
 9. 补审计字段。
 10. 回归测试。
 
+标题区迁移补充步骤：
+
+- 检查顶栏、面包屑、PageHeader 是否重复表达同一语义。
+- 删除默认 eyebrow 和 description。
+- 检查 `AdminPageHeader meta` 是否只是另一种副标题；如果是，删除或改为状态 / 周期 / 组织 / 数据更新时间。
+- 把必要上下文下沉到 ContextBar、status badge、表格列或 audit footer。
+- 控制内容标题区高度：无 ContextBar 时 48px 到 64px，极限不超过 80px。
+- 截图确认第一屏标题区高度没有挤压业务内容。
+
+图表迁移补充步骤：
+
+- 先替换为 `ChartPanel`。
+- 再把图表 option 接入 `createAdminChartOption()`。
+- 移除页面内硬编码颜色、tooltip 样式、legend 样式、grid 样式。
+- 把趋势、排行、构成、仪表盘、桑基、热力图沉淀为共享 chart builder，不在 route 组件里写视觉 option。
+- 删除 chart description prose；用 title、unit、source、updatedAt、axis、legend 和 tooltip 表达。
+- 截图确认趋势、构成、排行、异常图表属于同一视觉体系。
+
 ### 7.3 降低成本策略
 
 - 先不重写业务逻辑，只替换布局外壳和基础组件。
@@ -396,9 +437,12 @@ const adminDensity = {
 - 页面是否归属于明确 archetype？
 - Header、Context、Toolbar、Content 顺序是否统一？
 - 是否出现无来源的大段说明文案？
+- Header 是否重复显示模块名 / 页面名？
+- Header 是否过高导致首屏业务内容下移？
 - 是否裸用 shadcn Card 拼页面？
 - 是否出现无单位 KPI？
 - 是否出现无口径图表？
+- 图表颜色、tooltip、legend、axis 是否来自统一 theme？
 - 是否出现自定义状态色？
 - 表格数值是否右对齐？
 - 空状态是否有下一步动作？
@@ -470,6 +514,26 @@ export const statusMeta = {
 - 导出
 - 钻取
 
+本项目图表技术栈为 `echarts` / `echarts-for-react`，支持以下全局自定义能力：
+
+- `echarts.registerTheme()` 注册工业能碳后台主题。
+- 统一 `color` palette。
+- 统一 `grid`、`axisLine`、`axisLabel`、`splitLine`。
+- 统一 `tooltip` 背景、边框、字号、数值格式。
+- 统一 `legend` 位置、图标和文字样式。
+- 统一 line / bar / pie / gauge / sankey series 样式。
+- 统一 loading、empty、error、drilldown 和 export action。
+
+`src/js/web/src/components/admin-ui/chart-panel.tsx` 和 `src/js/web/src/lib/admin-chart-theme.ts` 已建立。后续迁移必须逐步删除 `components/carbon/analytics-panels.tsx`、能源分析组件和其他分析页中散落的 `CHART_COLORS`、`PIE_COLORS`、硬编码 hex 颜色、局部 tooltip / legend / axis 样式。
+
+迁移完成的图表组件必须满足：
+
+- 图表容器来自 `ChartPanel`。
+- ECharts option 经过 `createAdminChartOption()`。
+- 颜色优先使用 `adminChartPalette` 或语义 `colorKey`。
+- 图表 panel 显示单位、来源、更新时间中的至少一个可审计信息。
+- 截图确认图表不再像默认 ECharts 或独立 BI 插件。
+
 ## 10. 里程碑建议
 
 ### Milestone 1：规范冻结
@@ -479,18 +543,36 @@ export const statusMeta = {
 
 ### Milestone 2：组件底座
 
-输出：AdminShell、PageHeader、ContextBar、DataTable、StatusBadge、MetricStrip、ChartPanel。  
+输出：AdminShell、紧凑 AdminPageHeader、ContextBar、DataTable、StatusBadge、MetricStrip、ChartPanel、adminChartTheme。
 时间：3 到 5 天。
+
+补充验收：
+
+- `AdminPageHeader` 不支持 eyebrow / description。
+- 标题区截图确认没有重复小副标题。
+- `ChartPanel` 和 chart theme 已经覆盖 tooltip、legend、axis、grid、palette、empty/loading/error 基础状态。
 
 ### Milestone 3：碳核算试点
 
 输出：`/carbon/accounting` AuditTemplate 版。  
 时间：3 到 5 天。
 
+补充验收：
+
+- 碳核算页面不再通过 `Card` 堆叠解释性模块。
+- 关键图表从共享 chart builder 生成，不在页面里定义视觉 option。
+- 表格、审核状态、证据和审计字段复用 Admin UI。
+
 ### Milestone 4：能源分析试点
 
 输出：`/energy/analysis` AnalysisTemplate 版。  
 时间：3 到 5 天。
+
+补充验收：
+
+- 分析页图表统一使用 ChartPanel + chart builder。
+- 图表标题区只保留标题、单位、来源、更新时间和操作。
+- 截图对比趋势、排行、构成、异常图，确认属于同一视觉系统。
 
 ### Milestone 5：批量迁移
 
@@ -514,6 +596,8 @@ export const statusMeta = {
 - 80% 以上状态复用 StatusBadge。
 - 关键页面拥有统一 EmptyState / ErrorState。
 - 图表页复用 ChartPanel。
+- 图表 option 不在页面组件里散落定义视觉样式。
+- PageHeader 不重复显示面包屑已有的信息。
 - 导入流程复用 ImportWizard。
 
 视觉指标：
@@ -523,3 +607,5 @@ export const statusMeta = {
 - 卡片阴影和圆角统一。
 - 深色模式仅在明确场景使用。
 - 页面没有营销式填充文案。
+- 标题区不形成 hero，占用高度可控。
+- 图表风格统一，不出现默认 ECharts 或随机配色。

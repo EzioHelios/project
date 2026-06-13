@@ -4,16 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-type Json =
-  | null
-  | boolean
-  | number
-  | string
-  | Json[]
-  | {
-      [key: string]: Json
-    }
-
 function formatValue(value: unknown) {
   if (value === null || value === undefined) return "-"
   if (typeof value === "number") return Number.isFinite(value) ? value.toLocaleString() : String(value)
@@ -64,7 +54,9 @@ export function AutoTable({ data, maxColumns = 8 }: { data: unknown; maxColumns?
     for (const r of rowObjs) {
       for (const k of Object.keys(r)) keys.add(k)
     }
-    const cols = Array.from(keys).sort((a, b) => a.localeCompare(b)).slice(0, maxColumns)
+    const cols = Array.from(keys)
+      .sort((a, b) => a.localeCompare(b))
+      .slice(0, maxColumns)
     return { rows: rowObjs, columns: cols }
   }, [data, maxColumns])
 
@@ -121,11 +113,13 @@ export function DataCard({
   data,
   prefer = "auto",
   rawTitle,
+  showRaw = false,
 }: {
   title: string
   data: unknown
   prefer?: "auto" | "kv" | "table"
   rawTitle?: string
+  showRaw?: boolean
 }) {
   const mode = useMemo(() => {
     if (prefer === "kv") return "kv"
@@ -141,9 +135,8 @@ export function DataCard({
       </CardHeader>
       <CardContent className="space-y-4">
         {mode === "table" ? <AutoTable data={data} /> : <KeyValueGrid data={data} />}
-        <RawJsonCollapsible data={data} title={rawTitle ?? "原始返回值"} />
+        {showRaw && <RawJsonCollapsible data={data} title={rawTitle ?? "原始返回值"} />}
       </CardContent>
     </Card>
   )
 }
-

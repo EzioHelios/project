@@ -3,13 +3,13 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import { toast } from "sonner"
 
+import { AdminDataTable, AdminPageHeader, AdminPanel, AdminTableStateRow, AdminTableToolbar } from "@/components/admin-ui"
 import { PaginationBar, requestPage } from "@/components/platform/data-admin-pages"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
@@ -119,107 +119,100 @@ function CommutePage() {
   })
 
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="数据管理" title="员工通勤" description="管理员工通勤方式与里程等基础数据，为碳排放计算提供基础参数。" />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title="员工通勤" />
 
       <PageSection>
-        <Card>
-          <CardHeader className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <CardTitle>员工通勤列表</CardTitle>
-              <div className="flex flex-wrap gap-2">
-                <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-                  <DialogTrigger asChild>
-                    <Button>新增</Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>新增员工通勤记录</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4">
-                      <div className="grid gap-2">
-                        <Label>员工姓名 / 标识</Label>
-                        <Input value={form.name} onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} placeholder="例如：张三 / 员工编号" />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>通勤类别</Label>
-                        <Input value={form.category} onChange={(e) => setForm((s) => ({ ...s, category: e.target.value }))} placeholder="例如：自驾 / 公交 / 班车" />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>车辆动力类型</Label>
-                        <Select value={form.car_power_type} onValueChange={(v) => setForm((s) => ({ ...s, car_power_type: v }))}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="选择车辆动力类型" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="0">柴油</SelectItem>
-                            <SelectItem value="1">汽油</SelectItem>
-                            <SelectItem value="2">电力</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
+        <AdminPanel title="员工通勤列表">
+          <div className="space-y-3">
+            <AdminTableToolbar
+              search={<Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="搜索：姓名 / 通勤类别…" />}
+              filters={
+                <div className="w-[160px]">
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="通勤类别" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全部类别</SelectItem>
+                      <SelectItem value="自驾">自驾</SelectItem>
+                      <SelectItem value="公交">公交</SelectItem>
+                      <SelectItem value="班车">班车</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              }
+              actions={
+                <>
+                  <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                    <DialogTrigger asChild>
+                      <Button>新增</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>新增员工通勤记录</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4">
                         <div className="grid gap-2">
-                          <Label>平均单次里程（km）</Label>
-                          <Input value={form.mileage} onChange={(e) => setForm((s) => ({ ...s, mileage: e.target.value }))} placeholder="可选，例如：15" />
+                          <Label>员工姓名 / 标识</Label>
+                          <Input value={form.name} onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} placeholder="例如：张三 / 员工编号" />
                         </div>
                         <div className="grid gap-2">
-                          <Label>单位油耗（L/100km）</Label>
-                          <Input value={form.unit_consumption} onChange={(e) => setForm((s) => ({ ...s, unit_consumption: e.target.value }))} placeholder="可选，例如：8.5" />
+                          <Label>通勤类别</Label>
+                          <Input value={form.category} onChange={(e) => setForm((s) => ({ ...s, category: e.target.value }))} placeholder="例如：自驾 / 公交 / 班车" />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>车辆动力类型</Label>
+                          <Select value={form.car_power_type} onValueChange={(v) => setForm((s) => ({ ...s, car_power_type: v }))}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="选择车辆动力类型" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="0">柴油</SelectItem>
+                              <SelectItem value="1">汽油</SelectItem>
+                              <SelectItem value="2">电力</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="grid gap-2">
+                            <Label>平均单次里程（km）</Label>
+                            <Input value={form.mileage} onChange={(e) => setForm((s) => ({ ...s, mileage: e.target.value }))} placeholder="可选，例如：15" />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label>单位油耗（L/100km）</Label>
+                            <Input value={form.unit_consumption} onChange={(e) => setForm((s) => ({ ...s, unit_consumption: e.target.value }))} placeholder="可选，例如：8.5" />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setCreateOpen(false)}>
-                        取消
-                      </Button>
-                      <Button onClick={() => createMut.mutate()} disabled={!form.name.trim() || createMut.isPending}>
-                        保存
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                          取消
+                        </Button>
+                        <Button onClick={() => createMut.mutate()} disabled={!form.name.trim() || createMut.isPending}>
+                          保存
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
 
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setKeyword("")
-                    setCategory("all")
-                  }}
-                >
-                  重置
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="min-w-[260px] flex-1">
-                <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="搜索：姓名 / 通勤类别…" />
-              </div>
-              <div className="w-[160px]">
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="通勤类别" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">全部类别</SelectItem>
-                    <SelectItem value="自驾">自驾</SelectItem>
-                    <SelectItem value="公交">公交</SelectItem>
-                    <SelectItem value="班车">班车</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setKeyword("")
+                      setCategory("all")
+                    }}
+                  >
+                    重置
+                  </Button>
+                </>
+              }
+            >
               <Button variant="secondary" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>
                 查询
               </Button>
-            </div>
-          </CardHeader>
-
-          <CardContent className="space-y-3">
-            {listQuery.isLoading && <div className="text-sm text-muted-foreground">正在加载…</div>}
-            {listQuery.isError && <div className="text-sm text-destructive">加载失败，请检查后端接口。</div>}
-
-            {!listQuery.isLoading && !listQuery.isError && (
+            </AdminTableToolbar>
+            <AdminDataTable>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -232,30 +225,32 @@ function CommutePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {items.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                        暂无数据
-                      </TableCell>
-                    </TableRow>
+                  {listQuery.isLoading && <AdminTableStateRow colSpan={6}>正在加载数据...</AdminTableStateRow>}
+                  {listQuery.isError && (
+                    <AdminTableStateRow colSpan={6} tone="danger">
+                      加载失败，请检查后端接口。
+                    </AdminTableStateRow>
                   )}
-                  {items.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell>{r.name}</TableCell>
-                      <TableCell>{r.category ?? "-"}</TableCell>
-                      <TableCell>{r.car_power_type != null ? (carPowerTypeLabels[r.car_power_type] ?? r.car_power_type) : "-"}</TableCell>
-                      <TableCell className="text-right">{r.mileage ?? "-"}</TableCell>
-                      <TableCell className="text-right">{r.unit_consumption ?? "-"}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="outline" size="sm" onClick={() => deleteMut.mutate(r.id)} disabled={deleteMut.isPending}>
-                          删除
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {!listQuery.isLoading && !listQuery.isError && items.length === 0 && <AdminTableStateRow colSpan={6}>暂无数据</AdminTableStateRow>}
+                  {!listQuery.isLoading &&
+                    !listQuery.isError &&
+                    items.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell>{r.name}</TableCell>
+                        <TableCell>{r.category ?? "-"}</TableCell>
+                        <TableCell>{r.car_power_type != null ? (carPowerTypeLabels[r.car_power_type] ?? r.car_power_type) : "-"}</TableCell>
+                        <TableCell className="text-right">{r.mileage ?? "-"}</TableCell>
+                        <TableCell className="text-right">{r.unit_consumption ?? "-"}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="outline" size="sm" onClick={() => deleteMut.mutate(r.id)} disabled={deleteMut.isPending}>
+                            删除
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                 </TableBody>
               </Table>
-            )}
+            </AdminDataTable>
             <PaginationBar
               page={listQuery.data ?? { items: [], total: 0, limit: pageSize, offset: pageIndex * pageSize }}
               pageIndex={pageIndex}
@@ -266,8 +261,8 @@ function CommutePage() {
                 setPageIndex(0)
               }}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </AdminPanel>
       </PageSection>
     </PageContainer>
   )

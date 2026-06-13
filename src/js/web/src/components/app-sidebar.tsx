@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouterState } from "@tanstack/react-router"
-import { AlarmClock, BellRing, Building2, ClipboardList, Cpu, Database, Home, MonitorPlay, ShieldCheck, Users, Zap } from "lucide-react"
+import { BellRing, Building2, ClipboardList, Cpu, Database, Home, MonitorPlay, Settings, ShieldCheck, Zap } from "lucide-react"
 import type * as React from "react"
 import { useCallback, useEffect, useMemo } from "react"
 import { NavMain } from "@/components/nav-main"
@@ -43,58 +43,63 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navMain = useMemo(() => {
     const items: React.ComponentProps<typeof NavMain>["items"] = [
       {
-        title: "首页",
+        title: "工作台",
         to: "/home",
         icon: Home,
       },
       {
-        title: "权限中心",
+        title: "系统管理",
         to: "/auth/users",
-        icon: Users,
+        icon: Settings,
         isActive:
           pathname.startsWith("/auth") ||
           pathname === "/admin" ||
           pathname.startsWith("/admin/users") ||
           pathname.startsWith("/admin/roles") ||
-          pathname.startsWith("/admin/audit"),
+          pathname.startsWith("/admin/audit") ||
+          pathname.startsWith("/tasks"),
         items: [
           { title: "用户管理", to: "/auth/users" },
           { title: "角色管理", to: "/auth/roles" },
           { title: "权限配置", to: "/admin/roles" },
           { title: "审计日志", to: "/admin/audit" },
+          { title: "平台任务", kind: "section" },
+          { title: "时间间隔", to: "/tasks/interval" },
+          { title: "Crontab", to: "/tasks/crontab" },
+          { title: "任务计划", to: "/tasks/schedules" },
         ],
       },
       {
-        title: "能源管理",
+        title: "能源运营",
         to: "/energy/consumption",
         icon: Zap,
         isActive: pathname.startsWith("/energy"),
         items: [
           { title: "能耗查询", to: "/energy/consumption" },
-          { title: "能源消费量和强度计算", to: "/energy/intensity" },
-          { title: "能源消费分析与用能策略推荐", to: "/energy/analysis" },
+          { title: "能耗强度", to: "/energy/intensity" },
+          { title: "用能分析", to: "/energy/analysis" },
           { title: "能效对标", to: "/energy/benchmark" },
           { title: "能流分析", to: "/energy/flow" },
-          { title: "能效平衡与优化", to: "/energy/balance" },
-          { title: "用能与碳排放预算管理", to: "/energy/budget" },
+          { title: "能效平衡", to: "/energy/balance" },
+          { title: "用能预算", to: "/energy/budget" },
         ],
       },
       {
-        title: "碳排放管理",
+        title: "碳核算",
         to: "/carbon/accounting",
         icon: ShieldCheck,
         isActive:
           pathname.startsWith("/carbon") || pathname.startsWith("/carbon-mgmt/scope") || pathname.startsWith("/carbon-mgmt/pending") || pathname.startsWith("/carbon-mgmt/audit"),
         items: [
           { title: "碳排放核算", to: "/carbon/accounting" },
-          { title: "产品碳足迹核算", to: "/carbon/product-footprint" },
-          { title: "供应链碳管理", to: "/carbon/supply-chain" },
-          { title: "碳核查支撑", to: "/carbon/verification" },
+          { title: "产品碳足迹", to: "/carbon/product-footprint" },
+          { title: "供应链碳", to: "/carbon/supply-chain" },
+          { title: "核查支撑", to: "/carbon/verification" },
           { title: "碳资产管理", to: "/carbon/assets" },
         ],
       },
       {
-        title: "大屏中心",
+        title: "态势大屏",
         to: "/bigscreen/overview",
         icon: MonitorPlay,
         isActive: pathname.startsWith("/bigscreen"),
@@ -107,7 +112,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ],
       },
       {
-        title: "企业与组织",
+        title: "组织档案",
         to: "/data/company",
         icon: Building2,
         isActive: pathname.startsWith("/data/company") || pathname.startsWith("/data/monitor-area") || pathname.startsWith("/data/production-products"),
@@ -118,7 +123,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ],
       },
       {
-        title: "业务活动台账",
+        title: "活动台账",
         to: "/data/commute",
         icon: ClipboardList,
         isActive:
@@ -138,7 +143,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ],
       },
       {
-        title: "采集设备与测点",
+        title: "设备与测点",
         to: "/data/terminals",
         icon: Cpu,
         isActive:
@@ -160,7 +165,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ],
       },
       {
-        title: "碳排放因子库",
+        title: "因子与口径",
         to: "/carbon-mgmt/factors",
         icon: Database,
         isActive:
@@ -171,12 +176,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         items: [
           { title: "排放因子库", to: "/carbon-mgmt/factors" },
           { title: "计算因子库", to: "/carbon-mgmt/calculation-factors" },
-          { title: "能源折标与储能口径", to: "/data/energy-storage" },
-          { title: "接口结果key映射", to: "/data/api-key-mapping" },
+          { title: "折标与储能", to: "/data/energy-storage" },
+          { title: "接口映射", to: "/data/api-key-mapping" },
         ],
       },
       {
-        title: "监测告警运维",
+        title: "监测告警",
         to: "/energy-carbon/monitor",
         icon: BellRing,
         isActive:
@@ -191,18 +196,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           { title: "规则与事件台账", kind: "section" },
           { title: "预警规则", to: "/data/alarm-rules" },
           { title: "预警事件", to: "/data/alarm-events" },
-          { title: "视频监控预警事件", to: "/data/video-alarm-events" },
-        ],
-      },
-      {
-        title: "定时任务",
-        to: "/tasks/interval",
-        icon: AlarmClock,
-        isActive: pathname.startsWith("/tasks"),
-        items: [
-          { title: "时间间隔设置", to: "/tasks/interval" },
-          { title: "crontab设置", to: "/tasks/crontab" },
-          { title: "定时任务设置", to: "/tasks/schedules" },
+          { title: "视频预警", to: "/data/video-alarm-events" },
         ],
       },
     ]

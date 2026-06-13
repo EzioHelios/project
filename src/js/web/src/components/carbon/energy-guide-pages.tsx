@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
+import { ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, CompositeTrendChart, DiagnosticsPanel, DistributionChart, FlowGraph, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
 import { JumpLinks } from "@/components/carbon/energy-carbon-center"
 import { type PageResult, PaginationBar, request, requestPage } from "@/components/platform/data-admin-pages"
@@ -1640,8 +1641,8 @@ export function EnergyIntensityPanel() {
             <CompositeTrendChart
               title="综合能耗和面积折标强度趋势"
               points={intensityTrendSeries}
-              bars={[{ key: "total_tce", label: "综合能耗", color: "#d97706" }]}
-              lines={[{ key: "store_area_kgce_per_m2", label: "仓储面积折标强度", color: "#0f766e", yAxisIndex: 1 }]}
+              bars={[{ key: "total_tce", label: "综合能耗", colorKey: "energy" }]}
+              lines={[{ key: "store_area_kgce_per_m2", label: "仓储面积折标强度", colorKey: "carbon", yAxisIndex: 1 }]}
               leftAxisName="tce"
               rightAxisName="kgce/㎡"
               height={360}
@@ -1651,8 +1652,8 @@ export function EnergyIntensityPanel() {
             <CompositeTrendChart
               title="外购电力专项强度趋势"
               points={trend?.series ?? []}
-              bars={[{ key: "electricity_kwh", label: "外购电力", color: "#2563eb" }]}
-              lines={[{ key: "store_area_kwh_per_m2", label: "仓储面积电力强度", color: "#7c3aed", yAxisIndex: 1 }]}
+              bars={[{ key: "electricity_kwh", label: "外购电力", colorKey: "scope2" }]}
+              lines={[{ key: "store_area_kwh_per_m2", label: "仓储面积电力强度", colorKey: "scope3", yAxisIndex: 1 }]}
               leftAxisName="kWh"
               rightAxisName="kWh/㎡"
               height={320}
@@ -1742,54 +1743,55 @@ export function EnergyAnalysisPanel() {
 
   return (
     <div className="space-y-6">
-      <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[160px_160px_140px_1fr_180px_160px_auto]">
-          <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
-          <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
-          <Select value={granularity} onValueChange={setGranularity}>
-            <SelectTrigger>
-              <SelectValue placeholder="统计粒度" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="day">日</SelectItem>
-              <SelectItem value="hour">小时</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="筛选区域名称" />
-          <Select value={useSystemCode} onValueChange={setUseSystemCode}>
-            <SelectTrigger>
-              <SelectValue placeholder="用能系统" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部用能系统</SelectItem>
-              {systemOptions.map((item) => (
-                <SelectItem key={item.use_system_code} value={item.use_system_code}>
-                  {item.use_system_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={tariffSegmentType} onValueChange={setTariffSegmentType}>
-            <SelectTrigger>
-              <SelectValue placeholder="分时时段" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部时段</SelectItem>
-              <SelectItem value="peak">峰段</SelectItem>
-              <SelectItem value="flat">平段</SelectItem>
-              <SelectItem value="valley">谷段</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="flex justify-end gap-2">
+      <ContextBar
+        actions={
+          <>
             <Button onClick={applyFilters} disabled={summaryQuery.isFetching || anomaliesQuery.isFetching || strategiesQuery.isFetching}>
               查询
             </Button>
             <Button variant="outline" onClick={resetFilters}>
               重置
             </Button>
-          </div>
-        </div>
-      </PageSection>
+          </>
+        }
+      >
+        <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
+        <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
+        <Select value={granularity} onValueChange={setGranularity}>
+          <SelectTrigger>
+            <SelectValue placeholder="统计粒度" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="day">日</SelectItem>
+            <SelectItem value="hour">小时</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="筛选区域名称" />
+        <Select value={useSystemCode} onValueChange={setUseSystemCode}>
+          <SelectTrigger>
+            <SelectValue placeholder="用能系统" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部用能系统</SelectItem>
+            {systemOptions.map((item) => (
+              <SelectItem key={item.use_system_code} value={item.use_system_code}>
+                {item.use_system_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={tariffSegmentType} onValueChange={setTariffSegmentType}>
+          <SelectTrigger>
+            <SelectValue placeholder="分时时段" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部时段</SelectItem>
+            <SelectItem value="peak">峰段</SelectItem>
+            <SelectItem value="flat">平段</SelectItem>
+            <SelectItem value="valley">谷段</SelectItem>
+          </SelectContent>
+        </Select>
+      </ContextBar>
 
       <Tabs defaultValue="structure" className="space-y-4">
         <TabsList>
@@ -1801,32 +1803,12 @@ export function EnergyAnalysisPanel() {
         </TabsList>
 
         <TabsContent value="structure" className="space-y-4">
-          <PageSection className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>总用电量</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.total_energy, 2)} kWh</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>用能系统</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.system_count, 0)}</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>设备数</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.equipment_count, 0)}</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>区域数</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.area_count, 0)}</CardContent>
-            </Card>
-          </PageSection>
+          <MetricStrip>
+            <MetricTile label="总用电量" value={formatEnergyValue(summary?.totals.total_energy, 2)} unit="kWh" />
+            <MetricTile label="用能系统" value={formatEnergyValue(summary?.totals.system_count, 0)} />
+            <MetricTile label="设备数" value={formatEnergyValue(summary?.totals.equipment_count, 0)} />
+            <MetricTile label="区域数" value={formatEnergyValue(summary?.totals.area_count, 0)} />
+          </MetricStrip>
           <PageSection className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
             <RankingList
               title="用能系统排行"
@@ -1848,26 +1830,11 @@ export function EnergyAnalysisPanel() {
         </TabsContent>
 
         <TabsContent value="cost" className="space-y-4">
-          <PageSection className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle>估算电费</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.total_cost, 2)} 元</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>平均电价</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.performance.cost_per_kwh, 4)} 元/kWh</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>计费记录</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.record_count, 0)}</CardContent>
-            </Card>
-          </PageSection>
+          <MetricStrip className="xl:grid-cols-3">
+            <MetricTile label="估算电费" value={formatEnergyValue(summary?.totals.total_cost, 2)} unit="元" tone="warning" />
+            <MetricTile label="平均电价" value={formatEnergyValue(summary?.performance.cost_per_kwh, 4)} unit="元/kWh" />
+            <MetricTile label="计费记录" value={formatEnergyValue(summary?.totals.record_count, 0)} />
+          </MetricStrip>
           <PageSection className="grid gap-4 xl:grid-cols-2">
             <DistributionChart
               title="分时成本结构"
@@ -1883,32 +1850,17 @@ export function EnergyAnalysisPanel() {
         </TabsContent>
 
         <TabsContent value="performance" className="space-y-4">
-          <PageSection className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle>运行小时</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.workload.run_hours, 2)} h</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>单位运行小时电耗</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.performance.kwh_per_run_hour, 4)} kWh/h</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>作业量记录</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.workload.record_count, 0)}</CardContent>
-            </Card>
-          </PageSection>
+          <MetricStrip className="xl:grid-cols-3">
+            <MetricTile label="运行小时" value={formatEnergyValue(summary?.workload.run_hours, 2)} unit="h" />
+            <MetricTile label="单位运行小时电耗" value={formatEnergyValue(summary?.performance.kwh_per_run_hour, 4)} unit="kWh/h" />
+            <MetricTile label="作业量记录" value={formatEnergyValue(summary?.workload.record_count, 0)} />
+          </MetricStrip>
           <PageSection>
             <CompositeTrendChart
               title="能耗和成本趋势"
               points={summary?.trend ?? []}
-              bars={[{ key: "total_energy", label: "电量", color: "#2563eb" }]}
-              lines={[{ key: "total_cost", label: "成本", color: "#d97706", yAxisIndex: 1 }]}
+              bars={[{ key: "total_energy", label: "电量", colorKey: "energy" }]}
+              lines={[{ key: "total_cost", label: "成本", colorKey: "cost", yAxisIndex: 1 }]}
               leftAxisName="kWh"
               rightAxisName="元"
               height={360}
@@ -1950,20 +1902,10 @@ export function EnergyAnalysisPanel() {
         </TabsContent>
 
         <TabsContent value="anomaly" className="space-y-4">
-          <PageSection className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>异常时段</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(anomalies?.items.length, 0)}</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>能源告警</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(anomalies?.alarms.length, 0)}</CardContent>
-            </Card>
-          </PageSection>
+          <MetricStrip className="xl:grid-cols-2">
+            <MetricTile label="异常时段" value={formatEnergyValue(anomalies?.items.length, 0)} tone="danger" />
+            <MetricTile label="能源告警" value={formatEnergyValue(anomalies?.alarms.length, 0)} tone="warning" />
+          </MetricStrip>
           <PageSection>
             <Card>
               <CardHeader>
@@ -2011,32 +1953,12 @@ export function EnergyAnalysisPanel() {
         </TabsContent>
 
         <TabsContent value="strategy" className="space-y-4">
-          <PageSection className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>策略数</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(strategies?.items.length, 0)}</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>证据电量</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(strategies?.evidence_summary.total_energy, 2)} kWh</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>证据成本</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(strategies?.evidence_summary.total_cost, 2)} 元</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>异常证据</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(strategies?.evidence_summary.anomaly_count, 0)}</CardContent>
-            </Card>
-          </PageSection>
+          <MetricStrip>
+            <MetricTile label="策略数" value={formatEnergyValue(strategies?.items.length, 0)} />
+            <MetricTile label="证据电量" value={formatEnergyValue(strategies?.evidence_summary.total_energy, 2)} unit="kWh" />
+            <MetricTile label="证据成本" value={formatEnergyValue(strategies?.evidence_summary.total_cost, 2)} unit="元" tone="warning" />
+            <MetricTile label="异常证据" value={formatEnergyValue(strategies?.evidence_summary.anomaly_count, 0)} tone="danger" />
+          </MetricStrip>
           <PageSection className="space-y-3">
             {(strategies?.items ?? []).map((item) => (
               <Card key={item.code}>

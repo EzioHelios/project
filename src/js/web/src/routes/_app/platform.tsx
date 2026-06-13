@@ -22,8 +22,9 @@ import {
   Warehouse,
 } from "lucide-react"
 
+import { AdminPageHeader } from "@/components/admin-ui"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { usePublicConfig } from "@/hooks/use-public-config"
 import { cn } from "@/lib/utils"
 
@@ -56,8 +57,8 @@ function PlatformHome() {
   const { config } = usePublicConfig()
 
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="首页" title={config.displayName} description={config.description} />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title={config.displayName} />
 
       <PageSection>
         <Card>

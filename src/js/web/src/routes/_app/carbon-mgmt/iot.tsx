@@ -6,9 +6,10 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 
+import { AdminPageHeader } from "@/components/admin-ui"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
@@ -51,8 +52,8 @@ function IotPage() {
   const rows = useMemo(() => data?.data ?? [], [data?.data])
 
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow="碳排放管理" title="IoT时序数据" description="查看电力 IoT 设备上报的时序数据，用于排查与核对。" />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title="IoT时序数据" />
       <PageSection>
         <Card>
           <CardHeader className="space-y-3">
@@ -129,4 +130,3 @@ function IotPage() {
     </PageContainer>
   )
 }
-

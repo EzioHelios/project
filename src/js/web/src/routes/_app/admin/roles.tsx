@@ -2,16 +2,12 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
 import { z } from "zod"
 import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
+import { AdminPageHeader } from "@/components/admin-ui"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
-import {
-  useAdminPermissions,
-  useAdminRolePermissions,
-  useAdminRoles,
-  useAdminUpdateRolePermissions,
-} from "@/lib/api/hooks/admin"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
+import { useAdminPermissions, useAdminRolePermissions, useAdminRoles, useAdminUpdateRolePermissions } from "@/lib/api/hooks/admin"
 
 const permissionLabels: Record<string, { name: string; description: string }> = {
   "admin.audit.view": { name: "查看审计日志", description: "查看系统审计与权限变更记录" },
@@ -83,9 +79,7 @@ function AdminRolesPage() {
   const hasSelection = Boolean(selectedRoleId)
 
   const togglePermission = (code: string) => {
-    setDraftPermissionCodes((current) =>
-      current.includes(code) ? current.filter((item) => item !== code) : [...current, code],
-    )
+    setDraftPermissionCodes((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]))
   }
 
   const handleSave = () => {
@@ -94,12 +88,8 @@ function AdminRolesPage() {
   }
 
   return (
-    <PageContainer className="flex-1 space-y-8">
-      <PageHeader
-        eyebrow="权限中心"
-        title="权限配置"
-        description="按角色配置权限码，并与角色管理页联动。"
-      />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title="权限配置" />
       <PermissionCenterNav />
 
       <PageSection className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
@@ -142,11 +132,7 @@ function AdminRolesPage() {
               <CardTitle className="text-base">{selectedRole?.name ?? "请选择角色"}</CardTitle>
               {selectedRole ? <Badge variant="secondary">{selectedRole.slug}</Badge> : null}
             </div>
-            <CardDescription>
-              {permissionsLoading
-                ? "正在加载权限..."
-                : "勾选权限后保存即可更新该角色。"}
-            </CardDescription>
+            <CardDescription>{permissionsLoading ? "正在加载权限..." : "勾选权限后保存即可更新该角色。"}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {!hasSelection ? (
@@ -169,10 +155,7 @@ function AdminRolesPage() {
                           description: permission.description ?? permission.code,
                         }
                         return (
-                          <label
-                            key={permission.id}
-                            className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 p-3 transition-colors hover:bg-muted/40"
-                            >
+                          <label key={permission.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 p-3 transition-colors hover:bg-muted/40">
                             <input
                               type="checkbox"
                               className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
@@ -195,9 +178,7 @@ function AdminRolesPage() {
                   <Button type="button" onClick={handleSave} disabled={updateRolePermissions.isPending}>
                     {updateRolePermissions.isPending ? "保存中..." : "保存权限"}
                   </Button>
-                  <p className="text-sm text-muted-foreground">
-                    已选择 {draftPermissionCodes.length} 项权限
-                  </p>
+                  <p className="text-sm text-muted-foreground">已选择 {draftPermissionCodes.length} 项权限</p>
                 </div>
               </>
             )}

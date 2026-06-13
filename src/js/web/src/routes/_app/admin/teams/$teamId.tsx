@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowLeft } from "lucide-react"
 import { AdminNav } from "@/components/admin/admin-nav"
+import { AdminPageHeader } from "@/components/admin-ui"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { SkeletonCard } from "@/components/ui/skeleton"
 import { useAdminTeam, useAdminUpdateTeam } from "@/lib/api/hooks/admin"
 
@@ -18,8 +19,8 @@ function AdminTeamDetailPage() {
 
   if (isLoading) {
     return (
-      <PageContainer className="flex-1 space-y-8">
-        <PageHeader eyebrow="Administration" title="Team Details" />
+      <PageContainer className="flex-1 space-y-4">
+        <AdminPageHeader title="Team Details" />
         <AdminNav />
         <PageSection>
           <SkeletonCard />
@@ -30,9 +31,8 @@ function AdminTeamDetailPage() {
 
   if (isError || !data) {
     return (
-      <PageContainer className="flex-1 space-y-8">
-        <PageHeader
-          eyebrow="Administration"
+      <PageContainer className="flex-1 space-y-4">
+        <AdminPageHeader
           title="Team Details"
           actions={
             <Button variant="outline" size="sm" asChild>
@@ -56,11 +56,9 @@ function AdminTeamDetailPage() {
   }
 
   return (
-    <PageContainer className="flex-1 space-y-8">
-      <PageHeader
-        eyebrow="Administration"
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader
         title={data.name}
-        description={data.description || "No description provided."}
         actions={
           <Button variant="outline" size="sm" asChild>
             <Link to="/admin/teams">

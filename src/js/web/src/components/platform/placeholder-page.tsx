@@ -1,29 +1,15 @@
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AdminEmptyState, AdminPageHeader, AdminPanel } from "@/components/admin-ui"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 
-export function PlaceholderPage({
-  eyebrow,
-  title,
-  description,
-}: {
-  eyebrow: string
-  title: string
-  description?: string
-}) {
+export function PlaceholderPage({ title, description }: { eyebrow: string; title: string; description?: string }) {
   return (
-    <PageContainer className="flex-1 space-y-6">
-      <PageHeader eyebrow={eyebrow} title={title} description={description ?? "该页面正在还原中（UI 已对齐原系统菜单结构）。"} />
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader title={title} />
       <PageSection>
-        <Card>
-          <CardHeader>
-            <CardTitle>提示</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            当前仅完成导航与页面框架。下一步将把该模块的表单/列表与 xtck_deploy 的数据结构一比一补齐。
-          </CardContent>
-        </Card>
+        <AdminPanel title="待接入">
+          <AdminEmptyState title={description ?? "该模块暂无可操作数据"} />
+        </AdminPanel>
       </PageSection>
     </PageContainer>
   )
 }
-

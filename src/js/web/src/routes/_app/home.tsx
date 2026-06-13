@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { AlarmClock, ArrowRight, BookOpen, Gauge, MapPinned, MonitorPlay, ShieldCheck, Zap } from "lucide-react"
 
+import { AdminPageHeader } from "@/components/admin-ui"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
+import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { useAuthStore } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
@@ -27,11 +28,9 @@ function HomePage() {
   const displayName = user?.name || user?.email?.split("@")[0] || "您"
 
   return (
-    <PageContainer className="flex-1 space-y-8">
-      <PageHeader
-        eyebrow="首页"
+    <PageContainer className="flex-1 space-y-4">
+      <AdminPageHeader
         title={`欢迎回来，${displayName}`}
-        description="这里是能碳中心的统一入口，围绕经营总览、监测、告警、核算和因子管理展开。"
         actions={
           <div className="flex flex-wrap gap-3">
             <Button asChild size="sm">
