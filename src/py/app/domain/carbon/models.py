@@ -1671,6 +1671,9 @@ class CarbonAccountingBatch(TeamScopedMixin, BigIntAuditBase):
     reporting_org_id: Mapped[int] = mapped_column(ForeignKey("carbon_reporting_organization.id", ondelete="CASCADE"), index=True)
     period_id: Mapped[int] = mapped_column(ForeignKey("carbon_reporting_period.id", ondelete="CASCADE"), index=True)
     boundary_id: Mapped[int] = mapped_column(ForeignKey("carbon_organization_boundary.id", ondelete="CASCADE"), index=True)
+    parent_batch_id: Mapped[int | None] = mapped_column(ForeignKey("carbon_accounting_batch.id", ondelete="SET NULL"), index=True)
+    revision_no: Mapped[int] = mapped_column(Integer, default=1)
+    revision_reason: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
     inventory_status: Mapped[str] = mapped_column(String(24), default="empty", index=True)
     standard_code: Mapped[str | None] = mapped_column(String(64))
@@ -1687,6 +1690,17 @@ class CarbonAccountingBatch(TeamScopedMixin, BigIntAuditBase):
     boundary: Mapped[OrganizationBoundary] = relationship(lazy="selectin")
     organization: Mapped[ReportingOrganization] = relationship(lazy="selectin")
     period: Mapped[ReportingPeriod] = relationship(lazy="selectin")
+    parent_batch: Mapped[CarbonAccountingBatch | None] = relationship(
+        "CarbonAccountingBatch",
+        remote_side="CarbonAccountingBatch.id",
+        back_populates="revision_batches",
+        lazy="selectin",
+    )
+    revision_batches: Mapped[list[CarbonAccountingBatch]] = relationship(
+        "CarbonAccountingBatch",
+        back_populates="parent_batch",
+        lazy="selectin",
+    )
     items: Mapped[list[CarbonEmissionInventoryItem]] = relationship(
         back_populates="batch",
         cascade="all, delete-orphan",

@@ -61,6 +61,14 @@ class CarbonAccountingInventoryController(Controller):
             return _error(exc)
         return Response(content=ok_data(model_to_dict(obj)))
 
+    @post("/api/carbon/accounting/batches/{batch_id:int}/create-revision")
+    async def create_revision(self, db_session: AsyncSession, batch_id: int, data: dict = INVENTORY_BODY) -> Response[dict]:
+        try:
+            obj = await CarbonAccountingInventoryUseCase(db_session).create_revision(batch_id, data)
+        except ValueError as exc:
+            return _error(exc)
+        return Response(content=ok_data(model_to_dict(obj)))
+
     @get("/api/carbon/accounting/batches/{batch_id:int}/summary")
     async def get_inventory_summary(self, db_session: AsyncSession, batch_id: int) -> Response[dict]:
         try:

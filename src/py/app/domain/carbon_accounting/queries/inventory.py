@@ -126,6 +126,9 @@ class CarbonAccountingInventoryQueryService:
         payload["period_end"] = row.period.period_end.isoformat() if row.period else None
         payload["boundary_no"] = row.boundary.boundary_no if row.boundary else None
         payload["boundary_name"] = row.boundary.boundary_name if row.boundary else None
+        payload["is_revision"] = row.parent_batch_id is not None or row.revision_no > 1
+        payload["parent_batch_no"] = row.parent_batch.batch_no if row.parent_batch else None
+        payload["parent_batch_name"] = row.parent_batch.batch_name if row.parent_batch else None
         return payload
 
 

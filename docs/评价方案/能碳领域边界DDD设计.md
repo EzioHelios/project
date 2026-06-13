@@ -526,7 +526,7 @@ flowchart LR
 
 | 聚合/实体 | 职责 | 关键不变量 |
 | --- | --- | --- |
-| `AccountingBatch` | 某报告边界和期间下的一批核算任务 | 批次绑定边界版本；边界变更后需要重算或生成新批次。 |
+| `AccountingBatch` | 某报告边界和期间下的一批核算任务 | 批次绑定边界版本；边界变更后需要重算或生成新批次；锁定批次只能通过创建修订批次继续修正，修订批次保留父批次、修订号和修订原因。 |
 | `ScopeActivityRecord` | Scope1/2/3 活动记录抽象 | 提交、审核、驳回状态流转统一；因子和活动数据来源必须可追溯；被锁定清单引用后不可直接修改、删除或被聚合重建覆盖。 |
 | `EmissionInventory` | 组织排放清单读模型 | 只由已审核或已锁定记录生成；草稿和驳回记录不进入正式结果。 |
 | `CarbonAuditLog` | 审核和修订日志 | 审核人、动作、原因、前后状态、时间必须完整。 |
@@ -538,6 +538,7 @@ flowchart LR
 | `POST /api/carbon/accounting/batches` | 创建组织核算批次。 |
 | `POST /api/carbon/accounting/batches/{id}/rebuild-inventory` | 重建组织排放清单。 |
 | `PATCH /api/carbon/accounting/batches/{id}/lock` | 锁定已生成清单的核算批次。 |
+| `POST /api/carbon/accounting/batches/{id}/create-revision` | 基于已锁定批次创建草稿修订批次。 |
 | `GET /api/carbon/accounting/batches/{id}/summary` | 查询批次总量、Scope 汇总和质量状态。 |
 | `GET /api/carbon/accounting/inventories` | 查询组织排放清单结果。 |
 | `POST /api/carbon/accounting/records/{id}/submit|approve|reject|lock` | 统一活动记录状态流转。 |
@@ -546,11 +547,11 @@ flowchart LR
 
 | 层 | 已落地内容 |
 | --- | --- |
-| 数据模型 | `carbon_accounting_batch` 和 `carbon_emission_inventory_item` 两张租户表，均有 RLS policy 和常用索引。 |
-| 应用层 | `domain/carbon_accounting` 新增 `domain/policies.py`、`usecases/inventory.py`、`queries/inventory.py`、`controllers/inventory.py`。 |
-| 页面入口 | `/carbon/accounting` 的“核算结果”Tab 已接入创建批次、重建清单、锁定批次、Scope 汇总、质量状态和清单明细。 |
+| 数据模型 | `carbon_accounting_batch` 和 `carbon_emission_inventory_item` 两张租户表，均有 RLS policy 和常用索引；批次已补 `parent_batch_id`、`revision_no` 和 `revision_reason` 支撑修订链。 |
+| 应用层 | `domain/carbon_accounting` 新增 `domain/policies.py`、`usecases/inventory.py`、`usecases/record_locks.py`、`queries/inventory.py`、`controllers/inventory.py`。 |
+| 页面入口 | `/carbon/accounting` 的“核算结果”Tab 已接入创建批次、重建清单、锁定批次、创建修订批次、Scope 汇总、质量状态和清单明细。 |
 | 当前边界 | 首版按报告期纳入已审核 Scope 记录；带 `area_id` 的记录会按边界设施过滤；组织级记录按报告期纳入；已入锁定清单的 Scope 活动记录和 Scope2 电表聚合记录由 `CarbonAccountingRecordLockUseCase` 保护，禁止直接改删或重建覆盖。 |
-| 下一步 | `carbon_assets` 履约缺口、`carbon_verification` 项目报告和项目导出已切到锁定清单；后续补正式修订流程和修订批次差异比较。 |
+| 下一步 | `carbon_assets` 履约缺口、`carbon_verification` 项目报告和项目导出已切到锁定清单；后续补修订批次差异比较、修订审批和修订说明导出。 |
 
 #### 7.2.1 碳核查支撑 `carbon_verification`
 

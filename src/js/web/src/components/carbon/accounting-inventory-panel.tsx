@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Textarea } from "@/components/ui/textarea"
 
 type PageResult<T> = {
   items: T[]
@@ -42,6 +43,12 @@ type AccountingBatch = {
   period_end?: string | null
   boundary_no?: string | null
   boundary_name?: string | null
+  parent_batch_id?: number | null
+  parent_batch_no?: string | null
+  parent_batch_name?: string | null
+  revision_no?: number
+  revision_reason?: string | null
+  is_revision?: boolean
   status: string
   inventory_status: string
   total_co2e?: number | null
@@ -95,7 +102,11 @@ const QUERY_KEY = ["carbon-accounting-inventory"]
 export function CarbonAccountingResultsPanel() {
   const qc = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
+  const [revisionOpen, setRevisionOpen] = useState(false)
   const [boundaryId, setBoundaryId] = useState("")
+  const [revisionBoundaryId, setRevisionBoundaryId] = useState("")
+  const [revisionReason, setRevisionReason] = useState("")
+  const [revisionBatch, setRevisionBatch] = useState<AccountingBatch | null>(null)
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null)
 
   const boundariesQuery = useQuery<ApiEnvelope<PageResult<BoundaryVersion>>>({
@@ -125,6 +136,10 @@ export function CarbonAccountingResultsPanel() {
   const activeBatch = useMemo(
     () => batches.find((item) => item.id === activeBatchId) ?? summaryQuery.data?.data.batch ?? null,
     [activeBatchId, batches, summaryQuery.data?.data.batch],
+  )
+  const revisionBoundaries = useMemo(
+    () => (revisionBatch ? boundaries.filter((item) => item.reporting_org_id === revisionBatch.reporting_org_id && item.period_id === revisionBatch.period_id) : []),
+    [boundaries, revisionBatch],
   )
   const summary = summaryQuery.data?.data
   const items = itemsQuery.data?.data.items ?? []
@@ -158,6 +173,31 @@ export function CarbonAccountingResultsPanel() {
     },
     onError: toastError("锁定批次失败"),
   })
+
+  const createRevision = useMutation({
+    mutationFn: (payload: { batchId: number; boundaryId: number; reason: string }) =>
+      postCarbonApi<AccountingBatch>(`/api/carbon/accounting/batches/${payload.batchId}/create-revision`, {
+        boundary_id: payload.boundaryId,
+        revision_reason: payload.reason || "清单修订",
+      }),
+    onSuccess: async (response) => {
+      toast.success("修订批次已创建")
+      setRevisionOpen(false)
+      setRevisionBatch(null)
+      setRevisionBoundaryId("")
+      setRevisionReason("")
+      setSelectedBatchId(response.data.id)
+      await invalidateInventory(qc)
+    },
+    onError: toastError("创建修订批次失败"),
+  })
+
+  const openRevision = (batch: AccountingBatch) => {
+    setRevisionBatch(batch)
+    setRevisionBoundaryId(String(batch.boundary_id))
+    setRevisionReason("")
+    setRevisionOpen(true)
+  }
 
   return (
     <div className="space-y-4">
@@ -207,11 +247,69 @@ export function CarbonAccountingResultsPanel() {
             </DialogContent>
           </Dialog>
         </CardHeader>
+        <Dialog
+          open={revisionOpen}
+          onOpenChange={(open) => {
+            setRevisionOpen(open)
+            if (!open) setRevisionBatch(null)
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>创建修订批次</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-3">
+              <div className="grid gap-2">
+                <Label>来源批次</Label>
+                <div className="rounded-md border px-3 py-2 text-sm">{revisionBatch?.batch_no ?? "-"}</div>
+              </div>
+              <div className="grid gap-2">
+                <Label>组织边界</Label>
+                <Select value={revisionBoundaryId} onValueChange={setRevisionBoundaryId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择已发布边界" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {revisionBoundaries.map((item) => (
+                      <SelectItem key={item.id} value={String(item.id)}>
+                        {item.boundary_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>修订原因</Label>
+                <Textarea value={revisionReason} onChange={(event) => setRevisionReason(event.target.value)} rows={4} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRevisionOpen(false)}>
+                取消
+              </Button>
+              <Button
+                disabled={!revisionBatch || !revisionBoundaryId || createRevision.isPending}
+                onClick={() =>
+                  revisionBatch
+                    ? createRevision.mutate({
+                        batchId: revisionBatch.id,
+                        boundaryId: Number.parseInt(revisionBoundaryId, 10),
+                        reason: revisionReason.trim(),
+                      })
+                    : undefined
+                }
+              >
+                保存
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>批次编号</TableHead>
+                <TableHead>版本</TableHead>
                 <TableHead>组织边界</TableHead>
                 <TableHead>报告期</TableHead>
                 <TableHead>总量(tCO2e)</TableHead>
@@ -224,6 +322,12 @@ export function CarbonAccountingResultsPanel() {
               {batches.map((item) => (
                 <TableRow key={item.id} data-state={item.id === activeBatchId ? "selected" : undefined}>
                   <TableCell>{item.batch_no}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant={item.is_revision ? "secondary" : "outline"}>R{item.revision_no ?? 1}</Badge>
+                      {item.parent_batch_no ? <span className="text-muted-foreground text-xs">{item.parent_batch_no}</span> : null}
+                    </div>
+                  </TableCell>
                   <TableCell>{item.boundary_name || item.boundary_no || "-"}</TableCell>
                   <TableCell>{item.period_name || dateRange(item.period_start, item.period_end)}</TableCell>
                   <TableCell>{formatNumber((item.total_co2e ?? 0) / 1000)}</TableCell>
@@ -247,11 +351,14 @@ export function CarbonAccountingResultsPanel() {
                       <Button size="sm" disabled={item.status === "locked" || item.inventory_status === "empty" || lockBatch.isPending} onClick={() => lockBatch.mutate(item.id)}>
                         锁定
                       </Button>
+                      <Button size="sm" variant="outline" disabled={item.status !== "locked" || createRevision.isPending} onClick={() => openRevision(item)}>
+                        修订
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
-              {!batches.length ? <EmptyRow colSpan={7} label="暂无核算批次" /> : null}
+              {!batches.length ? <EmptyRow colSpan={8} label="暂无核算批次" /> : null}
             </TableBody>
           </Table>
         </CardContent>

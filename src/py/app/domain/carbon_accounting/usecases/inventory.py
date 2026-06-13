@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from app.db import models as m
 from app.domain.carbon.controllers import (
@@ -109,6 +109,48 @@ class CarbonAccountingInventoryUseCase:
         await self._session.refresh(batch)
         return batch
 
+    async def create_revision(self, batch_id: int, data: dict[str, Any]) -> m.CarbonAccountingBatch:
+        source = await self._get_or_raise(m.CarbonAccountingBatch, batch_id, "核算批次不存在")
+        if source.status != "locked" or source.inventory_status != "locked":
+            msg = "只能基于已锁定核算批次创建修订批次"
+            raise ValueError(msg)
+        boundary_id = _int_or_none(data.get("boundary_id")) or source.boundary_id
+        boundary = await self._get_or_raise(m.OrganizationBoundary, boundary_id, "组织边界不存在")
+        if boundary.status != "published":
+            msg = "修订批次只能绑定已发布组织边界"
+            raise ValueError(msg)
+        if boundary.reporting_org_id != source.reporting_org_id or boundary.period_id != source.period_id:
+            msg = "修订批次的组织边界必须属于同一报告主体和报告期"
+            raise ValueError(msg)
+        period = await self._get_or_raise(m.ReportingPeriod, source.period_id, "报告期不存在")
+        revision_no = await self._next_revision_no(source)
+        reason = str(data.get("revision_reason") or data.get("reason") or "清单修订")[:1000]
+        batch = m.CarbonAccountingBatch(
+            batch_no=str(data.get("batch_no") or _revision_batch_no(source, revision_no)),
+            batch_name=str(data.get("batch_name") or f"{period.name}-{boundary.boundary_name}-组织排放清单-R{revision_no}"),
+            reporting_org_id=source.reporting_org_id,
+            period_id=source.period_id,
+            boundary_id=boundary.id,
+            parent_batch_id=source.id,
+            revision_no=revision_no,
+            revision_reason=reason,
+            status="draft",
+            inventory_status="empty",
+            standard_code=data.get("standard_code") or source.standard_code or boundary.standard_code or period.standard_code,
+            source_name=data.get("source_name") or "organization_inventory_revision",
+            remark=data.get("remark") or f"修订来源批次 {source.batch_no}: {reason}",
+        )
+        self._session.add(batch)
+        await self._session.commit()
+        await self._session.refresh(batch)
+        return batch
+
+    async def _next_revision_no(self, source: m.CarbonAccountingBatch) -> int:
+        current_max = await self._session.scalar(
+            select(func.max(m.CarbonAccountingBatch.revision_no)).where(m.CarbonAccountingBatch.parent_batch_id == source.id)
+        )
+        return int(current_max or source.revision_no or 1) + 1
+
     async def _load_period_records(self, period: m.ReportingPeriod) -> list[Any]:
         start_dt = datetime.datetime.combine(period.period_start, time.min)
         end_dt = datetime.datetime.combine(period.period_end, time.max)
@@ -187,6 +229,17 @@ class CarbonAccountingInventoryUseCase:
 
 def _batch_no(boundary: m.OrganizationBoundary) -> str:
     return f"INV-{boundary.boundary_no}-V{boundary.version}-{datetime.datetime.now(UTC):%Y%m%d%H%M%S}"
+
+
+def _revision_batch_no(source: m.CarbonAccountingBatch, revision_no: int) -> str:
+    suffix = f"-R{revision_no}-{datetime.datetime.now(UTC):%Y%m%d%H%M%S}"
+    return f"{source.batch_no[: max(1, 64 - len(suffix))]}{suffix}"
+
+
+def _int_or_none(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    return int(value)
 
 
 def _boundary_inclusion(record: Any, area_ids: set[str]) -> tuple[bool, str | None]:
