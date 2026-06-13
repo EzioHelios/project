@@ -2,11 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { CheckCircle2, FileText, PackageCheck, ShieldCheck, TriangleAlert } from "lucide-react"
 import { toast } from "sonner"
 
+import { AdminDataTable, AdminPanel, AdminTableStateRow, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 type VerificationSummary = {
@@ -332,11 +332,8 @@ export function VerificationProjectsPanel() {
           创建核查项目
         </Button>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>项目台账</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <AdminPanel title="项目台账" contentClassName="p-0">
+        <AdminDataTable className="rounded-none border-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -391,8 +388,8 @@ export function VerificationProjectsPanel() {
               {!projects.length ? <EmptyRow colSpan={8} /> : null}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </AdminDataTable>
+      </AdminPanel>
     </div>
   )
 }
@@ -445,11 +442,8 @@ export function VerificationEvidencePanel() {
           { label: "缺失凭证", value: data?.summary.missing_evidence_count ?? 0, icon: TriangleAlert },
         ]}
       />
-      <Card>
-        <CardHeader>
-          <CardTitle>凭证清单</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <AdminPanel title="凭证清单" contentClassName="p-0">
+        <AdminDataTable className="rounded-none border-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -477,13 +471,10 @@ export function VerificationEvidencePanel() {
               {!data?.items?.length ? <EmptyRow colSpan={6} /> : null}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>缺失凭证</CardTitle>
-        </CardHeader>
-        <CardContent>
+        </AdminDataTable>
+      </AdminPanel>
+      <AdminPanel title="缺失凭证" contentClassName="p-0">
+        <AdminDataTable className="rounded-none border-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -513,13 +504,10 @@ export function VerificationEvidencePanel() {
               {!data?.missing?.length ? <EmptyRow colSpan={5} /> : null}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>附件台账</CardTitle>
-        </CardHeader>
-        <CardContent>
+        </AdminDataTable>
+      </AdminPanel>
+      <AdminPanel title="附件台账" contentClassName="p-0">
+        <AdminDataTable className="rounded-none border-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -547,8 +535,8 @@ export function VerificationEvidencePanel() {
               {!attachments?.items?.length ? <EmptyRow colSpan={6} /> : null}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </AdminDataTable>
+      </AdminPanel>
     </div>
   )
 }
@@ -609,11 +597,8 @@ export function VerificationIssuesPanel() {
           { label: "待整改", value: findings?.summary.open_count ?? 0, icon: CheckCircle2 },
         ]}
       />
-      <Card>
-        <CardHeader>
-          <CardTitle>自动问题</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <AdminPanel title="自动问题" contentClassName="p-0">
+        <AdminDataTable className="rounded-none border-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -647,13 +632,10 @@ export function VerificationIssuesPanel() {
               {!data?.items?.length ? <EmptyRow colSpan={7} /> : null}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>核查发现</CardTitle>
-        </CardHeader>
-        <CardContent>
+        </AdminDataTable>
+      </AdminPanel>
+      <AdminPanel title="核查发现" contentClassName="p-0">
+        <AdminDataTable className="rounded-none border-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -687,8 +669,8 @@ export function VerificationIssuesPanel() {
               {!findings?.items?.length ? <EmptyRow colSpan={7} /> : null}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </AdminDataTable>
+      </AdminPanel>
     </div>
   )
 }
@@ -709,11 +691,8 @@ export function VerificationMaterialPackagePanel() {
           { label: "清单文件", value: data?.manifest.length ?? 0, icon: FileText },
         ]}
       />
-      <Card>
-        <CardHeader>
-          <CardTitle>材料包目录</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <AdminPanel title="材料包目录" contentClassName="p-0">
+        <AdminDataTable className="rounded-none border-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -739,13 +718,10 @@ export function VerificationMaterialPackagePanel() {
               {!data?.groups?.length ? <EmptyRow colSpan={5} /> : null}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>导出清单</CardTitle>
-        </CardHeader>
-        <CardContent>
+        </AdminDataTable>
+      </AdminPanel>
+      <AdminPanel title="导出清单" contentClassName="p-0">
+        <AdminDataTable className="rounded-none border-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -763,8 +739,8 @@ export function VerificationMaterialPackagePanel() {
               {!data?.manifest?.length ? <EmptyRow colSpan={2} /> : null}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </AdminDataTable>
+      </AdminPanel>
     </div>
   )
 }
@@ -851,11 +827,8 @@ export function VerificationReportPanel() {
           {createExport.isPending ? "生成中" : "生成核查材料包"}
         </Button>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>报告数据</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <AdminPanel title="报告数据" contentClassName="p-0">
+        <AdminDataTable className="rounded-none border-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -877,16 +850,18 @@ export function VerificationReportPanel() {
               {!report?.inventory.source_summary?.length ? <EmptyRow colSpan={4} /> : null}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3">
-          <CardTitle>报告模板版本</CardTitle>
+        </AdminDataTable>
+      </AdminPanel>
+      <AdminPanel
+        title="报告模板版本"
+        actions={
           <Button variant="outline" size="sm" onClick={() => ensureTemplate.mutate()} disabled={ensureTemplate.isPending}>
             登记默认模板
           </Button>
-        </CardHeader>
-        <CardContent>
+        }
+        contentClassName="p-0"
+      >
+        <AdminDataTable className="rounded-none border-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -929,13 +904,10 @@ export function VerificationReportPanel() {
               {!templateRows.length ? <EmptyRow colSpan={7} /> : null}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>模板字段</CardTitle>
-        </CardHeader>
-        <CardContent>
+        </AdminDataTable>
+      </AdminPanel>
+      <AdminPanel title="模板字段" contentClassName="p-0">
+        <AdminDataTable className="rounded-none border-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -953,13 +925,10 @@ export function VerificationReportPanel() {
               {!report?.export_fields?.length ? <EmptyRow colSpan={2} /> : null}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>导出记录</CardTitle>
-        </CardHeader>
-        <CardContent>
+        </AdminDataTable>
+      </AdminPanel>
+      <AdminPanel title="导出记录" contentClassName="p-0">
+        <AdminDataTable className="rounded-none border-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -995,40 +964,24 @@ export function VerificationReportPanel() {
               {!jobs.length ? <EmptyRow colSpan={6} /> : null}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </AdminDataTable>
+      </AdminPanel>
     </div>
   )
 }
 
 function MetricGrid({ items }: { items: { label: string; value: string | number; icon: typeof FileText }[] }) {
   return (
-    <div className="grid gap-3 md:grid-cols-3">
+    <MetricStrip className="md:grid-cols-3 xl:grid-cols-3">
       {items.map((item) => (
-        <Card key={item.label}>
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <item.icon className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">{item.label}</div>
-              <div className="text-lg font-semibold">{item.value}</div>
-            </div>
-          </CardContent>
-        </Card>
+        <MetricTile key={item.label} label={item.label} value={item.value} />
       ))}
-    </div>
+    </MetricStrip>
   )
 }
 
 function EmptyRow({ colSpan }: { colSpan: number }) {
-  return (
-    <TableRow>
-      <TableCell colSpan={colSpan} className="h-20 text-center text-muted-foreground">
-        暂无数据
-      </TableCell>
-    </TableRow>
-  )
+  return <AdminTableStateRow colSpan={colSpan}>暂无数据</AdminTableStateRow>
 }
 
 function VerificationStatusBadge({ status }: { status?: string }) {
