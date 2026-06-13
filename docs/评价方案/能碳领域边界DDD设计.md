@@ -527,7 +527,7 @@ flowchart LR
 | 聚合/实体 | 职责 | 关键不变量 |
 | --- | --- | --- |
 | `AccountingBatch` | 某报告边界和期间下的一批核算任务 | 批次绑定边界版本；边界变更后需要重算或生成新批次。 |
-| `ScopeActivityRecord` | Scope1/2/3 活动记录抽象 | 提交、审核、驳回、锁定状态流转统一；因子和活动数据来源必须可追溯。 |
+| `ScopeActivityRecord` | Scope1/2/3 活动记录抽象 | 提交、审核、驳回状态流转统一；因子和活动数据来源必须可追溯；被锁定清单引用后不可直接修改、删除或被聚合重建覆盖。 |
 | `EmissionInventory` | 组织排放清单读模型 | 只由已审核或已锁定记录生成；草稿和驳回记录不进入正式结果。 |
 | `CarbonAuditLog` | 审核和修订日志 | 审核人、动作、原因、前后状态、时间必须完整。 |
 
@@ -549,8 +549,8 @@ flowchart LR
 | 数据模型 | `carbon_accounting_batch` 和 `carbon_emission_inventory_item` 两张租户表，均有 RLS policy 和常用索引。 |
 | 应用层 | `domain/carbon_accounting` 新增 `domain/policies.py`、`usecases/inventory.py`、`queries/inventory.py`、`controllers/inventory.py`。 |
 | 页面入口 | `/carbon/accounting` 的“核算结果”Tab 已接入创建批次、重建清单、锁定批次、Scope 汇总、质量状态和清单明细。 |
-| 当前边界 | 首版按报告期纳入已审核 Scope 记录；带 `area_id` 的记录会按边界设施过滤；组织级记录按报告期纳入。 |
-| 下一步 | `carbon_assets` 履约缺口、`carbon_verification` 项目报告和项目导出已切到锁定清单；后续补活动记录统一 lock 状态与正式修订流程。 |
+| 当前边界 | 首版按报告期纳入已审核 Scope 记录；带 `area_id` 的记录会按边界设施过滤；组织级记录按报告期纳入；已入锁定清单的 Scope 活动记录和 Scope2 电表聚合记录由 `CarbonAccountingRecordLockUseCase` 保护，禁止直接改删或重建覆盖。 |
+| 下一步 | `carbon_assets` 履约缺口、`carbon_verification` 项目报告和项目导出已切到锁定清单；后续补正式修订流程和修订批次差异比较。 |
 
 #### 7.2.1 碳核查支撑 `carbon_verification`
 

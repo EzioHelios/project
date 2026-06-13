@@ -60,6 +60,7 @@ from app.domain.carbon.validation import (
     validate_date_not_future,
     validate_period_start_end,
 )
+from app.domain.carbon_accounting.usecases.record_locks import CarbonAccountingRecordLockUseCase
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -115,6 +116,19 @@ class CarbonAccountingController(Controller):
             target_label=comment,
             details=payload,
         )
+
+    async def _locked_scope_record_response(
+        self,
+        session: AsyncSession,
+        *,
+        record_type: str,
+        record_id: int,
+    ) -> Response[dict] | None:
+        try:
+            await CarbonAccountingRecordLockUseCase(session).ensure_record_mutable(record_type, record_id)
+        except ValueError as exc:
+            return Response(content={"code": 400, "msg": str(exc)}, status_code=400)
+        return None
 
     # ---------- Scope1 移动源 ----------
     @get("/api/carbon/scope1-mobile-combustion")
@@ -192,6 +206,13 @@ class CarbonAccountingController(Controller):
         obj = await scope1_mobile_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        locked_response = await self._locked_scope_record_response(
+            scope1_mobile_service.repository.session,
+            record_type="Scope1MobileCombustion",
+            record_id=record_id,
+        )
+        if locked_response is not None:
+            return locked_response
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可修改"}, status_code=400)
         try:
@@ -217,6 +238,13 @@ class CarbonAccountingController(Controller):
         obj = await scope1_mobile_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        locked_response = await self._locked_scope_record_response(
+            scope1_mobile_service.repository.session,
+            record_type="Scope1MobileCombustion",
+            record_id=record_id,
+        )
+        if locked_response is not None:
+            return locked_response
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
         # 按照内置 UserService 的用法，delete 期望传入主键 ID
@@ -413,6 +441,13 @@ class CarbonAccountingController(Controller):
         obj = await scope1_stationary_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        locked_response = await self._locked_scope_record_response(
+            scope1_stationary_service.repository.session,
+            record_type="Scope1StationaryCombustion",
+            record_id=record_id,
+        )
+        if locked_response is not None:
+            return locked_response
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可修改"}, status_code=400)
         try:
@@ -438,6 +473,13 @@ class CarbonAccountingController(Controller):
         obj = await scope1_stationary_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        locked_response = await self._locked_scope_record_response(
+            scope1_stationary_service.repository.session,
+            record_type="Scope1StationaryCombustion",
+            record_id=record_id,
+        )
+        if locked_response is not None:
+            return locked_response
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
         await scope1_stationary_service.delete(record_id, auto_commit=True)
@@ -592,6 +634,13 @@ class CarbonAccountingController(Controller):
         obj = await scope1_refrigerant_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        locked_response = await self._locked_scope_record_response(
+            scope1_refrigerant_service.repository.session,
+            record_type="Scope1RefrigerantLeak",
+            record_id=record_id,
+        )
+        if locked_response is not None:
+            return locked_response
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可修改"}, status_code=400)
         try:
@@ -617,6 +666,13 @@ class CarbonAccountingController(Controller):
         obj = await scope1_refrigerant_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        locked_response = await self._locked_scope_record_response(
+            scope1_refrigerant_service.repository.session,
+            record_type="Scope1RefrigerantLeak",
+            record_id=record_id,
+        )
+        if locked_response is not None:
+            return locked_response
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
         await scope1_refrigerant_service.delete(record_id, auto_commit=True)
@@ -781,6 +837,13 @@ class CarbonAccountingController(Controller):
         obj = await scope2_bill_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        locked_response = await self._locked_scope_record_response(
+            scope2_bill_service.repository.session,
+            record_type="Scope2ElectricityBill",
+            record_id=record_id,
+        )
+        if locked_response is not None:
+            return locked_response
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可修改"}, status_code=400)
         try:
@@ -818,6 +881,13 @@ class CarbonAccountingController(Controller):
         obj = await scope2_bill_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        locked_response = await self._locked_scope_record_response(
+            scope2_bill_service.repository.session,
+            record_type="Scope2ElectricityBill",
+            record_id=record_id,
+        )
+        if locked_response is not None:
+            return locked_response
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
         await scope2_bill_service.delete(record_id, auto_commit=True)
@@ -1011,6 +1081,13 @@ class CarbonAccountingController(Controller):
         obj = await scope2_purchased_energy_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        locked_response = await self._locked_scope_record_response(
+            scope2_purchased_energy_service.repository.session,
+            record_type="Scope2PurchasedEnergy",
+            record_id=record_id,
+        )
+        if locked_response is not None:
+            return locked_response
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可修改"}, status_code=400)
         try:
@@ -1054,6 +1131,13 @@ class CarbonAccountingController(Controller):
         obj = await scope2_purchased_energy_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        locked_response = await self._locked_scope_record_response(
+            scope2_purchased_energy_service.repository.session,
+            record_type="Scope2PurchasedEnergy",
+            record_id=record_id,
+        )
+        if locked_response is not None:
+            return locked_response
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
         await scope2_purchased_energy_service.delete(record_id, auto_commit=True)
@@ -1210,6 +1294,13 @@ class CarbonAccountingController(Controller):
         obj = await scope3_waste_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        locked_response = await self._locked_scope_record_response(
+            scope3_waste_service.repository.session,
+            record_type="Scope3WasteDisposal",
+            record_id=record_id,
+        )
+        if locked_response is not None:
+            return locked_response
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可修改"}, status_code=400)
         try:
@@ -1235,6 +1326,13 @@ class CarbonAccountingController(Controller):
         obj = await scope3_waste_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        locked_response = await self._locked_scope_record_response(
+            scope3_waste_service.repository.session,
+            record_type="Scope3WasteDisposal",
+            record_id=record_id,
+        )
+        if locked_response is not None:
+            return locked_response
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
         await scope3_waste_service.delete(record_id, auto_commit=True)
@@ -1388,6 +1486,13 @@ class CarbonAccountingController(Controller):
         obj = await scope3_transport_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        locked_response = await self._locked_scope_record_response(
+            scope3_transport_service.repository.session,
+            record_type="Scope3ThirdPartyTransport",
+            record_id=record_id,
+        )
+        if locked_response is not None:
+            return locked_response
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可修改"}, status_code=400)
         try:
@@ -1412,6 +1517,13 @@ class CarbonAccountingController(Controller):
         obj = await scope3_transport_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        locked_response = await self._locked_scope_record_response(
+            scope3_transport_service.repository.session,
+            record_type="Scope3ThirdPartyTransport",
+            record_id=record_id,
+        )
+        if locked_response is not None:
+            return locked_response
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
         await scope3_transport_service.delete(record_id, auto_commit=True)
@@ -1809,6 +1921,11 @@ class CarbonAccountingController(Controller):
         area_id: str | None = None,
     ) -> list[m.Scope2MeterAggregate]:
         month_start, month_end = _month_window(billing_month)
+        existing_stmt = select(m.Scope2MeterAggregate.id).where(m.Scope2MeterAggregate.billing_month == billing_month)
+        if area_id:
+            existing_stmt = existing_stmt.where(m.Scope2MeterAggregate.area_id == area_id)
+        existing_ids = list((await db_session.execute(existing_stmt)).scalars().all())
+        await CarbonAccountingRecordLockUseCase(db_session).ensure_records_mutable("Scope2MeterAggregate", existing_ids)
         if area_id:
             await db_session.execute(
                 m.Scope2MeterAggregate.__table__.delete().where(
@@ -1919,7 +2036,10 @@ class CarbonAccountingController(Controller):
         except CarbonValidationError as e:
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
         area_id = str(data.get("area_id")).strip() if data.get("area_id") not in (None, "") else None
-        rows = await self._rebuild_scope2_meter_aggregates(db_session, scope2_meter_aggregate_service, billing_month, area_id)
+        try:
+            rows = await self._rebuild_scope2_meter_aggregates(db_session, scope2_meter_aggregate_service, billing_month, area_id)
+        except ValueError as exc:
+            return Response(content={"code": 400, "msg": str(exc)}, status_code=400)
         await self._log_carbon_security_event(
             security_audit_service,
             request,
@@ -1958,6 +2078,13 @@ class CarbonAccountingController(Controller):
         obj = await scope2_meter_aggregate_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        locked_response = await self._locked_scope_record_response(
+            scope2_meter_aggregate_service.repository.session,
+            record_type="Scope2MeterAggregate",
+            record_id=record_id,
+        )
+        if locked_response is not None:
+            return locked_response
         if obj.status == STATUS_APPROVED:
             return Response(content={"code": 400, "msg": "已通过记录不可删除"}, status_code=400)
         await scope2_meter_aggregate_service.delete(record_id, auto_commit=True)
