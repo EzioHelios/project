@@ -561,7 +561,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 
 | 内容 | 目的 |
 | --- | --- |
-| 导出上下文与模板变量映射 | 明确 `/api/carbon/verification/report` 到 DOCX 占位符的字段来源和缺失处理 |
+| 导出上下文与模板变量映射 | 明确 `/api/carbon/verification/report` 到 DOCX 占位符的字段来源和缺失处理；模板变量统一为 ASCII 字段名，未知变量进入导出任务问题清单 |
 | 核查材料包 ZIP 文件树 | 明确 `manifest`、报告、数据、附件、质量问题和审核轨迹的导出路径 |
 | 后续实现拆分任务 | 明确 `VerificationProject`、`ReportTemplateVersion`、`ReportDocumentRenderer`、`VerificationAttachment`、`VerificationFinding`、`MaterialPackageAssembler` 和 `InventorySnapshotReader` 的边界；`VerificationProject`、`ReportTemplateVersion`、`VerificationAttachment` 和 `VerificationFinding` 已完成首版 |
 
