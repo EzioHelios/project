@@ -555,6 +555,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | 来源 | 用途 |
 | --- | --- |
 | 发改办气候〔2015〕1722号及《工业其他行业企业温室气体排放核算方法与报告指南（试行）》 | 非特定行业工业企业通用报告结构、排放源类别和报告附表 |
+| 生态环境部环办气候函〔2023〕332号 | 年度排放报告、支撑材料报送、管理平台技术文件和核查工作要求 |
 | 生态环境部《企业温室气体排放报告核查指南（试行）》 | 核查程序、文件评审、现场核查、不符合项和核查复核结构 |
 | vcarbon 水泥、发电、化工、数据中心等行业模板 | 抽取封面、声明、企业信息、排放汇总、活动水平和因子附表的共同结构 |
 | vcarbon 第三方核查报告模板 | 抽取文件评审表、现场核查清单、不符合项清单和核查结论的工作底稿结构 |
@@ -565,6 +566,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | --- | --- |
 | 导出上下文与模板变量映射 | 明确 `/api/carbon/verification/report` 到 DOCX 占位符的字段来源和缺失处理；模板变量统一为 ASCII 字段名，未知变量进入导出任务问题清单 |
 | 核查材料包 ZIP 文件树 | 明确 `manifest`、报告、数据、附件、质量问题和审核轨迹的导出路径；本地可访问附件原件已按 `evidence/{year}/` 入包 |
+| 完整盘查闭环附录 | 明确报告主体、边界、活动数据、因子、锁定清单、核查项目、导出和整改的顺序；正式导出不得绕过已发布边界和已锁定清单 |
 | 后续实现拆分任务 | 明确 `VerificationProject`、`ReportTemplateVersion`、`ReportDocumentRenderer`、`VerificationAttachment`、`VerificationFinding`、`MaterialPackageAssembler` 和 `InventorySnapshotReader` 的边界；`VerificationProject`、`ReportTemplateVersion`、`VerificationAttachment` 和 `VerificationFinding` 已完成首版 |
 
 ### 3. 后续验收
