@@ -558,6 +558,7 @@ flowchart LR
 
 | 聚合/服务 | 职责 | 关键不变量 |
 | --- | --- | --- |
+| `VerificationProject` | 管理一次组织碳盘查/核查项目的范围、状态、负责人、模板版本、核算批次引用和就绪摘要 | 已接入首版；项目只能引用报告主体、报告期、边界、核算批次、模板、附件、发现和导出任务，不拥有核算活动事实。 |
 | `ReportTemplateVersion` | 管理模板名称、版本、标准来源、适用行业、文件路径和启停状态 | 已接入首版；历史导出必须可回溯到当时模板版本；通用模板不能冒充行业专用监管模板。 |
 | `VerificationAttachment` | 管理凭证原件、来源对象、文件类型、哈希、OCR/备注和版本 | 已接入首版；附件只能引用核算活动、清单项、边界设施或因子来源，不拥有这些事实。 |
 | `VerificationFinding` | 承载文件评审、现场核查、不符合项、整改、复核和关闭状态 | 已接入首版；自动规则问题可升级为核查发现，状态覆盖待整改、整改中、待复核和关闭。 |
@@ -577,6 +578,7 @@ flowchart LR
 
 | API | 用途 |
 | --- | --- |
+| `GET/POST/PATCH /api/carbon/verification/projects`、`POST /api/carbon/verification/projects/{id}/refresh` | 管理正式核查项目、状态流转和项目就绪摘要。 |
 | `GET/POST/PATCH /api/carbon/verification/templates`、`POST /api/carbon/verification/templates/ensure-default` | 管理报告模板版本和适用范围，并登记仓库内置通用模板。 |
 | `POST /api/carbon/verification/export-jobs` | 创建导出任务时渲染 DOCX/PDF 并写入 ZIP 文件清单。 |
 | `GET/POST/PATCH /api/carbon/verification/attachments` | 维护凭证原件元数据和材料包附件；删除/作废先由状态归档承接。 |

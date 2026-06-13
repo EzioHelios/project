@@ -1738,6 +1738,7 @@ class CarbonVerificationExportJob(TeamScopedMixin, BigIntAuditBase):
     )
 
     job_no: Mapped[str] = mapped_column(String(64), index=True)
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("carbon_verification_project.id", ondelete="SET NULL"), index=True)
     export_type: Mapped[str] = mapped_column(String(32), default="material_package", index=True)
     report_year: Mapped[int | None] = mapped_column(Integer, index=True)
     scope_filter: Mapped[str | None] = mapped_column(String(16), index=True)
@@ -1755,6 +1756,7 @@ class CarbonVerificationExportJob(TeamScopedMixin, BigIntAuditBase):
     requested_by: Mapped[str | None] = mapped_column(String(128))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
+    project: Mapped[CarbonVerificationProject | None] = relationship(back_populates="export_jobs", lazy="selectin")
     files: Mapped[list[CarbonVerificationExportFile]] = relationship(
         back_populates="job",
         cascade="all, delete-orphan",
@@ -1800,6 +1802,7 @@ class CarbonVerificationFinding(TeamScopedMixin, BigIntAuditBase):
     )
 
     finding_no: Mapped[str] = mapped_column(String(64), index=True)
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("carbon_verification_project.id", ondelete="SET NULL"), index=True)
     issue_type: Mapped[str] = mapped_column(String(64), index=True)
     finding_type: Mapped[str] = mapped_column(String(64), default="data_quality", index=True)
     severity: Mapped[str] = mapped_column(String(16), default="medium", index=True)
@@ -1824,6 +1827,8 @@ class CarbonVerificationFinding(TeamScopedMixin, BigIntAuditBase):
     source_payload: Mapped[dict | None] = mapped_column(JSON)
     remark: Mapped[str | None] = mapped_column(Text)
 
+    project: Mapped[CarbonVerificationProject | None] = relationship(back_populates="findings", lazy="selectin")
+
 
 class CarbonVerificationAttachment(TeamScopedMixin, BigIntAuditBase):
     """Verification material attachment metadata owned by carbon verification."""
@@ -1837,6 +1842,7 @@ class CarbonVerificationAttachment(TeamScopedMixin, BigIntAuditBase):
     )
 
     attachment_no: Mapped[str] = mapped_column(String(64), index=True)
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("carbon_verification_project.id", ondelete="SET NULL"), index=True)
     material_group: Mapped[str] = mapped_column(String(64), default="evidence", index=True)
     attachment_type: Mapped[str] = mapped_column(String(64), default="supporting_document", index=True)
     title: Mapped[str] = mapped_column(String(255))
@@ -1861,6 +1867,8 @@ class CarbonVerificationAttachment(TeamScopedMixin, BigIntAuditBase):
     confidence_level: Mapped[str | None] = mapped_column(String(16))
     ocr_payload: Mapped[dict | None] = mapped_column(JSON)
     remark: Mapped[str | None] = mapped_column(Text)
+
+    project: Mapped[CarbonVerificationProject | None] = relationship(back_populates="attachments", lazy="selectin")
 
 
 class CarbonVerificationTemplateVersion(TeamScopedMixin, BigIntAuditBase):
@@ -1889,6 +1897,58 @@ class CarbonVerificationTemplateVersion(TeamScopedMixin, BigIntAuditBase):
     effective_to: Mapped[date | None] = mapped_column(Date)
     confidence_level: Mapped[str | None] = mapped_column(String(16))
     remark: Mapped[str | None] = mapped_column(Text)
+
+    projects: Mapped[list[CarbonVerificationProject]] = relationship(back_populates="template_version", lazy="selectin")
+
+
+class CarbonVerificationProject(TeamScopedMixin, BigIntAuditBase):
+    """Formal organization-carbon verification project lifecycle."""
+
+    __tablename__ = "carbon_verification_project"
+    __table_args__ = (
+        UniqueConstraint("team_id", "project_no", name="uq_carbon_verification_project_team_no"),
+        Index("ix_carbon_verification_project_status", "team_id", "status", "project_type"),
+        Index("ix_carbon_verification_project_scope", "team_id", "reporting_org_id", "period_id", "boundary_id"),
+        Index("ix_carbon_verification_project_batch", "team_id", "accounting_batch_id", "status"),
+    )
+
+    project_no: Mapped[str] = mapped_column(String(64), index=True)
+    project_name: Mapped[str] = mapped_column(String(128))
+    project_type: Mapped[str] = mapped_column(String(32), default="organization_inventory", index=True)
+    reporting_org_id: Mapped[int | None] = mapped_column(ForeignKey("carbon_reporting_organization.id", ondelete="SET NULL"), index=True)
+    period_id: Mapped[int | None] = mapped_column(ForeignKey("carbon_reporting_period.id", ondelete="SET NULL"), index=True)
+    boundary_id: Mapped[int | None] = mapped_column(ForeignKey("carbon_organization_boundary.id", ondelete="SET NULL"), index=True)
+    accounting_batch_id: Mapped[int | None] = mapped_column(ForeignKey("carbon_accounting_batch.id", ondelete="SET NULL"), index=True)
+    template_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey("carbon_verification_template_version.id", ondelete="SET NULL"),
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    verification_year: Mapped[int | None] = mapped_column(Integer, index=True)
+    planned_start: Mapped[date | None] = mapped_column(Date)
+    planned_end: Mapped[date | None] = mapped_column(Date)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    lead_reviewer: Mapped[str | None] = mapped_column(String(128))
+    responsible_person: Mapped[str | None] = mapped_column(String(128))
+    verifier_org: Mapped[str | None] = mapped_column(String(128))
+    readiness_status: Mapped[str] = mapped_column(String(24), default="empty", index=True)
+    conclusion: Mapped[str | None] = mapped_column(Text)
+    scope_description: Mapped[str | None] = mapped_column(Text)
+    finding_summary: Mapped[dict | None] = mapped_column(JSON)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    confidence_level: Mapped[str | None] = mapped_column(String(16))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    organization: Mapped[ReportingOrganization | None] = relationship(lazy="selectin")
+    period: Mapped[ReportingPeriod | None] = relationship(lazy="selectin")
+    boundary: Mapped[OrganizationBoundary | None] = relationship(lazy="selectin")
+    accounting_batch: Mapped[CarbonAccountingBatch | None] = relationship(lazy="selectin")
+    template_version: Mapped[CarbonVerificationTemplateVersion | None] = relationship(back_populates="projects", lazy="selectin")
+    attachments: Mapped[list[CarbonVerificationAttachment]] = relationship(back_populates="project", lazy="selectin")
+    findings: Mapped[list[CarbonVerificationFinding]] = relationship(back_populates="project", lazy="selectin")
+    export_jobs: Mapped[list[CarbonVerificationExportJob]] = relationship(back_populates="project", lazy="selectin")
 
 
 class CarbonCompliancePeriod(TeamScopedMixin, BigIntAuditBase):

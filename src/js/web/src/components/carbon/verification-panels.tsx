@@ -196,6 +196,7 @@ type ExportJobs = {
 type ExportJob = {
   id: number
   job_no: string
+  project_id?: number | null
   export_type: string
   report_year?: number | null
   scope_filter?: string | null
@@ -206,6 +207,186 @@ type ExportJob = {
   completed_at?: string | null
   created_at?: string | null
   download_url?: string | null
+}
+
+type VerificationProjects = {
+  items: VerificationProject[]
+  total: number
+  summary: {
+    total: number
+    by_status: Record<string, number>
+    active_count: number
+    completed_count: number
+  }
+}
+
+type VerificationProject = {
+  id: number
+  project_no: string
+  project_name: string
+  project_type: string
+  status: string
+  verification_year?: number | null
+  reporting_org_name?: string | null
+  period_name?: string | null
+  boundary_name?: string | null
+  batch_name?: string | null
+  template_name?: string | null
+  template_version?: string | null
+  planned_start?: string | null
+  planned_end?: string | null
+  started_at?: string | null
+  completed_at?: string | null
+  lead_reviewer?: string | null
+  responsible_person?: string | null
+  verifier_org?: string | null
+  readiness_status: string
+  conclusion?: string | null
+  finding_summary?: Record<string, number> | null
+  artifact_counts: {
+    finding_count: number
+    open_finding_count: number
+    attachment_count: number
+    export_count: number
+  }
+}
+
+export function VerificationProjectsPanel() {
+  const queryClient = useQueryClient()
+  const projectsQuery = useQuery<ApiEnvelope<VerificationProjects>>({
+    queryKey: ["carbon-verification", "projects"],
+    queryFn: () => fetchCarbonApi<VerificationProjects>("/api/carbon/verification/projects?limit=100"),
+  })
+  const createProject = useMutation({
+    mutationFn: () => {
+      const name = window.prompt("请输入核查项目名称", `组织碳盘查核查项目 ${new Date().getFullYear()}`)
+      if (!name?.trim()) throw new Error("已取消创建")
+      const batchId = window.prompt("请输入核算批次ID（可选）", "")
+      return postCarbonApi<VerificationProject>("/api/carbon/verification/projects", {
+        project_name: name.trim(),
+        accounting_batch_id: batchId?.trim() ? Number(batchId.trim()) : undefined,
+      })
+    },
+    onSuccess: () => {
+      toast.success("核查项目已创建")
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "projects"] })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "创建核查项目失败")
+    },
+  })
+  const updateProject = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) => patchCarbonApi<VerificationProject>(`/api/carbon/verification/projects/${id}`, data),
+    onSuccess: () => {
+      toast.success("核查项目已更新")
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "projects"] })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "更新核查项目失败")
+    },
+  })
+  const refreshProject = useMutation({
+    mutationFn: (id: number) => postCarbonApi<VerificationProject>(`/api/carbon/verification/projects/${id}/refresh`, {}),
+    onSuccess: () => {
+      toast.success("项目状态已刷新")
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "projects"] })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "刷新项目状态失败")
+    },
+  })
+  const createExport = useMutation({
+    mutationFn: (project: VerificationProject) =>
+      postCarbonApi<ExportJob>("/api/carbon/verification/export-jobs", {
+        project_id: project.id,
+        export_type: "material_package",
+        year: project.verification_year ?? undefined,
+      }),
+    onSuccess: () => {
+      toast.success("项目材料包已生成")
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "projects"] })
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "export-jobs"] })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "生成项目材料包失败")
+    },
+  })
+  const data = projectsQuery.data?.data
+  const projects = data?.items ?? []
+
+  return (
+    <div className="space-y-4">
+      <MetricGrid
+        items={[
+          { label: "项目数", value: data?.summary.total ?? 0, icon: ShieldCheck },
+          { label: "进行中", value: data?.summary.active_count ?? 0, icon: FileText },
+          { label: "已完成", value: data?.summary.completed_count ?? 0, icon: CheckCircle2 },
+        ]}
+      />
+      <div className="flex justify-end">
+        <Button onClick={() => createProject.mutate()} disabled={createProject.isPending}>
+          创建核查项目
+        </Button>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>项目台账</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>项目</TableHead>
+                <TableHead>范围</TableHead>
+                <TableHead>模板</TableHead>
+                <TableHead>材料</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead>就绪</TableHead>
+                <TableHead className="w-[260px]">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {projects.map((project) => (
+                <TableRow key={project.id}>
+                  <TableCell>
+                    <div className="font-medium">{project.project_name}</div>
+                    <div className="text-xs text-muted-foreground">{project.project_no}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div>{project.reporting_org_name ?? project.batch_name ?? "-"}</div>
+                    <div className="text-xs text-muted-foreground">{project.period_name ?? project.verification_year ?? "-"}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div>{project.template_name ?? "-"}</div>
+                    <div className="text-xs text-muted-foreground">{project.template_version ?? "-"}</div>
+                  </TableCell>
+                  <TableCell>
+                    {project.artifact_counts.attachment_count} 附件 / {project.artifact_counts.finding_count} 发现 / {project.artifact_counts.export_count} 导出
+                  </TableCell>
+                  <TableCell>
+                    <ProjectStatusBadge status={project.status} />
+                  </TableCell>
+                  <TableCell>
+                    <VerificationStatusBadge status={project.readiness_status} />
+                  </TableCell>
+                  <TableCell>
+                    <ProjectActions
+                      project={project}
+                      onUpdate={(id, patch) => updateProject.mutate({ id, data: patch })}
+                      onRefresh={(id) => refreshProject.mutate(id)}
+                      onExport={(item) => createExport.mutate(item)}
+                      disabled={updateProject.isPending || refreshProject.isPending || createExport.isPending}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!projects.length ? <EmptyRow colSpan={7} /> : null}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  )
 }
 
 export function VerificationEvidencePanel() {
@@ -893,6 +1074,65 @@ function FindingActions({ finding, onUpdate, disabled }: { finding: Verification
       整改中
     </Button>
   )
+}
+
+function ProjectActions({
+  project,
+  onUpdate,
+  onRefresh,
+  onExport,
+  disabled,
+}: {
+  project: VerificationProject
+  onUpdate: (id: number, patch: Record<string, unknown>) => void
+  onRefresh: (id: number) => void
+  onExport: (project: VerificationProject) => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {project.status === "draft" ? (
+        <Button variant="outline" size="sm" onClick={() => onUpdate(project.id, { status: "in_progress" })} disabled={disabled}>
+          启动
+        </Button>
+      ) : null}
+      {project.status === "in_progress" ? (
+        <Button variant="outline" size="sm" onClick={() => onUpdate(project.id, { status: "review" })} disabled={disabled}>
+          送审
+        </Button>
+      ) : null}
+      {project.status === "review" ? (
+        <Button variant="outline" size="sm" onClick={() => onUpdate(project.id, { status: "in_progress" })} disabled={disabled}>
+          退回
+        </Button>
+      ) : null}
+      {project.status === "in_progress" || project.status === "review" ? (
+        <Button variant="outline" size="sm" onClick={() => onUpdate(project.id, { status: "completed" })} disabled={disabled}>
+          完成
+        </Button>
+      ) : null}
+      {project.status === "completed" ? (
+        <Button variant="outline" size="sm" onClick={() => onUpdate(project.id, { status: "archived" })} disabled={disabled}>
+          归档
+        </Button>
+      ) : null}
+      <Button variant="outline" size="sm" onClick={() => onRefresh(project.id)} disabled={disabled}>
+        刷新
+      </Button>
+      <Button variant="outline" size="sm" onClick={() => onExport(project)} disabled={disabled}>
+        生成包
+      </Button>
+    </div>
+  )
+}
+
+function ProjectStatusBadge({ status }: { status?: string }) {
+  if (status === "draft") return <Badge variant="outline">草稿</Badge>
+  if (status === "in_progress") return <Badge variant="secondary">进行中</Badge>
+  if (status === "review") return <Badge>复核中</Badge>
+  if (status === "completed") return <Badge>已完成</Badge>
+  if (status === "archived") return <Badge variant="outline">已归档</Badge>
+  return <Badge variant="outline">{status || "-"}</Badge>
 }
 
 function TemplateActions({

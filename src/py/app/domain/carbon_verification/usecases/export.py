@@ -34,6 +34,9 @@ class CarbonVerificationExportUseCase:
         query = _query_from_data(data)
         export_type = str(data.get("export_type") or "material_package")
         requested_by = _str_or_none(data.get("requested_by"))
+        project_id = _int_or_none(data.get("project_id"))
+        if project_id is not None:
+            await self._get_project_or_raise(project_id)
         job_no = _job_no(query, export_type)
         query_service = CarbonVerificationQueryService(self._session)
         report = await query_service.report_context(query)
@@ -44,6 +47,7 @@ class CarbonVerificationExportUseCase:
 
         job = m.CarbonVerificationExportJob(
             job_no=job_no,
+            project_id=project_id,
             export_type=export_type,
             report_year=query.year,
             scope_filter=query.scope,
@@ -104,10 +108,14 @@ class CarbonVerificationExportUseCase:
         await self._session.refresh(job)
         return job
 
-    async def list_export_jobs(self, *, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+    async def list_export_jobs(self, *, project_id: int | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         stmt = select(m.CarbonVerificationExportJob).order_by(m.CarbonVerificationExportJob.id.desc())
+        count_stmt = select(m.CarbonVerificationExportJob.id)
+        if project_id is not None:
+            stmt = stmt.where(m.CarbonVerificationExportJob.project_id == project_id)
+            count_stmt = count_stmt.where(m.CarbonVerificationExportJob.project_id == project_id)
         rows = (await self._session.execute(stmt.limit(_limit(limit)).offset(max(0, offset)))).scalars().all()
-        total = len((await self._session.execute(select(m.CarbonVerificationExportJob.id))).scalars().all())
+        total = len((await self._session.execute(count_stmt)).scalars().all())
         return {"items": [_job_payload(row) for row in rows], "total": total, "limit": _limit(limit), "offset": max(0, offset)}
 
     async def get_export_job(self, job_id: int) -> dict[str, Any]:
@@ -127,6 +135,13 @@ class CarbonVerificationExportUseCase:
             msg = "导出文件已丢失"
             raise ValueError(msg)
         return path
+
+    async def _get_project_or_raise(self, project_id: int) -> m.CarbonVerificationProject:
+        project = await self._session.get(m.CarbonVerificationProject, project_id)
+        if project is None:
+            msg = "核查项目不存在"
+            raise ValueError(msg)
+        return project
 
 
 def _query_from_data(data: dict[str, Any]) -> VerificationQuery:
@@ -251,6 +266,7 @@ def _job_payload(job: m.CarbonVerificationExportJob, *, include_files: bool = Fa
     payload = {
         "id": job.id,
         "job_no": job.job_no,
+        "project_id": job.project_id,
         "export_type": job.export_type,
         "report_year": job.report_year,
         "scope_filter": job.scope_filter,

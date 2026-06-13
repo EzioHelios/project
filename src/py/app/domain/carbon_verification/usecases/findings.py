@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 FINDING_FIELDS = {
     "finding_no",
+    "project_id",
     "issue_type",
     "finding_type",
     "severity",
@@ -46,7 +47,7 @@ FINDING_FIELDS = {
 }
 DATE_FIELDS = {"due_date"}
 DATETIME_FIELDS = {"reviewed_at", "closed_at"}
-INTEGER_FIELDS = {"record_id"}
+INTEGER_FIELDS = {"project_id", "record_id"}
 
 
 class CarbonVerificationFindingUseCase:
@@ -62,6 +63,8 @@ class CarbonVerificationFindingUseCase:
         payload.setdefault("severity", "medium")
         payload.setdefault("status", FINDING_OPEN)
         payload.setdefault("source_name", "carbon_verification")
+        if payload.get("project_id") is not None:
+            await self._get_project_or_raise(int(payload["project_id"]))
         validate_finding_status(str(payload["status"]))
         validate_finding_severity(str(payload["severity"]))
 
@@ -87,6 +90,8 @@ class CarbonVerificationFindingUseCase:
             if next_status == "closed":
                 payload.setdefault("closed_at", _utc_now_naive())
                 payload.setdefault("reviewed_at", _utc_now_naive())
+        if payload.get("project_id") is not None:
+            await self._get_project_or_raise(int(payload["project_id"]))
         _assign(finding, payload)
         await self._session.commit()
         await self._session.refresh(finding)
@@ -98,9 +103,16 @@ class CarbonVerificationFindingUseCase:
         issue_type = payload.get("issue_type")
         if not record_type or not record_id or not issue_type:
             return None
+        project_id = payload.get("project_id")
+        project_condition = (
+            m.CarbonVerificationFinding.project_id == int(project_id)
+            if project_id is not None
+            else m.CarbonVerificationFinding.project_id.is_(None)
+        )
         return await self._session.scalar(
             select(m.CarbonVerificationFinding)
             .where(
+                project_condition,
                 m.CarbonVerificationFinding.record_type == str(record_type),
                 m.CarbonVerificationFinding.record_id == int(record_id),
                 m.CarbonVerificationFinding.issue_type == str(issue_type),
@@ -116,6 +128,13 @@ class CarbonVerificationFindingUseCase:
             msg = "核查发现不存在"
             raise ValueError(msg)
         return finding
+
+    async def _get_project_or_raise(self, project_id: int) -> m.CarbonVerificationProject:
+        project = await self._session.get(m.CarbonVerificationProject, project_id)
+        if project is None:
+            msg = "核查项目不存在"
+            raise ValueError(msg)
+        return project
 
     async def _next_no(self) -> str:
         timestamp = datetime.datetime.now(UTC).strftime("%Y%m%d%H%M%S%f")

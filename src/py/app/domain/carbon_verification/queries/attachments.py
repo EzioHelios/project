@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class AttachmentQuery:
+    project_id: int | None = None
     source_object_type: str | None = None
     source_object_id: int | None = None
     status: str | None = None
@@ -68,6 +69,7 @@ def attachment_payload(row: m.CarbonVerificationAttachment) -> dict[str, Any]:
     return {
         "id": row.id,
         "attachment_no": row.attachment_no,
+        "project_id": row.project_id,
         "material_group": row.material_group,
         "attachment_type": row.attachment_type,
         "title": row.title,
@@ -100,6 +102,8 @@ def attachment_payload(row: m.CarbonVerificationAttachment) -> dict[str, Any]:
 
 def _conditions(query: AttachmentQuery) -> list[Any]:
     conditions = []
+    if query.project_id is not None:
+        conditions.append(m.CarbonVerificationAttachment.project_id == query.project_id)
     if query.source_object_type and query.source_object_type != "all":
         conditions.append(m.CarbonVerificationAttachment.source_object_type == query.source_object_type)
     if query.source_object_id is not None:
@@ -122,6 +126,7 @@ def _count_by(rows: list[m.CarbonVerificationAttachment], attr: str) -> dict[str
 def _filters(query: AttachmentQuery) -> dict[str, Any]:
     return {
         "source_object_type": query.source_object_type,
+        "project_id": query.project_id,
         "source_object_id": query.source_object_id,
         "status": query.status,
         "material_group": query.material_group,

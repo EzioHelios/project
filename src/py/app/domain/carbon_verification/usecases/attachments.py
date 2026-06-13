@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 ATTACHMENT_FIELDS = {
     "attachment_no",
+    "project_id",
     "material_group",
     "attachment_type",
     "title",
@@ -46,7 +47,7 @@ ATTACHMENT_FIELDS = {
     "ocr_payload",
     "remark",
 }
-INTEGER_FIELDS = {"source_object_id", "file_size_bytes", "version_no"}
+INTEGER_FIELDS = {"project_id", "source_object_id", "file_size_bytes", "version_no"}
 DATETIME_FIELDS = {"uploaded_at", "reviewed_at"}
 
 
@@ -64,6 +65,8 @@ class CarbonVerificationAttachmentUseCase:
         payload.setdefault("status", ATTACHMENT_PENDING_UPLOAD)
         payload.setdefault("version_no", 1)
         payload.setdefault("source_name", "carbon_verification")
+        if payload.get("project_id") is not None:
+            await self._get_project_or_raise(int(payload["project_id"]))
         _enrich_file_metadata(payload)
         validate_attachment_type(str(payload["attachment_type"]))
         validate_attachment_status(str(payload["status"]))
@@ -86,6 +89,8 @@ class CarbonVerificationAttachmentUseCase:
             validate_attachment_type(str(payload["attachment_type"]))
         if "status" in payload:
             validate_attachment_status(str(payload["status"]))
+        if payload.get("project_id") is not None:
+            await self._get_project_or_raise(int(payload["project_id"]))
         _enrich_file_metadata(payload)
         _assign(attachment, payload)
         await self._session.commit()
@@ -97,9 +102,16 @@ class CarbonVerificationAttachmentUseCase:
         source_object_id = payload.get("source_object_id")
         if not source_object_type or not source_object_id:
             return None
+        project_id = payload.get("project_id")
+        project_condition = (
+            m.CarbonVerificationAttachment.project_id == int(project_id)
+            if project_id is not None
+            else m.CarbonVerificationAttachment.project_id.is_(None)
+        )
         return await self._session.scalar(
             select(m.CarbonVerificationAttachment)
             .where(
+                project_condition,
                 m.CarbonVerificationAttachment.source_object_type == str(source_object_type),
                 m.CarbonVerificationAttachment.source_object_id == int(source_object_id),
                 m.CarbonVerificationAttachment.material_group == str(payload.get("material_group") or "evidence"),
@@ -114,6 +126,13 @@ class CarbonVerificationAttachmentUseCase:
             msg = "核查附件不存在"
             raise ValueError(msg)
         return attachment
+
+    async def _get_project_or_raise(self, project_id: int) -> m.CarbonVerificationProject:
+        project = await self._session.get(m.CarbonVerificationProject, project_id)
+        if project is None:
+            msg = "核查项目不存在"
+            raise ValueError(msg)
+        return project
 
     async def _next_no(self) -> str:
         timestamp = datetime.datetime.now(UTC).strftime("%Y%m%d%H%M%S%f")

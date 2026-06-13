@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class FindingQuery:
+    project_id: int | None = None
     status: str | None = None
     severity: str | None = None
     record_type: str | None = None
@@ -69,6 +70,8 @@ class CarbonVerificationFindingQueryService:
 
 def _conditions(query: FindingQuery) -> list[Any]:
     conditions = []
+    if query.project_id is not None:
+        conditions.append(m.CarbonVerificationFinding.project_id == query.project_id)
     if query.status and query.status != "all":
         conditions.append(m.CarbonVerificationFinding.status == query.status)
     if query.severity and query.severity != "all":
@@ -82,6 +85,7 @@ def _finding_payload(row: m.CarbonVerificationFinding) -> dict[str, Any]:
     return {
         "id": row.id,
         "finding_no": row.finding_no,
+        "project_id": row.project_id,
         "issue_type": row.issue_type,
         "finding_type": row.finding_type,
         "severity": row.severity,
@@ -126,6 +130,7 @@ def _overdue_count(rows: list[m.CarbonVerificationFinding]) -> int:
 def _filters(query: FindingQuery) -> dict[str, Any]:
     return {
         "status": query.status,
+        "project_id": query.project_id,
         "severity": query.severity,
         "record_type": query.record_type,
         "limit": query.limit,

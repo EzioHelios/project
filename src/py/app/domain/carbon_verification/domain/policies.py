@@ -35,6 +35,20 @@ TEMPLATE_DISABLED = "disabled"
 TEMPLATE_DRAFT = "draft"
 TEMPLATE_STATUSES = {TEMPLATE_ACTIVE, TEMPLATE_DISABLED, TEMPLATE_DRAFT}
 
+PROJECT_DRAFT = "draft"
+PROJECT_IN_PROGRESS = "in_progress"
+PROJECT_REVIEW = "review"
+PROJECT_COMPLETED = "completed"
+PROJECT_ARCHIVED = "archived"
+PROJECT_STATUSES = {PROJECT_DRAFT, PROJECT_IN_PROGRESS, PROJECT_REVIEW, PROJECT_COMPLETED, PROJECT_ARCHIVED}
+PROJECT_TRANSITIONS = {
+    PROJECT_DRAFT: {PROJECT_IN_PROGRESS, PROJECT_ARCHIVED},
+    PROJECT_IN_PROGRESS: {PROJECT_DRAFT, PROJECT_REVIEW, PROJECT_COMPLETED, PROJECT_ARCHIVED},
+    PROJECT_REVIEW: {PROJECT_IN_PROGRESS, PROJECT_COMPLETED, PROJECT_ARCHIVED},
+    PROJECT_COMPLETED: {PROJECT_ARCHIVED},
+    PROJECT_ARCHIVED: set(),
+}
+
 
 @dataclass(frozen=True, slots=True)
 class VerificationRule:
@@ -169,3 +183,27 @@ def validate_template_status(status: str) -> None:
 def template_usable(status: str) -> bool:
     validate_template_status(status)
     return status == TEMPLATE_ACTIVE
+
+
+def validate_project_status(status: str) -> None:
+    if status not in PROJECT_STATUSES:
+        msg = f"不支持的核查项目状态: {status}"
+        raise ValueError(msg)
+
+
+def validate_project_transition(current_status: str, next_status: str) -> None:
+    validate_project_status(next_status)
+    if current_status == next_status:
+        return
+    allowed = PROJECT_TRANSITIONS.get(current_status, set())
+    if next_status not in allowed:
+        msg = f"核查项目状态不能从 {current_status} 变更为 {next_status}"
+        raise ValueError(msg)
+
+
+def project_readiness(*, finding_open_count: int, missing_evidence_count: int, missing_result_count: int) -> str:
+    if missing_result_count > 0:
+        return "blocked"
+    if finding_open_count > 0 or missing_evidence_count > 0:
+        return "attention"
+    return READY_STATUS

@@ -8,11 +8,13 @@ from litestar.response import File, Response
 
 from app.domain.carbon_verification.queries.attachments import AttachmentQuery, CarbonVerificationAttachmentQueryService
 from app.domain.carbon_verification.queries.findings import CarbonVerificationFindingQueryService, FindingQuery
+from app.domain.carbon_verification.queries.projects import CarbonVerificationProjectQueryService, ProjectQuery
 from app.domain.carbon_verification.queries.templates import CarbonVerificationTemplateQueryService, TemplateQuery
 from app.domain.carbon_verification.queries.verification import CarbonVerificationQueryService, VerificationQuery
 from app.domain.carbon_verification.usecases.attachments import CarbonVerificationAttachmentUseCase
 from app.domain.carbon_verification.usecases.export import CarbonVerificationExportUseCase
 from app.domain.carbon_verification.usecases.findings import CarbonVerificationFindingUseCase
+from app.domain.carbon_verification.usecases.projects import CarbonVerificationProjectUseCase
 from app.domain.carbon_verification.usecases.templates import CarbonVerificationTemplateUseCase
 from app.domain.energy.controllers._utils import ok_data
 
@@ -56,6 +58,7 @@ class CarbonVerificationController(Controller):
     async def list_verification_attachments(
         self,
         db_session: AsyncSession,
+        project_id: int | None = None,
         source_object_type: str | None = None,
         source_object_id: int | None = None,
         status: str | None = None,
@@ -65,6 +68,7 @@ class CarbonVerificationController(Controller):
     ) -> Response[dict]:
         data = await CarbonVerificationAttachmentQueryService(db_session).list_attachments(
             AttachmentQuery(
+                project_id=project_id,
                 source_object_type=source_object_type,
                 source_object_id=source_object_id,
                 status=status,
@@ -121,6 +125,7 @@ class CarbonVerificationController(Controller):
     async def list_verification_findings(
         self,
         db_session: AsyncSession,
+        project_id: int | None = None,
         status: str | None = None,
         severity: str | None = None,
         record_type: str | None = None,
@@ -128,9 +133,85 @@ class CarbonVerificationController(Controller):
         offset: int = 0,
     ) -> Response[dict]:
         data = await CarbonVerificationFindingQueryService(db_session).list_findings(
-            FindingQuery(status=status, severity=severity, record_type=record_type, limit=max(1, min(limit, 500)), offset=max(0, offset))
+            FindingQuery(
+                project_id=project_id,
+                status=status,
+                severity=severity,
+                record_type=record_type,
+                limit=max(1, min(limit, 500)),
+                offset=max(0, offset),
+            )
         )
         return Response(content=ok_data(data))
+
+    @get("/api/carbon/verification/projects")
+    async def list_verification_projects(
+        self,
+        db_session: AsyncSession,
+        status: str | None = None,
+        reporting_org_id: int | None = None,
+        period_id: int | None = None,
+        accounting_batch_id: int | None = None,
+        verification_year: int | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Response[dict]:
+        data = await CarbonVerificationProjectQueryService(db_session).list_projects(
+            ProjectQuery(
+                status=status,
+                reporting_org_id=reporting_org_id,
+                period_id=period_id,
+                accounting_batch_id=accounting_batch_id,
+                verification_year=verification_year,
+                limit=max(1, min(limit, 500)),
+                offset=max(0, offset),
+            )
+        )
+        return Response(content=ok_data(data))
+
+    @get("/api/carbon/verification/projects/{project_id:int}")
+    async def get_verification_project(self, db_session: AsyncSession, project_id: int) -> Response[dict]:
+        try:
+            payload = await CarbonVerificationProjectQueryService(db_session).get_project(project_id)
+        except ValueError as exc:
+            return Response(content={"code": 404, "msg": str(exc)}, status_code=404)
+        return Response(content=ok_data(payload))
+
+    @post("/api/carbon/verification/projects")
+    async def create_verification_project(
+        self,
+        db_session: AsyncSession,
+        data: dict = EXPORT_BODY,
+    ) -> Response[dict]:
+        try:
+            project = await CarbonVerificationProjectUseCase(db_session).create_project(data)
+            payload = await CarbonVerificationProjectQueryService(db_session).get_project(project.id)
+        except ValueError as exc:
+            return Response(content={"code": 400, "msg": str(exc)}, status_code=400)
+        return Response(content=ok_data(payload))
+
+    @patch("/api/carbon/verification/projects/{project_id:int}")
+    async def update_verification_project(
+        self,
+        db_session: AsyncSession,
+        project_id: int,
+        data: dict = EXPORT_BODY,
+    ) -> Response[dict]:
+        try:
+            project = await CarbonVerificationProjectUseCase(db_session).update_project(project_id, data)
+            payload = await CarbonVerificationProjectQueryService(db_session).get_project(project.id)
+        except ValueError as exc:
+            return Response(content={"code": 400, "msg": str(exc)}, status_code=400)
+        return Response(content=ok_data(payload))
+
+    @post("/api/carbon/verification/projects/{project_id:int}/refresh")
+    async def refresh_verification_project(self, db_session: AsyncSession, project_id: int) -> Response[dict]:
+        try:
+            project = await CarbonVerificationProjectUseCase(db_session).refresh_project_status(project_id)
+            payload = await CarbonVerificationProjectQueryService(db_session).get_project(project.id)
+        except ValueError as exc:
+            return Response(content={"code": 400, "msg": str(exc)}, status_code=400)
+        return Response(content=ok_data(payload))
 
     @post("/api/carbon/verification/findings")
     async def create_verification_finding(
@@ -255,10 +336,11 @@ class CarbonVerificationController(Controller):
     async def list_verification_export_jobs(
         self,
         db_session: AsyncSession,
+        project_id: int | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> Response[dict]:
-        data = await CarbonVerificationExportUseCase(db_session).list_export_jobs(limit=limit, offset=offset)
+        data = await CarbonVerificationExportUseCase(db_session).list_export_jobs(project_id=project_id, limit=limit, offset=offset)
         return Response(content=ok_data(data))
 
     @post("/api/carbon/verification/export-jobs")
