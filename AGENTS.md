@@ -162,3 +162,37 @@ Priority references for current energy-management work include:
 - Do not add visible tabs/cards/sections titled like `口径说明`, `计算口径`, `使用说明`, `功能说明`, `数据来源说明`, or similar explanatory surfaces. Put those details in docs, specs, admin configuration, or field-level data tables only when the business user needs to edit or audit the value itself.
 - Page headers should usually be just eyebrow + title + actions. Avoid descriptive paragraphs unless they are real user data or legally required notices.
 - Chart and card descriptions should be omitted by default. Use concise labels, units, legends, filters, and table columns instead of prose explaining what the chart means.
+
+### Backend Admin Visual Standard
+
+The admin platform is an industrial energy-carbon operations system. It should feel restrained, reliable, audit-friendly, and built for repeated operational use. The bigscreen routes are a separate presentation surface and should not be used as the visual model for normal admin pages.
+
+Before changing or creating admin UI, read the relevant design docs first:
+- `docs/design/research/admin-ui-benchmark.md` — product research and benchmark rationale.
+- `docs/design/admin-visual-standard.md` — visual direction and product UI guardrails.
+- `docs/design/admin-page-archetypes.md` — page archetypes and layout rules.
+- `docs/design/admin-crud-standard.md` — CRUD, table, form, import, detail, and audit patterns.
+- `docs/design/admin-visual-system-roadmap.md` — phased global refactor roadmap.
+
+For UI/UX work, prefer global visual-system changes over one-off page rewrites. Start with tokens, shared components, page archetypes, and CRUD templates; only then migrate individual pages. Do not create a bespoke visual direction for a single route unless the design docs explicitly identify it as a separate surface.
+
+Admin UI direction:
+- Use cool industrial neutrals with one low-saturation energy-carbon accent.
+- Prefer operational density, clear hierarchy, and auditability over decorative SaaS visuals.
+- Do not use marketing hero layouts, neon cyber styling, green poster-style environmental branding, excessive gradients, or glow effects in backend pages.
+- Do not use `Inter` as the intentional product font for the admin platform; use the shared font tokens from `src/js/web/src/styles.css`.
+- Numeric values must use tabular numeric styling.
+
+Navigation and page structure:
+- Navigation labels must be short and business-facing. Avoid long sentence-like labels.
+- Business modules should be grouped around workflows such as energy operations, carbon accounting, data ledgers, monitoring, factors/standards, and system administration.
+- Permissions, scheduled jobs, API mappings, and low-level platform tools should not visually compete with core energy-carbon workflows.
+- Page titles should not be duplicated between the application shell and the page body.
+
+Component rules:
+- Cards are for grouped business objects only. Do not wrap every section in generic card boxes.
+- Prefer dividers, table density, KPI strips, segmented controls, and compact status rows for operational pages.
+- Empty/loading/error states must match the page structure and should not use generic spinners or casual copy.
+- Do not expose backend field names, UUIDs, raw JSON, raw API names, or implementation identifiers unless the page is explicitly a system/debug tool.
+- CRUD pages should follow `docs/design/admin-crud-standard.md`: ContextBar, TableToolbar, DataTable, DetailDrawer, ImportWizard, StatusBadge, and audit trail patterns before bespoke layouts.
+- Every admin route should map to an archetype from `docs/design/admin-page-archetypes.md` before implementation: Workbench, Ledger, Analysis, Audit, Reference Data, or Settings.
