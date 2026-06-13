@@ -2,18 +2,19 @@ import type { EChartsOption, SeriesOption } from "echarts"
 
 export const adminChartPalette = {
   energy: "#2f6f7e",
-  carbon: "#2d7d67",
-  scope1: "#9a5b36",
-  scope2: "#2f6f7e",
-  scope3: "#5d7f4f",
-  cost: "#b0792f",
-  warning: "#b0792f",
-  danger: "#b34a42",
-  success: "#2d7d67",
+  carbon: "#2d745f",
+  scope1: "#8f5b3c",
+  scope2: "#356f86",
+  scope3: "#586f66",
+  cost: "#9f7428",
+  warning: "#9f7428",
+  danger: "#a24d45",
+  success: "#2d745f",
   neutral: "#6b7480",
   muted: "#9aa4b2",
-  axis: "#8290a0",
-  grid: "#e4e9ef",
+  axis: "#7d8794",
+  grid: "#dfe6ec",
+  gridSubtle: "#edf1f5",
   text: "#172033",
   label: "#485568",
   panel: "#ffffff",
@@ -91,42 +92,47 @@ export function createAdminChartOption(option: EChartsOption, config: AdminChart
   const compact = config.compact ?? false
   return {
     color: adminChartSeriesColors,
-    animationDuration: 360,
-    animationDurationUpdate: 240,
+    backgroundColor: "transparent",
+    animationDuration: 420,
+    animationDurationUpdate: 260,
+    animationEasing: "cubicOut",
+    animationEasingUpdate: "cubicOut",
     textStyle: {
       color: adminChartPalette.text,
       fontFamily: "inherit",
       fontSize: 12,
     },
     grid: {
-      top: compact ? 16 : 34,
-      left: 12,
-      right: 18,
-      bottom: 12,
+      top: compact ? 14 : 30,
+      left: 10,
+      right: 16,
+      bottom: 10,
       containLabel: true,
     },
     legend: {
       top: 0,
       left: 0,
-      icon: "circle",
-      itemWidth: 8,
+      icon: "roundRect",
+      itemWidth: 10,
       itemHeight: 8,
-      itemGap: 14,
+      itemGap: 16,
       textStyle: {
         color: adminChartPalette.label,
         fontSize: 11,
+        fontWeight: 500,
       },
     },
     tooltip: {
       trigger: "axis",
-      backgroundColor: "rgba(23, 32, 51, 0.96)",
-      borderWidth: 0,
-      padding: [8, 10],
+      backgroundColor: "rgba(20, 30, 43, 0.96)",
+      borderColor: "rgba(255,255,255,0.12)",
+      borderWidth: 1,
+      padding: [9, 11],
       textStyle: {
         color: "#f8fafc",
         fontSize: 12,
       },
-      extraCssText: "border-radius:6px;box-shadow:0 10px 28px rgba(23,32,51,.22);",
+      extraCssText: "border-radius:6px;box-shadow:0 14px 34px rgba(23,32,51,.24);",
     },
     ...option,
   }
@@ -138,16 +144,18 @@ export const adminChartAxis = {
       type: "category" as const,
       data,
       axisTick: { show: false },
-      axisLine: { lineStyle: { color: adminChartPalette.grid } },
-      axisLabel: { color: adminChartPalette.axis, fontSize: 11 },
+      axisLine: { show: false },
+      axisLabel: { color: adminChartPalette.axis, fontSize: 11, margin: 10 },
     }
   },
   value(name?: string) {
     return {
       type: "value" as const,
       name,
-      nameTextStyle: { color: adminChartPalette.axis, fontSize: 11 },
-      axisLabel: { color: adminChartPalette.axis, fontSize: 11 },
+      nameTextStyle: { color: adminChartPalette.axis, fontSize: 11, padding: [0, 0, 6, 0] },
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: adminChartPalette.axis, fontSize: 11, margin: 10 },
       splitLine: { lineStyle: { color: adminChartPalette.grid, type: "dashed" as const } },
     }
   },
@@ -179,13 +187,13 @@ function buildLineSeries<T extends AdminChartDatum>(points: T[], lines: AdminCha
         symbol: "circle",
         symbolSize: 6,
         lineStyle: {
-          width: 2,
+          width: 2.25,
           color,
         },
         itemStyle: {
           color,
         },
-        areaStyle: line.key === "energy_kwh" ? { color: `${color}14` } : undefined,
+        areaStyle: { color: `${color}12` },
         data: points.map((point) => readChartNumber(point, line.key)),
       }
     })
@@ -226,7 +234,12 @@ export function createComboTrendChartOption<T extends AdminChartDatum>(
       type: "bar",
       name: bar.label,
       stack: bar.stack,
-      barMaxWidth: 16,
+      barMaxWidth: 14,
+      showBackground: true,
+      backgroundStyle: {
+        color: adminChartPalette.gridSubtle,
+        borderRadius: [4, 4, 0, 0],
+      },
       itemStyle: {
         color: resolveSeriesColor(bar, index),
         borderRadius: [4, 4, 0, 0],
@@ -243,7 +256,7 @@ export function createComboTrendChartOption<T extends AdminChartDatum>(
       showSymbol: false,
       yAxisIndex: line.yAxisIndex ?? 1,
       lineStyle: {
-        width: 2,
+        width: 2.25,
         color: resolveSeriesColor(line, index + config.bars.length),
       },
       itemStyle: {
@@ -286,8 +299,11 @@ export function createRankingChartOption(items: AdminChartRankingItem[], config:
     xAxis: {
       type: "value",
       splitLine: { lineStyle: { color: adminChartPalette.grid, type: "dashed" } },
+      axisLine: { show: false },
+      axisTick: { show: false },
       axisLabel: {
         color: adminChartPalette.axis,
+        margin: 10,
         formatter: (value: number) => `${formatAdminChartNumber(value, 0)}${unit ? ` ${unit}` : ""}`,
       },
     },
@@ -312,10 +328,16 @@ export function createRankingChartOption(items: AdminChartRankingItem[], config:
           borderRadius: [0, 4, 4, 0],
           color: getAdminChartColor(config.colorKey ?? "energy"),
         },
+        showBackground: true,
+        backgroundStyle: {
+          color: adminChartPalette.gridSubtle,
+          borderRadius: [0, 4, 4, 0],
+        },
         label: {
           show: true,
           position: "right",
           color: adminChartPalette.label,
+          fontWeight: 600,
           formatter: ({ value }: { value: number }) => `${formatAdminChartNumber(value, 2)}${unit ? ` ${unit}` : ""}`,
         },
       },
@@ -336,15 +358,19 @@ export function createDistributionChartOption(items: AdminChartDistributionItem[
       {
         type: "pie",
         radius: ["54%", "76%"],
-        center: ["50%", "58%"],
+        center: ["50%", "55%"],
         avoidLabelOverlap: true,
         label: {
           formatter: "{b}",
           color: adminChartPalette.label,
+          fontSize: 11,
+        },
+        labelLine: {
+          lineStyle: { color: adminChartPalette.grid },
         },
         itemStyle: {
           borderColor: adminChartPalette.panel,
-          borderWidth: 2,
+          borderWidth: 3,
         },
         data: items,
       },
@@ -363,7 +389,7 @@ export function createGaugeChartOption(value: number, config: { suffix?: string 
         endAngle: -40,
         min: 0,
         max: 100,
-        radius: "100%",
+        radius: "96%",
         progress: {
           show: true,
           roundCap: true,
@@ -375,7 +401,7 @@ export function createGaugeChartOption(value: number, config: { suffix?: string 
         axisLine: {
           lineStyle: {
             width: 10,
-            color: [[1, adminChartPalette.grid]],
+            color: [[1, adminChartPalette.gridSubtle]],
           },
         },
         axisTick: { show: false },
@@ -385,8 +411,8 @@ export function createGaugeChartOption(value: number, config: { suffix?: string 
         detail: {
           valueAnimation: true,
           offsetCenter: [0, "10%"],
-          fontSize: 24,
-          fontWeight: 700,
+          fontSize: 23,
+          fontWeight: 650,
           formatter: `{value}${suffix}`,
           color: adminChartPalette.text,
         },
@@ -466,7 +492,7 @@ export function createSankeyChartOption(
         nodeAlign: "justify",
         draggable: false,
         nodeGap: 18,
-        nodeWidth: 18,
+        nodeWidth: 16,
         emphasis: { focus: "adjacency" },
         levels: [
           { depth: 0, itemStyle: { color: adminChartPalette.text }, lineStyle: { color: "source", opacity: 0.35 } },

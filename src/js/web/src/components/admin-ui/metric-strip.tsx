@@ -26,7 +26,7 @@ const toneClassName: Record<NonNullable<MetricTileProps["tone"]>, string> = {
 
 export function MetricTile({ label, value, unit, meta, tone = "default", className, ...props }: MetricTileProps) {
   return (
-    <div className={cn("rounded-md border border-border/70 bg-card px-4 py-3 shadow-[0_1px_0_hsl(215_20%_20%/0.03)]", toneClassName[tone], className)} {...props}>
+    <div className={cn("admin-metric-tile", toneClassName[tone], className)} data-tone={tone} {...props}>
       <div className="text-muted-foreground text-xs leading-5">{label}</div>
       <div className="mt-2 flex min-h-8 items-baseline gap-1.5">
         <span className="admin-kpi-value">{value}</span>

@@ -25,15 +25,34 @@ type ChartPanelProps = {
 }
 
 export function ChartPanel({ title, unit, source, updatedAt, actions, option, height = 320, emptyLabel = "暂无图表数据", className }: ChartPanelProps) {
-  const metaItems = [unit ? `单位：${unit}` : null, source ? `来源：${source}` : null, updatedAt ? `更新：${updatedAt}` : null].filter(Boolean)
+  const metaItems = [unit ? { label: "单位", value: unit } : null, source ? { label: "来源", value: source } : null, updatedAt ? { label: "更新", value: updatedAt } : null].filter(
+    Boolean,
+  )
+  const headerActions =
+    metaItems.length > 0 || actions ? (
+      <>
+        {metaItems.length > 0 && (
+          <div className="admin-chart-meta">
+            {metaItems.map((item) =>
+              item ? (
+                <span className="admin-chart-meta-item" key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </span>
+              ) : null,
+            )}
+          </div>
+        )}
+        {actions}
+      </>
+    ) : undefined
 
   return (
-    <AdminPanel title={title} actions={actions} className={className} contentClassName="pt-3" data-chart-panel="">
-      {metaItems.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground text-[0.72rem]">{metaItems.map((item) => item && <span key={item}>{item}</span>)}</div>
-      )}
+    <AdminPanel title={title} actions={headerActions} className={className} contentClassName="p-3" data-chart-panel="">
       {option ? (
-        <ReactEChartsCore echarts={echarts} option={option} style={{ height: `${height}px`, width: "100%" }} className={cn("admin-chart", "min-w-0")} notMerge lazyUpdate />
+        <div className="admin-chart-frame">
+          <ReactEChartsCore echarts={echarts} option={option} style={{ height: `${height}px`, width: "100%" }} className={cn("admin-chart", "min-w-0")} notMerge lazyUpdate />
+        </div>
       ) : (
         <AdminEmptyState title={emptyLabel} className="min-h-0" style={{ height: `${height}px` }} />
       )}

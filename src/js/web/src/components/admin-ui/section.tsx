@@ -12,12 +12,12 @@ export function AdminPanel({ title, actions, className, contentClassName, childr
   return (
     <section className={cn("admin-panel overflow-hidden", className)} {...props}>
       {(title || actions) && (
-        <div className="flex flex-wrap items-start justify-between gap-3 border-border/70 border-b px-4 py-3">
-          <div className="min-w-0">{title && <h2 className="font-semibold text-[0.95rem] text-foreground leading-6">{title}</h2>}</div>
-          {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+        <div className="admin-panel-header">
+          <div className="min-w-0">{title && <h2 className="admin-panel-title">{title}</h2>}</div>
+          {actions && <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">{actions}</div>}
         </div>
       )}
-      <div className={cn("p-4", contentClassName)}>{children}</div>
+      <div className={cn("admin-panel-content", contentClassName)}>{children}</div>
     </section>
   )
 }

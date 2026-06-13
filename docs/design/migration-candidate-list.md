@@ -70,6 +70,7 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: shared team switcher, user menu, email verification, OAuth sign-in, signup, placeholder, and enterprise error surfaces now use localized operational labels and avoid decorative description copy in global entry points.
 - Done: shared Admin UI and carbon utility components removed unused explanatory `description` slots from `AdminPanel`, `AdminSectionHeader`, `QuickLinkGrid`, `InsightCallout`, and `SectionHeader`, making compact title/action/data composition the default.
 - Done: MFA and master-data dialogs now keep operation guidance screen-reader only instead of rendering visible subtitle copy under modal titles; the mobile sidebar default description is localized.
+- Done: shared `AdminPanel`, `AdminPageHeader`, `MetricTile`, `ChartPanel`, and `admin-chart-theme` now enforce compact title bars, industrial panel surfaces, title-bar chart metadata, and a muted cross-chart palette/axis/tooltip grammar for authenticated admin pages.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 
