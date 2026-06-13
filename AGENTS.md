@@ -192,6 +192,9 @@ Navigation and page structure:
 - Page titles should not be duplicated between the application shell and the page body.
 - Admin pages must use `AdminPageHeader` instead of adding page-local title blocks. The default header must not render an eyebrow or descriptive paragraph.
 - Admin headers must fit a compact workbench rhythm: one title row plus optional actions/meta. If context needs more than one short row, move it to `ContextBar`, a table column, or an audit field.
+- Treat small subtitles above page titles as disallowed by default in admin routes. They are usually repeated navigation context and make the platform feel template-generated.
+- `AdminPageHeader meta` is not a replacement for descriptions. Use it only for auditable facts such as period, organization, tenant, lock state, freshness, approval state, or permission scope.
+- If header actions wrap or the header feels like a hero, keep one primary action and move secondary actions into the toolbar or a more menu.
 
 Component rules:
 - Cards are for grouped business objects only. Do not wrap every section in generic card boxes.
@@ -201,4 +204,6 @@ Component rules:
 - CRUD pages should follow `docs/design/admin-crud-standard.md`: ContextBar, TableToolbar, DataTable, DetailDrawer, ImportWizard, StatusBadge, and audit trail patterns before bespoke layouts.
 - Chart pages must use `ChartPanel` plus `createAdminChartOption()` from `src/js/web/src/lib/admin-chart-theme.ts`; do not define page-local color arrays, default ECharts palettes, tooltip shells, legend styling, axis styling, chart card wrappers, or chart description prose in domain pages.
 - When a chart needs a new visual behavior, add or extend a shared chart helper in `src/js/web/src/lib/admin-chart-theme.ts` or a shared chart wrapper first. Page components may pass data, labels, units, source, updated time, thresholds, and drilldown metadata only.
+- `echarts` / `echarts-for-react` can be fully customized. Before accepting any chart migration, confirm palette, grid, axis, legend, tooltip, series defaults, empty/loading/error states, and panel metadata come from the shared chart layer rather than from a route-local option object.
+- Wrapping an unchanged locally styled ECharts option in `ChartPanel` is not enough. The visual option fields must move into the shared theme or builder layer.
 - Every admin route should map to an archetype from `docs/design/admin-page-archetypes.md` before implementation: Workbench, Ledger, Analysis, Audit, Reference Data, or Settings.

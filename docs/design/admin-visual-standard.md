@@ -54,6 +54,8 @@ Backend page headers must be compact and single-purpose. The page title area sho
 - Default header height should stay compact: title row plus optional action row, not a marketing hero.
 - Page description is off by default. Do not use `meta` as a second title line. Use metadata chips, status badges, or context fields instead of prose.
 - If a page needs context, put it in `ContextBar`, breadcrumb, status badge, or audit footer.
+- The page shell owns navigation context. `AdminPageHeader` owns only the current work surface title, status, meta facts, and actions.
+- Do not add a small heading above the title to create hierarchy. In admin pages, that pattern is usually duplicated navigation, not useful information.
 
 Header density budget:
 
@@ -62,6 +64,17 @@ Header density budget:
 - Title size: 24px to 28px. Do not use display or hero typography in admin routes.
 - One optional meta row is allowed only for machine-auditable facts: period, organization, lock state, data freshness, approval state, or permission scope.
 - Explanatory text such as "用于查看...", "帮助用户...", "当前页面..." is not header metadata.
+- The header should not consume more than roughly 10% of a 768px-high viewport. If it does, the page is drifting toward a hero layout.
+- Button groups should remain one row. If more than three actions are needed, keep one primary action and move the rest into secondary menu or toolbar actions.
+
+Header ownership rules:
+
+| UI area | Owns | Must not own |
+| --- | --- | --- |
+| App shell / breadcrumb | Product area, module path, parent object path | Page-local status or business explanation |
+| `AdminPageHeader` | Current page title, status badge, concise meta facts, primary actions | Eyebrow, long description, repeated module name |
+| `ContextBar` | Period, organization, scope, filters, operating context | Page title or explanatory copy |
+| Table / audit footer | Source, standard, effective date, confidence, reviewer | Marketing or tutorial text |
 
 Recommended compact header structure:
 
@@ -102,6 +115,24 @@ The project uses `echarts` / `echarts-for-react`, which supports global theme re
 - Chart panel descriptions are off by default. Each chart should communicate through title, unit, source, updated time, legend, axis name, tooltip, and drilldown target.
 - Page components may choose data, chart type, labels, units, thresholds, source, updated time, and drilldown behavior. They must not own visual option details.
 - Pie/donut charts are allowed only when part-to-whole comparison is genuinely the task; prefer bar, stacked bar, trend, heat grid, and ranked lists for operational analysis.
+
+ECharts customization is required, not optional. The shared chart layer must control:
+
+- Palette order and semantic colors.
+- Grid margins and chart content alignment.
+- Axis line, tick, label, split line, and unit style.
+- Tooltip surface, number formatting, unit formatting, source/freshness display, and marker style.
+- Legend placement, icon, label color, disabled state, and overflow behavior.
+- Line, bar, pie, gauge, sankey, heat-grid, and combo defaults.
+- Loading, empty, error, drilldown, and export states.
+
+Chart visual density budget:
+
+- Normal analysis chart height: 280px to 360px.
+- Compact chart height: 220px to 260px only when paired with a table or ranked list.
+- Panel title row: one title plus optional unit/source/freshness/action metadata. No chart subtitle paragraph.
+- Axis labels should stay readable at table-adjacent density; rotate labels only when truncation would be worse.
+- A page with multiple charts should use one shared grid rhythm. Do not mix unrelated chart panel padding, legends, or tooltip treatments.
 
 ## Page Rules
 

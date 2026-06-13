@@ -51,6 +51,65 @@
 
 因此下一轮不得继续按页面自由美化。必须先用这些组件修正试点页，再批量迁移 Ledger、Analysis、Audit 三类高频页面。
 
+### 2.0.1 标题区专项冻结
+
+问题判断：
+
+- 标题上方重复小副标题是当前后台最明显的“AI 模板感”来源之一。
+- 大标题区挤压首屏业务数据，让后台看起来像营销页或介绍页。
+- `meta` 被滥用为另一种 description，会重新制造重复文案。
+
+冻结规则：
+
+- `AdminPageHeader` 不接受 eyebrow / description。
+- 页面内容区只允许一个 page title。
+- 导航层级由 shell、breadcrumb、sidebar 表达，不在内容标题区重复。
+- `meta` 只放机器可审计事实，例如周期、组织、权限范围、锁定状态、更新时间。
+- 超过三个页面动作时，只保留一个主动作，其余进入 toolbar 或更多菜单。
+
+验收方式：
+
+```bash
+rg -n "eyebrow=|description=|CardDescription|meta=\".*(管理|中心|平台|用于|帮助|说明)" src/js/web/src/routes src/js/web/src/components
+rg -n "<AdminPageHeader" src/js/web/src/routes src/js/web/src/components
+```
+
+截图检查：
+
+- 768px 高度视口中，标题区不应形成 hero。
+- 无 ContextBar 时，内容标题区目标高度 48px 到 64px，极限 80px。
+- 第一屏必须露出主要数据区、表格或图表，而不是只看到标题和说明。
+
+### 2.0.2 图表主题专项冻结
+
+问题判断：
+
+- 当前图表技术栈 `echarts` / `echarts-for-react` 本身足够支持统一视觉。
+- 现状问题是各页面或组件自行定义颜色、tooltip、legend、axis、grid，导致同一平台出现多个 BI 风格。
+- 只把图表包进统一 Card 不够，必须把 ECharts option 的视觉字段收回共享层。
+
+冻结规则：
+
+- 普通后台路由不直接渲染 `ReactECharts`，必须经由 `ChartPanel` 或共享图表 wrapper。
+- 趋势、排行、构成、仪表盘、桑基、热力图、组合图都必须有共享 builder。
+- 页面只传数据、字段名、单位、来源、更新时间、阈值和钻取行为。
+- 页面不得定义局部 palette、tooltip 壳、legend 样式、axis 样式、grid 样式、series 装饰样式。
+- 图表说明文案默认删除，用 title、unit、source、updatedAt、legend、axis、tooltip、drilldown 表达。
+
+验收方式：
+
+```bash
+rg -n "ReactECharts|echarts-for-react" src/js/web/src/routes src/js/web/src/components
+rg -n "CHART_COLORS|PIE_COLORS|color: \\[|color: \"#|backgroundColor: \"#" src/js/web/src/routes src/js/web/src/components
+rg -n "tooltip: \\{|legend: \\{|grid: \\{|axisLabel: \\{|splitLine: \\{|itemStyle: \\{" src/js/web/src/routes src/js/web/src/components
+```
+
+截图检查：
+
+- 趋势、排行、构成、异常图的 palette、tooltip、legend、轴线和 panel shell 属于同一系统。
+- 图表没有默认 ECharts 蓝、随机 pie 色或高饱和看板色。
+- 每个分析图至少能看到单位、来源、更新时间或明确的业务口径之一。
+
 ### 2.1 动作
 
 - 盘点所有后台路由。

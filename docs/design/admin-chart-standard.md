@@ -79,6 +79,21 @@ The shared theme must define:
 - `series`: default line, bar, pie, gauge, sankey behavior.
 - `loading`: non-decorative loading skeleton or muted spinner.
 
+ECharts supports both registered themes and option-level composition. This project may use either implementation internally, but domain pages must see only shared builders and `ChartPanel`.
+
+Required customization surface:
+
+| Area | Centralized decision |
+| --- | --- |
+| Theme registration | Register one admin chart theme before rendering ECharts, or compose every option through `createAdminChartOption()`. Do not mix unthemed local options into migrated pages. |
+| Palette | Semantic color order for energy, carbon, scope, cost, baseline, warning, danger, and muted comparison series. |
+| Grid | Consistent left/right/top/bottom margins so charts align across a grid. |
+| Axes | Muted axis line, no heavy ticks, low-noise split lines, tabular numeric labels, unit-aware names. |
+| Tooltip | Dark readable surface, compact rows, marker + series + value + unit, optional source/freshness, no default white ECharts tooltip. |
+| Legend | Stable top/inline placement, small icon, muted text, wrapped/scroll behavior for long series lists. |
+| Series | Standard bar width, line symbol behavior, pie ring radius, gauge progress style, sankey node/link style, heat-grid cell treatment. |
+| States | Shared loading, empty, error, drilldown affordance, and export action placement. |
+
 ## Domain Page Restrictions
 
 Domain components may choose chart type, data series, labels, units, source, updated time, and drilldown behavior. They must not define the visual shell.
@@ -100,6 +115,36 @@ Allowed domain-level option fields:
 - Drilldown event metadata.
 
 If a chart needs a new visual style, first extend `admin-chart-theme.ts`, then consume the shared helper from the domain page.
+
+## Refactor Plan
+
+Chart cleanup must happen in this order:
+
+1. Inventory local chart styling with source scans.
+2. Add or extend a shared builder for the chart type.
+3. Move visual option fields into `src/js/web/src/lib/admin-chart-theme.ts`.
+4. Keep domain wrappers focused on data mapping, units, labels, source, freshness, thresholds, and drilldown metadata.
+5. Render through `ChartPanel`.
+6. Screenshot review the migrated page against at least one trend, ranking, composition, and anomaly chart.
+
+Do not migrate charts by wrapping a visually unchanged local option in `ChartPanel`. That only changes the container and leaves the UI problem intact.
+
+Recommended scans:
+
+```bash
+rg -n "CHART_COLORS|PIE_COLORS|color: \\[|color: \"#|backgroundColor: \"#" src/js/web/src
+rg -n "tooltip: \\{|legend: \\{|grid: \\{|axisLabel: \\{|splitLine: \\{|itemStyle: \\{|label: \\{" src/js/web/src/routes src/js/web/src/components
+rg -n "ReactECharts|echarts-for-react" src/js/web/src
+```
+
+Migration priority:
+
+1. Shared carbon analytics wrappers in `components/carbon/analytics-panels.tsx`.
+2. Energy-carbon analysis routes using `TrendChart`, `DistributionChart`, `CompositeTrendChart`, and `FlowGraph`.
+3. Standalone admin charts in reference-data, factor, quality, monitor, and audit pages.
+4. Public or non-admin charts only after backend admin routes are stable.
+
+Bigscreen chart components are intentionally out of scope for this admin chart standard unless they are reused inside normal backend pages.
 
 ## Shared Builder Status
 
