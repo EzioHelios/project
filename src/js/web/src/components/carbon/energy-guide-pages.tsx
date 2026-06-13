@@ -1779,11 +1779,8 @@ export function EnergyAnalysisPanel() {
             <MetricTile label="能源告警" value={formatEnergyValue(anomalies?.alarms.length, 0)} tone="warning" />
           </MetricStrip>
           <PageSection>
-            <Card>
-              <CardHeader>
-                <CardTitle>异常时段明细</CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
+            <AdminPanel title="异常时段明细" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1798,13 +1795,7 @@ export function EnergyAnalysisPanel() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(anomalies?.items ?? []).length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                          暂无异常时段
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    {(anomalies?.items ?? []).length === 0 && <AdminTableStateRow colSpan={8}>暂无异常时段</AdminTableStateRow>}
                     {(anomalies?.items ?? []).map((item) => (
                       <TableRow key={`${item.equipment_id}-${item.period_start}`}>
                         <TableCell>{item.period_start}</TableCell>
@@ -1819,8 +1810,8 @@ export function EnergyAnalysisPanel() {
                     ))}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </PageSection>
         </TabsContent>
 
@@ -1943,12 +1934,12 @@ export function EnergyFlowPanel() {
           </Button>
         </div>
       </PageSection>
-      <PageSection className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <MetricStrip>
         <EnergyFlowKpi title="输入" value={summary?.total_input} unit="kWh" />
         <EnergyFlowKpi title="有效利用" value={summary?.utilized_energy} unit="kWh" />
         <EnergyFlowKpi title="总损耗率" value={summary?.loss_rate_pct} unit="%" />
         <EnergyFlowKpi title="高损耗链路" value={summary?.high_loss_count} unit="条" />
-      </PageSection>
+      </MetricStrip>
       <Tabs defaultValue="graph" className="space-y-4">
         <TabsList>
           <TabsTrigger value="graph">能流图</TabsTrigger>
@@ -1986,11 +1977,8 @@ export function EnergyFlowPanel() {
         </TabsContent>
         <TabsContent value="losses">
           <PageSection>
-            <Card>
-              <CardHeader>
-                <CardTitle>损耗诊断</CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
+            <AdminPanel title="损耗诊断" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -2004,6 +1992,7 @@ export function EnergyFlowPanel() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
+                    {(lossesQuery.data?.data.items ?? []).length === 0 && <AdminTableStateRow colSpan={7}>暂无损耗诊断</AdminTableStateRow>}
                     {(lossesQuery.data?.data.items ?? []).map((item) => (
                       <TableRow key={`${item.stage}-${item.target}`}>
                         <TableCell>{item.stage}</TableCell>
@@ -2019,8 +2008,8 @@ export function EnergyFlowPanel() {
                     ))}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </PageSection>
         </TabsContent>
         <TabsContent value="report">
@@ -2071,19 +2060,7 @@ export function EnergyFlowPanel() {
 }
 
 function EnergyFlowKpi({ title, value, unit }: { title: string; value?: number; unit: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-end justify-between gap-3">
-          <span className="text-2xl font-semibold tabular-nums">{formatEnergyValue(value, unit === "%" ? 2 : 2)}</span>
-          <Badge variant="secondary">{unit}</Badge>
-        </div>
-      </CardContent>
-    </Card>
-  )
+  return <MetricTile label={title} value={formatEnergyValue(value, 2)} unit={unit} />
 }
 
 function buildEnergyFlowQuery(filters: { periodStart: string; periodEnd: string; granularity: string; areaKeyword: string; lossThreshold: string }) {
@@ -2234,9 +2211,9 @@ export function EnergyBalancePanel() {
         {(overviewQuery.data?.data.cards ?? []).length ? (
           overviewQuery.data?.data.cards.map((item) => <EnergyFlowKpi key={item.label} title={item.label} value={item.value} unit={item.unit} />)
         ) : (
-          <Card className="md:col-span-2 xl:col-span-5">
-            <CardContent className="py-8 text-center text-muted-foreground">暂无平衡数据</CardContent>
-          </Card>
+          <AdminPanel className="md:col-span-2 xl:col-span-5" contentClassName="py-8 text-center text-muted-foreground">
+            暂无平衡数据
+          </AdminPanel>
         )}
       </PageSection>
 
@@ -2249,14 +2226,8 @@ export function EnergyBalancePanel() {
         </TabsList>
         <TabsContent value="table">
           <PageSection>
-            <Card>
-              <CardHeader>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <CardTitle>能量平衡表</CardTitle>
-                  {summary ? balanceQualityBadge(summary.quality) : null}
-                </div>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
+            <AdminPanel title="能量平衡表" actions={summary ? balanceQualityBadge(summary.quality) : null} contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -2279,16 +2250,12 @@ export function EnergyBalancePanel() {
                         </TableRow>
                       ))
                     ) : (
-                      <TableRow>
-                        <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                          暂无平衡表数据
-                        </TableCell>
-                      </TableRow>
+                      <AdminTableStateRow colSpan={5}>暂无平衡表数据</AdminTableStateRow>
                     )}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </PageSection>
         </TabsContent>
         <TabsContent value="quality">
@@ -2297,11 +2264,8 @@ export function EnergyBalancePanel() {
               title="数据质量"
               items={qualityItems.length ? qualityItems.map((item) => ({ label: item.label, value: item.value })) : [{ label: "数据质量", value: "暂无数据" }]}
             />
-            <Card>
-              <CardHeader>
-                <CardTitle>来源分布</CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
+            <AdminPanel title="来源分布" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -2320,16 +2284,12 @@ export function EnergyBalancePanel() {
                         </TableRow>
                       ))
                     ) : (
-                      <TableRow>
-                        <TableCell colSpan={3} className="py-8 text-center text-muted-foreground">
-                          暂无来源分布
-                        </TableCell>
-                      </TableRow>
+                      <AdminTableStateRow colSpan={3}>暂无来源分布</AdminTableStateRow>
                     )}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </PageSection>
         </TabsContent>
         <TabsContent value="optimize">
@@ -2411,11 +2371,8 @@ export function EnergyBalancePanel() {
         </TabsContent>
         <TabsContent value="records">
           <PageSection>
-            <Card>
-              <CardHeader>
-                <CardTitle>优化记录</CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
+            <AdminPanel title="优化记录" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -2440,16 +2397,12 @@ export function EnergyBalancePanel() {
                         </TableRow>
                       ))
                     ) : (
-                      <TableRow>
-                        <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                          暂无优化记录
-                        </TableCell>
-                      </TableRow>
+                      <AdminTableStateRow colSpan={6}>暂无优化记录</AdminTableStateRow>
                     )}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </PageSection>
         </TabsContent>
       </Tabs>
