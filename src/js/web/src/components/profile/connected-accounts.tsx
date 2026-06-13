@@ -1,9 +1,9 @@
 import { useMemo } from "react"
 import { toast } from "sonner"
+import { AdminEmptyState, AdminPanel } from "@/components/admin-ui"
 import { Icons } from "@/components/icons"
 import { OAuthLinkButton } from "@/components/profile/oauth-link-button"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { SkeletonCard } from "@/components/ui/skeleton"
 import { useOAuthConfig } from "@/hooks/use-oauth-config"
 import { useOAuthAccounts, useStartOAuthLink, useUnlinkOAuthAccount } from "@/lib/api/hooks/auth"
@@ -23,12 +23,9 @@ export function ConnectedAccounts() {
 
   if (isError) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Connected accounts</CardTitle>
-          <CardDescription>We could not load your connected accounts.</CardDescription>
-        </CardHeader>
-      </Card>
+      <AdminPanel title="关联账号">
+        <AdminEmptyState title="关联账号加载失败" description="请稍后重试。" className="min-h-28" />
+      </AdminPanel>
     )
   }
 
@@ -40,10 +37,10 @@ export function ConnectedAccounts() {
         window.location.href = result.authorizationUrl
         return
       }
-      toast.error("Unable to start OAuth flow")
+      toast.error("无法启动第三方账号授权")
     } catch (error) {
-      toast.error("Unable to start OAuth flow", {
-        description: error instanceof Error ? error.message : "Try again later",
+      toast.error("无法启动第三方账号授权", {
+        description: error instanceof Error ? error.message : "请稍后重试",
       })
     }
   }
@@ -51,22 +48,19 @@ export function ConnectedAccounts() {
   const handleUnlink = async (provider: string) => {
     try {
       await unlink.mutateAsync(provider)
-      toast.success(`Unlinked ${provider}`)
+      toast.success(`已解除 ${provider} 关联`)
     } catch (error) {
-      toast.error("Unable to unlink account", {
-        description: error instanceof Error ? error.message : "Try again later",
+      toast.error("解除关联失败", {
+        description: error instanceof Error ? error.message : "请稍后重试",
       })
     }
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Connected accounts</CardTitle>
-        <CardDescription>Manage your linked OAuth providers.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {accounts.length === 0 && <p className="text-muted-foreground text-sm">No connected accounts yet.</p>}
+    <AdminPanel title="关联账号" contentClassName="space-y-4">
+      {accounts.length === 0 ? (
+        <AdminEmptyState title="暂无关联账号" className="min-h-28" />
+      ) : (
         <div className="space-y-3">
           {accounts.map((account) => {
             const Icon = account.provider === "google" ? Icons.google : Icons.gitHub
@@ -80,21 +74,17 @@ export function ConnectedAccounts() {
                   </div>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => handleUnlink(account.provider)}>
-                  Unlink
+                  解除关联
                 </Button>
               </div>
             )
           })}
         </div>
-        <div className="flex flex-wrap gap-2">
-          {oauthConfig?.googleEnabled && !linkedProviders.has("google") && (
-            <OAuthLinkButton provider="google" onClick={() => handleLink("google")} disabled={startLink.isPending} />
-          )}
-          {oauthConfig?.githubEnabled && !linkedProviders.has("github") && (
-            <OAuthLinkButton provider="github" onClick={() => handleLink("github")} disabled={startLink.isPending} />
-          )}
-        </div>
-      </CardContent>
-    </Card>
+      )}
+      <div className="flex flex-wrap gap-2 border-border/70 border-t pt-4">
+        {oauthConfig?.googleEnabled && !linkedProviders.has("google") && <OAuthLinkButton provider="google" onClick={() => handleLink("google")} disabled={startLink.isPending} />}
+        {oauthConfig?.githubEnabled && !linkedProviders.has("github") && <OAuthLinkButton provider="github" onClick={() => handleLink("github")} disabled={startLink.isPending} />}
+      </div>
+    </AdminPanel>
   )
 }

@@ -63,6 +63,7 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: `/admin/users/$userId` and `/admin/teams/$teamId` migrated permission-center detail surfaces to `AdminPanel`, `MetricStrip`, `MetricTile`, and `AdminEmptyState`, with localized operational labels; both routes no longer import or render naked `Card`.
 - Done: `/carbon-mgmt/pending` and `/carbon-mgmt/audit` migrated review/audit table shells, toolbars, and empty rows to `AdminPanel`, `AdminTableToolbar`, `AdminDataTable`, and `AdminTableStateRow`; both routes no longer import or render naked `Card`.
 - Done: `/carbon-mgmt/scope2-reconciliation`, `/carbon-mgmt/iot`, and `/carbon-mgmt/calculation-factors` migrated reconciliation metrics, telemetry ledgers, factor KPI strips, table toolbars, and empty rows to shared Admin UI primitives; all three routes no longer import or render naked `Card` or `SummaryMetricCard`.
+- Done: profile security components (`MfaSection`, `ConnectedAccounts`, `BackupCodesDisplay`) and the shared `ErrorBoundary` now use `AdminPanel`, `AdminEmptyState`, and `MetricStrip` instead of naked `Card`; account/security copy has been localized to operational Chinese.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 
