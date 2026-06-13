@@ -43,6 +43,7 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: `components/carbon/supply-chain-carbon-panel.tsx` migrated supplier/task/review/disclosure/analysis panels, KPI strips, table shells, and empty rows to the shared Admin UI system; the file no longer imports or renders naked `Card`.
 - Done: `components/carbon/energy-benchmark-panel.tsx` migrated benchmark filters, KPI tiles, tab panels, table shells, recommendation panels, and empty states to the shared Admin UI system; the file no longer imports or renders naked `Card`.
 - Done: `components/carbon/energy-budget-panel.tsx` migrated budget filters, KPI tiles, annual target, forecast/recommendation panels, table shells, alert panel, and empty states to the shared Admin UI system; the file no longer imports or renders naked `Card`.
+- Done: `components/carbon/energy-carbon-center.tsx` migrated shared center widgets, detail panels, task lists, timelines, issue summary strips, and empty states to the shared Admin UI system; the file no longer imports or renders naked `Card`, and shared detail panel descriptions are no longer rendered as visible subtitle copy.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 
