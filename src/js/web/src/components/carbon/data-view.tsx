@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
+import { AdminDataTable, AdminPanel } from "@/components/admin-ui"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
@@ -65,27 +65,29 @@ export function AutoTable({ data, maxColumns = 8 }: { data: unknown; maxColumns?
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          {columns.map((c) => (
-            <TableHead key={c}>{c}</TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((r, idx) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: 该表格为只读展示
-          <TableRow key={idx}>
+    <AdminDataTable>
+      <Table>
+        <TableHeader>
+          <TableRow>
             {columns.map((c) => (
-              <TableCell key={c} className="max-w-[260px] truncate">
-                {formatValue(r[c])}
-              </TableCell>
+              <TableHead key={c}>{c}</TableHead>
             ))}
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r, idx) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: 该表格为只读展示
+            <TableRow key={idx}>
+              {columns.map((c) => (
+                <TableCell key={c} className="max-w-[260px] truncate">
+                  {formatValue(r[c])}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </AdminDataTable>
   )
 }
 
@@ -129,14 +131,9 @@ export function DataCard({
   }, [data, prefer])
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {mode === "table" ? <AutoTable data={data} /> : <KeyValueGrid data={data} />}
-        {showRaw && <RawJsonCollapsible data={data} title={rawTitle ?? "原始返回值"} />}
-      </CardContent>
-    </Card>
+    <AdminPanel title={title} contentClassName="space-y-4">
+      {mode === "table" ? <AutoTable data={data} /> : <KeyValueGrid data={data} />}
+      {showRaw && <RawJsonCollapsible data={data} title={rawTitle ?? "原始返回值"} />}
+    </AdminPanel>
   )
 }

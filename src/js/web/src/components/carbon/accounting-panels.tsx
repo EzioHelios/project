@@ -136,9 +136,9 @@ export function Scope2AccountingPanel() {
     <div className="space-y-4">
       <Scope2RecordsPanel defaultSourceKind="all" />
       <div className="grid gap-4 md:grid-cols-3">
-        <EntryCard title="账单补录" description="人工电费账单作为电表聚合缺失时的辅助核算来源。" to="/carbon-mgmt/scope2-bill" actionLabel="进入账单补录" />
-        <EntryCard title="外购热/汽/冷" description="维护外购热力、蒸汽和冷量数据，纳入范围2核算。" to="/carbon-mgmt/scope2-purchased-energy" actionLabel="进入填报" />
-        <EntryCard title="数据对账" description="按账期比较账单总量与电表月聚合总量，排查差异和缺失点位。" to="/carbon-mgmt/scope2-reconciliation" actionLabel="进入数据对账" />
+        <EntryCard title="账单补录" to="/carbon-mgmt/scope2-bill" actionLabel="进入账单补录" />
+        <EntryCard title="外购热/汽/冷" to="/carbon-mgmt/scope2-purchased-energy" actionLabel="进入填报" />
+        <EntryCard title="数据对账" to="/carbon-mgmt/scope2-reconciliation" actionLabel="进入数据对账" />
       </div>
     </div>
   )
@@ -348,26 +348,18 @@ function Scope3TransportPanel() {
 
 function EntryCard({
   title,
-  description,
   actionLabel,
   to,
 }: {
   title: string
-  description: string
   actionLabel: string
   to: "/carbon-mgmt/scope2-bill" | "/carbon-mgmt/scope2-purchased-energy" | "/carbon-mgmt/scope2-reconciliation"
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Button asChild>
-          <Link to={to}>{actionLabel}</Link>
-        </Button>
-      </CardContent>
-    </Card>
+    <AdminPanel title={title}>
+      <Button asChild>
+        <Link to={to}>{actionLabel}</Link>
+      </Button>
+    </AdminPanel>
   )
 }
