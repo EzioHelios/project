@@ -5,7 +5,7 @@ import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, Sideba
 
 export function NavProjects({
   projects,
-  label = "Teams",
+  label = "团队",
 }: {
   projects: {
     name: string

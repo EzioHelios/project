@@ -24,7 +24,7 @@ export function ConnectedAccounts() {
   if (isError) {
     return (
       <AdminPanel title="关联账号">
-        <AdminEmptyState title="关联账号加载失败" description="请稍后重试。" className="min-h-28" />
+        <AdminEmptyState title="关联账号加载失败" className="min-h-28" />
       </AdminPanel>
     )
   }

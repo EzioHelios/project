@@ -44,7 +44,7 @@ function AdminTeamDetailPage() {
         <AdminNav />
         <PageSection>
           <AdminPanel title="团队信息">
-            <AdminEmptyState title="团队数据加载失败" description="请稍后重试。" className="min-h-32" />
+            <AdminEmptyState title="团队数据加载失败" className="min-h-32" />
           </AdminPanel>
         </PageSection>
       </PageContainer>

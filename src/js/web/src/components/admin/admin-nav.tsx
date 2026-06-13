@@ -2,11 +2,11 @@ import { Link, useRouterState } from "@tanstack/react-router"
 import { Button } from "@/components/ui/button"
 
 const navItems = [
-  { label: "Dashboard", to: "/admin" },
-  { label: "Roles", to: "/admin/roles" },
-  { label: "Users", to: "/admin/users" },
-  { label: "Teams", to: "/admin/teams" },
-  { label: "Audit log", to: "/admin/audit" },
+  { label: "概览", to: "/admin" },
+  { label: "角色", to: "/admin/roles" },
+  { label: "用户", to: "/admin/users" },
+  { label: "团队", to: "/admin/teams" },
+  { label: "审计日志", to: "/admin/audit" },
 ] as const
 
 export function AdminNav() {

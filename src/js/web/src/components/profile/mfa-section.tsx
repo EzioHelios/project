@@ -24,7 +24,7 @@ export function MfaSection() {
   if (isError || !data) {
     return (
       <AdminPanel title="多因素认证">
-        <AdminEmptyState title="MFA 状态加载失败" description="请稍后重试。" className="min-h-28" />
+        <AdminEmptyState title="多因素认证状态加载失败" className="min-h-28" />
       </AdminPanel>
     )
   }
@@ -69,7 +69,7 @@ export function MfaSection() {
             <DialogDescription>输入当前密码后生成新的备用码，旧备用码将失效。</DialogDescription>
           </DialogHeader>
           {regenCodes ? (
-            <BackupCodesDisplay codes={regenCodes} description="这些备用码将替换旧备用码，请妥善保存。" />
+            <BackupCodesDisplay codes={regenCodes} />
           ) : (
             <Input type="password" placeholder="当前密码" value={regenPassword} onChange={(event) => setRegenPassword(event.target.value)} />
           )}

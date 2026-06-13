@@ -17,7 +17,7 @@ export function OAuthLinkButton({ provider, onClick, disabled }: OAuthLinkButton
   return (
     <Button variant="outline" className="justify-start gap-2" onClick={onClick} disabled={disabled}>
       <Icon className="h-4 w-4" />
-      Link {providerLabels[provider]}
+      关联 {providerLabels[provider]}
     </Button>
   )
 }

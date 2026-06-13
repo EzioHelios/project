@@ -44,7 +44,7 @@ function AdminUserDetailPage() {
         <PermissionCenterNav />
         <PageSection>
           <AdminPanel title="用户信息">
-            <AdminEmptyState title="用户数据加载失败" description="请稍后重试。" className="min-h-32" />
+            <AdminEmptyState title="用户数据加载失败" className="min-h-32" />
           </AdminPanel>
         </PageSection>
       </PageContainer>

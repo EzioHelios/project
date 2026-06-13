@@ -13,11 +13,11 @@ function TeamsPage() {
   return (
     <PageContainer className="flex-1 space-y-4">
       <AdminPageHeader
-        title="Teams"
+        title="团队管理"
         actions={
           <Button size="sm" asChild>
             <Link to="/teams/new">
-              <Plus className="mr-2 h-4 w-4" /> New team
+              <Plus className="mr-2 h-4 w-4" /> 新建团队
             </Link>
           </Button>
         }

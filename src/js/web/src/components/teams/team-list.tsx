@@ -54,7 +54,7 @@ export function TeamList() {
   if (isError) {
     return (
       <AdminPanel title="团队列表">
-        <AdminEmptyState title="团队数据加载失败" description="请稍后重试。" />
+        <AdminEmptyState title="团队数据加载失败" />
       </AdminPanel>
     )
   }
@@ -137,7 +137,7 @@ export function TeamList() {
                         ) : (
                           <>
                             <Shield className="mr-0.5 h-2.5 w-2.5" />
-                            Admin
+                            管理员
                           </>
                         )}
                       </Badge>

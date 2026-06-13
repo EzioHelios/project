@@ -6,10 +6,9 @@ import { Button } from "@/components/ui/button"
 interface BackupCodesDisplayProps {
   codes: string[]
   title?: string
-  description?: string
 }
 
-export function BackupCodesDisplay({ codes, title = "Backup codes", description }: BackupCodesDisplayProps) {
+export function BackupCodesDisplay({ codes, title = "备用码" }: BackupCodesDisplayProps) {
   const formatted = useMemo(() => codes.filter(Boolean), [codes])
 
   const handleCopy = async () => {
@@ -24,7 +23,6 @@ export function BackupCodesDisplay({ codes, title = "Backup codes", description 
   return (
     <AdminPanel
       title={title}
-      description={description}
       actions={
         <Button variant="outline" size="sm" onClick={handleCopy}>
           复制

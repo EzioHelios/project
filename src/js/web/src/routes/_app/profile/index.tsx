@@ -33,21 +33,20 @@ function ProfilePage() {
     // Handle successful OAuth link
     if (searchParams.linked === "true" && searchParams.provider) {
       queryClient.invalidateQueries({ queryKey: profileOAuthAccountsQueryKey() })
-      const providerName = searchParams.provider.charAt(0).toUpperCase() + searchParams.provider.slice(1)
-      toast.success(`Successfully linked ${providerName} account`)
+      toast.success(`已关联 ${searchParams.provider} 账号`)
       void navigate({ to: "/profile", replace: true })
       return
     }
     // Handle OAuth error
     if (searchParams.oauth_failed) {
-      toast.error(searchParams.message || "Failed to link account")
+      toast.error(searchParams.message || "第三方账号关联失败")
       void navigate({ to: "/profile", replace: true })
     }
   }, [searchParams, queryClient, navigate])
 
   return (
     <PageContainer className="flex-1 space-y-4">
-      <AdminPageHeader title="Profile settings" />
+      <AdminPageHeader title="个人设置" />
       <PageSection>
         <div className="grid gap-6 lg:grid-cols-2">
           <MfaSection />

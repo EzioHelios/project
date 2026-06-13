@@ -10,10 +10,10 @@ export const Route = createFileRoute("/_app/admin/")({
 })
 
 const shortcuts = [
-  { title: "用户管理", to: "/auth/users", description: "查看和管理系统用户", icon: Users },
-  { title: "角色管理", to: "/auth/roles", description: "创建、编辑和维护角色", icon: KeyRound },
-  { title: "权限配置", to: "/admin/roles", description: "按角色配置权限码", icon: ShieldCheck },
-  { title: "审计日志", to: "/admin/audit", description: "查看权限与安全相关操作", icon: FileText },
+  { title: "用户管理", to: "/auth/users", icon: Users },
+  { title: "角色管理", to: "/auth/roles", icon: KeyRound },
+  { title: "权限配置", to: "/admin/roles", icon: ShieldCheck },
+  { title: "审计日志", to: "/admin/audit", icon: FileText },
 ] as const
 
 function AdminDashboardPage() {
@@ -31,7 +31,6 @@ function AdminDashboardPage() {
                 </div>
                 <div className="min-w-0">
                   <div className="font-medium text-sm">{item.title}</div>
-                  <div className="text-muted-foreground text-xs">{item.description}</div>
                 </div>
               </div>
               <Button variant="outline" size="sm" asChild>

@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_app/admin/teams/")({
 function AdminTeamsPage() {
   return (
     <PageContainer className="flex-1 space-y-4">
-      <AdminPageHeader title="Teams" />
+      <AdminPageHeader title="团队管理" />
       <AdminNav />
       <PageSection>
         <TeamTable />

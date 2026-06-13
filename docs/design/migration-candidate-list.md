@@ -66,6 +66,7 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: profile security components (`MfaSection`, `ConnectedAccounts`, `BackupCodesDisplay`) and the shared `ErrorBoundary` now use `AdminPanel`, `AdminEmptyState`, and `MetricStrip` instead of naked `Card`; account/security copy has been localized to operational Chinese.
 - Done: shared CRUD, readonly ledger, master-data workbench, and Scope record templates no longer accept or render decorative `eyebrow` / explanatory `description` props; affected platform, data ledger, and Scope entry routes now rely on compact titles, controls, labels, and table content.
 - Done: `energy-carbon` legacy center pages tightened shared `DetailPanel`, `LedgerTable`, and `EmptyStateCard` APIs by removing explanatory description props; carbon, alerts, factors, monitor, and quality routes now use data fields, actions, `MetricStrip`, `MetricTile`, and `AdminDataTable` instead of local metric cards and instructional copy.
+- Done: profile, MFA, team, and permission-center surfaces removed remaining English template labels/toasts in the authenticated admin experience and dropped redundant error-state description copy.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 

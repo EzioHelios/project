@@ -75,7 +75,7 @@ function TeamDetail() {
   if (isTeamLoading) {
     return (
       <PageContainer className="flex-1">
-        <div className="text-muted-foreground">Loading team...</div>
+        <div className="text-muted-foreground">正在加载团队...</div>
       </PageContainer>
     )
   }
@@ -83,7 +83,7 @@ function TeamDetail() {
   if (isTeamError || !team) {
     return (
       <PageContainer className="flex-1">
-        <div className="text-muted-foreground">{isTeamError ? "We couldn't load this team yet. Try refreshing." : "Team not found"}</div>
+        <div className="text-muted-foreground">{isTeamError ? "团队数据加载失败，请刷新后重试。" : "团队不存在"}</div>
       </PageContainer>
     )
   }
@@ -142,7 +142,7 @@ function TeamDetail() {
                   </div>
                   <div className="flex items-center gap-3">
                     <Badge variant="outline" className="uppercase">
-                      {member.role ?? "MEMBER"}
+                      {member.role === "ADMIN" ? "管理员" : member.role === "MEMBER" ? "成员" : (member.role ?? "-")}
                     </Badge>
                     {canRemoveMember(member) && (
                       <Button variant="outline" size="sm" onClick={() => removeMemberMutation.mutate(member.email)}>
@@ -169,7 +169,7 @@ function TeamDetail() {
                         <Mail className="h-4 w-4 text-muted-foreground" />
                         <div>
                           <p className="text-sm font-medium">{invitation.email}</p>
-                          <p className="text-xs text-muted-foreground">邀请角色：{invitation.role.toLowerCase()}</p>
+                          <p className="text-xs text-muted-foreground">邀请角色：{invitation.role === "ADMIN" ? "管理员" : "成员"}</p>
                         </div>
                       </div>
                       {canManageMembers && (
