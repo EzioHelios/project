@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from litestar import Controller, get, patch, post
-from litestar.params import Body
+from litestar.params import Body, Parameter
 from litestar.response import File, Response
 
 from app.domain.carbon_verification.queries.attachments import AttachmentQuery, CarbonVerificationAttachmentQueryService
@@ -34,12 +34,12 @@ class CarbonVerificationController(Controller):
         db_session: AsyncSession,
         year: int | None = None,
         status: str | None = None,
-        scope: str | None = None,
+        scope_filter: str | None = Parameter(query="scope", required=False),
         project_id: int | None = None,
         accounting_batch_id: int | None = None,
     ) -> Response[dict]:
         data = await CarbonVerificationQueryService(db_session).summary(
-            _query(year=year, status=status, scope=scope, project_id=project_id, accounting_batch_id=accounting_batch_id)
+            _query(year=year, status=status, scope=scope_filter, project_id=project_id, accounting_batch_id=accounting_batch_id)
         )
         return Response(content=ok_data(data))
 
@@ -49,14 +49,14 @@ class CarbonVerificationController(Controller):
         db_session: AsyncSession,
         year: int | None = None,
         status: str | None = None,
-        scope: str | None = None,
+        scope_filter: str | None = Parameter(query="scope", required=False),
         project_id: int | None = None,
         accounting_batch_id: int | None = None,
         limit: int = 200,
         offset: int = 0,
     ) -> Response[dict]:
         data = await CarbonVerificationQueryService(db_session).evidence_manifest(
-            _query(year=year, status=status, scope=scope, project_id=project_id, accounting_batch_id=accounting_batch_id, limit=limit, offset=offset)
+            _query(year=year, status=status, scope=scope_filter, project_id=project_id, accounting_batch_id=accounting_batch_id, limit=limit, offset=offset)
         )
         return Response(content=ok_data(data))
 
@@ -118,14 +118,14 @@ class CarbonVerificationController(Controller):
         db_session: AsyncSession,
         year: int | None = None,
         status: str | None = None,
-        scope: str | None = None,
+        scope_filter: str | None = Parameter(query="scope", required=False),
         project_id: int | None = None,
         accounting_batch_id: int | None = None,
         limit: int = 200,
         offset: int = 0,
     ) -> Response[dict]:
         data = await CarbonVerificationQueryService(db_session).issues(
-            _query(year=year, status=status, scope=scope, project_id=project_id, accounting_batch_id=accounting_batch_id, limit=limit, offset=offset)
+            _query(year=year, status=status, scope=scope_filter, project_id=project_id, accounting_batch_id=accounting_batch_id, limit=limit, offset=offset)
         )
         return Response(content=ok_data(data))
 
@@ -254,14 +254,14 @@ class CarbonVerificationController(Controller):
         db_session: AsyncSession,
         year: int | None = None,
         status: str | None = None,
-        scope: str | None = None,
+        scope_filter: str | None = Parameter(query="scope", required=False),
         project_id: int | None = None,
         accounting_batch_id: int | None = None,
         limit: int = 200,
         offset: int = 0,
     ) -> Response[dict]:
         data = await CarbonVerificationQueryService(db_session).audit_trail(
-            _query(year=year, status=status, scope=scope, project_id=project_id, accounting_batch_id=accounting_batch_id, limit=limit, offset=offset)
+            _query(year=year, status=status, scope=scope_filter, project_id=project_id, accounting_batch_id=accounting_batch_id, limit=limit, offset=offset)
         )
         return Response(content=ok_data(data))
 
@@ -271,14 +271,14 @@ class CarbonVerificationController(Controller):
         db_session: AsyncSession,
         year: int | None = None,
         status: str | None = None,
-        scope: str | None = None,
+        scope_filter: str | None = Parameter(query="scope", required=False),
         project_id: int | None = None,
         accounting_batch_id: int | None = None,
         limit: int = 200,
         offset: int = 0,
     ) -> Response[dict]:
         data = await CarbonVerificationQueryService(db_session).material_package(
-            _query(year=year, status=status, scope=scope, project_id=project_id, accounting_batch_id=accounting_batch_id, limit=limit, offset=offset)
+            _query(year=year, status=status, scope=scope_filter, project_id=project_id, accounting_batch_id=accounting_batch_id, limit=limit, offset=offset)
         )
         return Response(content=ok_data(data))
 
@@ -335,14 +335,14 @@ class CarbonVerificationController(Controller):
         db_session: AsyncSession,
         year: int | None = None,
         status: str | None = None,
-        scope: str | None = None,
+        scope_filter: str | None = Parameter(query="scope", required=False),
         project_id: int | None = None,
         accounting_batch_id: int | None = None,
         limit: int = 200,
         offset: int = 0,
     ) -> Response[dict]:
         data = await CarbonVerificationQueryService(db_session).report_context(
-            _query(year=year, status=status, scope=scope, project_id=project_id, accounting_batch_id=accounting_batch_id, limit=limit, offset=offset)
+            _query(year=year, status=status, scope=scope_filter, project_id=project_id, accounting_batch_id=accounting_batch_id, limit=limit, offset=offset)
         )
         return Response(content=ok_data(data))
 

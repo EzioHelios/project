@@ -801,6 +801,12 @@ export function VerificationReportPanel() {
       toast.error(error instanceof Error ? error.message : "导出失败")
     },
   })
+  const downloadExport = useMutation({
+    mutationFn: (url: string) => downloadVerificationExport(url),
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "下载失败")
+    },
+  })
   const ensureTemplate = useMutation({
     mutationFn: () => postCarbonApi<TemplateVersion>("/api/carbon/verification/templates/ensure-default", {}),
     onSuccess: () => {
@@ -977,8 +983,8 @@ export function VerificationReportPanel() {
                   <TableCell>{job.completed_at ?? job.created_at ?? "-"}</TableCell>
                   <TableCell>
                     {job.download_url ? (
-                      <Button asChild variant="outline" size="sm">
-                        <a href={job.download_url}>下载</a>
+                      <Button variant="outline" size="sm" onClick={() => downloadExport.mutate(job.download_url as string)} disabled={downloadExport.isPending}>
+                        下载
                       </Button>
                     ) : (
                       "-"
@@ -1246,4 +1252,37 @@ async function patchCarbonApi<T>(url: string, body: Record<string, unknown>) {
     throw new Error(raw.msg || raw.detail || `HTTP ${res.status}`)
   }
   return raw as ApiEnvelope<T>
+}
+
+async function downloadVerificationExport(url: string) {
+  const response = await fetch(url)
+  if (!response.ok) {
+    const text = await response.text()
+    let message = `HTTP ${response.status}`
+    try {
+      const payload = JSON.parse(text) as { msg?: string; detail?: string }
+      message = payload.msg || payload.detail || message
+    } catch {
+      message = text || message
+    }
+    throw new Error(message)
+  }
+  const blob = await response.blob()
+  const filename = filenameFromDisposition(response.headers.get("content-disposition")) ?? "carbon-verification-export.zip"
+  const blobUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = blobUrl
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(blobUrl)
+}
+
+function filenameFromDisposition(disposition: string | null) {
+  if (!disposition) return null
+  const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
+  if (encoded) return decodeURIComponent(encoded)
+  const plain = disposition.match(/filename="?([^";]+)"?/i)?.[1]
+  return plain || null
 }

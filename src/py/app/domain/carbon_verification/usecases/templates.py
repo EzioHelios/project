@@ -74,6 +74,16 @@ class CarbonVerificationTemplateUseCase:
         )
         if existing is not None:
             await self._clear_default_templates(except_id=existing.id)
+            existing.template_name = REPORT_TEMPLATE_NAME
+            existing.template_format = "docx"
+            existing.template_path = REPORT_TEMPLATE_PATH
+            existing.applicable_industry = "工业其他行业"
+            existing.applicable_scope = "工业企业组织层面温室气体排放报告和核查材料包"
+            existing.standard_name = REPORT_STANDARD_NAME
+            existing.standard_code = REPORT_STANDARD_CODE
+            existing.source_name = "repository_default"
+            existing.confidence_level = "medium"
+            existing.remark = "仓库内置通用模板"
             existing.status = "active"
             existing.is_default = True
             await self._session.commit()
@@ -94,7 +104,7 @@ class CarbonVerificationTemplateUseCase:
             status="active",
             is_default=True,
             effective_from=datetime.date(2026, 6, 13),
-            confidence_level="standard_reference",
+            confidence_level="medium",
             remark="仓库内置通用模板",
         )
         self._session.add(obj)

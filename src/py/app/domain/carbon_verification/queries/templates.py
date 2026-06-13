@@ -121,7 +121,7 @@ def default_template_payload() -> dict[str, Any]:
         "is_default": True,
         "effective_from": "2026-06-13",
         "effective_to": None,
-        "confidence_level": "standard_reference",
+        "confidence_level": "medium",
         "remark": "仓库内置通用模板 fallback",
     }
 

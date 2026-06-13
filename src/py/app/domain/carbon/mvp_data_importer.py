@@ -427,7 +427,7 @@ async def _seed_verification(
         )
         values (
             :team_id, 'MVP-GENERAL-ORG-GHG', '工业企业组织碳盘查报告模板', 'v1.0',
-            'docx', 'docs/templates/carbon/org-ghg-inventory-general-v1.docx',
+            'docx', 'docs/评价方案/templates/工业企业温室气体排放盘查报告与核查材料包通用模板.docx',
             '工业企业通用', '组织碳盘查/核查材料包', 'ISO 14064-1 / GHG Protocol',
             'ISO 14064-1', :source, 'active', true, date '2026-01-01', 'medium',
             '当前企业MVP核查报告通用模板记录。', now(), now()
@@ -547,7 +547,7 @@ async def _seed_verification(
         values (
             :team_id, 'MVP-EXPORT-2026', :project_id, 'material_package', 2026, null,
             'approved', 'completed', '工业企业组织碳盘查报告模板',
-            'docs/templates/carbon/org-ghg-inventory-general-v1.docx',
+            'docs/评价方案/templates/工业企业温室气体排放盘查报告与核查材料包通用模板.docx',
             'ISO 14064-1 / GHG Protocol', 'ISO 14064-1',
             '/demo/carbon/exports/org-ghg-material-package-2026.zip',
             'mvp-export-package', 2097152,
