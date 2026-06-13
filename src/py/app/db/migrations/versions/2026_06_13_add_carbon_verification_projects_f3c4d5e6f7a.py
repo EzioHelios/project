@@ -128,7 +128,7 @@ def upgrade() -> None:
         "team_id",
     ):
         op.create_index(op.f(f"ix_{PROJECT_TABLE}_{column}"), PROJECT_TABLE, [column])
-    op.create_index("ix_carbon_verification_project_status", PROJECT_TABLE, ["team_id", "status", "project_type"])
+    op.create_index("ix_carbon_verification_project_team_status_type", PROJECT_TABLE, ["team_id", "status", "project_type"])
     op.create_index("ix_carbon_verification_project_scope", PROJECT_TABLE, ["team_id", "reporting_org_id", "period_id", "boundary_id"])
     op.create_index("ix_carbon_verification_project_batch", PROJECT_TABLE, ["team_id", "accounting_batch_id", "status"])
     for column in ("project_type", "status", "readiness_status"):

@@ -1810,7 +1810,7 @@ class CarbonVerificationFinding(TeamScopedMixin, BigIntAuditBase):
     __tablename__ = "carbon_verification_finding"
     __table_args__ = (
         UniqueConstraint("team_id", "finding_no", name="uq_carbon_verification_finding_team_no"),
-        Index("ix_carbon_verification_finding_status", "team_id", "status", "severity"),
+        Index("ix_carbon_verification_finding_team_status_severity", "team_id", "status", "severity"),
         Index("ix_carbon_verification_finding_record", "team_id", "record_type", "record_id", "issue_type"),
         Index("ix_carbon_verification_finding_due", "team_id", "due_date", "status"),
     )
@@ -1851,7 +1851,7 @@ class CarbonVerificationAttachment(TeamScopedMixin, BigIntAuditBase):
     __table_args__ = (
         UniqueConstraint("team_id", "attachment_no", name="uq_carbon_verification_attachment_team_no"),
         Index("ix_carbon_verification_attachment_source", "team_id", "source_object_type", "source_object_id"),
-        Index("ix_carbon_verification_attachment_status", "team_id", "status", "material_group"),
+        Index("ix_carbon_verification_attachment_team_status_group", "team_id", "status", "material_group"),
         Index("ix_carbon_verification_attachment_sha", "team_id", "sha256"),
     )
 
@@ -1891,7 +1891,7 @@ class CarbonVerificationTemplateVersion(TeamScopedMixin, BigIntAuditBase):
     __tablename__ = "carbon_verification_template_version"
     __table_args__ = (
         UniqueConstraint("team_id", "template_code", "version", name="uq_carbon_verification_template_team_code_version"),
-        Index("ix_carbon_verification_template_status", "team_id", "status", "is_default"),
+        Index("ix_carbon_verification_template_team_status_default", "team_id", "status", "is_default"),
         Index("ix_carbon_verification_template_standard", "team_id", "standard_code", "applicable_industry"),
     )
 
@@ -1921,7 +1921,7 @@ class CarbonVerificationProject(TeamScopedMixin, BigIntAuditBase):
     __tablename__ = "carbon_verification_project"
     __table_args__ = (
         UniqueConstraint("team_id", "project_no", name="uq_carbon_verification_project_team_no"),
-        Index("ix_carbon_verification_project_status", "team_id", "status", "project_type"),
+        Index("ix_carbon_verification_project_team_status_type", "team_id", "status", "project_type"),
         Index("ix_carbon_verification_project_scope", "team_id", "reporting_org_id", "period_id", "boundary_id"),
         Index("ix_carbon_verification_project_batch", "team_id", "accounting_batch_id", "status"),
     )
@@ -1971,7 +1971,7 @@ class CarbonCompliancePeriod(TeamScopedMixin, BigIntAuditBase):
     __tablename__ = "carbon_compliance_period"
     __table_args__ = (
         UniqueConstraint("team_id", "period_code", name="uq_carbon_compliance_period_team_code"),
-        Index("ix_carbon_compliance_period_status", "team_id", "status", "market"),
+        Index("ix_carbon_compliance_period_team_status_market", "team_id", "status", "market"),
         Index("ix_carbon_compliance_period_range", "team_id", "period_start", "period_end"),
     )
 
@@ -2006,7 +2006,7 @@ class CarbonAssetAccount(TeamScopedMixin, BigIntAuditBase):
     __table_args__ = (
         UniqueConstraint("team_id", "account_code", name="uq_carbon_asset_account_team_code"),
         Index("ix_carbon_asset_account_type_status", "team_id", "asset_type", "status"),
-        Index("ix_carbon_asset_account_market", "team_id", "market"),
+        Index("ix_carbon_asset_account_team_market", "team_id", "market"),
     )
 
     account_code: Mapped[str] = mapped_column(String(64), index=True)
@@ -2061,7 +2061,7 @@ class CarbonCreditHolding(TeamScopedMixin, BigIntAuditBase):
     __table_args__ = (
         UniqueConstraint("team_id", "holding_no", name="uq_carbon_credit_holding_team_no"),
         Index("ix_carbon_credit_holding_account", "team_id", "account_id", "credit_type"),
-        Index("ix_carbon_credit_holding_status", "team_id", "status"),
+        Index("ix_carbon_credit_holding_team_status", "team_id", "status"),
     )
 
     account_id: Mapped[int] = mapped_column(ForeignKey("carbon_asset_account.id", ondelete="CASCADE"), index=True)
@@ -2123,7 +2123,7 @@ class CarbonSurrenderRecord(TeamScopedMixin, BigIntAuditBase):
     __table_args__ = (
         UniqueConstraint("team_id", "surrender_no", name="uq_carbon_surrender_record_team_no"),
         Index("ix_carbon_surrender_record_period", "team_id", "period_id", "asset_type"),
-        Index("ix_carbon_surrender_record_status", "team_id", "status"),
+        Index("ix_carbon_surrender_record_team_status", "team_id", "status"),
     )
 
     period_id: Mapped[int] = mapped_column(ForeignKey("carbon_compliance_period.id", ondelete="CASCADE"), index=True)
@@ -2153,7 +2153,7 @@ class CarbonAssetForecastScenario(TeamScopedMixin, BigIntAuditBase):
     __table_args__ = (
         UniqueConstraint("team_id", "scenario_code", name="uq_carbon_asset_forecast_scenario_team_code"),
         Index("ix_carbon_asset_forecast_scenario_period", "team_id", "period_id", "status"),
-        Index("ix_carbon_asset_forecast_scenario_status", "team_id", "status", "forecast_end"),
+        Index("ix_carbon_asset_forecast_scenario_team_status_end", "team_id", "status", "forecast_end"),
     )
 
     period_id: Mapped[int] = mapped_column(ForeignKey("carbon_compliance_period.id", ondelete="CASCADE"), index=True)

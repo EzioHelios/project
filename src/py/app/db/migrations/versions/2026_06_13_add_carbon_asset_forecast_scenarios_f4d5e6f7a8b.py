@@ -101,7 +101,7 @@ def upgrade() -> None:
     for column in ("period_id", "scenario_code", "base_year", "forecast_end", "status", "team_id"):
         op.create_index(op.f(f"ix_{SCENARIO_TABLE}_{column}"), SCENARIO_TABLE, [column])
     op.create_index("ix_carbon_asset_forecast_scenario_period", SCENARIO_TABLE, ["team_id", "period_id", "status"])
-    op.create_index("ix_carbon_asset_forecast_scenario_status", SCENARIO_TABLE, ["team_id", "status", "forecast_end"])
+    op.create_index("ix_carbon_asset_forecast_scenario_team_status_end", SCENARIO_TABLE, ["team_id", "status", "forecast_end"])
     for column in (
         "emission_growth_rate",
         "planned_reduction",

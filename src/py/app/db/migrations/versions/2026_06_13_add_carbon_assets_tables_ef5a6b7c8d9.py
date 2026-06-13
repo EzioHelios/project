@@ -107,7 +107,7 @@ def upgrade() -> None:
     )
     for column in ("period_code", "market", "period_start", "period_end", "boundary_id", "accounting_batch_id", "status", "team_id"):
         op.create_index(op.f(f"ix_{PERIOD_TABLE}_{column}"), PERIOD_TABLE, [column])
-    op.create_index("ix_carbon_compliance_period_status", PERIOD_TABLE, ["team_id", "status", "market"])
+    op.create_index("ix_carbon_compliance_period_team_status_market", PERIOD_TABLE, ["team_id", "status", "market"])
     op.create_index("ix_carbon_compliance_period_range", PERIOD_TABLE, ["team_id", "period_start", "period_end"])
     for column in ("market", "status", "risk_threshold_yellow", "risk_threshold_orange", "risk_threshold_red"):
         op.alter_column(PERIOD_TABLE, column, server_default=None)
@@ -134,7 +134,7 @@ def upgrade() -> None:
     for column in ("account_code", "asset_type", "market", "status", "team_id"):
         op.create_index(op.f(f"ix_{ACCOUNT_TABLE}_{column}"), ACCOUNT_TABLE, [column])
     op.create_index("ix_carbon_asset_account_type_status", ACCOUNT_TABLE, ["team_id", "asset_type", "status"])
-    op.create_index("ix_carbon_asset_account_market", ACCOUNT_TABLE, ["team_id", "market"])
+    op.create_index("ix_carbon_asset_account_team_market", ACCOUNT_TABLE, ["team_id", "market"])
     for column in ("market", "currency", "status"):
         op.alter_column(ACCOUNT_TABLE, column, server_default=None)
 
@@ -200,7 +200,7 @@ def upgrade() -> None:
     for column in ("account_id", "holding_no", "credit_type", "project_code", "vintage_year", "status", "team_id"):
         op.create_index(op.f(f"ix_{CREDIT_TABLE}_{column}"), CREDIT_TABLE, [column])
     op.create_index("ix_carbon_credit_holding_account", CREDIT_TABLE, ["team_id", "account_id", "credit_type"])
-    op.create_index("ix_carbon_credit_holding_status", CREDIT_TABLE, ["team_id", "status"])
+    op.create_index("ix_carbon_credit_holding_team_status", CREDIT_TABLE, ["team_id", "status"])
     for column in ("quantity", "used_quantity", "frozen_quantity", "unit", "currency", "status"):
         op.alter_column(CREDIT_TABLE, column, server_default=None)
 
@@ -267,7 +267,7 @@ def upgrade() -> None:
     for column in ("period_id", "account_id", "surrender_no", "asset_type", "quota_allocation_id", "credit_holding_id", "status", "team_id"):
         op.create_index(op.f(f"ix_{SURRENDER_TABLE}_{column}"), SURRENDER_TABLE, [column])
     op.create_index("ix_carbon_surrender_record_period", SURRENDER_TABLE, ["team_id", "period_id", "asset_type"])
-    op.create_index("ix_carbon_surrender_record_status", SURRENDER_TABLE, ["team_id", "status"])
+    op.create_index("ix_carbon_surrender_record_team_status", SURRENDER_TABLE, ["team_id", "status"])
     for column in ("amount", "unit", "status", "purpose"):
         op.alter_column(SURRENDER_TABLE, column, server_default=None)
 

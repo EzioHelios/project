@@ -198,8 +198,8 @@ class CarbonAccountingInventoryUseCase:
         return int(current_max or source.revision_no or 1) + 1
 
     async def _load_period_records(self, period: m.ReportingPeriod) -> list[Any]:
-        start_dt = datetime.datetime.combine(period.period_start, time.min)
-        end_dt = datetime.datetime.combine(period.period_end, time.max)
+        start_dt = datetime.datetime.combine(period.period_start, time.min, tzinfo=UTC)
+        end_dt = datetime.datetime.combine(period.period_end, time.max, tzinfo=UTC)
         specs = [
             (m.Scope1MobileCombustion, m.Scope1MobileCombustion.record_date >= period.period_start, m.Scope1MobileCombustion.record_date <= period.period_end),
             (

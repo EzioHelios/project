@@ -118,7 +118,7 @@ def upgrade() -> None:
     ):
         op.create_index(op.f(f"ix_{ATTACHMENT_TABLE}_{column}"), ATTACHMENT_TABLE, [column])
     op.create_index("ix_carbon_verification_attachment_source", ATTACHMENT_TABLE, ["team_id", "source_object_type", "source_object_id"])
-    op.create_index("ix_carbon_verification_attachment_status", ATTACHMENT_TABLE, ["team_id", "status", "material_group"])
+    op.create_index("ix_carbon_verification_attachment_team_status_group", ATTACHMENT_TABLE, ["team_id", "status", "material_group"])
     op.create_index("ix_carbon_verification_attachment_sha", ATTACHMENT_TABLE, ["team_id", "sha256"])
     for column in ("material_group", "attachment_type", "version_no", "status"):
         op.alter_column(ATTACHMENT_TABLE, column, server_default=None)

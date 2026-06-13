@@ -97,7 +97,7 @@ def upgrade() -> None:
     )
     for column in ("template_code", "version", "applicable_industry", "standard_code", "status", "is_default", "team_id"):
         op.create_index(op.f(f"ix_{TEMPLATE_TABLE}_{column}"), TEMPLATE_TABLE, [column])
-    op.create_index("ix_carbon_verification_template_status", TEMPLATE_TABLE, ["team_id", "status", "is_default"])
+    op.create_index("ix_carbon_verification_template_team_status_default", TEMPLATE_TABLE, ["team_id", "status", "is_default"])
     op.create_index("ix_carbon_verification_template_standard", TEMPLATE_TABLE, ["team_id", "standard_code", "applicable_industry"])
     for column in ("version", "template_format", "status", "is_default"):
         op.alter_column(TEMPLATE_TABLE, column, server_default=None)

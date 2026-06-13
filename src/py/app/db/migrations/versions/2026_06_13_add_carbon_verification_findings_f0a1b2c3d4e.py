@@ -117,7 +117,7 @@ def upgrade() -> None:
         "team_id",
     ):
         op.create_index(op.f(f"ix_{FINDING_TABLE}_{column}"), FINDING_TABLE, [column])
-    op.create_index("ix_carbon_verification_finding_status", FINDING_TABLE, ["team_id", "status", "severity"])
+    op.create_index("ix_carbon_verification_finding_team_status_severity", FINDING_TABLE, ["team_id", "status", "severity"])
     op.create_index("ix_carbon_verification_finding_record", FINDING_TABLE, ["team_id", "record_type", "record_id", "issue_type"])
     op.create_index("ix_carbon_verification_finding_due", FINDING_TABLE, ["team_id", "due_date", "status"])
     for column in ("finding_type", "severity", "status"):

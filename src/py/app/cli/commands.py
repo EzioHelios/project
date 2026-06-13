@@ -20,6 +20,7 @@ from app.domain.accounts.services import RoleService, UserService
 from app.domain.carbon.calculation_factor_importer import import_calculation_factor_checklist
 from app.domain.carbon.energy_analysis_importer import seed_energy_analysis_data
 from app.domain.carbon.factor_importer import import_ncsc_factor_package
+from app.domain.carbon.mvp_data_importer import seed_carbon_mvp_data
 from app.domain.carbon.production_data_importer import import_wms_production_data
 from app.domain.energy.benchmark_importer import seed_warehouse_energy_benchmark_data
 from app.lib.deps import create_service_provider, provide_services
@@ -277,6 +278,30 @@ def import_wms_production_data_command(limit: int | None, dry_run: bool) -> None
 
     console.rule("Generate WMS production data samples.")
     anyio.run(_import)
+
+
+@carbon_management_group.command(
+    name="seed-carbon-mvp-data",
+    help="Generate a coherent MVP data set for carbon accounting, verification, PCF, supply chain, assets, and budget.",
+)
+def seed_carbon_mvp_data_command() -> None:
+    """Generate carbon-management MVP sample data."""
+    console = get_console()
+
+    async def _seed() -> None:
+        async with alchemy.get_session() as session:
+            result = await seed_carbon_mvp_data(session)
+        console.print(
+            "[green]Seeded carbon MVP data[/green] "
+            f"scope_records={result.scope_records} organizations={result.organizations} "
+            f"boundaries={result.boundaries} accounting_batches={result.accounting_batches} "
+            f"inventory_items={result.inventory_items} verification_projects={result.verification_projects} "
+            f"pcf_studies={result.pcf_studies} suppliers={result.suppliers} "
+            f"asset_periods={result.asset_periods} budget_plans={result.budget_plans}"
+        )
+
+    console.rule("Seed carbon-management MVP data.")
+    anyio.run(_seed)
 
 
 @carbon_management_group.command(
