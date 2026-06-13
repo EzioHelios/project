@@ -87,7 +87,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           pathname.startsWith("/carbon") || pathname.startsWith("/carbon-mgmt/scope") || pathname.startsWith("/carbon-mgmt/pending") || pathname.startsWith("/carbon-mgmt/audit"),
         items: [
           { title: "碳排放核算", to: "/carbon/accounting" },
-          { title: "Scope2 外购热/汽/冷", to: "/carbon-mgmt/scope2-purchased-energy" },
           { title: "产品碳足迹核算", to: "/carbon/product-footprint" },
           { title: "供应链碳管理", to: "/carbon/supply-chain" },
           { title: "碳核查支撑", to: "/carbon/verification" },
