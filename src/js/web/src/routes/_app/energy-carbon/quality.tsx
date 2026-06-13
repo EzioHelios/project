@@ -202,7 +202,6 @@ export function QualityTracePage({ embedded = false }: { embedded?: boolean } = 
         <div className="space-y-4">
           <DetailPanel
             title={selectedIssue?.issue_type || "问题详情"}
-            description={selectedIssue ? "右侧说明影响模块、问题对象和修复去向。" : "请选择一条问题记录"}
             items={[
               { label: "模块", value: selectedIssue?.module },
               { label: "对象", value: selectedIssue?.object_name },

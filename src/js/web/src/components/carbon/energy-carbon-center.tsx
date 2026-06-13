@@ -76,7 +76,6 @@ export function HealthMatrix({
   items,
 }: {
   title: string
-  description?: string
   items: {
     id: number | string
     name: string
@@ -149,16 +148,7 @@ export function FacetNavigation({
   )
 }
 
-export function DetailPanel({
-  title,
-  items,
-  footer,
-}: {
-  title: string
-  description?: string
-  items: { label: string; value: string | number | null | undefined }[]
-  footer?: React.ReactNode
-}) {
+export function DetailPanel({ title, items, footer }: { title: string; items: { label: string; value: string | number | null | undefined }[]; footer?: React.ReactNode }) {
   return (
     <AdminPanel title={title} className="h-full" contentClassName="space-y-3">
       {items.map((item) => (
@@ -227,8 +217,8 @@ export function TraceTimeline({ items }: { items: { step: string; summary?: stri
   )
 }
 
-export function EmptyStateCard({ title, description }: { title: string; description: string }) {
-  return <AdminEmptyState title={title} description={description} className="min-h-[220px]" />
+export function EmptyStateCard({ title }: { title: string }) {
+  return <AdminEmptyState title={title} className="min-h-[220px]" />
 }
 
 export function JumpLinks({ items }: { items: { label: string; to: string }[] }) {

@@ -219,7 +219,6 @@ function MonitorCenterPage() {
           <div className="space-y-4">
             <DetailPanel
               title={detail.device.name}
-              description="设备检查面板"
               items={[
                 { label: "设备编码", value: detail.device.code },
                 { label: "所属区域", value: detail.device.sector_name },
@@ -254,7 +253,7 @@ function MonitorCenterPage() {
             </div>
           </div>
         ) : (
-          <EmptyStateCard title="选择一台设备" description="左侧选中设备后，这里会展示基础信息、最近测点和异常记录，方便值班人员快速判断是否需要切换到专业台账页继续处理。" />
+          <EmptyStateCard title="选择一台设备" />
         )}
       </PageSection>
     </PageContainer>

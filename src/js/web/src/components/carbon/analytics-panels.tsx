@@ -183,19 +183,9 @@ export function FlowGraph({ title, unit, nodes, links, height = 620 }: { title: 
   return <ChartPanel title={title} unit={unit} option={createSankeyChartOption(nodes, links)} height={height} emptyLabel="暂无流向数据" />
 }
 
-export function LedgerTable({
-  title,
-  description,
-  rows,
-  columns,
-}: {
-  title: string
-  description?: string
-  rows: Record<string, unknown>[]
-  columns: { key: string; label: string; align?: "left" | "right" }[]
-}) {
+export function LedgerTable({ title, rows, columns }: { title: string; rows: Record<string, unknown>[]; columns: { key: string; label: string; align?: "left" | "right" }[] }) {
   return (
-    <AdminPanel title={title} description={description} contentClassName="p-0">
+    <AdminPanel title={title} contentClassName="p-0">
       <AdminDataTable className="rounded-none border-0">
         <Table>
           <TableHeader>

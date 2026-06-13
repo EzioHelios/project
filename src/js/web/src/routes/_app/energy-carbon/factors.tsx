@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useState } from "react"
-import { AdminPageHeader } from "@/components/admin-ui"
+import { AdminDataTable, AdminPageHeader, AdminTableStateRow, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, DistributionChart, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
 import { JumpLinks } from "@/components/carbon/energy-carbon-center"
 import { Button } from "@/components/ui/button"
@@ -80,18 +80,13 @@ function EnergyCarbonFactorsPage() {
         }
       />
 
-      <PageSection className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: "排放因子", value: statsQuery.data?.data.emission_total ?? 0 },
-          { label: "启用因子", value: statsQuery.data?.data.active_total ?? 0 },
-          { label: "官方库批次", value: statsQuery.data?.data.library_total ?? 0 },
-          { label: "原始记录", value: statsQuery.data?.data.raw_total ?? 0 },
-        ].map((item) => (
-          <div key={item.label} className="rounded-lg border border-border/60 bg-card px-4 py-4 shadow-sm">
-            <div className="text-xs text-muted-foreground">{item.label}</div>
-            <div className="mt-2 text-2xl font-semibold">{item.value}</div>
-          </div>
-        ))}
+      <PageSection>
+        <MetricStrip>
+          <MetricTile label="排放因子" value={statsQuery.data?.data.emission_total ?? 0} />
+          <MetricTile label="启用因子" value={statsQuery.data?.data.active_total ?? 0} tone="success" />
+          <MetricTile label="官方库批次" value={statsQuery.data?.data.library_total ?? 0} />
+          <MetricTile label="原始记录" value={statsQuery.data?.data.raw_total ?? 0} />
+        </MetricStrip>
       </PageSection>
 
       <PageSection className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)_340px]">
@@ -101,7 +96,7 @@ function EnergyCarbonFactorsPage() {
       </PageSection>
 
       <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[220px_1fr_auto]">
+        <div className="grid gap-3 md:grid-cols-[220px_auto] md:justify-between">
           <Select value={scope} onValueChange={setScope}>
             <SelectTrigger>
               <SelectValue placeholder="范围筛选" />
@@ -113,7 +108,6 @@ function EnergyCarbonFactorsPage() {
               <SelectItem value="scope3">范围3</SelectItem>
             </SelectContent>
           </Select>
-          <div className="text-sm text-muted-foreground">主视图优先看平台实际核算用到的排放因子；更细的官方原始库检索仍然在专业因子页里继续使用。</div>
           <div className="flex justify-end">
             <Button variant="outline" asChild>
               <Link to="/carbon-mgmt/factors">进入详细检索</Link>
@@ -123,7 +117,7 @@ function EnergyCarbonFactorsPage() {
       </PageSection>
 
       <PageSection>
-        <div className="rounded-lg border border-border/60 bg-card shadow-sm">
+        <AdminDataTable>
           <Table>
             <TableHeader>
               <TableRow>
@@ -139,13 +133,7 @@ function EnergyCarbonFactorsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(factorsQuery.data?.data.items ?? []).length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
-                    暂无因子数据
-                  </TableCell>
-                </TableRow>
-              )}
+              {(factorsQuery.data?.data.items ?? []).length === 0 && <AdminTableStateRow colSpan={9}>暂无因子数据</AdminTableStateRow>}
               {(factorsQuery.data?.data.items ?? []).map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>{item.sub_category || "-"}</TableCell>
@@ -161,7 +149,7 @@ function EnergyCarbonFactorsPage() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </AdminDataTable>
       </PageSection>
     </PageContainer>
   )

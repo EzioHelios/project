@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
-import { AdminPageHeader } from "@/components/admin-ui"
+import { AdminPageHeader, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, CompositeTrendChart, DistributionChart, FlowGraph, fetchCarbonApi, LedgerTable } from "@/components/carbon/analytics-panels"
 import { DetailPanel, JumpLinks, sourceLabel, TraceTimeline } from "@/components/carbon/energy-carbon-center"
 import { Button } from "@/components/ui/button"
@@ -116,20 +116,15 @@ function CarbonWorkbenchPage() {
         }
       />
 
-      <PageSection className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-        {[
-          { label: "总记录", value: summary?.total ?? 0 },
-          { label: "待审核", value: summary?.pending ?? 0 },
-          { label: "已通过", value: summary?.approved ?? 0 },
-          { label: "缺失因子", value: summary?.missing_factor ?? 0 },
-          { label: "缺失结果", value: summary?.missing_result ?? 0 },
-          { label: "驳回", value: summary?.rejected ?? 0 },
-        ].map((item) => (
-          <div key={item.label} className="rounded-lg border border-border/60 bg-card px-4 py-4 shadow-sm">
-            <div className="text-xs text-muted-foreground">{item.label}</div>
-            <div className="mt-2 text-2xl font-semibold">{item.value}</div>
-          </div>
-        ))}
+      <PageSection>
+        <MetricStrip className="md:grid-cols-3 xl:grid-cols-6">
+          <MetricTile label="总记录" value={summary?.total ?? 0} />
+          <MetricTile label="待审核" value={summary?.pending ?? 0} tone="warning" />
+          <MetricTile label="已通过" value={summary?.approved ?? 0} tone="success" />
+          <MetricTile label="缺失因子" value={summary?.missing_factor ?? 0} tone="warning" />
+          <MetricTile label="缺失结果" value={summary?.missing_result ?? 0} tone="danger" />
+          <MetricTile label="驳回" value={summary?.rejected ?? 0} tone="danger" />
+        </MetricStrip>
       </PageSection>
 
       <PageSection className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)_340px]">
@@ -183,7 +178,6 @@ function CarbonWorkbenchPage() {
       <PageSection className="grid gap-4 xl:grid-cols-[minmax(0,1.28fr)_380px]">
         <LedgerTable
           title="统一碳账本"
-          description="统一看范围、对象、活动量、因子和结果。这里是盘查工作台的主表，不再把 Scope 明细页摆在主入口。"
           rows={filteredRows}
           columns={[
             { key: "scope", label: "范围" },
@@ -199,8 +193,9 @@ function CarbonWorkbenchPage() {
         <div className="space-y-4">
           <DetailPanel
             title={selectedRow?.display_name || "记录详情"}
-            description={selectedRow ? `${selectedRow.record_label} · ${selectedRow.period}` : "请选择一条核算记录"}
             items={[
+              { label: "记录类型", value: selectedRow?.record_label },
+              { label: "期间", value: selectedRow?.period },
               { label: "范围", value: selectedRow?.scope },
               { label: "来源", value: sourceLabel(selectedRow?.source_kind) },
               { label: "活动量", value: selectedRow?.activity_amount ? `${selectedRow.activity_amount}${selectedRow.activity_unit ? ` ${selectedRow.activity_unit}` : ""}` : "-" },

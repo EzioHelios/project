@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
-import { AdminPageHeader } from "@/components/admin-ui"
+import { AdminPageHeader, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, CompositeTrendChart, DistributionChart, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
 import { DetailPanel, FacetNavigation, severityLabel, statusBadge } from "@/components/carbon/energy-carbon-center"
 import { Button } from "@/components/ui/button"
@@ -105,19 +105,14 @@ function AlertsCenterPage() {
     <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
       <AdminPageHeader title="碳告警与预警" />
 
-      <PageSection className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        {[
-          { label: "总告警", value: summaryQuery.data?.data.total ?? 0 },
-          { label: "未处理", value: summaryQuery.data?.data.unhandled ?? 0 },
-          { label: "高风险", value: summaryQuery.data?.data.high_risk ?? 0 },
-          { label: "今日新增", value: summaryQuery.data?.data.today_added ?? 0 },
-          { label: "平均处理时长", value: summaryQuery.data?.data.avg_handle_hours ?? "-" },
-        ].map((item) => (
-          <div key={item.label} className="rounded-lg border border-border/60 bg-card px-4 py-4 shadow-sm">
-            <div className="text-xs text-muted-foreground">{item.label}</div>
-            <div className="mt-2 text-2xl font-semibold">{item.value}</div>
-          </div>
-        ))}
+      <PageSection>
+        <MetricStrip className="md:grid-cols-2 xl:grid-cols-5">
+          <MetricTile label="总告警" value={summaryQuery.data?.data.total ?? 0} />
+          <MetricTile label="未处理" value={summaryQuery.data?.data.unhandled ?? 0} tone="warning" />
+          <MetricTile label="高风险" value={summaryQuery.data?.data.high_risk ?? 0} tone="danger" />
+          <MetricTile label="今日新增" value={summaryQuery.data?.data.today_added ?? 0} tone="info" />
+          <MetricTile label="平均处理时长" value={summaryQuery.data?.data.avg_handle_hours ?? "-"} unit="h" />
+        </MetricStrip>
       </PageSection>
 
       <PageSection className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_340px_340px]">
@@ -219,7 +214,6 @@ function AlertsCenterPage() {
 
         <DetailPanel
           title={detailQuery.data?.data.title || "处理详情"}
-          description={detailQuery.data?.data ? "这里聚合展示事件信息、相关对象和处理入口。" : "请选择一条告警记录"}
           items={[
             { label: "告警类型", value: detailQuery.data?.data.alert_type },
             { label: "风险等级", value: severityLabel(detailQuery.data?.data.severity) },
