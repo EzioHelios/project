@@ -129,6 +129,7 @@ flowchart LR
 | 小时/日用能事实 | `energy` | 从原始读数投影得到的能源分析事实，允许冗余设备/区域名称用于查询。 |
 | Scope1/2/3 活动数据 | `carbon_accounting` | 碳核算业务记录，可引用能源消费事实或能源品种，但不应承载计量采集规则。 |
 | 凭证清单、材料包、报告上下文、核查问题、导出任务 | `carbon_verification` | 核查支撑只读取核算活动、企业信息、边界、因子和审核日志，形成材料目录、问题清单、导出上下文和导出文件；不得反向修改 Scope 活动事实。 |
+| 报告模板版本、DOCX/PDF 渲染、核查附件、核查发现 | `carbon_verification` | 属于核查支撑的导出和证据链生命周期。模板和导出文件可以引用组织边界、排放清单、因子和附件，但不能拥有这些事实数据。 |
 | 产品、批次、产量、价格 | `production_denominator` | 用于强度分母和后续 PCF 输入之一，不属于能源或碳核算核心表。 |
 | 指南页面汇总 | `analytics` | 只消费各领域 query service，不直接拥有业务事实。 |
 | 组织核算边界、报告期 | `organization_boundary` | 定义某次组织温室气体清单覆盖哪些主体、设施、期间和边界方法，不等同于企业档案。 |
@@ -550,6 +551,37 @@ flowchart LR
 | 页面入口 | `/carbon/accounting` 的“核算结果”Tab 已接入创建批次、重建清单、锁定批次、Scope 汇总、质量状态和清单明细。 |
 | 当前边界 | 首版按报告期纳入已审核 Scope 记录；带 `area_id` 的记录会按边界设施过滤；组织级记录按报告期纳入。 |
 | 下一步 | 把 `carbon_verification` 和 `carbon_assets` 默认数据源切到已锁定清单，并补活动记录统一 lock 状态与修订流程。 |
+
+#### 7.2.1 碳核查支撑 `carbon_verification`
+
+`carbon_verification` 的目标不是重新计算排放，也不是替代第三方核查机构出具核查结论，而是把一次组织碳盘查的边界、清单、活动数据、因子、凭证、问题和审核轨迹组织成可复核的报告与材料包。
+
+| 聚合/服务 | 职责 | 关键不变量 |
+| --- | --- | --- |
+| `ReportTemplateVersion` | 管理模板名称、版本、标准来源、适用行业、文件路径和启停状态 | 历史导出必须可回溯到当时模板版本；通用模板不能冒充行业专用监管模板。 |
+| `VerificationAttachment` | 管理凭证原件、来源对象、文件类型、哈希、OCR/备注和版本 | 附件只能引用核算活动、清单项、边界设施或因子来源，不拥有这些事实。 |
+| `VerificationFinding` | 承载文件评审、现场核查、不符合项、整改、复核和关闭状态 | 自动规则问题可升级为核查发现；关闭必须记录整改证据和复核人。 |
+| `CarbonVerificationExportJob` | 一次报告或材料包导出任务 | 必须记录报告范围、模板版本、导出人、文件哈希、导出时间和失败原因。 |
+| `ReportDocumentRenderer` | 将 `report_context` 填充为 DOCX/PDF | 字段缺失必须进入业务状态，不生成看似完整的正式报告。 |
+| `MaterialPackageAssembler` | 汇集报告、数据表、附件、问题和审核轨迹 | ZIP manifest 必须能校验每个导出文件的路径、类型、大小和哈希。 |
+
+当前通用模板：
+
+`docs/评价方案/templates/工业企业温室气体排放盘查报告与核查材料包通用模板.docx`
+
+模板设计说明：
+
+`docs/评价方案/组织碳盘查报告与核查材料包模板设计.md`
+
+推荐 API 补强：
+
+| API | 用途 |
+| --- | --- |
+| `GET/POST/PATCH /api/carbon/verification/templates` | 管理报告模板版本和适用范围。 |
+| `POST /api/carbon/verification/export-jobs/{id}/render-report` | 对已创建导出任务渲染 DOCX/PDF。 |
+| `GET/POST/PATCH/DELETE /api/carbon/verification/attachments` | 维护凭证原件和材料包附件。 |
+| `GET/POST/PATCH /api/carbon/verification/findings` | 维护核查发现、不符合项和整改关闭。 |
+| `GET /api/carbon/verification/export-jobs/{id}/manifest` | 查看导出包文件清单和哈希。 |
 
 ### 7.3 产品碳足迹 `product_footprint`
 
