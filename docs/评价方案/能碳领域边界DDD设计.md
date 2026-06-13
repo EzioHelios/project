@@ -543,6 +543,7 @@ flowchart LR
 | `POST /api/carbon/accounting/batches/{id}/approve-revision` | 审批通过修订批次，并锁定为正式修订清单。 |
 | `POST /api/carbon/accounting/batches/{id}/reject-revision` | 驳回待审批修订批次，允许继续调整和重建。 |
 | `GET /api/carbon/accounting/batches/{id}/revision-diff` | 查询修订批次与父批次的总量、Scope 和记录级差异。 |
+| `POST /api/carbon/accounting/batches/{id}/export-revision-explanation` | 导出修订说明 ZIP，包含说明、Scope 差异、记录差异和 manifest。 |
 | `GET /api/carbon/accounting/batches/{id}/summary` | 查询批次总量、Scope 汇总和质量状态。 |
 | `GET /api/carbon/accounting/inventories` | 查询组织排放清单结果。 |
 | `POST /api/carbon/accounting/records/{id}/submit|approve|reject|lock` | 统一活动记录状态流转。 |
@@ -553,9 +554,9 @@ flowchart LR
 | --- | --- |
 | 数据模型 | `carbon_accounting_batch` 和 `carbon_emission_inventory_item` 两张租户表，均有 RLS policy 和常用索引；批次已补 `parent_batch_id`、`revision_no` 和 `revision_reason` 支撑修订链。 |
 | 应用层 | `domain/carbon_accounting` 新增 `domain/policies.py`、`usecases/inventory.py`、`usecases/record_locks.py`、`queries/inventory.py`、`controllers/inventory.py`。 |
-| 页面入口 | `/carbon/accounting` 的“核算结果”Tab 已接入创建批次、重建清单、普通批次锁定、创建修订批次、修订提交审批、审批通过、驳回、修订差异、Scope 汇总、质量状态和清单明细。 |
+| 页面入口 | `/carbon/accounting` 的“核算结果”Tab 已接入创建批次、重建清单、普通批次锁定、创建修订批次、修订提交审批、审批通过、驳回、修订差异、修订说明导出、Scope 汇总、质量状态和清单明细。 |
 | 当前边界 | 首版按报告期纳入已审核 Scope 记录；带 `area_id` 的记录会按边界设施过滤；组织级记录按报告期纳入；已入锁定清单的 Scope 活动记录和 Scope2 电表聚合记录由 `CarbonAccountingRecordLockUseCase` 保护，禁止直接改删或重建覆盖。 |
-| 下一步 | `carbon_assets` 履约缺口、`carbon_verification` 项目报告和项目导出已切到锁定清单；后续补修订说明导出和更细边界设施匹配。 |
+| 下一步 | `carbon_assets` 履约缺口、`carbon_verification` 项目报告和项目导出已切到锁定清单；后续补更细边界设施匹配。 |
 
 #### 7.2.1 碳核查支撑 `carbon_verification`
 

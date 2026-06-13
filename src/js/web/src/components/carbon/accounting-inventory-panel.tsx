@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Archive, Calculator, CheckCircle2, FileSpreadsheet } from "lucide-react"
+import { Archive, Calculator, CheckCircle2, Download, FileSpreadsheet } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
@@ -265,6 +265,12 @@ export function CarbonAccountingResultsPanel() {
     onError: toastError("驳回修订审批失败"),
   })
 
+  const exportRevisionExplanation = useMutation({
+    mutationFn: (batchId: number) => downloadRevisionExplanation(batchId),
+    onSuccess: () => toast.success("修订说明已导出"),
+    onError: toastError("导出修订说明失败"),
+  })
+
   const openRevision = (batch: AccountingBatch) => {
     setRevisionBatch(batch)
     setRevisionBoundaryId(String(batch.boundary_id))
@@ -475,8 +481,10 @@ export function CarbonAccountingResultsPanel() {
                           submitPending={submitRevision.isPending}
                           approvePending={approveRevision.isPending}
                           rejectPending={rejectRevision.isPending}
+                          exportPending={exportRevisionExplanation.isPending}
                           onSubmit={() => submitRevision.mutate(item.id)}
                           onApprove={() => approveRevision.mutate(item.id)}
+                          onExport={() => exportRevisionExplanation.mutate(item.id)}
                           onReject={() => {
                             setRejectBatch(item)
                             setRejectReason("")
@@ -670,21 +678,29 @@ function RevisionActions({
   submitPending,
   approvePending,
   rejectPending,
+  exportPending,
   onSubmit,
   onApprove,
+  onExport,
   onReject,
 }: {
   batch: AccountingBatch
   submitPending: boolean
   approvePending: boolean
   rejectPending: boolean
+  exportPending: boolean
   onSubmit: () => void
   onApprove: () => void
+  onExport: () => void
   onReject: () => void
 }) {
   if (batch.status === "pending_revision") {
     return (
       <>
+        <Button size="sm" variant="outline" disabled={batch.inventory_status === "empty" || exportPending} onClick={onExport}>
+          <Download className="mr-1 h-3.5 w-3.5" />
+          说明
+        </Button>
         <Button size="sm" disabled={approvePending} onClick={onApprove}>
           通过
         </Button>
@@ -696,8 +712,22 @@ function RevisionActions({
   }
   if (isRevisionEditable(batch.status)) {
     return (
-      <Button size="sm" disabled={batch.inventory_status === "empty" || submitPending} onClick={onSubmit}>
-        提交审批
+      <>
+        <Button size="sm" variant="outline" disabled={batch.inventory_status === "empty" || exportPending} onClick={onExport}>
+          <Download className="mr-1 h-3.5 w-3.5" />
+          说明
+        </Button>
+        <Button size="sm" disabled={batch.inventory_status === "empty" || submitPending} onClick={onSubmit}>
+          提交审批
+        </Button>
+      </>
+    )
+  }
+  if (batch.status === "locked") {
+    return (
+      <Button size="sm" variant="outline" disabled={exportPending} onClick={onExport}>
+        <Download className="mr-1 h-3.5 w-3.5" />
+        说明
       </Button>
     )
   }
@@ -771,6 +801,39 @@ async function requestCarbonApi<T>(url: string, init?: RequestInit) {
     throw new Error(raw.msg || raw.detail || `HTTP ${res.status}`)
   }
   return raw as ApiEnvelope<T>
+}
+
+async function downloadRevisionExplanation(batchId: number) {
+  const response = await fetch(`/api/carbon/accounting/batches/${batchId}/export-revision-explanation`, { method: "POST" })
+  if (!response.ok) {
+    const text = await response.text()
+    let message = `HTTP ${response.status}`
+    try {
+      const payload = JSON.parse(text) as { msg?: string; detail?: string }
+      message = payload.msg || payload.detail || message
+    } catch {
+      message = text || message
+    }
+    throw new Error(message)
+  }
+  const blob = await response.blob()
+  const filename = filenameFromDisposition(response.headers.get("content-disposition")) ?? `carbon-inventory-revision-${batchId}.zip`
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = url
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
+}
+
+function filenameFromDisposition(disposition: string | null) {
+  if (!disposition) return null
+  const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
+  if (encoded) return decodeURIComponent(encoded)
+  const plain = disposition.match(/filename="?([^";]+)"?/i)?.[1]
+  return plain || null
 }
 
 async function invalidateInventory(qc: ReturnType<typeof useQueryClient>) {

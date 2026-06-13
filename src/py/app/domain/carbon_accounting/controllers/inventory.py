@@ -4,10 +4,11 @@ from typing import TYPE_CHECKING
 
 from litestar import Controller, get, patch, post
 from litestar.params import Body
-from litestar.response import Response
+from litestar.response import File, Response
 
 from app.domain.carbon_accounting.queries.inventory import CarbonAccountingInventoryQueryService, InventoryQuery
 from app.domain.carbon_accounting.usecases.inventory import CarbonAccountingInventoryUseCase
+from app.domain.carbon_accounting.usecases.revision_export import CarbonAccountingRevisionExportUseCase
 from app.domain.energy.controllers._utils import model_to_dict, ok_data
 
 if TYPE_CHECKING:
@@ -108,6 +109,14 @@ class CarbonAccountingInventoryController(Controller):
         except ValueError as exc:
             return _error(exc)
         return Response(content=ok_data(data))
+
+    @post("/api/carbon/accounting/batches/{batch_id:int}/export-revision-explanation")
+    async def export_revision_explanation(self, db_session: AsyncSession, batch_id: int) -> File | Response[dict]:
+        try:
+            exported = await CarbonAccountingRevisionExportUseCase(db_session).export_revision_explanation(batch_id)
+        except ValueError as exc:
+            return _error(exc)
+        return File(path=exported.path, filename=exported.filename, media_type="application/zip")
 
     @get("/api/carbon/accounting/inventories")
     async def list_inventory_items(

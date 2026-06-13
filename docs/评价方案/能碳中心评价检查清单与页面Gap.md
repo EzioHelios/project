@@ -41,7 +41,7 @@
 
 | 页面 | 指南功能点 | 基础版拿分要求 | 优秀版拿分要求 | 当前状态 |
 | --- | --- | --- | --- | --- |
-| 碳排放核算 | 依据重点行业规则标准，计算企业/园区周期内碳排放总量和强度，支持来源追踪、趋势分析、超排预警 | 需要至少覆盖 Scope1/Scope2/Scope3 填报、因子调用、计算结果、状态流转、基础趋势与预警 | 需要多标准切换、更细粒度来源追踪、预测预警和责任闭环 | Scope 填报、审核、组织边界、核算批次、组织排放清单、锁定清单引用保护、修订批次创建、修订差异比较和修订审批首版已建，后续补修订说明导出 |
+| 碳排放核算 | 依据重点行业规则标准，计算企业/园区周期内碳排放总量和强度，支持来源追踪、趋势分析、超排预警 | 需要至少覆盖 Scope1/Scope2/Scope3 填报、因子调用、计算结果、状态流转、基础趋势与预警 | 需要多标准切换、更细粒度来源追踪、预测预警和责任闭环 | Scope 填报、审核、组织边界、核算批次、组织排放清单、锁定清单引用保护、修订批次创建、修订差异比较、修订审批和修订说明导出首版已建 |
 | 产品碳足迹核算 | 采集原材料、生产、运输、销售、使用、回收处理数据，结合绿电绿证，实现在线核算、报告生成、碳标识认证支撑 | 碳足迹结果符合 ISO 14067 等标准；展示生命周期各环节排放；报告清晰；支持基础建模和绿证抵扣 | 支持不同产品灵活配置；详细排放源分析报告；大数据量处理；绿证与结算单自动匹配；认证状态实时查询 | 首版已建：PCF 研究、生命周期边界、清单、分配、计算结果、报告读模型和内部报告 ZIP/DOCX 导出；绿证抵扣、BOM/工序导入和认证状态待补 |
 | 供应链碳管理 | 面向上游采集材料用量、能源消费等数据；面向下游提供产品碳足迹核算过程和结果 | 供应商手工填报/Excel 导入；任务状态跟踪；手动审核和驳回；基础披露报告；供应链高碳环节识别 | 供应商 API 对接；批量任务；超期自动催办；审核规则标红；披露报告自定义；风险分级和可视化 | 首版已建：供应商、场站、填报任务、数据、证据、审核、披露和分析读模型；外部门户、Excel/API 导入、自动催办待补 |
 | 碳核查支撑 | 支持碳排放核算过程数据和原始凭证追踪溯源，自动生成报告，汇集和导出核查材料 | 数据来源标注；PDF/图片凭证上传；基础碳排放报告；Excel 导出 | 采集-计算-汇总全流程追溯；凭证 OCR；GB/T 32151 和 GHG Protocol 多标准报告；年度差异分析 | 已补材料包目录、凭证清单、核查问题、报告上下文、导出任务、ZIP 下载、通用 DOCX 模板和 DOCX/PDF 渲染服务 |
@@ -489,10 +489,10 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | 核算批次 | `GET/POST /api/carbon/accounting/batches` 创建和查询批次；批次绑定已发布组织边界、报告主体和报告期 | 后续补批次复制、修订原因和跨边界差异比较 |
 | 清单重建 | `POST /api/carbon/accounting/batches/{batch_id}/rebuild-inventory` 按报告期纳入已审核 Scope1/2/3 记录并生成清单快照 | 后续补更精细的设施/设备级活动记录映射和重建任务异步化 |
 | 清单锁定 | `PATCH /api/carbon/accounting/batches/{batch_id}/lock` 锁定已生成清单的普通批次；Scope 活动记录和 Scope2 电表聚合重建会检查是否被锁定清单引用 | 修订批次需走修订审批，不允许绕过审批直接锁定 |
-| 清单修订 | `POST /api/carbon/accounting/batches/{batch_id}/create-revision` 基于已锁定批次创建新的草稿修订批次，记录父批次、修订号和修订原因；前端批次表可直接创建修订并切换到新批次 | 后续补修订说明导出 |
+| 清单修订 | `POST /api/carbon/accounting/batches/{batch_id}/create-revision` 基于已锁定批次创建新的草稿修订批次，记录父批次、修订号和修订原因；前端批次表可直接创建修订并切换到新批次 | 后续补更细边界设施匹配 |
 | 修订审批 | `POST /api/carbon/accounting/batches/{batch_id}/submit-revision`、`approve-revision`、`reject-revision` 控制修订提交、通过锁定和驳回；状态流为 `draft/rebuilt/rejected -> pending_revision -> locked` | 后续补审批人、审批意见结构化字段和消息通知 |
-| 修订差异 | `GET /api/carbon/accounting/batches/{batch_id}/revision-diff` 比较修订批次和父批次的总量、Scope 差异、记录新增/移除/变更；未重建修订批次返回待重建业务状态 | 后续补差异导出 |
-| 清单查询 | `GET /api/carbon/accounting/inventories` 查询清单明细；`GET /api/carbon/accounting/batches/{batch_id}/summary` 查询总量、Scope 汇总和质量状态；`carbon_assets` 履约缺口和 `carbon_verification` 项目报告/项目导出已只接受锁定清单批次 | 后续补修订说明导出 |
+| 修订差异 | `GET /api/carbon/accounting/batches/{batch_id}/revision-diff` 比较修订批次和父批次的总量、Scope 差异、记录新增/移除/变更；未重建修订批次返回待重建业务状态 | `POST /api/carbon/accounting/batches/{batch_id}/export-revision-explanation` 导出修订说明 ZIP，包含 Markdown 说明、Scope 差异 CSV、记录差异 CSV、JSON 快照和 manifest |
+| 清单查询 | `GET /api/carbon/accounting/inventories` 查询清单明细；`GET /api/carbon/accounting/batches/{batch_id}/summary` 查询总量、Scope 汇总和质量状态；`carbon_assets` 履约缺口和 `carbon_verification` 项目报告/项目导出已只接受锁定清单批次 | 后续补跨边界设施的更细匹配规则 |
 
 新增租户表：`carbon_accounting_batch`、`carbon_emission_inventory_item`。清单总量只统计 included 且有 `computed_co2e` 的记录；缺因子、缺核算结果和边界外记录进入质量状态，不硬算为正式排放。
 
@@ -505,7 +505,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 
 ### 3. 领域关系
 
-`carbon_accounting` 现在拥有 `CarbonAccountingBatch` 和 `CarbonEmissionInventoryItem` 的生命周期，并通过 `CarbonAccountingRecordLockUseCase` 防止已入锁定清单的 Scope 活动记录被直接修改、删除或被 Scope2 电表聚合重建覆盖。锁定批次可以创建新的草稿修订批次，修订批次记录 `parent_batch_id`、`revision_no` 和 `revision_reason`，重建后形成新的组织排放清单快照；修订批次需先提交审批，审批通过后才会锁定为正式修订清单，驳回后可继续调整和重建；`revision-diff` 读模型按 `(record_type, record_id)` 比较父批次和修订批次，输出总量、Scope 和记录级差异。`organization_boundary` 仍只定义边界，不计算排放；`carbon_assets` 的履约缺口和滚动预测已只使用 `status=locked` 且 `inventory_status=locked` 的批次总量，未绑定、未锁定或缺总量时返回业务状态；`carbon_verification` 的项目报告、项目凭证清单、项目材料包和项目导出已读取锁定后的 `CarbonEmissionInventoryItem`，无项目筛选的全局视图保留旧 Scope 读模型兼容。
+`carbon_accounting` 现在拥有 `CarbonAccountingBatch` 和 `CarbonEmissionInventoryItem` 的生命周期，并通过 `CarbonAccountingRecordLockUseCase` 防止已入锁定清单的 Scope 活动记录被直接修改、删除或被 Scope2 电表聚合重建覆盖。锁定批次可以创建新的草稿修订批次，修订批次记录 `parent_batch_id`、`revision_no` 和 `revision_reason`，重建后形成新的组织排放清单快照；修订批次需先提交审批，审批通过后才会锁定为正式修订清单，驳回后可继续调整和重建；`revision-diff` 读模型按 `(record_type, record_id)` 比较父批次和修订批次，输出总量、Scope 和记录级差异；修订说明导出读取同一差异读模型，生成用于内部复核和核查支撑的 ZIP 包。`organization_boundary` 仍只定义边界，不计算排放；`carbon_assets` 的履约缺口和滚动预测已只使用 `status=locked` 且 `inventory_status=locked` 的批次总量，未绑定、未锁定或缺总量时返回业务状态；`carbon_verification` 的项目报告、项目凭证清单、项目材料包和项目导出已读取锁定后的 `CarbonEmissionInventoryItem`，无项目筛选的全局视图保留旧 Scope 读模型兼容。
 
 ## 十二、2026-06-13 碳核查支撑开发进度记录
 
