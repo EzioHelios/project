@@ -3,12 +3,12 @@ import { Calculator, Download, Layers3, Link, Package, Plus, RefreshCw, ShieldCh
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
+import { AdminDataTable, AdminPanel, AdminTableStateRow, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -557,9 +557,9 @@ export function ProductFootprintPanel() {
         </TabsList>
 
         <TabsContent value="studies">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-3">
-              <CardTitle>产品与研究</CardTitle>
+          <AdminPanel
+            title="产品与研究"
+            actions={
               <Dialog open={studyOpen} onOpenChange={setStudyOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm">
@@ -582,8 +582,10 @@ export function ProductFootprintPanel() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-            </CardHeader>
-            <CardContent>
+            }
+            contentClassName="p-0"
+          >
+            <AdminDataTable className="rounded-none border-0">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -623,31 +625,30 @@ export function ProductFootprintPanel() {
                   {!studies.length ? <EmptyRow colSpan={7} label="暂无产品碳足迹研究" /> : null}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </AdminDataTable>
+          </AdminPanel>
         </TabsContent>
 
         <TabsContent value="boundary">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle>生命周期边界</CardTitle>
+            <AdminPanel
+              title="生命周期边界"
+              actions={
                 <Button size="sm" disabled={!activeStudyId || saveBoundary.isPending} onClick={() => saveBoundary.mutate()}>
                   保存边界
                 </Button>
-              </CardHeader>
-              <CardContent>
-                <BoundaryFormView
-                  value={boundaryForm}
-                  onChange={(value) => {
-                    setBoundaryForm(value)
-                  }}
-                />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle>生命周期阶段</CardTitle>
+              }
+            >
+              <BoundaryFormView
+                value={boundaryForm}
+                onChange={(value) => {
+                  setBoundaryForm(value)
+                }}
+              />
+            </AdminPanel>
+            <AdminPanel
+              title="生命周期阶段"
+              actions={
                 <Dialog open={stageOpen} onOpenChange={setStageOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" disabled={!activeStudyId}>
@@ -670,8 +671,10 @@ export function ProductFootprintPanel() {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
-              </CardHeader>
-              <CardContent>
+              }
+              contentClassName="p-0"
+            >
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -693,15 +696,15 @@ export function ProductFootprintPanel() {
                     {!stages.length ? <EmptyRow colSpan={4} label="暂无生命周期阶段" /> : null}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </div>
         </TabsContent>
 
         <TabsContent value="inventory">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-3">
-              <CardTitle>活动数据清单</CardTitle>
+          <AdminPanel
+            title="活动数据清单"
+            actions={
               <div className="flex flex-wrap items-center gap-2">
                 <Dialog open={supplierImportOpen} onOpenChange={setSupplierImportOpen}>
                   <DialogTrigger asChild>
@@ -748,8 +751,10 @@ export function ProductFootprintPanel() {
                   </DialogContent>
                 </Dialog>
               </div>
-            </CardHeader>
-            <CardContent>
+            }
+            contentClassName="p-0"
+          >
+            <AdminDataTable className="rounded-none border-0">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -784,15 +789,15 @@ export function ProductFootprintPanel() {
                   {!inventoryItems.length ? <EmptyRow colSpan={8} label="暂无活动数据" /> : null}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </AdminDataTable>
+          </AdminPanel>
         </TabsContent>
 
         <TabsContent value="allocation">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle>分配规则</CardTitle>
+            <AdminPanel
+              title="分配规则"
+              actions={
                 <Dialog open={allocationOpen} onOpenChange={setAllocationOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" disabled={!activeStudyId}>
@@ -815,8 +820,10 @@ export function ProductFootprintPanel() {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
-              </CardHeader>
-              <CardContent>
+              }
+              contentClassName="p-0"
+            >
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -841,13 +848,10 @@ export function ProductFootprintPanel() {
                     {!allocationRules.length ? <EmptyRow colSpan={4} label="暂无分配规则" /> : null}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>因子使用</CardTitle>
-              </CardHeader>
-              <CardContent>
+              </AdminDataTable>
+            </AdminPanel>
+            <AdminPanel title="因子使用" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -869,39 +873,36 @@ export function ProductFootprintPanel() {
                     {!inventoryItems.length ? <EmptyRow colSpan={4} label="暂无因子使用记录" /> : null}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </div>
         </TabsContent>
 
         <TabsContent value="results">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle>核算结果</CardTitle>
+            <AdminPanel
+              title="核算结果"
+              actions={
                 <Button size="sm" disabled={!activeStudyId || calculateStudy.isPending} onClick={() => calculateStudy.mutate()}>
                   <Calculator className="size-4" />
                   执行核算
                 </Button>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Kpi label="总量(kgCO2e)" value={formatNumber(latestResult?.total_co2e)} />
-                  <Kpi label="单位足迹" value={formatNumber(latestResult?.footprint_per_declared_unit)} />
-                  <Kpi label="纳入清单" value={String(latestResult?.inventory_count ?? 0)} />
-                  <Kpi label="缺失项" value={String(latestResult?.missing_factor_count ?? 0)} />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground text-sm">结果状态</span>
-                  <ResultBadge status={latestResult?.result_status ?? activeStudy?.result_status} />
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>阶段贡献</CardTitle>
-              </CardHeader>
-              <CardContent>
+              }
+              contentClassName="space-y-4"
+            >
+              <MetricStrip className="sm:grid-cols-2 xl:grid-cols-2">
+                <Kpi label="总量(kgCO2e)" value={formatNumber(latestResult?.total_co2e)} />
+                <Kpi label="单位足迹" value={formatNumber(latestResult?.footprint_per_declared_unit)} />
+                <Kpi label="纳入清单" value={String(latestResult?.inventory_count ?? 0)} />
+                <Kpi label="缺失项" value={String(latestResult?.missing_factor_count ?? 0)} />
+              </MetricStrip>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground text-sm">结果状态</span>
+                <ResultBadge status={latestResult?.result_status ?? activeStudy?.result_status} />
+              </div>
+            </AdminPanel>
+            <AdminPanel title="阶段贡献" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -923,37 +924,34 @@ export function ProductFootprintPanel() {
                     {!stageSummary.length ? <EmptyRow colSpan={4} label="暂无阶段结果" /> : null}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </div>
         </TabsContent>
 
         <TabsContent value="report">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle>报告上下文</CardTitle>
+            <AdminPanel
+              title="报告上下文"
+              actions={
                 <Button size="sm" disabled={!activeStudyId || exportReport.isPending} onClick={() => exportReport.mutate()}>
                   <Download className="size-4" />
                   导出报告
                 </Button>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <KeyValue label="研究编号" value={activeStudy?.study_code} />
-                <KeyValue label="产品" value={activeStudy?.product_name || activeStudy?.product_code} />
-                <KeyValue label="标准" value={activeStudy?.standard_code} />
-                <KeyValue label="PCR" value={activeStudy?.pcr_code} />
-                <KeyValue label="功能单位" value={activeStudy?.functional_unit} />
-                <KeyValue label="声明单位" value={activeStudy?.declared_unit} />
-                <KeyValue label="周期" value={activeStudy ? dateRange(activeStudy.period_start, activeStudy.period_end) : "-"} />
-                <KeyValue label="边界" value={boundaryLabel(activeStudy?.boundary_type)} />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>材料状态</CardTitle>
-              </CardHeader>
-              <CardContent>
+              }
+              contentClassName="space-y-3 text-sm"
+            >
+              <KeyValue label="研究编号" value={activeStudy?.study_code} />
+              <KeyValue label="产品" value={activeStudy?.product_name || activeStudy?.product_code} />
+              <KeyValue label="标准" value={activeStudy?.standard_code} />
+              <KeyValue label="PCR" value={activeStudy?.pcr_code} />
+              <KeyValue label="功能单位" value={activeStudy?.functional_unit} />
+              <KeyValue label="声明单位" value={activeStudy?.declared_unit} />
+              <KeyValue label="周期" value={activeStudy ? dateRange(activeStudy.period_start, activeStudy.period_end) : "-"} />
+              <KeyValue label="边界" value={boundaryLabel(activeStudy?.boundary_type)} />
+            </AdminPanel>
+            <AdminPanel title="材料状态" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -982,8 +980,8 @@ export function ProductFootprintPanel() {
                     ))}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </div>
         </TabsContent>
       </Tabs>
@@ -1093,7 +1091,7 @@ function SupplierImportView({
         />
         <Field label="分配比例" type="number" value={value.allocation_ratio} onChange={(next) => set("allocation_ratio", next)} />
       </div>
-      <div className="overflow-x-auto rounded-md border">
+      <AdminDataTable>
         <Table>
           <TableHeader>
             <TableRow>
@@ -1124,7 +1122,7 @@ function SupplierImportView({
             {!candidates.length ? <EmptyRow colSpan={6} label="暂无可引用供应商数据" /> : null}
           </TableBody>
         </Table>
-      </div>
+      </AdminDataTable>
     </div>
   )
 }
@@ -1197,32 +1195,16 @@ function AllocationFormView({ value, onChange }: { value: AllocationForm; onChan
 
 function MetricGrid({ items }: { items: { label: string; value: string; icon: typeof Package }[] }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {items.map((item) => {
-        const Icon = item.icon
-        return (
-          <Card key={item.label}>
-            <CardContent className="flex items-center justify-between gap-3 p-4">
-              <div>
-                <div className="text-muted-foreground text-sm">{item.label}</div>
-                <div className="font-semibold text-2xl">{item.value}</div>
-              </div>
-              <Icon className="size-5 text-muted-foreground" />
-            </CardContent>
-          </Card>
-        )
-      })}
-    </div>
+    <MetricStrip className="sm:grid-cols-2 xl:grid-cols-4">
+      {items.map((item) => (
+        <MetricTile key={item.label} label={item.label} value={item.value} />
+      ))}
+    </MetricStrip>
   )
 }
 
 function Kpi({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border p-3">
-      <div className="text-muted-foreground text-xs">{label}</div>
-      <div className="font-semibold text-xl">{value}</div>
-    </div>
-  )
+  return <MetricTile label={label} value={value} />
 }
 
 function KeyValue({ label, value }: { label: string; value?: string | null }) {
@@ -1286,13 +1268,7 @@ function CalcStatusBadge({ status }: { status: string }) {
 }
 
 function EmptyRow({ colSpan, label }: { colSpan: number; label: string }) {
-  return (
-    <TableRow>
-      <TableCell colSpan={colSpan} className="h-24 text-center text-muted-foreground">
-        {label}
-      </TableCell>
-    </TableRow>
-  )
+  return <AdminTableStateRow colSpan={colSpan}>{label}</AdminTableStateRow>
 }
 
 function studyPayload(form: StudyForm) {

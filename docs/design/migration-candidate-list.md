@@ -39,6 +39,7 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: `components/carbon/energy-guide-pages.tsx` started migrating its highest-density energy consumption/intensity KPI and table shells to `MetricStrip`, `AdminPanel`, `AdminDataTable`, and `AdminTableStateRow`; remaining Card count dropped substantially but the file is not complete.
 - Done: `components/carbon/energy-guide-pages.tsx` continued migration across energy analysis, energy flow, and energy balance table/KPI shells; it is no longer the largest Card hotspot.
 - Done: `components/carbon/verification-panels.tsx` migrated verification project/evidence/issue/material/report KPI strips and table shells to `MetricStrip`, `MetricTile`, `AdminPanel`, `AdminDataTable`, and `AdminTableStateRow`; the file no longer imports or renders naked `Card`.
+- Done: `components/carbon/product-footprint-panel.tsx` migrated product footprint tab panels, result KPI tiles, table shells, and empty rows to the shared Admin UI system; the file no longer imports or renders naked `Card`.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 
