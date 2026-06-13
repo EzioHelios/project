@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AdminPanel, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { SkeletonCard } from "@/components/ui/skeleton"
 import { useAdminDashboardStats } from "@/lib/api/hooks/admin"
 
@@ -18,37 +18,27 @@ export function StatsCards() {
 
   if (isError || !data) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Admin stats</CardTitle>
-        </CardHeader>
-        <CardContent className="text-muted-foreground">We could not load dashboard stats.</CardContent>
-      </Card>
+      <AdminPanel title="权限中心统计">
+        <div className="text-muted-foreground text-sm">统计数据加载失败，请稍后重试。</div>
+      </AdminPanel>
     )
   }
 
   const items = [
-    { label: "Total users", value: data.totalUsers },
-    { label: "Active users", value: data.activeUsers },
-    { label: "Verified users", value: data.verifiedUsers },
-    { label: "Total teams", value: data.totalTeams },
-    { label: "New users today", value: data.newUsersToday },
-    { label: "New users this week", value: data.newUsersWeek },
-    { label: "Events today", value: data.eventsToday },
+    { label: "用户总数", value: data.totalUsers },
+    { label: "启用用户", value: data.activeUsers },
+    { label: "已验证用户", value: data.verifiedUsers },
+    { label: "团队总数", value: data.totalTeams },
+    { label: "今日新增用户", value: data.newUsersToday },
+    { label: "本周新增用户", value: data.newUsersWeek },
+    { label: "今日事件", value: data.eventsToday },
   ]
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <MetricStrip className="xl:grid-cols-4">
       {items.map((item) => (
-        <Card key={item.label}>
-          <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">{item.label}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-semibold">{item.value}</div>
-          </CardContent>
-        </Card>
+        <MetricTile key={item.label} label={item.label} value={item.value.toLocaleString("zh-CN")} />
       ))}
-    </div>
+    </MetricStrip>
   )
 }

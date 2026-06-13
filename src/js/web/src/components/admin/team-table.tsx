@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router"
 import { useState } from "react"
+import { AdminDataTable, AdminPanel, AdminTableStateRow, StatusBadge } from "@/components/admin-ui"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SkeletonTable } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useAdminTeams } from "@/lib/api/hooks/admin"
@@ -18,51 +18,41 @@ export function TeamTable() {
 
   if (isError || !data) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Teams</CardTitle>
-        </CardHeader>
-        <CardContent className="text-muted-foreground">We could not load teams.</CardContent>
-      </Card>
+      <AdminPanel title="团队列表">
+        <div className="text-muted-foreground text-sm">团队数据加载失败，请稍后重试。</div>
+      </AdminPanel>
     )
   }
 
   const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE))
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Teams</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <AdminPanel title="团队列表" contentClassName="space-y-4">
+      <AdminDataTable className="rounded-none border-0">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Slug</TableHead>
-              <TableHead>Members</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>名称</TableHead>
+              <TableHead>标识</TableHead>
+              <TableHead>成员数</TableHead>
+              <TableHead>状态</TableHead>
+              <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.items.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
-                  No teams found.
-                </TableCell>
-              </TableRow>
-            )}
+            {data.items.length === 0 && <AdminTableStateRow colSpan={5}>暂无团队</AdminTableStateRow>}
             {data.items.map((team) => (
               <TableRow key={team.id}>
                 <TableCell>{team.name}</TableCell>
                 <TableCell className="text-muted-foreground">{team.slug}</TableCell>
                 <TableCell>{team.memberCount ?? 0}</TableCell>
-                <TableCell>{team.isActive ? "Active" : "Inactive"}</TableCell>
+                <TableCell>
+                  <StatusBadge status={team.isActive ? "approved" : "inactive"} label={team.isActive ? "启用" : "停用"} />
+                </TableCell>
                 <TableCell className="text-right">
                   <Button asChild variant="outline" size="sm">
                     <Link to="/admin/teams/$teamId" params={{ teamId: team.id }}>
-                      View
+                      查看
                     </Link>
                   </Button>
                 </TableCell>
@@ -70,20 +60,20 @@ export function TeamTable() {
             ))}
           </TableBody>
         </Table>
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
-            Page {page} of {totalPages}
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
-              Next
-            </Button>
-          </div>
+      </AdminDataTable>
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
+          第 {page} 页 / 共 {totalPages} 页
+        </p>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
+            上一页
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
+            下一页
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </AdminPanel>
   )
 }
