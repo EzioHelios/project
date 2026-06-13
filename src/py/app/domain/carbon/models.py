@@ -1788,6 +1788,43 @@ class CarbonVerificationExportFile(TeamScopedMixin, BigIntAuditBase):
     )
 
 
+class CarbonVerificationFinding(TeamScopedMixin, BigIntAuditBase):
+    """Verification finding with correction and review lifecycle."""
+
+    __tablename__ = "carbon_verification_finding"
+    __table_args__ = (
+        UniqueConstraint("team_id", "finding_no", name="uq_carbon_verification_finding_team_no"),
+        Index("ix_carbon_verification_finding_status", "team_id", "status", "severity"),
+        Index("ix_carbon_verification_finding_record", "team_id", "record_type", "record_id", "issue_type"),
+        Index("ix_carbon_verification_finding_due", "team_id", "due_date", "status"),
+    )
+
+    finding_no: Mapped[str] = mapped_column(String(64), index=True)
+    issue_type: Mapped[str] = mapped_column(String(64), index=True)
+    finding_type: Mapped[str] = mapped_column(String(64), default="data_quality", index=True)
+    severity: Mapped[str] = mapped_column(String(16), default="medium", index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text)
+    action_required: Mapped[str | None] = mapped_column(Text)
+    record_type: Mapped[str | None] = mapped_column(String(128), index=True)
+    record_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    scope: Mapped[str | None] = mapped_column(String(16), index=True)
+    display_name: Mapped[str | None] = mapped_column(String(255))
+    period: Mapped[str | None] = mapped_column(String(16), index=True)
+    status: Mapped[str] = mapped_column(String(24), default="open", index=True)
+    owner: Mapped[str | None] = mapped_column(String(128))
+    due_date: Mapped[date | None] = mapped_column(Date, index=True)
+    correction_comment: Mapped[str | None] = mapped_column(Text)
+    correction_evidence: Mapped[str | None] = mapped_column(String(512))
+    reviewer: Mapped[str | None] = mapped_column(String(128))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    source_payload: Mapped[dict | None] = mapped_column(JSON)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
 class CarbonCompliancePeriod(TeamScopedMixin, BigIntAuditBase):
     """Carbon market compliance period bound to an organization inventory."""
 

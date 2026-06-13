@@ -560,7 +560,7 @@ flowchart LR
 | --- | --- | --- |
 | `ReportTemplateVersion` | 管理模板名称、版本、标准来源、适用行业、文件路径和启停状态 | 历史导出必须可回溯到当时模板版本；通用模板不能冒充行业专用监管模板。 |
 | `VerificationAttachment` | 管理凭证原件、来源对象、文件类型、哈希、OCR/备注和版本 | 附件只能引用核算活动、清单项、边界设施或因子来源，不拥有这些事实。 |
-| `VerificationFinding` | 承载文件评审、现场核查、不符合项、整改、复核和关闭状态 | 自动规则问题可升级为核查发现；关闭必须记录整改证据和复核人。 |
+| `VerificationFinding` | 承载文件评审、现场核查、不符合项、整改、复核和关闭状态 | 已接入首版；自动规则问题可升级为核查发现，状态覆盖待整改、整改中、待复核和关闭。 |
 | `CarbonVerificationExportJob` | 一次报告或材料包导出任务 | 必须记录报告范围、模板版本、导出人、文件哈希、导出时间和失败原因。 |
 | `ReportDocumentRenderer` | 将 `report_context` 填充为 DOCX/PDF | 已在导出任务中接入首版；字段缺失必须进入业务状态，不生成看似完整的正式报告。 |
 | `MaterialPackageAssembler` | 汇集报告、数据表、附件、问题和审核轨迹 | ZIP manifest 必须能校验每个导出文件的路径、类型、大小和哈希。 |

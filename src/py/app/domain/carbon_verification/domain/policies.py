@@ -10,6 +10,19 @@ MISSING_RESULT_STATUS = "missing_result"
 PENDING_REVIEW_STATUS = "pending_review"
 REJECTED_STATUS = "rejected"
 
+FINDING_OPEN = "open"
+FINDING_RECTIFYING = "rectifying"
+FINDING_RESOLVED = "resolved"
+FINDING_CLOSED = "closed"
+FINDING_STATUSES = {FINDING_OPEN, FINDING_RECTIFYING, FINDING_RESOLVED, FINDING_CLOSED}
+FINDING_SEVERITIES = {"low", "medium", "high"}
+FINDING_TRANSITIONS = {
+    FINDING_OPEN: {FINDING_RECTIFYING, FINDING_RESOLVED, FINDING_CLOSED},
+    FINDING_RECTIFYING: {FINDING_OPEN, FINDING_RESOLVED},
+    FINDING_RESOLVED: {FINDING_RECTIFYING, FINDING_CLOSED},
+    FINDING_CLOSED: set(),
+}
+
 
 @dataclass(frozen=True, slots=True)
 class VerificationRule:
@@ -81,3 +94,34 @@ def issue_for_status(record: dict[str, Any]) -> dict[str, Any] | None:
         "action": action,
     }
 
+
+def validate_finding_status(status: str) -> None:
+    if status not in FINDING_STATUSES:
+        msg = f"不支持的核查发现状态: {status}"
+        raise ValueError(msg)
+
+
+def validate_finding_severity(severity: str) -> None:
+    if severity not in FINDING_SEVERITIES:
+        msg = f"不支持的核查发现等级: {severity}"
+        raise ValueError(msg)
+
+
+def validate_finding_transition(current_status: str, next_status: str) -> None:
+    validate_finding_status(next_status)
+    if current_status == next_status:
+        return
+    allowed = FINDING_TRANSITIONS.get(current_status, set())
+    if next_status not in allowed:
+        msg = f"核查发现状态不能从 {current_status} 变更为 {next_status}"
+        raise ValueError(msg)
+
+
+def finding_readiness(statuses: list[str]) -> str:
+    if not statuses:
+        return "empty"
+    if any(status in {FINDING_OPEN, FINDING_RECTIFYING} for status in statuses):
+        return "attention"
+    if any(status == FINDING_RESOLVED for status in statuses):
+        return "review"
+    return READY_STATUS

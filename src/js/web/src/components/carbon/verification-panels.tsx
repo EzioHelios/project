@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { FileText, PackageCheck, ShieldCheck, TriangleAlert } from "lucide-react"
+import { CheckCircle2, FileText, PackageCheck, ShieldCheck, TriangleAlert } from "lucide-react"
 import { toast } from "sonner"
 
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
@@ -58,6 +58,42 @@ type VerificationIssues = {
   items: VerificationIssue[]
   total: number
   summary: Record<string, number>
+}
+
+type VerificationFinding = {
+  id: number
+  finding_no: string
+  issue_type: string
+  finding_type: string
+  severity: string
+  title: string
+  description?: string | null
+  action_required?: string | null
+  record_type?: string | null
+  record_id?: number | null
+  scope?: string | null
+  display_name?: string | null
+  period?: string | null
+  status: string
+  owner?: string | null
+  due_date?: string | null
+  correction_comment?: string | null
+  correction_evidence?: string | null
+  reviewer?: string | null
+  reviewed_at?: string | null
+  closed_at?: string | null
+}
+
+type VerificationFindings = {
+  items: VerificationFinding[]
+  total: number
+  summary: {
+    total: number
+    by_status: Record<string, number>
+    by_severity: Record<string, number>
+    open_count: number
+    readiness: string
+  }
 }
 
 type MaterialPackage = {
@@ -161,47 +197,142 @@ export function VerificationEvidencePanel() {
 }
 
 export function VerificationIssuesPanel() {
+  const queryClient = useQueryClient()
   const issuesQuery = useQuery<ApiEnvelope<VerificationIssues>>({
     queryKey: ["carbon-verification", "issues"],
     queryFn: () => fetchCarbonApi<VerificationIssues>("/api/carbon/verification/issues?limit=200"),
   })
+  const findingsQuery = useQuery<ApiEnvelope<VerificationFindings>>({
+    queryKey: ["carbon-verification", "findings"],
+    queryFn: () => fetchCarbonApi<VerificationFindings>("/api/carbon/verification/findings?limit=200"),
+  })
+  const createFinding = useMutation({
+    mutationFn: (issue: VerificationIssue) =>
+      postCarbonApi<VerificationFinding>("/api/carbon/verification/findings", {
+        issue_type: issue.issue_type,
+        severity: issue.severity,
+        title: issue.title,
+        description: issue.display_name,
+        action_required: issue.action,
+        record_type: issue.record_type,
+        record_id: issue.record_id,
+        scope: issue.scope,
+        display_name: issue.display_name,
+        period: issue.period,
+        source_name: "carbon_verification.auto_issue",
+        source_payload: issue,
+      }),
+    onSuccess: () => {
+      toast.success("已升级为核查发现")
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "findings"] })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "创建核查发现失败")
+    },
+  })
+  const updateFinding = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) => patchCarbonApi<VerificationFinding>(`/api/carbon/verification/findings/${id}`, data),
+    onSuccess: () => {
+      toast.success("核查发现已更新")
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "findings"] })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "更新核查发现失败")
+    },
+  })
   const data = issuesQuery.data?.data
+  const findings = findingsQuery.data?.data
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>核查问题</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>问题</TableHead>
-              <TableHead>等级</TableHead>
-              <TableHead>范围</TableHead>
-              <TableHead>对象</TableHead>
-              <TableHead>期间</TableHead>
-              <TableHead>处理动作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(data?.items ?? []).map((item) => (
-              <TableRow key={`${item.record_type}-${item.record_id}-${item.issue_type}`}>
-                <TableCell>{item.title}</TableCell>
-                <TableCell>
-                  <SeverityBadge severity={item.severity} />
-                </TableCell>
-                <TableCell>{item.scope}</TableCell>
-                <TableCell>{item.display_name}</TableCell>
-                <TableCell>{item.period ?? "-"}</TableCell>
-                <TableCell>{item.action}</TableCell>
+    <div className="space-y-4">
+      <MetricGrid
+        items={[
+          { label: "自动问题", value: data?.total ?? 0, icon: TriangleAlert },
+          { label: "核查发现", value: findings?.summary.total ?? 0, icon: ShieldCheck },
+          { label: "待整改", value: findings?.summary.open_count ?? 0, icon: CheckCircle2 },
+        ]}
+      />
+      <Card>
+        <CardHeader>
+          <CardTitle>自动问题</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>问题</TableHead>
+                <TableHead>等级</TableHead>
+                <TableHead>范围</TableHead>
+                <TableHead>对象</TableHead>
+                <TableHead>期间</TableHead>
+                <TableHead>处理动作</TableHead>
+                <TableHead className="w-[96px]">发现</TableHead>
               </TableRow>
-            ))}
-            {!data?.items?.length ? <EmptyRow colSpan={6} /> : null}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {(data?.items ?? []).map((item) => (
+                <TableRow key={`${item.record_type}-${item.record_id}-${item.issue_type}`}>
+                  <TableCell>{item.title}</TableCell>
+                  <TableCell>
+                    <SeverityBadge severity={item.severity} />
+                  </TableCell>
+                  <TableCell>{item.scope}</TableCell>
+                  <TableCell>{item.display_name}</TableCell>
+                  <TableCell>{item.period ?? "-"}</TableCell>
+                  <TableCell>{item.action}</TableCell>
+                  <TableCell>
+                    <Button variant="outline" size="sm" onClick={() => createFinding.mutate(item)} disabled={createFinding.isPending}>
+                      升级
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!data?.items?.length ? <EmptyRow colSpan={7} /> : null}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>核查发现</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>编号</TableHead>
+                <TableHead>发现</TableHead>
+                <TableHead>等级</TableHead>
+                <TableHead>对象</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead>整改要求</TableHead>
+                <TableHead className="w-[190px]">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(findings?.items ?? []).map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="max-w-[180px] truncate">{item.finding_no}</TableCell>
+                  <TableCell>{item.title}</TableCell>
+                  <TableCell>
+                    <SeverityBadge severity={item.severity} />
+                  </TableCell>
+                  <TableCell>{item.display_name ?? item.record_type ?? "-"}</TableCell>
+                  <TableCell>
+                    <FindingStatusBadge status={item.status} />
+                  </TableCell>
+                  <TableCell>{item.action_required ?? "-"}</TableCell>
+                  <TableCell>
+                    <FindingActions finding={item} onUpdate={(id, patch) => updateFinding.mutate({ id, data: patch })} disabled={updateFinding.isPending} />
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!findings?.items?.length ? <EmptyRow colSpan={7} /> : null}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 
@@ -473,6 +604,37 @@ function SeverityBadge({ severity }: { severity?: string }) {
   return <Badge variant="outline">低</Badge>
 }
 
+function FindingStatusBadge({ status }: { status?: string }) {
+  if (status === "open") return <Badge variant="secondary">待整改</Badge>
+  if (status === "rectifying") return <Badge variant="secondary">整改中</Badge>
+  if (status === "resolved") return <Badge>待复核</Badge>
+  if (status === "closed") return <Badge variant="outline">已关闭</Badge>
+  return <Badge variant="outline">{status || "-"}</Badge>
+}
+
+function FindingActions({ finding, onUpdate, disabled }: { finding: VerificationFinding; onUpdate: (id: number, patch: Record<string, unknown>) => void; disabled?: boolean }) {
+  if (finding.status === "closed") return <span className="text-muted-foreground">-</span>
+  if (finding.status === "resolved") {
+    return (
+      <Button variant="outline" size="sm" onClick={() => onUpdate(finding.id, { status: "closed", reviewer: "internal_review" })} disabled={disabled}>
+        关闭
+      </Button>
+    )
+  }
+  if (finding.status === "rectifying") {
+    return (
+      <Button variant="outline" size="sm" onClick={() => onUpdate(finding.id, { status: "resolved", correction_comment: "已完成整改" })} disabled={disabled}>
+        已整改
+      </Button>
+    )
+  }
+  return (
+    <Button variant="outline" size="sm" onClick={() => onUpdate(finding.id, { status: "rectifying" })} disabled={disabled}>
+      整改中
+    </Button>
+  )
+}
+
 function ExportJobStatusBadge({ status }: { status?: string }) {
   if (status === "completed") return <Badge>已完成</Badge>
   if (status === "running") return <Badge variant="secondary">生成中</Badge>
@@ -503,6 +665,20 @@ function formatBytes(value?: number | null) {
 async function postCarbonApi<T>(url: string, body: Record<string, unknown>) {
   const res = await fetch(url, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+  const text = await res.text()
+  const raw = text ? JSON.parse(text) : {}
+  if (!res.ok || (raw.code && raw.code >= 400)) {
+    throw new Error(raw.msg || raw.detail || `HTTP ${res.status}`)
+  }
+  return raw as ApiEnvelope<T>
+}
+
+async function patchCarbonApi<T>(url: string, body: Record<string, unknown>) {
+  const res = await fetch(url, {
+    method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   })

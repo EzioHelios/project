@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.db import models as m
 from app.domain.carbon.emission_calculator import compute_emission_result
@@ -82,7 +82,8 @@ class CarbonVerificationQueryService:
         evidence = await self.evidence_manifest(query)
         issues = await self.issues(query)
         audit_trail = await self.audit_trail(query)
-        groups = _material_groups(records, evidence, issues, audit_trail)
+        finding_count = int(await self._session.scalar(select(func.count(m.CarbonVerificationFinding.id))) or 0)
+        groups = _material_groups(records, evidence, issues, audit_trail, finding_count=finding_count)
         return {
             "package_code": f"org-ghg-{query.year or 'all'}",
             "readiness": material_readiness([record["material_status"] for record in records]),
@@ -108,6 +109,7 @@ class CarbonVerificationQueryService:
             "activity_data": [_activity_row(record) for record in records],
             "factor_parameters": _factor_rows(records),
             "quality_issues": issues["items"],
+            "verification_findings": await self._finding_rows(),
             "export_fields": _template_field_map(),
             "filters": _filters(query),
         }
@@ -149,6 +151,36 @@ class CarbonVerificationQueryService:
             if (log.record_type, log.record_id) in record_keys
         ]
         return {"items": items, "total": len(items), "filters": _filters(query)}
+
+    async def _finding_rows(self) -> list[dict[str, Any]]:
+        rows = (
+            (
+                await self._session.execute(
+                    select(m.CarbonVerificationFinding).order_by(m.CarbonVerificationFinding.id.desc()).limit(200)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return [
+            {
+                "finding_no": row.finding_no,
+                "issue_type": row.issue_type,
+                "severity": row.severity,
+                "title": row.title,
+                "record_type": row.record_type,
+                "record_id": row.record_id,
+                "scope": row.scope,
+                "display_name": row.display_name,
+                "period": row.period,
+                "status": row.status,
+                "action_required": row.action_required,
+                "correction_comment": row.correction_comment,
+                "reviewer": row.reviewer,
+                "closed_at": row.closed_at.isoformat() if row.closed_at else None,
+            }
+            for row in rows
+        ]
 
     async def _enterprise_profile(self) -> dict[str, Any] | None:
         row = await self._session.scalar(select(m.EnterpriseInfo).order_by(m.EnterpriseInfo.id.desc()).limit(1))
@@ -409,6 +441,8 @@ def _material_groups(
     evidence: dict[str, Any],
     issues: dict[str, Any],
     audit_trail: dict[str, Any],
+    *,
+    finding_count: int = 0,
 ) -> list[dict[str, Any]]:
     counts = {
         "boundary": 1,
@@ -417,7 +451,7 @@ def _material_groups(
         "factor": len(_factor_rows(records)),
         "evidence": evidence["summary"]["evidence_count"],
         "audit": audit_trail["total"],
-        "quality": issues["total"],
+        "quality": issues["total"] + finding_count,
     }
     readiness = material_readiness([record["material_status"] for record in records])
     return [

@@ -446,7 +446,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 建议继续按 Roadmap 顺序推进：
 
 1. 组织边界与碳排放核算增强：组织边界首版已完成，下一步补核算批次和组织排放清单
-2. 碳核查支撑模板版本、附件实体与核查发现增强
+2. 碳核查支撑模板版本、附件实体与正式核查项目增强
 3. 供应链碳外部门户、Excel/API 导入和自动催办
 4. 产品碳足迹 BOM/工序导入、供应链审核数据引用和 DOCX 报告导出
 5. 碳资产滚动预测、多币种估值、多场景交易组合和正式交易/交割审计
@@ -519,19 +519,20 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | 材料包目录 | `GET /api/carbon/verification/material-package` 输出材料组、就绪状态和导出 manifest | 后续接独立附件实体、凭证文件哈希和附件原件打包 |
 | 报告上下文 | `GET /api/carbon/verification/report` 输出通用 DOCX 模板字段、活动数据、因子参数、排放汇总和问题清单 | 已接入导出任务 DOCX/PDF 渲染；后续补模板版本管理 |
 | 导出任务 | `POST /api/carbon/verification/export-jobs` 生成 ZIP；`GET /api/carbon/verification/export-jobs` 查看历史；`GET /api/carbon/verification/export-jobs/{job_id}/download` 下载文件 | 后续补异步队列、大文件存储、导出保留期和失败重试 |
+| 核查发现 | `GET/POST/PATCH /api/carbon/verification/findings` 维护自动问题升级、整改中、待复核和关闭状态 | 后续补正式核查项目、责任人权限、附件证据和消息通知 |
 
 ### 2. 前端页面
 
 | Tab | 当前状态 |
 | --- | --- |
 | 凭证清单 | 已接入新接口，展示凭证数、缺失凭证数、关联记录和凭证明细 |
-| 质量问题 | 已接入新接口，展示问题等级、对象、期间和处理动作 |
+| 质量问题 | 已接入自动问题和核查发现接口，支持把自动问题升级为发现，并维护整改中、待复核和关闭状态 |
 | 核查材料包 | 已接入材料组和 manifest，不再显示建设中说明 |
 | 报告导出 | 已接入报告上下文、分源汇总、模板字段映射、生成材料包按钮和导出记录下载 |
 
 ### 3. 领域关系
 
-`carbon_verification` 当前拥有读模型、报告渲染器和导出任务：只读取 `carbon_accounting`、`factor_library`、`master_data` 和 `CarbonAuditLog`，不修改 Scope 活动事实；导出任务落到 `CarbonVerificationExportJob` 和 `CarbonVerificationExportFile`，生成 ZIP 包中的 manifest、DOCX/PDF 报告、报告上下文、活动数据、因子参数、问题清单和审核轨迹。通用 DOCX 模板已升级到 `organization_ghg_generic_v2026_06_13`，后续如果要形成正式核查项目，应新增核查项目、核查发现、整改记录和独立附件表，并继续保持对核算事实只读。
+`carbon_verification` 当前拥有读模型、核查发现、报告渲染器和导出任务：只读取 `carbon_accounting`、`factor_library`、`master_data` 和 `CarbonAuditLog`，不修改 Scope 活动事实；核查发现落到 `CarbonVerificationFinding`，承接自动问题升级、整改、复核和关闭；导出任务落到 `CarbonVerificationExportJob` 和 `CarbonVerificationExportFile`，生成 ZIP 包中的 manifest、DOCX/PDF 报告、报告上下文、活动数据、因子参数、问题清单和审核轨迹。通用 DOCX 模板已升级到 `organization_ghg_generic_v2026_06_13`，后续如果要形成正式核查项目，应新增核查项目、独立附件表、整改责任人权限和消息通知，并继续保持对核算事实只读。
 
 ## 十三、2026-06-13 组织碳盘查报告模板与材料包导出设计记录
 
@@ -558,7 +559,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | --- | --- |
 | 导出上下文与模板变量映射 | 明确 `/api/carbon/verification/report` 到 DOCX 占位符的字段来源和缺失处理 |
 | 核查材料包 ZIP 文件树 | 明确 `manifest`、报告、数据、附件、质量问题和审核轨迹的导出路径 |
-| 后续实现拆分任务 | 明确 `ReportTemplateVersion`、`ReportDocumentRenderer`、`VerificationAttachment`、`VerificationFinding`、`MaterialPackageAssembler` 和 `InventorySnapshotReader` 的边界 |
+| 后续实现拆分任务 | 明确 `ReportTemplateVersion`、`ReportDocumentRenderer`、`VerificationAttachment`、`VerificationFinding`、`MaterialPackageAssembler` 和 `InventorySnapshotReader` 的边界；`VerificationFinding` 已完成首版 |
 
 ### 3. 后续验收
 
@@ -568,7 +569,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | PDF 渲染 | 已实现首版，DOCX 可转为 PDF 并写入 `CarbonVerificationExportFile`，保留哈希和大小 |
 | 模板版本 | 导出任务记录模板版本、标准来源、适用行业和文件路径 |
 | 附件实体 | 凭证原件、校准证书、检测报告等不再只依赖 Scope 记录的单一附件字段 |
-| 核查发现 | 自动问题可升级为可整改、复核、关闭的核查发现 |
+| 核查发现 | 已实现首版，自动问题可升级为可整改、复核、关闭的核查发现 |
 | 锁定清单 | 正式导出优先读取已发布组织边界和已锁定组织排放清单 |
 
 ## 十四、2026-06-13 产品碳足迹核算开发进度记录

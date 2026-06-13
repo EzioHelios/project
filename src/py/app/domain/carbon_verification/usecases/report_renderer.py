@@ -106,6 +106,7 @@ def _placeholder_mapping(report: dict[str, Any]) -> dict[str, str]:
     activity_data = report.get("activity_data") if isinstance(report.get("activity_data"), list) else []
     factor_parameters = report.get("factor_parameters") if isinstance(report.get("factor_parameters"), list) else []
     quality_issues = report.get("quality_issues") if isinstance(report.get("quality_issues"), list) else []
+    verification_findings = report.get("verification_findings") if isinstance(report.get("verification_findings"), list) else []
     standard = report.get("standard") if isinstance(report.get("standard"), dict) else {}
     template = report.get("template") if isinstance(report.get("template"), dict) else {}
 
@@ -140,7 +141,7 @@ def _placeholder_mapping(report: dict[str, Any]) -> dict[str, str]:
         "scope_summary": _scope_lines(scope_summary),
         "activity_data": _activity_lines(activity_data),
         "factor_parameters": _factor_lines(factor_parameters),
-        "quality_issues": _issue_lines(quality_issues),
+        "quality_issues": _issue_lines([*quality_issues, *verification_findings]),
         "evidence_manifest": "见核查材料包 evidence/evidence-manifest.csv。",
         "audit_trail": "见核查材料包 audit/audit-trail.csv。",
         "inventory_quality": _quality_status(quality_issues),
