@@ -10,9 +10,8 @@ export const Route = createFileRoute("/_app/carbon/product-footprint")({
 
 function ProductFootprintPage() {
   return (
-    <PageContainer className="flex-1 space-y-4" maxWidth="full">
-      <AdminPageHeader title="产品碳足迹核算" />
-      <ProductFootprintPanel />
+    <PageContainer className="flex-1" maxWidth="full">
+      <ProductFootprintPanel header={<AdminPageHeader title="产品碳足迹核算" />} />
     </PageContainer>
   )
 }

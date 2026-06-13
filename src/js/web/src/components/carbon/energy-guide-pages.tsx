@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ChevronDown, ChevronRight } from "lucide-react"
+import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
-import { AdminDataTable, AdminPanel, AdminTableStateRow, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
+import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, CompositeTrendChart, DiagnosticsPanel, DistributionChart, FlowGraph, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
 import { JumpLinks } from "@/components/carbon/energy-carbon-center"
 import { type PageResult, PaginationBar, request, requestPage } from "@/components/platform/data-admin-pages"
@@ -14,7 +15,7 @@ import { Label } from "@/components/ui/label"
 import { PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
 
 type EnergySummary = {
   latest_month?: string | null
@@ -560,7 +561,7 @@ const formatEnergyValue = (value: number | null | undefined, digits = 4) =>
 
 const formatKgcePerM2 = (value: number | null | undefined, digits = 4) => formatEnergyValue(value === null || value === undefined ? null : value * 1000, digits)
 
-export function EnergyConsumptionPanel() {
+export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
   const [periodStart, setPeriodStart] = useState("")
   const [periodEnd, setPeriodEnd] = useState("")
   const [scope, setScope] = useState("all")
@@ -657,86 +658,93 @@ export function EnergyConsumptionPanel() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[160px_160px_140px_180px_150px_180px_1fr_auto]">
-          <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
-          <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
-          <Select value={scope} onValueChange={setScope}>
-            <SelectTrigger>
-              <SelectValue placeholder="Scope" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部 Scope</SelectItem>
-              <SelectItem value="scope1">Scope1</SelectItem>
-              <SelectItem value="scope2">Scope2</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={energyTypeCode} onValueChange={setEnergyTypeCode}>
-            <SelectTrigger>
-              <SelectValue placeholder="能源品种" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部能源品种</SelectItem>
-              {energyTypes.map((item) => (
-                <SelectItem key={item.code} value={item.code}>
-                  {item.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger>
-              <SelectValue placeholder="状态" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部状态</SelectItem>
-              <SelectItem value="approved">已通过</SelectItem>
-              <SelectItem value="pending">待审核</SelectItem>
-              <SelectItem value="draft">草稿</SelectItem>
-              <SelectItem value="rejected">已驳回</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={sourceRecordType} onValueChange={setSourceRecordType}>
-            <SelectTrigger>
-              <SelectValue placeholder="来源类型" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部来源</SelectItem>
-              <SelectItem value="Scope1MobileCombustion">Scope1 移动源</SelectItem>
-              <SelectItem value="Scope1StationaryCombustion">Scope1 固定源</SelectItem>
-              <SelectItem value="Scope2ElectricityBill">Scope2 电费账单</SelectItem>
-              <SelectItem value="Scope2MeterAggregate">Scope2 电表聚合</SelectItem>
-              <SelectItem value="Scope2PurchasedEnergy">Scope2 外购热/汽/冷</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="区域关键字" />
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={applyFilters} disabled={summaryQuery.isFetching || factsQuery.isFetching}>
-              查询
-            </Button>
-            <Button variant="outline" onClick={resetFilters}>
-              重置
-            </Button>
-          </div>
-        </div>
-      </PageSection>
-
-      <Tabs defaultValue="summary" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
-          <TabsTrigger value="summary">汇总查询</TabsTrigger>
-          <TabsTrigger value="facts">明细追溯</TabsTrigger>
-          <TabsTrigger value="types">能源品种</TabsTrigger>
-          <TabsTrigger value="export">导出记录</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="summary" className="space-y-4">
+    <Tabs defaultValue="summary" className="space-y-4">
+      <AdminPageScaffold
+        header={header}
+        tabs={
+          <AdminTabsList>
+            <TabsTrigger value="summary">汇总查询</TabsTrigger>
+            <TabsTrigger value="facts">明细追溯</TabsTrigger>
+            <TabsTrigger value="types">能源品种</TabsTrigger>
+            <TabsTrigger value="export">导出记录</TabsTrigger>
+          </AdminTabsList>
+        }
+        filters={
+          <ContextBar
+            actions={
+              <>
+                <Button variant="secondary" onClick={applyFilters} disabled={summaryQuery.isFetching || factsQuery.isFetching}>
+                  查询
+                </Button>
+                <Button variant="outline" onClick={resetFilters}>
+                  重置
+                </Button>
+              </>
+            }
+          >
+            <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
+            <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
+            <Select value={scope} onValueChange={setScope}>
+              <SelectTrigger>
+                <SelectValue placeholder="Scope" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部 Scope</SelectItem>
+                <SelectItem value="scope1">Scope1</SelectItem>
+                <SelectItem value="scope2">Scope2</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={energyTypeCode} onValueChange={setEnergyTypeCode}>
+              <SelectTrigger>
+                <SelectValue placeholder="能源品种" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部能源品种</SelectItem>
+                {energyTypes.map((item) => (
+                  <SelectItem key={item.code} value={item.code}>
+                    {item.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger>
+                <SelectValue placeholder="状态" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部状态</SelectItem>
+                <SelectItem value="approved">已通过</SelectItem>
+                <SelectItem value="pending">待审核</SelectItem>
+                <SelectItem value="draft">草稿</SelectItem>
+                <SelectItem value="rejected">已驳回</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sourceRecordType} onValueChange={setSourceRecordType}>
+              <SelectTrigger>
+                <SelectValue placeholder="来源类型" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部来源</SelectItem>
+                <SelectItem value="Scope1MobileCombustion">Scope1 移动源</SelectItem>
+                <SelectItem value="Scope1StationaryCombustion">Scope1 固定源</SelectItem>
+                <SelectItem value="Scope2ElectricityBill">Scope2 电费账单</SelectItem>
+                <SelectItem value="Scope2MeterAggregate">Scope2 电表聚合</SelectItem>
+                <SelectItem value="Scope2PurchasedEnergy">Scope2 外购热/汽/冷</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="区域关键字" />
+          </ContextBar>
+        }
+        metrics={
           <MetricStrip className="md:grid-cols-4 xl:grid-cols-4">
             <MetricTile label="记录数" value={summary?.totals.record_count ?? 0} />
             <MetricTile label="原始消费量" value={formatNumber(summary?.totals.original_amount)} />
             <MetricTile label="折标煤" value={formatNumber(summary?.totals.tce_amount)} unit="tce" />
             <MetricTile label="CO2e" value={formatNumber(summary?.totals.co2e_amount, 2)} unit="kg" />
           </MetricStrip>
+        }
+      >
+        <TabsContent value="summary" className="space-y-4">
           <PageSection>
             <AdminPanel title="按能源品种汇总" contentClassName="p-0">
               <AdminDataTable className="rounded-none border-0">
@@ -925,12 +933,12 @@ export function EnergyConsumptionPanel() {
             </AdminPanel>
           </PageSection>
         </TabsContent>
-      </Tabs>
-    </div>
+      </AdminPageScaffold>
+    </Tabs>
   )
 }
 
-export function EnergyIntensityPanel() {
+export function EnergyIntensityPanel({ header }: { header?: ReactNode }) {
   const [periodStart, setPeriodStart] = useState("")
   const [periodEnd, setPeriodEnd] = useState("")
   const [months, setMonths] = useState("12")
@@ -1138,136 +1146,140 @@ export function EnergyIntensityPanel() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-          <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
-          <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
-          <Select value={months} onValueChange={setMonths}>
-            <SelectTrigger>
-              <SelectValue placeholder="周期数" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7">7 期</SelectItem>
-              <SelectItem value="12">12 期</SelectItem>
-              <SelectItem value="24">24 期</SelectItem>
-              <SelectItem value="36">36 期</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={granularity} onValueChange={setGranularity}>
-            <SelectTrigger>
-              <SelectValue placeholder="统计粒度" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="day">日</SelectItem>
-              <SelectItem value="month">月</SelectItem>
-              <SelectItem value="year">年</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger>
-              <SelectValue placeholder="状态" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部状态</SelectItem>
-              <SelectItem value="approved">已审核</SelectItem>
-              <SelectItem value="pending">待审核</SelectItem>
-              <SelectItem value="draft">草稿</SelectItem>
-              <SelectItem value="rejected">已驳回</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={scope} onValueChange={setScope}>
-            <SelectTrigger>
-              <SelectValue placeholder="Scope" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部 Scope</SelectItem>
-              <SelectItem value="scope1">Scope1</SelectItem>
-              <SelectItem value="scope2">Scope2</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={energyTypeCode} onValueChange={setEnergyTypeCode}>
-            <SelectTrigger>
-              <SelectValue placeholder="能源品种" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部能源品种</SelectItem>
-              {(energyTypesQuery.data?.data.items ?? []).map((item) => (
-                <SelectItem key={item.code} value={item.code}>
-                  {item.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={productCode} onValueChange={setProductCode}>
-            <SelectTrigger>
-              <SelectValue placeholder="产品" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部产品</SelectItem>
-              {(productsQuery.data?.items ?? []).map((item) => (
-                <SelectItem key={item.code} value={item.code}>
-                  {item.name || item.code}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={outputKind} onValueChange={setOutputKind}>
-            <SelectTrigger>
-              <SelectValue placeholder="业务类型" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部业务类型</SelectItem>
-              {outputKindOptions.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input value={lineCode} onChange={(event) => setLineCode(event.target.value)} placeholder="产线编码" />
-          <Input value={areaId} onChange={(event) => setAreaId(event.target.value)} placeholder="区域ID" />
-          <Input value={equipmentCode} onChange={(event) => setEquipmentCode(event.target.value)} placeholder="设备编码" />
-          <Select value={priceType} onValueChange={setPriceType}>
-            <SelectTrigger>
-              <SelectValue placeholder="价格口径" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="standard_price">标准价</SelectItem>
-              <SelectItem value="actual_average_price">实际均价</SelectItem>
-              <SelectItem value="base_period_price">基期价</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="xl:col-span-2">
-            <JumpLinks items={[{ label: "查看能耗查询", to: "/energy/consumption" }]} />
-          </div>
-          <div className="flex justify-end gap-2 xl:col-span-4">
-            <Button onClick={applyFilters}>查询</Button>
-            <Button variant="outline" onClick={resetFilters}>
-              重置
-            </Button>
-          </div>
-        </div>
-      </PageSection>
-
-      <Tabs defaultValue="summary" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="summary">消费量汇总</TabsTrigger>
-          <TabsTrigger value="area">面积强度</TabsTrigger>
-          <TabsTrigger value="product">产品强度</TabsTrigger>
-          <TabsTrigger value="value">产值强度</TabsTrigger>
-          <TabsTrigger value="hierarchy">区域设备</TabsTrigger>
-          <TabsTrigger value="trend">趋势分析</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="summary" className="space-y-4">
+    <Tabs defaultValue="summary" className="space-y-4">
+      <AdminPageScaffold
+        header={header}
+        tabs={
+          <AdminTabsList>
+            <TabsTrigger value="summary">消费量汇总</TabsTrigger>
+            <TabsTrigger value="area">面积强度</TabsTrigger>
+            <TabsTrigger value="product">产品强度</TabsTrigger>
+            <TabsTrigger value="value">产值强度</TabsTrigger>
+            <TabsTrigger value="hierarchy">区域设备</TabsTrigger>
+            <TabsTrigger value="trend">趋势分析</TabsTrigger>
+          </AdminTabsList>
+        }
+        filters={
+          <ContextBar
+            actions={
+              <>
+                <JumpLinks items={[{ label: "查看能耗查询", to: "/energy/consumption" }]} />
+                <Button onClick={applyFilters}>查询</Button>
+                <Button variant="outline" onClick={resetFilters}>
+                  重置
+                </Button>
+              </>
+            }
+          >
+            <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
+            <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
+            <Select value={months} onValueChange={setMonths}>
+              <SelectTrigger>
+                <SelectValue placeholder="周期数" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">7 期</SelectItem>
+                <SelectItem value="12">12 期</SelectItem>
+                <SelectItem value="24">24 期</SelectItem>
+                <SelectItem value="36">36 期</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={granularity} onValueChange={setGranularity}>
+              <SelectTrigger>
+                <SelectValue placeholder="统计粒度" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="day">日</SelectItem>
+                <SelectItem value="month">月</SelectItem>
+                <SelectItem value="year">年</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger>
+                <SelectValue placeholder="状态" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部状态</SelectItem>
+                <SelectItem value="approved">已审核</SelectItem>
+                <SelectItem value="pending">待审核</SelectItem>
+                <SelectItem value="draft">草稿</SelectItem>
+                <SelectItem value="rejected">已驳回</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={scope} onValueChange={setScope}>
+              <SelectTrigger>
+                <SelectValue placeholder="Scope" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部 Scope</SelectItem>
+                <SelectItem value="scope1">Scope1</SelectItem>
+                <SelectItem value="scope2">Scope2</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={energyTypeCode} onValueChange={setEnergyTypeCode}>
+              <SelectTrigger>
+                <SelectValue placeholder="能源品种" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部能源品种</SelectItem>
+                {(energyTypesQuery.data?.data.items ?? []).map((item) => (
+                  <SelectItem key={item.code} value={item.code}>
+                    {item.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={productCode} onValueChange={setProductCode}>
+              <SelectTrigger>
+                <SelectValue placeholder="产品" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部产品</SelectItem>
+                {(productsQuery.data?.items ?? []).map((item) => (
+                  <SelectItem key={item.code} value={item.code}>
+                    {item.name || item.code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={outputKind} onValueChange={setOutputKind}>
+              <SelectTrigger>
+                <SelectValue placeholder="业务类型" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部业务类型</SelectItem>
+                {outputKindOptions.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input value={lineCode} onChange={(event) => setLineCode(event.target.value)} placeholder="产线编码" />
+            <Input value={areaId} onChange={(event) => setAreaId(event.target.value)} placeholder="区域ID" />
+            <Input value={equipmentCode} onChange={(event) => setEquipmentCode(event.target.value)} placeholder="设备编码" />
+            <Select value={priceType} onValueChange={setPriceType}>
+              <SelectTrigger>
+                <SelectValue placeholder="价格口径" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="standard_price">标准价</SelectItem>
+                <SelectItem value="actual_average_price">实际均价</SelectItem>
+                <SelectItem value="base_period_price">基期价</SelectItem>
+              </SelectContent>
+            </Select>
+          </ContextBar>
+        }
+        metrics={
           <MetricStrip>
             <MetricTile label="综合能耗" value={formatEnergyValue(summary?.totals.total_tce, 4)} unit="tce" />
             <MetricTile label="折标煤" value={formatEnergyValue(summary?.totals.total_kgce, 2)} unit="kgce" />
             <MetricTile label="外购电力" value={formatEnergyValue(summary?.totals.electricity_kwh, 2)} unit="kWh" />
             <MetricTile label="记录数" value={formatEnergyValue(summary?.totals.record_count, 0)} />
           </MetricStrip>
-
+        }
+      >
+        <TabsContent value="summary" className="space-y-4">
           <PageSection className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
             <AdminPanel title="能源品种汇总" contentClassName="p-0">
               <AdminDataTable className="rounded-none border-0">
@@ -1484,7 +1496,7 @@ export function EnergyIntensityPanel() {
               title="综合能耗和面积折标强度趋势"
               points={intensityTrendSeries}
               bars={[{ key: "total_tce", label: "综合能耗", colorKey: "energy" }]}
-              lines={[{ key: "store_area_kgce_per_m2", label: "仓储面积折标强度", colorKey: "carbon", yAxisIndex: 1 }]}
+              lines={[{ key: "store_area_kgce_per_m2", label: "仓储面积折标强度", colorKey: "scope2", yAxisIndex: 1 }]}
               leftAxisName="tce"
               rightAxisName="kgce/㎡"
               height={360}
@@ -1494,20 +1506,20 @@ export function EnergyIntensityPanel() {
             <CompositeTrendChart
               title="外购电力专项强度趋势"
               points={trend?.series ?? []}
-              bars={[{ key: "electricity_kwh", label: "外购电力", colorKey: "scope2" }]}
-              lines={[{ key: "store_area_kwh_per_m2", label: "仓储面积电力强度", colorKey: "scope3", yAxisIndex: 1 }]}
+              bars={[{ key: "electricity_kwh", label: "外购电力", colorKey: "electricity" }]}
+              lines={[{ key: "store_area_kwh_per_m2", label: "仓储面积电力强度", colorKey: "energy", yAxisIndex: 1 }]}
               leftAxisName="kWh"
               rightAxisName="kWh/㎡"
               height={320}
             />
           </PageSection>
         </TabsContent>
-      </Tabs>
-    </div>
+      </AdminPageScaffold>
+    </Tabs>
   )
 }
 
-export function EnergyAnalysisPanel() {
+export function EnergyAnalysisPanel({ header }: { header?: ReactNode }) {
   const [periodStart, setPeriodStart] = useState("")
   const [periodEnd, setPeriodEnd] = useState("")
   const [granularity, setGranularity] = useState("day")
@@ -1584,73 +1596,79 @@ export function EnergyAnalysisPanel() {
   }
 
   return (
-    <div className="space-y-6">
-      <ContextBar
-        actions={
-          <>
-            <Button onClick={applyFilters} disabled={summaryQuery.isFetching || anomaliesQuery.isFetching || strategiesQuery.isFetching}>
-              查询
-            </Button>
-            <Button variant="outline" onClick={resetFilters}>
-              重置
-            </Button>
-          </>
+    <Tabs defaultValue="structure" className="space-y-4">
+      <AdminPageScaffold
+        header={header}
+        tabs={
+          <AdminTabsList>
+            <TabsTrigger value="structure">结构分析</TabsTrigger>
+            <TabsTrigger value="cost">成本分析</TabsTrigger>
+            <TabsTrigger value="performance">能效分析</TabsTrigger>
+            <TabsTrigger value="anomaly">异常诊断</TabsTrigger>
+            <TabsTrigger value="strategy">策略建议</TabsTrigger>
+          </AdminTabsList>
         }
-      >
-        <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
-        <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
-        <Select value={granularity} onValueChange={setGranularity}>
-          <SelectTrigger>
-            <SelectValue placeholder="统计粒度" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="day">日</SelectItem>
-            <SelectItem value="hour">小时</SelectItem>
-          </SelectContent>
-        </Select>
-        <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="筛选区域名称" />
-        <Select value={useSystemCode} onValueChange={setUseSystemCode}>
-          <SelectTrigger>
-            <SelectValue placeholder="用能系统" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部用能系统</SelectItem>
-            {systemOptions.map((item) => (
-              <SelectItem key={item.use_system_code} value={item.use_system_code}>
-                {item.use_system_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={tariffSegmentType} onValueChange={setTariffSegmentType}>
-          <SelectTrigger>
-            <SelectValue placeholder="分时时段" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部时段</SelectItem>
-            <SelectItem value="peak">峰段</SelectItem>
-            <SelectItem value="flat">平段</SelectItem>
-            <SelectItem value="valley">谷段</SelectItem>
-          </SelectContent>
-        </Select>
-      </ContextBar>
-
-      <Tabs defaultValue="structure" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="structure">结构分析</TabsTrigger>
-          <TabsTrigger value="cost">成本分析</TabsTrigger>
-          <TabsTrigger value="performance">能效分析</TabsTrigger>
-          <TabsTrigger value="anomaly">异常诊断</TabsTrigger>
-          <TabsTrigger value="strategy">策略建议</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="structure" className="space-y-4">
+        filters={
+          <ContextBar
+            actions={
+              <>
+                <Button onClick={applyFilters} disabled={summaryQuery.isFetching || anomaliesQuery.isFetching || strategiesQuery.isFetching}>
+                  查询
+                </Button>
+                <Button variant="outline" onClick={resetFilters}>
+                  重置
+                </Button>
+              </>
+            }
+          >
+            <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
+            <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
+            <Select value={granularity} onValueChange={setGranularity}>
+              <SelectTrigger>
+                <SelectValue placeholder="统计粒度" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="day">日</SelectItem>
+                <SelectItem value="hour">小时</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="筛选区域名称" />
+            <Select value={useSystemCode} onValueChange={setUseSystemCode}>
+              <SelectTrigger>
+                <SelectValue placeholder="用能系统" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部用能系统</SelectItem>
+                {systemOptions.map((item) => (
+                  <SelectItem key={item.use_system_code} value={item.use_system_code}>
+                    {item.use_system_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={tariffSegmentType} onValueChange={setTariffSegmentType}>
+              <SelectTrigger>
+                <SelectValue placeholder="分时时段" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部时段</SelectItem>
+                <SelectItem value="peak">峰段</SelectItem>
+                <SelectItem value="flat">平段</SelectItem>
+                <SelectItem value="valley">谷段</SelectItem>
+              </SelectContent>
+            </Select>
+          </ContextBar>
+        }
+        metrics={
           <MetricStrip>
             <MetricTile label="总用电量" value={formatEnergyValue(summary?.totals.total_energy, 2)} unit="kWh" />
             <MetricTile label="用能系统" value={formatEnergyValue(summary?.totals.system_count, 0)} />
             <MetricTile label="设备数" value={formatEnergyValue(summary?.totals.equipment_count, 0)} />
             <MetricTile label="区域数" value={formatEnergyValue(summary?.totals.area_count, 0)} />
           </MetricStrip>
+        }
+      >
+        <TabsContent value="structure" className="space-y-4">
           <PageSection className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
             <RankingList
               title="用能系统排行"
@@ -1701,7 +1719,7 @@ export function EnergyAnalysisPanel() {
             <CompositeTrendChart
               title="能耗和成本趋势"
               points={summary?.trend ?? []}
-              bars={[{ key: "total_energy", label: "电量", colorKey: "energy" }]}
+              bars={[{ key: "total_energy", label: "电量", colorKey: "electricity" }]}
               lines={[{ key: "total_cost", label: "成本", colorKey: "cost", yAxisIndex: 1 }]}
               leftAxisName="kWh"
               rightAxisName="元"
@@ -1830,12 +1848,12 @@ export function EnergyAnalysisPanel() {
             ))}
           </PageSection>
         </TabsContent>
-      </Tabs>
-    </div>
+      </AdminPageScaffold>
+    </Tabs>
   )
 }
 
-export function EnergyFlowPanel() {
+export function EnergyFlowPanel({ header }: { header?: ReactNode }) {
   const [periodStart, setPeriodStart] = useState("")
   const [periodEnd, setPeriodEnd] = useState("")
   const [granularity, setGranularity] = useState("day")
@@ -1868,51 +1886,60 @@ export function EnergyFlowPanel() {
   const summary = flowQuery.data?.data.summary
 
   return (
-    <div className="space-y-6">
-      <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[160px_160px_150px_minmax(180px,1fr)_140px_auto]">
-          <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
-          <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
-          <Select value={granularity} onValueChange={setGranularity}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="hour">小时</SelectItem>
-              <SelectItem value="day">日</SelectItem>
-              <SelectItem value="month">月</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="区域/设备" />
-          <Input value={lossThreshold} onChange={(event) => setLossThreshold(event.target.value)} placeholder="损耗阈值%" />
-          <Button
-            onClick={() =>
-              setFilters({
-                periodStart,
-                periodEnd,
-                granularity,
-                areaKeyword,
-                lossThreshold,
-              })
+    <Tabs defaultValue="graph" className="space-y-4">
+      <AdminPageScaffold
+        header={header}
+        tabs={
+          <AdminTabsList>
+            <TabsTrigger value="graph">能流图</TabsTrigger>
+            <TabsTrigger value="balance">能量平衡表</TabsTrigger>
+            <TabsTrigger value="losses">损耗诊断</TabsTrigger>
+            <TabsTrigger value="report">分析报告</TabsTrigger>
+          </AdminTabsList>
+        }
+        filters={
+          <ContextBar
+            actions={
+              <Button
+                onClick={() =>
+                  setFilters({
+                    periodStart,
+                    periodEnd,
+                    granularity,
+                    areaKeyword,
+                    lossThreshold,
+                  })
+                }
+              >
+                查询
+              </Button>
             }
           >
-            查询
-          </Button>
-        </div>
-      </PageSection>
-      <MetricStrip>
-        <EnergyFlowKpi title="输入" value={summary?.total_input} unit="kWh" />
-        <EnergyFlowKpi title="有效利用" value={summary?.utilized_energy} unit="kWh" />
-        <EnergyFlowKpi title="总损耗率" value={summary?.loss_rate_pct} unit="%" />
-        <EnergyFlowKpi title="高损耗链路" value={summary?.high_loss_count} unit="条" />
-      </MetricStrip>
-      <Tabs defaultValue="graph" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="graph">能流图</TabsTrigger>
-          <TabsTrigger value="balance">能量平衡表</TabsTrigger>
-          <TabsTrigger value="losses">损耗诊断</TabsTrigger>
-          <TabsTrigger value="report">分析报告</TabsTrigger>
-        </TabsList>
+            <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
+            <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
+            <Select value={granularity} onValueChange={setGranularity}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hour">小时</SelectItem>
+                <SelectItem value="day">日</SelectItem>
+                <SelectItem value="month">月</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="区域/设备" />
+            <Input value={lossThreshold} onChange={(event) => setLossThreshold(event.target.value)} placeholder="损耗阈值%" />
+          </ContextBar>
+        }
+        metrics={
+          <MetricStrip>
+            <EnergyFlowKpi title="输入" value={summary?.total_input} unit="kWh" />
+            <EnergyFlowKpi title="有效利用" value={summary?.utilized_energy} unit="kWh" />
+            <EnergyFlowKpi title="总损耗率" value={summary?.loss_rate_pct} unit="%" />
+            <EnergyFlowKpi title="高损耗链路" value={summary?.high_loss_count} unit="条" />
+          </MetricStrip>
+        }
+      >
         <TabsContent value="graph" className="space-y-4">
           <PageSection>
             <FlowGraph
@@ -2019,8 +2046,8 @@ export function EnergyFlowPanel() {
             ))}
           </PageSection>
         </TabsContent>
-      </Tabs>
-    </div>
+      </AdminPageScaffold>
+    </Tabs>
   )
 }
 
@@ -2039,7 +2066,7 @@ function buildEnergyFlowQuery(filters: { periodStart: string; periodEnd: string;
   return text ? `?${text}` : ""
 }
 
-export function EnergyBalancePanel() {
+export function EnergyBalancePanel({ header }: { header?: ReactNode }) {
   const queryClient = useQueryClient()
   const [periodStart, setPeriodStart] = useState("")
   const [periodEnd, setPeriodEnd] = useState("")
@@ -2127,68 +2154,75 @@ export function EnergyBalancePanel() {
   const records = recordsQuery.data?.items ?? []
 
   return (
-    <div className="space-y-6">
-      <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[150px_150px_130px_150px_minmax(160px,1fr)_minmax(160px,1fr)_auto]">
-          <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
-          <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
-          <Select value={granularity} onValueChange={setGranularity}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="hour">小时</SelectItem>
-              <SelectItem value="day">日</SelectItem>
-              <SelectItem value="month">月</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={balanceObjectType} onValueChange={setBalanceObjectType}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="enterprise">企业</SelectItem>
-              <SelectItem value="area">区域</SelectItem>
-              <SelectItem value="use_system">用能系统</SelectItem>
-              <SelectItem value="device">设备</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input value={balanceObjectCode} onChange={(event) => setBalanceObjectCode(event.target.value)} placeholder="对象编码" />
-          <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="区域/设备" />
-          <Button
-            onClick={() =>
-              setFilters({
-                periodStart,
-                periodEnd,
-                granularity,
-                balanceObjectType,
-                balanceObjectCode,
-                areaKeyword,
-              })
+    <Tabs defaultValue="table" className="space-y-4">
+      <AdminPageScaffold
+        header={header}
+        tabs={
+          <AdminTabsList>
+            <TabsTrigger value="table">平衡简表</TabsTrigger>
+            <TabsTrigger value="quality">数据质量</TabsTrigger>
+            <TabsTrigger value="optimize">优化测算</TabsTrigger>
+            <TabsTrigger value="records">优化记录</TabsTrigger>
+          </AdminTabsList>
+        }
+        filters={
+          <ContextBar
+            actions={
+              <Button
+                onClick={() =>
+                  setFilters({
+                    periodStart,
+                    periodEnd,
+                    granularity,
+                    balanceObjectType,
+                    balanceObjectCode,
+                    areaKeyword,
+                  })
+                }
+              >
+                查询
+              </Button>
             }
           >
-            查询
-          </Button>
-        </div>
-      </PageSection>
-
-      <PageSection className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        {(overviewQuery.data?.data.cards ?? []).length ? (
-          overviewQuery.data?.data.cards.map((item) => <EnergyFlowKpi key={item.label} title={item.label} value={item.value} unit={item.unit} />)
-        ) : (
-          <AdminPanel className="md:col-span-2 xl:col-span-5" contentClassName="py-8 text-center text-muted-foreground">
-            暂无平衡数据
-          </AdminPanel>
-        )}
-      </PageSection>
-
-      <Tabs defaultValue="table" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="table">平衡简表</TabsTrigger>
-          <TabsTrigger value="quality">数据质量</TabsTrigger>
-          <TabsTrigger value="optimize">优化测算</TabsTrigger>
-          <TabsTrigger value="records">优化记录</TabsTrigger>
-        </TabsList>
+            <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
+            <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
+            <Select value={granularity} onValueChange={setGranularity}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hour">小时</SelectItem>
+                <SelectItem value="day">日</SelectItem>
+                <SelectItem value="month">月</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={balanceObjectType} onValueChange={setBalanceObjectType}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="enterprise">企业</SelectItem>
+                <SelectItem value="area">区域</SelectItem>
+                <SelectItem value="use_system">用能系统</SelectItem>
+                <SelectItem value="device">设备</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input value={balanceObjectCode} onChange={(event) => setBalanceObjectCode(event.target.value)} placeholder="对象编码" />
+            <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="区域/设备" />
+          </ContextBar>
+        }
+        metrics={
+          (overviewQuery.data?.data.cards ?? []).length ? (
+            <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
+              {overviewQuery.data?.data.cards.slice(0, 4).map((item) => (
+                <EnergyFlowKpi key={item.label} title={item.label} value={item.value} unit={item.unit} />
+              ))}
+            </MetricStrip>
+          ) : (
+            <AdminPanel contentClassName="py-8 text-center text-muted-foreground">暂无平衡数据</AdminPanel>
+          )
+        }
+      >
         <TabsContent value="table">
           <PageSection>
             <AdminPanel title="能量平衡表" actions={summary ? balanceQualityBadge(summary.quality) : null} contentClassName="p-0">
@@ -2361,18 +2395,17 @@ export function EnergyBalancePanel() {
             </AdminPanel>
           </PageSection>
         </TabsContent>
-      </Tabs>
-
-      <PageSection>
-        <JumpLinks
-          items={[
-            { label: "查看能流分析", to: "/energy/flow" },
-            { label: "行业标杆库", to: "/energy/benchmark" },
-            { label: "能耗查询", to: "/energy/consumption" },
-          ]}
-        />
-      </PageSection>
-    </div>
+        <PageSection>
+          <JumpLinks
+            items={[
+              { label: "查看能流分析", to: "/energy/flow" },
+              { label: "行业标杆库", to: "/energy/benchmark" },
+              { label: "能耗查询", to: "/energy/consumption" },
+            ]}
+          />
+        </PageSection>
+      </AdminPageScaffold>
+    </Tabs>
   )
 }
 

@@ -7,6 +7,15 @@
 
 后续重构不应从“每页做得更好看”开始，而应从“全局规则收口”开始。工业感不是深色和发光线，工业感是可靠、可追溯、状态明确、数据密度适中、操作成本低。
 
+### 0.1 当前阶段范围
+
+当前阶段只覆盖后台侧边栏中的两个核心菜单组：
+
+- `能源运营`：`/energy/consumption`、`/energy/intensity`、`/energy/analysis`、`/energy/benchmark`、`/energy/flow`、`/energy/balance`、`/energy/budget`
+- `碳核算`：`/carbon/accounting`、`/carbon/product-footprint`、`/carbon/supply-chain`、`/carbon/verification`、`/carbon/assets`
+
+`carbon-mgmt/*`、`energy-carbon/*`、平台管理、权限管理、团队、用户、数据管理和大屏路由不作为本阶段页面级迁移目标。只有当这些文件被上述菜单页面直接嵌入为业务组件时，才允许做必要的兼容调整。
+
 本路线图的目标是：
 
 1. 补齐后台产品级 tokens。

@@ -10,9 +10,8 @@ export const Route = createFileRoute("/_app/carbon/assets")({
 
 function CarbonAssetsPage() {
   return (
-    <PageContainer className="flex-1 space-y-4" maxWidth="full">
-      <AdminPageHeader title="碳资产管理" />
-      <CarbonAssetsPanel />
+    <PageContainer className="flex-1" maxWidth="full">
+      <CarbonAssetsPanel header={<AdminPageHeader title="碳资产管理" />} />
     </PageContainer>
   )
 }

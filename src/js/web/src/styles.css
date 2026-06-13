@@ -126,8 +126,8 @@
 
 :root {
   /* Industrial energy-carbon admin identity */
-  --brand-blue: 203 45% 37%;
-  --brand-blue-light: 196 42% 54%;
+  --brand-blue: 193 44% 36%;
+  --brand-blue-light: 188 42% 52%;
   --brand-gold: 38 72% 48%;
   --brand-gold-light: 42 78% 64%;
   --brand-navy: 210 24% 16%;
@@ -137,13 +137,15 @@
   --radius: 0.5rem;
 
   /* Admin surface tokens */
-  --admin-bg-app: 210 24% 97%;
-  --admin-bg-page: 210 24% 96%;
+  --admin-bg-app: 204 28% 97%;
+  --admin-bg-page: 205 28% 96%;
   --admin-bg-panel: 0 0% 100%;
-  --admin-bg-subtle: 204 22% 94%;
-  --admin-border: 214 24% 86%;
-  --admin-border-strong: 214 18% 78%;
-  --admin-focus: 171 42% 30%;
+  --admin-bg-subtle: 194 28% 94%;
+  --admin-border: 203 24% 84%;
+  --admin-border-strong: 197 20% 73%;
+  --admin-focus: 187 48% 32%;
+  --admin-accent: 187 45% 36%;
+  --admin-accent-soft: 185 36% 91%;
   --admin-text-primary: 215 33% 14%;
   --admin-text-secondary: 212 14% 42%;
   --admin-text-muted: 213 12% 55%;
@@ -151,8 +153,8 @@
   /* Operational status tokens */
   --status-draft: 214 15% 55%;
   --status-pending: 38 76% 45%;
-  --status-info: 203 58% 39%;
-  --status-success: 160 56% 32%;
+  --status-info: 193 54% 38%;
+  --status-success: 166 48% 32%;
   --status-warning: 38 76% 45%;
   --status-danger: 4 63% 45%;
   --status-locked: 215 22% 34%;
@@ -178,7 +180,7 @@
   --admin-table-row-default: 2.75rem;
 
   /* Light theme - audit-friendly operations UI */
-  --background: 210 24% 97%;
+  --background: 204 28% 97%;
   --foreground: 215 33% 14%;
 
   --card: 0 0% 100%;
@@ -190,14 +192,14 @@
   --primary: 210 24% 16%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 204 22% 91%;
+  --secondary: 194 24% 91%;
   --secondary-foreground: 215 33% 14%;
 
-  --muted: 204 22% 92%;
+  --muted: 194 24% 92%;
   --muted-foreground: 212 14% 42%;
 
-  --accent: 168 34% 88%;
-  --accent-foreground: 170 30% 20%;
+  --accent: 185 36% 90%;
+  --accent-foreground: 187 42% 21%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
@@ -211,15 +213,15 @@
 
   --border: 214 32% 91%;
   --input: 214 32% 91%;
-  --ring: 171 42% 30%;
+  --ring: 187 48% 32%;
 
   /* Sidebar Light */
   --sidebar: 208 28% 96%;
   --sidebar-foreground: 215 33% 14%;
   --sidebar-primary: 210 24% 16%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 168 34% 88%;
-  --sidebar-accent-foreground: 170 30% 20%;
+  --sidebar-accent: 185 36% 90%;
+  --sidebar-accent-foreground: 187 42% 21%;
   --sidebar-border: 208 18% 86%;
   --sidebar-ring: 171 42% 30%;
 
@@ -230,10 +232,10 @@
   --grid-star: rgba(237, 182, 65, 0.5);
 
   /* Charts */
-  --chart-1: 171 40% 34%;
-  --chart-2: 203 43% 35%;
-  --chart-3: 38 56% 42%;
-  --chart-4: 155 18% 40%;
+  --chart-1: 187 48% 32%;
+  --chart-2: 203 52% 41%;
+  --chart-3: 166 44% 36%;
+  --chart-4: 38 50% 42%;
   --chart-5: 8 46% 46%;
 }
 
@@ -245,10 +247,12 @@
   --admin-bg-app: 222 28% 7%;
   --admin-bg-page: 222 24% 9%;
   --admin-bg-panel: 222 22% 11%;
-  --admin-bg-subtle: 222 20% 15%;
-  --admin-border: 222 18% 20%;
-  --admin-border-strong: 222 14% 28%;
-  --admin-focus: 171 42% 42%;
+  --admin-bg-subtle: 210 22% 15%;
+  --admin-border: 203 18% 22%;
+  --admin-border-strong: 199 18% 31%;
+  --admin-focus: 187 48% 46%;
+  --admin-accent: 187 48% 46%;
+  --admin-accent-soft: 190 20% 18%;
   --admin-text-primary: 220 20% 97%;
   --admin-text-secondary: 218 14% 72%;
   --admin-text-muted: 218 10% 58%;
@@ -289,7 +293,7 @@
 
   --border: 222 18% 20%;
   --input: 222 18% 20%;
-  --ring: 171 42% 42%;
+  --ring: 187 48% 46%;
 
   /* Sidebar Dark */
   --sidebar: 222 28% 6%;
@@ -308,9 +312,9 @@
   --grid-star: rgba(237, 182, 65, 0.5);
 
   /* Charts */
-  --chart-1: 203 46% 58%;
-  --chart-2: 160 42% 52%;
-  --chart-3: 38 62% 56%;
+  --chart-1: 187 46% 58%;
+  --chart-2: 203 48% 58%;
+  --chart-3: 166 40% 54%;
   --chart-4: 155 20% 58%;
   --chart-5: 8 54% 58%;
 }
@@ -325,7 +329,7 @@
     font-feature-settings: "ss01", "ss02", "cv01", "cv02";
     font-variant-numeric: tabular-nums;
     background:
-      repeating-linear-gradient(90deg, hsl(var(--admin-border) / 0.12) 0, hsl(var(--admin-border) / 0.12) 1px, transparent 1px, transparent 72px),
+      repeating-linear-gradient(90deg, hsl(var(--admin-accent) / 0.055) 0, hsl(var(--admin-accent) / 0.055) 1px, transparent 1px, transparent 76px),
       linear-gradient(180deg, hsl(var(--background)), hsl(var(--admin-bg-page)));
   }
   h1, h2, h3, h4, h5, h6 {
@@ -361,12 +365,12 @@
     background: hsl(var(--admin-bg-page));
   }
   .admin-panel {
-    border: 1px solid hsl(var(--admin-border) / 0.82);
+    border: 1px solid hsl(var(--admin-border) / 0.84);
     border-radius: var(--radius);
     background:
-      linear-gradient(180deg, hsl(var(--admin-bg-panel)), hsl(var(--admin-bg-panel) / 0.96)),
-      linear-gradient(90deg, hsl(var(--admin-border) / 0.24), transparent 38%);
-    box-shadow: 0 1px 2px hsl(215 20% 20% / 0.05), 0 12px 28px hsl(215 28% 18% / 0.035);
+      linear-gradient(180deg, hsl(var(--admin-bg-panel)), hsl(var(--admin-bg-panel) / 0.97)),
+      linear-gradient(90deg, hsl(var(--admin-accent) / 0.075), transparent 42%);
+    box-shadow: 0 1px 2px hsl(204 24% 20% / 0.05), 0 12px 28px hsl(196 30% 18% / 0.04);
   }
   .admin-panel-header {
     display: flex;
@@ -375,8 +379,10 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    border-bottom: 1px solid hsl(var(--admin-border) / 0.72);
-    background: hsl(var(--admin-bg-subtle) / 0.34);
+    border-bottom: 1px solid hsl(var(--admin-border) / 0.7);
+    background:
+      linear-gradient(90deg, hsl(var(--admin-accent-soft) / 0.64), transparent 72%),
+      hsl(var(--admin-bg-subtle) / 0.22);
     padding: 0.625rem 0.875rem 0.625rem 1rem;
   }
   .admin-panel-title {
@@ -392,7 +398,8 @@
     min-height: var(--admin-toolbar-height);
     border: 1px solid hsl(var(--admin-border) / 0.82);
     border-radius: var(--radius);
-    background: hsl(var(--admin-bg-panel));
+    background: hsl(var(--admin-bg-panel) / 0.96);
+    box-shadow: 0 1px 2px hsl(204 24% 20% / 0.035);
   }
   .admin-context-bar {
     display: flex;
@@ -402,9 +409,9 @@
     gap: 0.75rem;
     border: 1px solid hsl(var(--admin-border) / 0.82);
     border-radius: var(--radius);
-    background: hsl(var(--admin-bg-panel));
+    background: linear-gradient(180deg, hsl(var(--admin-bg-panel)), hsl(var(--admin-accent-soft) / 0.28));
     padding: 0.75rem;
-    box-shadow: 0 1px 2px hsl(215 20% 20% / 0.03);
+    box-shadow: 0 1px 2px hsl(204 24% 20% / 0.035);
   }
   .admin-filter-bar {
     display: flex;
@@ -413,9 +420,9 @@
     gap: 0.75rem;
     border: 1px solid hsl(var(--admin-border) / 0.82);
     border-radius: var(--radius);
-    background: hsl(var(--admin-bg-panel));
+    background: linear-gradient(180deg, hsl(var(--admin-bg-panel)), hsl(var(--admin-accent-soft) / 0.26));
     padding: 0.5rem;
-    box-shadow: 0 1px 2px hsl(215 20% 20% / 0.03);
+    box-shadow: 0 1px 2px hsl(204 24% 20% / 0.035);
   }
   .admin-filter-fields {
     display: grid;
@@ -454,6 +461,27 @@
   .admin-page-scaffold-content {
     min-width: 0;
   }
+  .admin-tabs-list {
+    border: 1px solid hsl(var(--admin-border) / 0.76);
+    background:
+      linear-gradient(180deg, hsl(var(--admin-bg-panel) / 0.92), hsl(var(--admin-accent-soft) / 0.38)),
+      hsl(var(--admin-bg-panel));
+    padding: 0.25rem;
+    box-shadow: 0 1px 2px hsl(204 24% 20% / 0.035);
+  }
+  .admin-tabs-list [data-slot="tabs-trigger"] {
+    min-height: 2.25rem;
+    border-radius: calc(var(--radius) - 3px);
+    color: hsl(var(--admin-text-secondary));
+    font-size: 0.8125rem;
+    font-weight: 550;
+    transition: color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+  }
+  .admin-tabs-list [data-slot="tabs-trigger"][data-state="active"] {
+    background: hsl(var(--admin-bg-panel));
+    color: hsl(var(--admin-text-primary));
+    box-shadow: inset 0 -2px 0 hsl(var(--admin-accent) / 0.72), 0 1px 2px hsl(204 24% 20% / 0.07);
+  }
   @media (min-width: 768px) {
     .admin-filter-fields {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -477,11 +505,13 @@
   .admin-metric-tile {
     position: relative;
     overflow: hidden;
-    border: 1px solid hsl(var(--admin-border) / 0.78);
+    border: 1px solid hsl(var(--admin-border) / 0.82);
     border-radius: var(--radius);
-    background: linear-gradient(180deg, hsl(var(--admin-bg-panel)), hsl(var(--admin-bg-subtle) / 0.2));
+    background:
+      linear-gradient(180deg, hsl(var(--admin-bg-panel)), hsl(var(--admin-accent-soft) / 0.24)),
+      linear-gradient(90deg, hsl(var(--admin-accent) / 0.08), transparent 56%);
     padding: 0.875rem 1rem;
-    box-shadow: 0 1px 2px hsl(215 20% 20% / 0.04);
+    box-shadow: 0 1px 2px hsl(204 24% 20% / 0.04);
   }
   .admin-metric-tile::before {
     position: absolute;
@@ -489,7 +519,7 @@
     bottom: 0.75rem;
     left: 0;
     width: 2px;
-    background: hsl(var(--admin-border-strong) / 0.7);
+    background: hsl(var(--admin-accent) / 0.78);
     content: "";
   }
   .admin-metric-tile[data-tone="success"]::before {
@@ -505,11 +535,12 @@
     background: hsl(var(--status-info));
   }
   .admin-chart-frame {
-    border: 1px solid hsl(var(--admin-border) / 0.55);
+    border: 1px solid hsl(var(--admin-border) / 0.62);
     border-radius: calc(var(--radius) - 2px);
     background:
-      linear-gradient(180deg, hsl(var(--admin-bg-panel)), hsl(var(--admin-bg-subtle) / 0.2)),
-      repeating-linear-gradient(0deg, transparent 0, transparent 35px, hsl(var(--admin-border) / 0.18) 36px);
+      linear-gradient(180deg, hsl(var(--admin-bg-panel)), hsl(var(--admin-accent-soft) / 0.2)),
+      repeating-linear-gradient(0deg, transparent 0, transparent 35px, hsl(var(--admin-accent) / 0.075) 36px),
+      repeating-linear-gradient(90deg, transparent 0, transparent 55px, hsl(var(--admin-accent) / 0.05) 56px);
     padding: 0.25rem 0.25rem 0;
   }
   .admin-chart-meta {
@@ -525,7 +556,7 @@
     gap: 0.25rem;
     border: 1px solid hsl(var(--admin-border) / 0.72);
     border-radius: calc(var(--radius) - 3px);
-    background: hsl(var(--admin-bg-panel) / 0.72);
+    background: hsl(var(--admin-bg-panel) / 0.78);
     padding: 0.1875rem 0.4375rem;
     color: hsl(var(--admin-text-muted));
     font-size: 0.6875rem;

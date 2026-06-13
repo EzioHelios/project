@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { AdminPageHeader } from "@/components/admin-ui"
+import { AdminPageHeader, AdminPageScaffold, AdminTabsList } from "@/components/admin-ui"
 import {
   VerificationEvidencePanel,
   VerificationIssuesPanel,
@@ -8,8 +8,8 @@ import {
   VerificationProjectsPanel,
   VerificationReportPanel,
 } from "@/components/carbon/verification-panels"
-import { PageContainer, PageSection } from "@/components/ui/page-layout"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { PageContainer } from "@/components/ui/page-layout"
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
 import { AuditLogPanel } from "@/routes/_app/carbon-mgmt/audit"
 import { QualityTracePage } from "@/routes/_app/energy-carbon/quality"
 
@@ -19,19 +19,22 @@ export const Route = createFileRoute("/_app/carbon/verification")({
 
 function CarbonVerificationPage() {
   return (
-    <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
-      <AdminPageHeader title="碳核查支撑" />
-      <PageSection>
-        <Tabs defaultValue="package" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-7">
-            <TabsTrigger value="projects">核查项目</TabsTrigger>
-            <TabsTrigger value="evidence">凭证清单</TabsTrigger>
-            <TabsTrigger value="trace">过程追溯</TabsTrigger>
-            <TabsTrigger value="issues">质量问题</TabsTrigger>
-            <TabsTrigger value="audit">审核日志</TabsTrigger>
-            <TabsTrigger value="package">核查材料包</TabsTrigger>
-            <TabsTrigger value="export">报告导出</TabsTrigger>
-          </TabsList>
+    <PageContainer className="flex-1" maxWidth="4xl">
+      <Tabs defaultValue="package" className="space-y-4">
+        <AdminPageScaffold
+          header={<AdminPageHeader title="碳核查支撑" />}
+          tabs={
+            <AdminTabsList>
+              <TabsTrigger value="projects">核查项目</TabsTrigger>
+              <TabsTrigger value="evidence">凭证清单</TabsTrigger>
+              <TabsTrigger value="trace">过程追溯</TabsTrigger>
+              <TabsTrigger value="issues">质量问题</TabsTrigger>
+              <TabsTrigger value="audit">审核日志</TabsTrigger>
+              <TabsTrigger value="package">核查材料包</TabsTrigger>
+              <TabsTrigger value="export">报告导出</TabsTrigger>
+            </AdminTabsList>
+          }
+        >
           <TabsContent value="projects">
             <VerificationProjectsPanel />
           </TabsContent>
@@ -53,8 +56,8 @@ function CarbonVerificationPage() {
           <TabsContent value="export">
             <VerificationReportPanel />
           </TabsContent>
-        </Tabs>
-      </PageSection>
+        </AdminPageScaffold>
+      </Tabs>
     </PageContainer>
   )
 }

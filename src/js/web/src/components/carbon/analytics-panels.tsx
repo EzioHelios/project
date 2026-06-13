@@ -109,8 +109,8 @@ function sourceLabel(value?: string | null) {
 
 export function KpiStrip({ items }: { items: KpiItem[] }) {
   return (
-    <MetricStrip className="xl:grid-cols-6">
-      {items.map((item) => (
+    <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
+      {items.slice(0, 4).map((item) => (
         <MetricTile
           key={item.id}
           label={item.label}

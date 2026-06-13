@@ -10,9 +10,8 @@ export const Route = createFileRoute("/_app/carbon/supply-chain")({
 
 function SupplyChainCarbonPage() {
   return (
-    <PageContainer className="flex-1 space-y-4" maxWidth="full">
-      <AdminPageHeader title="供应链碳管理" />
-      <SupplyChainCarbonPanel />
+    <PageContainer className="flex-1" maxWidth="full">
+      <SupplyChainCarbonPanel header={<AdminPageHeader title="供应链碳管理" />} />
     </PageContainer>
   )
 }

@@ -98,12 +98,12 @@ export function AppLayout() {
       return { eyebrow: "能源运营", title: "能源运营" }
     }
     if (pathname.startsWith("/carbon")) {
-      if (pathname === "/carbon/accounting") return { eyebrow: "碳排放管理", title: "碳排放核算" }
-      if (pathname === "/carbon/product-footprint") return { eyebrow: "碳排放管理", title: "产品碳足迹核算" }
-      if (pathname === "/carbon/supply-chain") return { eyebrow: "碳排放管理", title: "供应链碳管理" }
-      if (pathname === "/carbon/verification") return { eyebrow: "碳排放管理", title: "碳核查支撑" }
-      if (pathname === "/carbon/assets") return { eyebrow: "碳排放管理", title: "碳资产管理" }
-      return { eyebrow: "碳排放管理", title: "碳排放管理" }
+      if (pathname === "/carbon/accounting") return { eyebrow: "碳核算", title: "碳排放核算" }
+      if (pathname === "/carbon/product-footprint") return { eyebrow: "碳核算", title: "产品碳足迹核算" }
+      if (pathname === "/carbon/supply-chain") return { eyebrow: "碳核算", title: "供应链碳管理" }
+      if (pathname === "/carbon/verification") return { eyebrow: "碳核算", title: "碳核查支撑" }
+      if (pathname === "/carbon/assets") return { eyebrow: "碳核算", title: "碳资产管理" }
+      return { eyebrow: "碳核算", title: "碳核算" }
     }
     return { eyebrow: "工作台", title: "首页" }
   }, [pathname])

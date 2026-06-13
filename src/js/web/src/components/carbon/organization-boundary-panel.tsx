@@ -305,7 +305,6 @@ export function OrganizationBoundaryPanel() {
       <MetricGrid
         items={[
           { label: "报告主体", value: summary?.organization_count ?? 0 },
-          { label: "报告期", value: summary?.period_count ?? 0 },
           { label: "边界版本", value: summary?.boundary_count ?? 0 },
           { label: "已发布边界", value: summary?.published_boundary_count ?? 0 },
           { label: "边界设施", value: summary?.facility_count ?? 0 },
@@ -586,7 +585,7 @@ export function OrganizationBoundaryPanel() {
 
 function MetricGrid({ items }: { items: { label: string; value: number }[] }) {
   return (
-    <MetricStrip className="md:grid-cols-5 xl:grid-cols-5">
+    <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
       {items.map((item) => (
         <MetricTile key={item.label} label={item.label} value={item.value} />
       ))}

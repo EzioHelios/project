@@ -189,6 +189,56 @@ export function TaskList({
   )
 }
 
+function formatTraceScalar(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "-"
+  if (typeof value === "number") return formatEcNumber(value)
+  if (typeof value === "boolean") return value ? "是" : "否"
+  if (value instanceof Date) return value.toLocaleString("zh-CN")
+  return String(value)
+}
+
+function formatTraceNestedValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map((item) => formatTraceNestedValue(item)).join("；") || "-"
+  }
+  if (value && typeof value === "object") {
+    return Object.entries(value)
+      .map(([key, nestedValue]) => `${key}: ${formatTraceNestedValue(nestedValue)}`)
+      .join("；")
+  }
+  return formatTraceScalar(value)
+}
+
+function TraceDetail({ detail }: { detail: unknown }) {
+  if (detail === null || detail === undefined || detail === "") {
+    return <span>-</span>
+  }
+  if (typeof detail !== "object") {
+    return <span>{formatTraceScalar(detail)}</span>
+  }
+  if (Array.isArray(detail)) {
+    const formattedItems = detail.map(formatTraceNestedValue)
+
+    return (
+      <div className="space-y-1">
+        {formattedItems.map((item) => (
+          <div key={item}>{item}</div>
+        ))}
+      </div>
+    )
+  }
+  return (
+    <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-[minmax(96px,auto)_1fr]">
+      {Object.entries(detail).map(([key, value]) => (
+        <div key={key} className="contents">
+          <dt className="text-muted-foreground">{key}</dt>
+          <dd className="min-w-0 break-words text-foreground">{formatTraceNestedValue(value)}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
 export function TraceTimeline({ items }: { items: { step: string; summary?: string | null; detail?: unknown }[] }) {
   return (
     <AdminPanel title="追溯链路" contentClassName="space-y-4">
@@ -204,8 +254,8 @@ export function TraceTimeline({ items }: { items: { step: string; summary?: stri
               <div className="font-medium">{item.step}</div>
               {item.summary && <Badge variant="outline">{item.summary}</Badge>}
             </div>
-            <div className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap break-words">
-              {typeof item.detail === "string" ? item.detail : JSON.stringify(item.detail, null, 2)}
+            <div className="mt-1 text-sm">
+              <TraceDetail detail={item.detail} />
             </div>
           </div>
         </div>
@@ -235,8 +285,8 @@ export function JumpLinks({ items }: { items: { label: string; to: string }[] })
 
 export function IssueSummaryStrip({ items }: { items: { label: string; value: number; tone?: "warning" | "default" }[] }) {
   return (
-    <MetricStrip className="md:grid-cols-3 xl:grid-cols-6">
-      {items.map((item) => (
+    <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
+      {items.slice(0, 4).map((item) => (
         <MetricTile key={item.label} label={item.label} value={item.value} tone={item.tone === "warning" ? "warning" : "success"} />
       ))}
     </MetricStrip>

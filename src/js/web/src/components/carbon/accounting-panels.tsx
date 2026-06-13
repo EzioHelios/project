@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router"
 import { ArrowRight, ClipboardCheck, Fuel, Landmark, PlugZap, Truck } from "lucide-react"
 
-import { AdminPanel, MetricStrip, MetricTile, StatusBadge } from "@/components/admin-ui"
+import { AdminPanel, StatusBadge } from "@/components/admin-ui"
 import { CarbonAccountingResultsPanel } from "@/components/carbon/accounting-inventory-panel"
 import { ScopeRecordPage } from "@/components/carbon/scope-record-page"
 import { Scope2RecordsPanel } from "@/components/carbon/scope2-records-panel"
@@ -37,12 +37,6 @@ export function AccountingOverviewPanel() {
         }
       >
         <div className="space-y-5">
-          <MetricStrip>
-            <MetricTile label="边界确认" value="01" meta="组织与账期" />
-            <MetricTile label="活动数据" value="02" meta="范围 1/2/3" />
-            <MetricTile label="排放清单" value="03" meta="计算与质检" />
-            <MetricTile label="审核归档" value="04" meta="核查与锁定" />
-          </MetricStrip>
           <div className="grid gap-3 md:grid-cols-2">
             {entries.map((item) => (
               <Link

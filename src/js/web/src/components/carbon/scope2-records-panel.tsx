@@ -94,10 +94,11 @@ export function Scope2RecordsPanel({ defaultSourceKind = "meter_aggregate" }: { 
     <AdminPanel title="核算记录">
       <div className="space-y-3">
         <AdminTableToolbar
-          search={<Input value={billingMonth} onChange={(event) => setBillingMonth(event.target.value)} placeholder="账期 YYYY-MM" />}
-          filters={
-            <>
-              <div className="w-[180px]">
+          fields={[
+            { key: "billingMonth", node: <Input value={billingMonth} onChange={(event) => setBillingMonth(event.target.value)} placeholder="账期 YYYY-MM" /> },
+            {
+              key: "sourceKind",
+              node: (
                 <Select value={sourceKind} onValueChange={(value) => setSourceKind(value as "meter_aggregate" | "manual_bill" | "all")}>
                   <SelectTrigger>
                     <SelectValue placeholder="来源类型" />
@@ -108,8 +109,11 @@ export function Scope2RecordsPanel({ defaultSourceKind = "meter_aggregate" }: { 
                     <SelectItem value="all">全部来源</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="w-[160px]">
+              ),
+            },
+            {
+              key: "status",
+              node: (
                 <Select value={status} onValueChange={setStatus}>
                   <SelectTrigger>
                     <SelectValue placeholder="状态" />
@@ -122,9 +126,9 @@ export function Scope2RecordsPanel({ defaultSourceKind = "meter_aggregate" }: { 
                     <SelectItem value="rejected">已驳回</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-            </>
-          }
+              ),
+            },
+          ]}
           actions={
             <>
               <Button variant="secondary" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>

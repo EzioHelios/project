@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Calculator, Download, Layers3, Link, Package, Plus, RefreshCw, ShieldCheck } from "lucide-react"
+import type { ReactNode } from "react"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
-import { AdminDataTable, AdminPanel, AdminTableStateRow, MetricStrip, MetricTile } from "@/components/admin-ui"
+import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
@@ -14,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 
 type ProductFootprintSummary = {
@@ -329,7 +330,7 @@ const supplierMatchLabels: Record<string, string> = {
   approved_pcf: "已审核PCF",
 }
 
-export function ProductFootprintPanel() {
+export function ProductFootprintPanel({ header }: { header?: ReactNode }) {
   const qc = useQueryClient()
   const [selectedStudyId, setSelectedStudyId] = useState<number | null>(null)
   const [studyOpen, setStudyOpen] = useState(false)
@@ -536,26 +537,30 @@ export function ProductFootprintPanel() {
   })
 
   return (
-    <div className="space-y-4">
-      <MetricGrid
-        items={[
-          { label: "研究数", value: String(summary?.study_count ?? 0), icon: Package },
-          { label: "已核算", value: String(summary?.calculated_count ?? 0), icon: ShieldCheck },
-          { label: "清单不完整", value: String(summary?.incomplete_count ?? 0), icon: RefreshCw },
-          { label: "活动数据", value: String(summary?.inventory_item_count ?? 0), icon: Layers3 },
-        ]}
-      />
-
-      <Tabs defaultValue="studies" className="space-y-4">
-        <TabsList className="flex h-auto w-full flex-wrap justify-start">
-          <TabsTrigger value="studies">产品与研究</TabsTrigger>
-          <TabsTrigger value="boundary">生命周期边界</TabsTrigger>
-          <TabsTrigger value="inventory">活动数据清单</TabsTrigger>
-          <TabsTrigger value="allocation">分配与因子</TabsTrigger>
-          <TabsTrigger value="results">核算结果</TabsTrigger>
-          <TabsTrigger value="report">报告生成</TabsTrigger>
-        </TabsList>
-
+    <Tabs defaultValue="studies" className="space-y-4">
+      <AdminPageScaffold
+        header={header}
+        tabs={
+          <AdminTabsList>
+            <TabsTrigger value="studies">产品与研究</TabsTrigger>
+            <TabsTrigger value="boundary">生命周期边界</TabsTrigger>
+            <TabsTrigger value="inventory">活动数据清单</TabsTrigger>
+            <TabsTrigger value="allocation">分配与因子</TabsTrigger>
+            <TabsTrigger value="results">核算结果</TabsTrigger>
+            <TabsTrigger value="report">报告生成</TabsTrigger>
+          </AdminTabsList>
+        }
+        metrics={
+          <MetricGrid
+            items={[
+              { label: "研究数", value: String(summary?.study_count ?? 0), icon: Package },
+              { label: "已核算", value: String(summary?.calculated_count ?? 0), icon: ShieldCheck },
+              { label: "清单不完整", value: String(summary?.incomplete_count ?? 0), icon: RefreshCw },
+              { label: "活动数据", value: String(summary?.inventory_item_count ?? 0), icon: Layers3 },
+            ]}
+          />
+        }
+      >
         <TabsContent value="studies">
           <AdminPanel
             title="产品与研究"
@@ -984,8 +989,8 @@ export function ProductFootprintPanel() {
             </AdminPanel>
           </div>
         </TabsContent>
-      </Tabs>
-    </div>
+      </AdminPageScaffold>
+    </Tabs>
   )
 }
 

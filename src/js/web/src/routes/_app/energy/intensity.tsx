@@ -10,9 +10,8 @@ export const Route = createFileRoute("/_app/energy/intensity")({
 
 function EnergyIntensityPage() {
   return (
-    <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
-      <AdminPageHeader title="能源消费量和强度计算" />
-      <EnergyIntensityPanel />
+    <PageContainer className="flex-1" maxWidth="4xl">
+      <EnergyIntensityPanel header={<AdminPageHeader title="能源消费量和强度计算" />} />
     </PageContainer>
   )
 }

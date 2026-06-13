@@ -168,38 +168,44 @@ export function ScopeRecordPage<T extends ScopeRow>({
         <AdminPanel title="数据列表">
           <div className="space-y-3">
             <AdminTableToolbar
-              search={
-                <Input
-                  value={keyword}
-                  onChange={(event) => {
-                    setKeyword(event.target.value)
-                    setPageIndex(0)
-                  }}
-                  placeholder={searchPlaceholder}
-                />
-              }
-              filters={
-                <div className="w-[160px]">
-                  <Select
-                    value={status}
-                    onValueChange={(value) => {
-                      setStatus(value)
-                      setPageIndex(0)
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="状态" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全部状态</SelectItem>
-                      <SelectItem value="draft">草稿</SelectItem>
-                      <SelectItem value="pending">待审核</SelectItem>
-                      <SelectItem value="approved">已通过</SelectItem>
-                      <SelectItem value="rejected">已驳回</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              }
+              fields={[
+                {
+                  key: "keyword",
+                  node: (
+                    <Input
+                      value={keyword}
+                      onChange={(event) => {
+                        setKeyword(event.target.value)
+                        setPageIndex(0)
+                      }}
+                      placeholder={searchPlaceholder}
+                    />
+                  ),
+                },
+                {
+                  key: "status",
+                  node: (
+                    <Select
+                      value={status}
+                      onValueChange={(value) => {
+                        setStatus(value)
+                        setPageIndex(0)
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="状态" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">全部状态</SelectItem>
+                        <SelectItem value="draft">草稿</SelectItem>
+                        <SelectItem value="pending">待审核</SelectItem>
+                        <SelectItem value="approved">已通过</SelectItem>
+                        <SelectItem value="rejected">已驳回</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ),
+                },
+              ]}
               actions={
                 <>
                   <Button variant="secondary" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>
@@ -215,38 +221,35 @@ export function ScopeRecordPage<T extends ScopeRow>({
                   >
                     重置
                   </Button>
+                  <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                    <DialogTrigger asChild>
+                      <Button>新增</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>新增记录</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4">
+                        {fields.map((field) => (
+                          <div key={field.name} className="grid gap-2">
+                            <Label>{field.label}</Label>
+                            <FieldControl field={field} value={form[field.name] ?? ""} onChange={(value) => setForm((state) => ({ ...state, [field.name]: value }))} />
+                          </div>
+                        ))}
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                          取消
+                        </Button>
+                        <Button onClick={() => createMut.mutate()} disabled={!formReady || createMut.isPending}>
+                          保存
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </>
               }
-            >
-              <div className="flex flex-wrap gap-2">
-                <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-                  <DialogTrigger asChild>
-                    <Button>新增</Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>新增记录</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4">
-                      {fields.map((field) => (
-                        <div key={field.name} className="grid gap-2">
-                          <Label>{field.label}</Label>
-                          <FieldControl field={field} value={form[field.name] ?? ""} onChange={(value) => setForm((state) => ({ ...state, [field.name]: value }))} />
-                        </div>
-                      ))}
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setCreateOpen(false)}>
-                        取消
-                      </Button>
-                      <Button onClick={() => createMut.mutate()} disabled={!formReady || createMut.isPending}>
-                        保存
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </AdminTableToolbar>
+            />
 
             <AdminDataTable>
               {listQuery.isLoading || listQuery.isError ? (

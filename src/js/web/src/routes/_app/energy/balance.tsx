@@ -10,9 +10,8 @@ export const Route = createFileRoute("/_app/energy/balance")({
 
 function EnergyBalancePage() {
   return (
-    <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
-      <AdminPageHeader title="能效平衡与优化" />
-      <EnergyBalancePanel />
+    <PageContainer className="flex-1" maxWidth="4xl">
+      <EnergyBalancePanel header={<AdminPageHeader title="能效平衡与优化" />} />
     </PageContainer>
   )
 }

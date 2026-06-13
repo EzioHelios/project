@@ -10,9 +10,8 @@ export const Route = createFileRoute("/_app/energy/flow")({
 
 function EnergyFlowPage() {
   return (
-    <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
-      <AdminPageHeader title="能流分析" />
-      <EnergyFlowPanel />
+    <PageContainer className="flex-1" maxWidth="4xl">
+      <EnergyFlowPanel header={<AdminPageHeader title="能流分析" />} />
     </PageContainer>
   )
 }

@@ -1,22 +1,27 @@
 import type { EChartsOption, SeriesOption } from "echarts"
 
 export const adminChartPalette = {
-  energy: "#2f6f7e",
-  carbon: "#2d745f",
-  scope1: "#8f5b3c",
-  scope2: "#356f86",
-  scope3: "#586f66",
-  cost: "#9f7428",
-  warning: "#9f7428",
-  danger: "#a24d45",
-  success: "#2d745f",
-  neutral: "#6b7480",
-  muted: "#9aa4b2",
-  axis: "#7d8794",
-  grid: "#dfe6ec",
-  gridSubtle: "#edf1f5",
-  text: "#172033",
-  label: "#485568",
+  energy: "#16808a",
+  electricity: "#2f77a1",
+  fuel: "#6d7458",
+  heat: "#a97935",
+  steam: "#6c8793",
+  water: "#2f8ea7",
+  carbon: "#2f7d68",
+  scope1: "#8a6a46",
+  scope2: "#356f96",
+  scope3: "#477d6e",
+  cost: "#9a7934",
+  warning: "#a57928",
+  danger: "#a34f48",
+  success: "#2f7d68",
+  neutral: "#64717f",
+  muted: "#98a4b1",
+  axis: "#758391",
+  grid: "#dbe6ec",
+  gridSubtle: "#edf4f7",
+  text: "#142232",
+  label: "#455766",
   panel: "#ffffff",
 } as const
 
@@ -24,9 +29,13 @@ export type AdminChartColorKey = keyof typeof adminChartPalette
 
 export const adminChartSeriesColors = [
   adminChartPalette.energy,
+  adminChartPalette.electricity,
   adminChartPalette.carbon,
+  adminChartPalette.heat,
+  adminChartPalette.water,
   adminChartPalette.cost,
   adminChartPalette.scope1,
+  adminChartPalette.scope2,
   adminChartPalette.scope3,
   adminChartPalette.neutral,
   adminChartPalette.danger,
@@ -103,10 +112,10 @@ export function createAdminChartOption(option: EChartsOption, config: AdminChart
       fontSize: 12,
     },
     grid: {
-      top: compact ? 14 : 30,
+      top: compact ? 14 : 32,
       left: 10,
-      right: 16,
-      bottom: 10,
+      right: 18,
+      bottom: 12,
       containLabel: true,
     },
     legend: {
@@ -124,15 +133,15 @@ export function createAdminChartOption(option: EChartsOption, config: AdminChart
     },
     tooltip: {
       trigger: "axis",
-      backgroundColor: "rgba(20, 30, 43, 0.96)",
-      borderColor: "rgba(255,255,255,0.12)",
+      backgroundColor: "rgba(15, 32, 42, 0.96)",
+      borderColor: "rgba(154, 215, 224, 0.18)",
       borderWidth: 1,
       padding: [9, 11],
       textStyle: {
         color: "#f8fafc",
         fontSize: 12,
       },
-      extraCssText: "border-radius:6px;box-shadow:0 14px 34px rgba(23,32,51,.24);",
+      extraCssText: "border-radius:6px;box-shadow:0 14px 34px rgba(15,32,42,.26);",
     },
     ...option,
   }
@@ -194,6 +203,7 @@ function buildLineSeries<T extends AdminChartDatum>(points: T[], lines: AdminCha
           color,
         },
         areaStyle: { color: `${color}12` },
+        emphasis: { focus: "series" },
         data: points.map((point) => readChartNumber(point, line.key)),
       }
     })
@@ -238,11 +248,11 @@ export function createComboTrendChartOption<T extends AdminChartDatum>(
       showBackground: true,
       backgroundStyle: {
         color: adminChartPalette.gridSubtle,
-        borderRadius: [4, 4, 0, 0],
+        borderRadius: [5, 5, 0, 0],
       },
       itemStyle: {
         color: resolveSeriesColor(bar, index),
-        borderRadius: [4, 4, 0, 0],
+        borderRadius: [5, 5, 0, 0],
       },
       emphasis: { focus: "series" },
       data: points.map((point) => readChartNumber(point, bar.key)),
@@ -325,13 +335,13 @@ export function createRankingChartOption(items: AdminChartRankingItem[], config:
         data: sliced.map((item) => item.value),
         barWidth: 14,
         itemStyle: {
-          borderRadius: [0, 4, 4, 0],
+          borderRadius: [0, 5, 5, 0],
           color: getAdminChartColor(config.colorKey ?? "energy"),
         },
         showBackground: true,
         backgroundStyle: {
           color: adminChartPalette.gridSubtle,
-          borderRadius: [0, 4, 4, 0],
+          borderRadius: [0, 5, 5, 0],
         },
         label: {
           show: true,

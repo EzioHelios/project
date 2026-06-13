@@ -10,9 +10,8 @@ export const Route = createFileRoute("/_app/energy/consumption")({
 
 function EnergyConsumptionPage() {
   return (
-    <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
-      <AdminPageHeader title="能耗查询" />
-      <EnergyConsumptionPanel />
+    <PageContainer className="flex-1" maxWidth="4xl">
+      <EnergyConsumptionPanel header={<AdminPageHeader title="能耗查询" />} />
     </PageContainer>
   )
 }

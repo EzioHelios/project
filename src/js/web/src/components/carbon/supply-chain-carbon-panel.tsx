@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { BarChart3, Building2, CheckCircle2, ClipboardList, FileCheck2, Plus, Send } from "lucide-react"
+import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
-import { AdminDataTable, AdminPanel, AdminTableStateRow, MetricStrip, MetricTile } from "@/components/admin-ui"
+import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
@@ -14,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
 
 type SupplyChainSummary = {
   supplier_count: number
@@ -274,7 +275,7 @@ const riskLabels: Record<string, string> = {
   high: "高",
 }
 
-export function SupplyChainCarbonPanel() {
+export function SupplyChainCarbonPanel({ header }: { header?: ReactNode }) {
   const qc = useQueryClient()
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null)
   const [supplierOpen, setSupplierOpen] = useState(false)
@@ -450,25 +451,29 @@ export function SupplyChainCarbonPanel() {
   })
 
   return (
-    <div className="space-y-4">
-      <MetricGrid
-        items={[
-          { label: "供应商", value: String(summary?.supplier_count ?? 0), icon: Building2 },
-          { label: "填报任务", value: String(summary?.task_count ?? 0), icon: ClipboardList },
-          { label: "待审核", value: String(summary?.submitted_task_count ?? 0), icon: FileCheck2 },
-          { label: "高风险", value: String(summary?.high_risk_supplier_count ?? 0), icon: BarChart3 },
-        ]}
-      />
-
-      <Tabs defaultValue="suppliers" className="space-y-4">
-        <TabsList className="flex h-auto w-full flex-wrap justify-start">
-          <TabsTrigger value="suppliers">供应商档案</TabsTrigger>
-          <TabsTrigger value="tasks">填报任务</TabsTrigger>
-          <TabsTrigger value="review">数据审核</TabsTrigger>
-          <TabsTrigger value="disclosure">下游披露</TabsTrigger>
-          <TabsTrigger value="analysis">供应链分析</TabsTrigger>
-        </TabsList>
-
+    <Tabs defaultValue="suppliers" className="space-y-4">
+      <AdminPageScaffold
+        header={header}
+        tabs={
+          <AdminTabsList>
+            <TabsTrigger value="suppliers">供应商档案</TabsTrigger>
+            <TabsTrigger value="tasks">填报任务</TabsTrigger>
+            <TabsTrigger value="review">数据审核</TabsTrigger>
+            <TabsTrigger value="disclosure">下游披露</TabsTrigger>
+            <TabsTrigger value="analysis">供应链分析</TabsTrigger>
+          </AdminTabsList>
+        }
+        metrics={
+          <MetricGrid
+            items={[
+              { label: "供应商", value: String(summary?.supplier_count ?? 0), icon: Building2 },
+              { label: "填报任务", value: String(summary?.task_count ?? 0), icon: ClipboardList },
+              { label: "待审核", value: String(summary?.submitted_task_count ?? 0), icon: FileCheck2 },
+              { label: "高风险", value: String(summary?.high_risk_supplier_count ?? 0), icon: BarChart3 },
+            ]}
+          />
+        }
+      >
         <TabsContent value="suppliers">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
             <AdminPanel
@@ -927,8 +932,8 @@ export function SupplyChainCarbonPanel() {
             </AdminDataTable>
           </AdminPanel>
         </TabsContent>
-      </Tabs>
-    </div>
+      </AdminPageScaffold>
+    </Tabs>
   )
 }
 

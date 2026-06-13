@@ -4,7 +4,7 @@ import type * as React from "react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
-import { AdminDataTable, AdminPanel, AdminTableStateRow, MetricStrip, MetricTile } from "@/components/admin-ui"
+import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
 
 type CompliancePosition = {
   period_id?: number | null
@@ -389,7 +389,7 @@ const riskLabels: Record<string, string> = {
   unlocked_inventory: "未锁定",
 }
 
-export function CarbonAssetsPanel() {
+export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
   const qc = useQueryClient()
   const [periodOpen, setPeriodOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -610,66 +610,51 @@ export function CarbonAssetsPanel() {
   })
 
   return (
-    <div className="space-y-6">
-      <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
-        <MetricTile label="履约周期" value={summary?.period_count ?? 0} />
-        <MetricTile label="资产账户" value={summary?.account_count ?? 0} />
-        <MetricTile label="配额可用" value={formatNumber(summary?.allowance_available ?? 0)} unit="tCO2e" />
-        <MetricTile label="信用可用" value={formatNumber(summary?.credit_available ?? 0)} unit="tCO2e" />
-      </MetricStrip>
-
-      <AdminPanel contentClassName="p-4">
-        <MetricStrip className="md:grid-cols-3 xl:grid-cols-6">
-          <PositionMetric label="核定排放" value={position?.verified_emission} unit="tCO2e" />
-          <PositionMetric label="可用资产" value={position?.available_assets} unit="tCO2e" />
-          <PositionMetric label="已清缴" value={position?.surrendered_amount} unit="tCO2e" />
-          <PositionMetric label="缺口" value={position?.gap_amount} unit="tCO2e" />
-          <div className="rounded-md border p-3">
-            <div className="text-xs text-muted-foreground">风险等级</div>
-            <div className="mt-2">
-              <RiskBadge value={position?.risk_level ?? "empty"} />
-            </div>
-          </div>
-          <div className="rounded-md border p-3">
-            <div className="text-xs text-muted-foreground">清单口径</div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <RiskBadge value={position?.inventory_status ?? "empty"} />
-              {position?.accounting_batch_id ? <Badge variant="outline">批次 {position.accounting_batch_id}</Badge> : null}
-            </div>
-            <div className="mt-2 text-xs text-muted-foreground">{position?.inventory_message ?? "-"}</div>
-          </div>
-        </MetricStrip>
-      </AdminPanel>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <Select value={activePeriodId ? String(activePeriodId) : ""} onValueChange={(value) => setSelectedPeriodId(Number(value))}>
-          <SelectTrigger className="w-[280px]">
-            <SelectValue placeholder="选择履约周期" />
-          </SelectTrigger>
-          <SelectContent>
-            {activePeriodOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button variant="outline" size="sm" onClick={() => invalidateAssets(qc)}>
-          <RefreshCw className="mr-2 size-4" />
-          刷新
-        </Button>
-      </div>
-
-      <Tabs defaultValue="allowances" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="allowances">配额台账</TabsTrigger>
-          <TabsTrigger value="credits">CCER/绿证</TabsTrigger>
-          <TabsTrigger value="periods">履约周期</TabsTrigger>
-          <TabsTrigger value="transactions">交易模拟</TabsTrigger>
-          <TabsTrigger value="forecast">滚动预测</TabsTrigger>
-          <TabsTrigger value="risk">风险预警</TabsTrigger>
-        </TabsList>
-
+    <Tabs defaultValue="allowances" className="space-y-4">
+      <AdminPageScaffold
+        header={header}
+        tabs={
+          <AdminTabsList>
+            <TabsTrigger value="allowances">配额台账</TabsTrigger>
+            <TabsTrigger value="credits">CCER/绿证</TabsTrigger>
+            <TabsTrigger value="periods">履约周期</TabsTrigger>
+            <TabsTrigger value="transactions">交易模拟</TabsTrigger>
+            <TabsTrigger value="forecast">滚动预测</TabsTrigger>
+            <TabsTrigger value="risk">风险预警</TabsTrigger>
+          </AdminTabsList>
+        }
+        filters={
+          <ContextBar
+            actions={
+              <Button variant="outline" size="sm" onClick={() => invalidateAssets(qc)}>
+                <RefreshCw className="mr-2 size-4" />
+                刷新
+              </Button>
+            }
+          >
+            <Select value={activePeriodId ? String(activePeriodId) : ""} onValueChange={(value) => setSelectedPeriodId(Number(value))}>
+              <SelectTrigger>
+                <SelectValue placeholder="选择履约周期" />
+              </SelectTrigger>
+              <SelectContent>
+                {activePeriodOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </ContextBar>
+        }
+        metrics={
+          <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
+            <PositionMetric label="配额可用" value={summary?.allowance_available} unit="tCO2e" />
+            <PositionMetric label="信用可用" value={summary?.credit_available} unit="tCO2e" />
+            <PositionMetric label="核定排放" value={position?.verified_emission} unit="tCO2e" />
+            <PositionMetric label="缺口" value={position?.gap_amount} unit="tCO2e" />
+          </MetricStrip>
+        }
+      >
         <TabsContent value="allowances">
           <SectionCard
             title="配额台账"
@@ -1178,8 +1163,24 @@ export function CarbonAssetsPanel() {
             </SectionCard>
           </div>
         </TabsContent>
-      </Tabs>
-    </div>
+        <AdminPanel contentClassName="grid gap-3 md:grid-cols-2">
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">风险等级</div>
+            <div className="mt-2">
+              <RiskBadge value={position?.risk_level ?? "empty"} />
+            </div>
+          </div>
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">清单口径</div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <RiskBadge value={position?.inventory_status ?? "empty"} />
+              {position?.accounting_batch_id ? <Badge variant="outline">批次 {position.accounting_batch_id}</Badge> : null}
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">{position?.inventory_message ?? "-"}</div>
+          </div>
+        </AdminPanel>
+      </AdminPageScaffold>
+    </Tabs>
   )
 }
 
