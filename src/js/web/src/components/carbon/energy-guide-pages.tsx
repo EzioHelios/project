@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
-import { ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
+import { AdminDataTable, AdminPanel, AdminTableStateRow, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, CompositeTrendChart, DiagnosticsPanel, DistributionChart, FlowGraph, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
 import { JumpLinks } from "@/components/carbon/energy-carbon-center"
 import { type PageResult, PaginationBar, request, requestPage } from "@/components/platform/data-admin-pages"
@@ -759,11 +759,8 @@ export function EnergyConsumptionPanel() {
             </Card>
           </PageSection>
           <PageSection>
-            <Card>
-              <CardHeader>
-                <CardTitle>按能源品种汇总</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <AdminPanel title="按能源品种汇总" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -778,13 +775,7 @@ export function EnergyConsumptionPanel() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(summary?.items ?? []).length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                          暂无数据
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    {(summary?.items ?? []).length === 0 && <AdminTableStateRow colSpan={8}>暂无数据</AdminTableStateRow>}
                     {(summary?.items ?? []).map((item) => (
                       <TableRow key={item.group_key}>
                         <TableCell>{item.group_label}</TableCell>
@@ -803,8 +794,8 @@ export function EnergyConsumptionPanel() {
                     ))}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </PageSection>
         </TabsContent>
 
@@ -887,11 +878,8 @@ export function EnergyConsumptionPanel() {
 
         <TabsContent value="types">
           <PageSection>
-            <Card>
-              <CardHeader>
-                <CardTitle>能源品种</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <AdminPanel title="能源品种" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -920,15 +908,12 @@ export function EnergyConsumptionPanel() {
                     ))}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </PageSection>
           <PageSection>
-            <Card>
-              <CardHeader>
-                <CardTitle>单位换算</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <AdminPanel title="单位换算" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -940,13 +925,7 @@ export function EnergyConsumptionPanel() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {unitConversions.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                          暂无单位换算数据
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    {unitConversions.length === 0 && <AdminTableStateRow colSpan={5}>暂无单位换算数据</AdminTableStateRow>}
                     {unitConversions.map((item) => (
                       <TableRow key={`${item.energy_type_code}-${item.from_unit}-${item.to_unit}`}>
                         <TableCell>{energyTypes.find((type) => type.code === item.energy_type_code)?.name ?? item.energy_type_code}</TableCell>
@@ -960,8 +939,8 @@ export function EnergyConsumptionPanel() {
                     ))}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </PageSection>
         </TabsContent>
 
@@ -1315,39 +1294,16 @@ export function EnergyIntensityPanel() {
         </TabsList>
 
         <TabsContent value="summary" className="space-y-4">
-          <PageSection className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>综合能耗</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.total_tce, 4)} tce</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>折标煤</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.total_kgce, 2)} kgce</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>外购电力</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.electricity_kwh, 2)} kWh</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>记录数</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.totals.record_count, 0)}</CardContent>
-            </Card>
-          </PageSection>
+          <MetricStrip>
+            <MetricTile label="综合能耗" value={formatEnergyValue(summary?.totals.total_tce, 4)} unit="tce" />
+            <MetricTile label="折标煤" value={formatEnergyValue(summary?.totals.total_kgce, 2)} unit="kgce" />
+            <MetricTile label="外购电力" value={formatEnergyValue(summary?.totals.electricity_kwh, 2)} unit="kWh" />
+            <MetricTile label="记录数" value={formatEnergyValue(summary?.totals.record_count, 0)} />
+          </MetricStrip>
 
           <PageSection className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
-            <Card>
-              <CardHeader>
-                <CardTitle>能源品种汇总</CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
+            <AdminPanel title="能源品种汇总" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1370,8 +1326,8 @@ export function EnergyIntensityPanel() {
                     ))}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
             <DistributionChart
               title="综合能耗结构"
               items={(summary?.by_energy_type ?? []).map((item) => ({ name: item.energy_type_name, value: item.total_tce }))}
@@ -1382,32 +1338,12 @@ export function EnergyIntensityPanel() {
         </TabsContent>
 
         <TabsContent value="area" className="space-y-4">
-          <PageSection className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>仓储面积折标强度</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatKgcePerM2(summary?.intensities.store_area_tce_per_m2, 4)} kgce/㎡</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>园区面积折标强度</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatKgcePerM2(summary?.intensities.park_area_tce_per_m2, 4)} kgce/㎡</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>仓储面积电力强度</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.intensities.store_area_kwh_per_m2, 4)} kWh/㎡</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>园区面积电力强度</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(summary?.intensities.park_area_kwh_per_m2, 4)} kWh/㎡</CardContent>
-            </Card>
-          </PageSection>
+          <MetricStrip>
+            <MetricTile label="仓储面积折标强度" value={formatKgcePerM2(summary?.intensities.store_area_tce_per_m2, 4)} unit="kgce/㎡" />
+            <MetricTile label="园区面积折标强度" value={formatKgcePerM2(summary?.intensities.park_area_tce_per_m2, 4)} unit="kgce/㎡" />
+            <MetricTile label="仓储面积电力强度" value={formatEnergyValue(summary?.intensities.store_area_kwh_per_m2, 4)} unit="kWh/㎡" />
+            <MetricTile label="园区面积电力强度" value={formatEnergyValue(summary?.intensities.park_area_kwh_per_m2, 4)} unit="kWh/㎡" />
+          </MetricStrip>
           <PageSection className="grid gap-4 xl:grid-cols-2">
             <DiagnosticsPanel
               title="面积分母"
@@ -1421,38 +1357,15 @@ export function EnergyIntensityPanel() {
         </TabsContent>
 
         <TabsContent value="product" className="space-y-4">
-          <PageSection className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>综合能耗</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(productSummary?.energy_totals.total_kgce, 2)} kgce</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>产品产量</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(productSummary?.production_totals.total_good_qty, 2)}</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>标准产量</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(productSummary?.production_totals.total_standard_qty, 2)}</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>覆盖产品</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(productSummary?.production_totals.product_count, 0)}</CardContent>
-            </Card>
-          </PageSection>
+          <MetricStrip>
+            <MetricTile label="综合能耗" value={formatEnergyValue(productSummary?.energy_totals.total_kgce, 2)} unit="kgce" />
+            <MetricTile label="产品产量" value={formatEnergyValue(productSummary?.production_totals.total_good_qty, 2)} />
+            <MetricTile label="标准产量" value={formatEnergyValue(productSummary?.production_totals.total_standard_qty, 2)} />
+            <MetricTile label="覆盖产品" value={formatEnergyValue(productSummary?.production_totals.product_count, 0)} />
+          </MetricStrip>
           <PageSection>
-            <Card>
-              <CardHeader>
-                <CardTitle>产品单位强度</CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
+            <AdminPanel title="产品单位强度" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1468,13 +1381,7 @@ export function EnergyIntensityPanel() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(productSummary?.items ?? []).length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
-                          暂无产品批次产量数据
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    {(productSummary?.items ?? []).length === 0 && <AdminTableStateRow colSpan={9}>暂无产品批次产量数据</AdminTableStateRow>}
                     {(productSummary?.items ?? []).map((item) => (
                       <TableRow key={item.product_code}>
                         <TableCell>
@@ -1493,44 +1400,21 @@ export function EnergyIntensityPanel() {
                     ))}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </PageSection>
         </TabsContent>
 
         <TabsContent value="value" className="space-y-4">
-          <PageSection className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>综合能耗</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(valueSummary?.energy_totals.total_kgce, 2)} kgce</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>产品产值</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(valueSummary?.output_value_10k, 4)} 万元</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>单位产值综合能耗</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(valueSummary?.kgce_per_10k_value, 4)} kgce/万元</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>缺价格产品</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatEnergyValue(valueSummary?.missing_price_products.length, 0)}</CardContent>
-            </Card>
-          </PageSection>
+          <MetricStrip>
+            <MetricTile label="综合能耗" value={formatEnergyValue(valueSummary?.energy_totals.total_kgce, 2)} unit="kgce" />
+            <MetricTile label="产品产值" value={formatEnergyValue(valueSummary?.output_value_10k, 4)} unit="万元" />
+            <MetricTile label="单位产值综合能耗" value={formatEnergyValue(valueSummary?.kgce_per_10k_value, 4)} unit="kgce/万元" />
+            <MetricTile label="缺价格产品" value={formatEnergyValue(valueSummary?.missing_price_products.length, 0)} />
+          </MetricStrip>
           <PageSection>
-            <Card>
-              <CardHeader>
-                <CardTitle>产值强度明细</CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
+            <AdminPanel title="产值强度明细" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1546,13 +1430,7 @@ export function EnergyIntensityPanel() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(valueSummary?.items ?? []).length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
-                          暂无产品产值数据
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    {(valueSummary?.items ?? []).length === 0 && <AdminTableStateRow colSpan={9}>暂无产品产值数据</AdminTableStateRow>}
                     {(valueSummary?.items ?? []).map((item) => (
                       <TableRow key={item.product_code}>
                         <TableCell>
@@ -1571,18 +1449,15 @@ export function EnergyIntensityPanel() {
                     ))}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </PageSection>
         </TabsContent>
 
         <TabsContent value="hierarchy" className="space-y-4">
           <PageSection>
-            <Card>
-              <CardHeader>
-                <CardTitle>区域设备层级</CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
+            <AdminPanel title="区域设备层级" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1631,8 +1506,8 @@ export function EnergyIntensityPanel() {
                     })}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </PageSection>
         </TabsContent>
 
@@ -1867,11 +1742,8 @@ export function EnergyAnalysisPanel() {
             />
           </PageSection>
           <PageSection>
-            <Card>
-              <CardHeader>
-                <CardTitle>设备能效排行</CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
+            <AdminPanel title="设备能效排行" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1896,8 +1768,8 @@ export function EnergyAnalysisPanel() {
                     ))}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </PageSection>
         </TabsContent>
 

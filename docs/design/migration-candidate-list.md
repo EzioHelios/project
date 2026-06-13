@@ -36,6 +36,7 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: shared chart visual option details for trend, combo trend, ranking, distribution, gauge, and sankey have moved from `components/carbon/analytics-panels.tsx` into `src/js/web/src/lib/admin-chart-theme.ts`.
 - Done: `components/carbon/analytics-panels.tsx` no longer passes explanatory `description` strings into `ChartPanel`.
 - Done: shared `components/carbon/analytics-panels.tsx` KPI, diagnostics, mini-stat, and ledger table wrappers now use `MetricStrip`, `AdminPanel`, `AdminDataTable`, and `AdminTableStateRow` instead of naked `Card`.
+- Done: `components/carbon/energy-guide-pages.tsx` started migrating its highest-density energy consumption/intensity KPI and table shells to `MetricStrip`, `AdminPanel`, `AdminDataTable`, and `AdminTableStateRow`; remaining Card count dropped substantially but the file is not complete.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 
