@@ -1,0 +1,1 @@
+"""Energy budget query services."""

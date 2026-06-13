@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# ruff: noqa: RUF002, RUF003, TC003
 from datetime import date, datetime, time
 from decimal import Decimal
 from uuid import UUID
@@ -370,6 +371,128 @@ class EnergyOptimizationRecord(TeamScopedMixin, BigIntAuditBase):
     confidence_level: Mapped[str | None] = mapped_column(String(16))
     status: Mapped[str] = mapped_column(String(24), default="simulated", index=True)
     remark: Mapped[str | None] = mapped_column(Text)
+
+
+class EnergyCarbonBudgetPlan(TeamScopedMixin, BigIntAuditBase):
+    """用能与碳排放预算方案。"""
+
+    __tablename__ = "dataapp_energycarbonbudgetplan"
+    __table_args__ = (
+        UniqueConstraint("team_id", "code", name="uq_energy_carbon_budget_plan_team_code"),
+        Index("ix_energy_carbon_budget_plan_year_status", "team_id", "budget_year", "status"),
+        Index("ix_energy_carbon_budget_plan_scope", "team_id", "target_scope", "target_code"),
+    )
+
+    code: Mapped[str] = mapped_column(String(64), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    budget_year: Mapped[int] = mapped_column(Integer, index=True)
+    period_type: Mapped[str] = mapped_column(String(16), default="annual", index=True)
+    period_start: Mapped[date] = mapped_column(Date, index=True)
+    period_end: Mapped[date] = mapped_column(Date, index=True)
+    target_scope: Mapped[str] = mapped_column(String(32), default="enterprise", index=True)
+    target_code: Mapped[str | None] = mapped_column(String(128), index=True)
+    target_name: Mapped[str | None] = mapped_column(String(128))
+    energy_budget_tce: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    carbon_budget_co2e: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    denominator_plan: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    denominator_unit: Mapped[str | None] = mapped_column(String(32))
+    energy_intensity_budget: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    carbon_intensity_budget: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    confidence_level: Mapped[str | None] = mapped_column(String(16))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    allocations: Mapped[list[EnergyCarbonBudgetAllocation]] = relationship(
+        back_populates="plan",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
+    adjustments: Mapped[list[EnergyCarbonBudgetAdjustment]] = relationship(
+        back_populates="plan",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
+
+
+class EnergyCarbonBudgetAllocation(TeamScopedMixin, BigIntAuditBase):
+    """能碳预算月度分解。"""
+
+    __tablename__ = "dataapp_energycarbonbudgetallocation"
+    __table_args__ = (
+        UniqueConstraint("team_id", "plan_id", "period_month", name="uq_energy_carbon_budget_allocation_plan_month"),
+        Index("ix_energy_carbon_budget_allocation_plan", "team_id", "plan_id", "period_month"),
+        Index("ix_energy_carbon_budget_allocation_scope", "team_id", "target_scope", "target_code"),
+    )
+
+    plan_id: Mapped[int] = mapped_column(ForeignKey("dataapp_energycarbonbudgetplan.id", ondelete="CASCADE"), index=True)
+    period_month: Mapped[date] = mapped_column(Date, index=True)
+    target_scope: Mapped[str] = mapped_column(String(32), default="enterprise", index=True)
+    target_code: Mapped[str | None] = mapped_column(String(128), index=True)
+    target_name: Mapped[str | None] = mapped_column(String(128))
+    energy_budget_tce: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    carbon_budget_co2e: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    denominator_budget: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    denominator_unit: Mapped[str | None] = mapped_column(String(32))
+    energy_intensity_budget: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    carbon_intensity_budget: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    confidence_level: Mapped[str | None] = mapped_column(String(16))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    plan: Mapped[EnergyCarbonBudgetPlan] = relationship(
+        back_populates="allocations",
+        lazy="selectin",
+    )
+    adjustments: Mapped[list[EnergyCarbonBudgetAdjustment]] = relationship(
+        back_populates="allocation",
+        lazy="selectin",
+    )
+
+
+class EnergyCarbonBudgetAdjustment(TeamScopedMixin, BigIntAuditBase):
+    """能碳预算调整记录。"""
+
+    __tablename__ = "dataapp_energycarbonbudgetadjustment"
+    __table_args__ = (
+        UniqueConstraint("team_id", "adjustment_no", name="uq_energy_carbon_budget_adjustment_team_no"),
+        Index("ix_energy_carbon_budget_adjustment_plan", "team_id", "plan_id", "status"),
+        Index("ix_energy_carbon_budget_adjustment_month", "team_id", "effective_month"),
+    )
+
+    plan_id: Mapped[int] = mapped_column(ForeignKey("dataapp_energycarbonbudgetplan.id", ondelete="CASCADE"), index=True)
+    allocation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dataapp_energycarbonbudgetallocation.id", ondelete="SET NULL"),
+        index=True,
+    )
+    adjustment_no: Mapped[str] = mapped_column(String(64), index=True)
+    adjustment_type: Mapped[str] = mapped_column(String(32), default="reforecast", index=True)
+    effective_month: Mapped[date | None] = mapped_column(Date, index=True)
+    original_energy_budget_tce: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    original_carbon_budget_co2e: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    adjusted_energy_budget_tce: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    adjusted_carbon_budget_co2e: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    reason: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    requested_by: Mapped[str | None] = mapped_column(String(64))
+    approved_by: Mapped[str | None] = mapped_column(String(64))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    confidence_level: Mapped[str | None] = mapped_column(String(16))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    plan: Mapped[EnergyCarbonBudgetPlan] = relationship(
+        back_populates="adjustments",
+        lazy="selectin",
+    )
+    allocation: Mapped[EnergyCarbonBudgetAllocation | None] = relationship(
+        back_populates="adjustments",
+        lazy="selectin",
+    )
 
 
 class EnergyIntervalFact(TeamScopedMixin, BigIntAuditBase):
