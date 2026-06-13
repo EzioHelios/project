@@ -146,13 +146,44 @@ type MaterialPackage = {
 }
 
 type ReportContext = {
-  template: { name: string; path: string; format: string }
+  template: TemplateVersion
   standard: { name: string; code: string; source_name: string }
   inventory: {
     totals: { total_t_co2e: number; total_kg_co2e: number }
     source_summary: { scope: string; record_label: string; record_count: number; t_co2e: number }[]
   }
   export_fields: { field: string; source: string }[]
+}
+
+type TemplateVersions = {
+  items: TemplateVersion[]
+  active?: TemplateVersion | null
+  total: number
+  limit: number
+  offset: number
+}
+
+type TemplateVersion = {
+  id?: number | null
+  template_code: string
+  template_name: string
+  name: string
+  version: string
+  format: string
+  template_format: string
+  path: string
+  template_path: string
+  applicable_industry?: string | null
+  applicable_scope?: string | null
+  standard_name?: string | null
+  standard_code?: string | null
+  source_name?: string | null
+  status: string
+  is_default: boolean
+  effective_from?: string | null
+  effective_to?: string | null
+  confidence_level?: string | null
+  remark?: string | null
 }
 
 type ExportJobs = {
@@ -563,6 +594,10 @@ export function VerificationReportPanel() {
     queryKey: ["carbon-verification", "export-jobs"],
     queryFn: () => fetchCarbonApi<ExportJobs>("/api/carbon/verification/export-jobs?limit=20"),
   })
+  const templatesQuery = useQuery<ApiEnvelope<TemplateVersions>>({
+    queryKey: ["carbon-verification", "templates"],
+    queryFn: () => fetchCarbonApi<TemplateVersions>("/api/carbon/verification/templates?limit=50"),
+  })
   const createExport = useMutation({
     mutationFn: () =>
       postCarbonApi<ExportJob>("/api/carbon/verification/export-jobs", {
@@ -577,9 +612,35 @@ export function VerificationReportPanel() {
       toast.error(error instanceof Error ? error.message : "导出失败")
     },
   })
+  const ensureTemplate = useMutation({
+    mutationFn: () => postCarbonApi<TemplateVersion>("/api/carbon/verification/templates/ensure-default", {}),
+    onSuccess: () => {
+      toast.success("默认模板已登记")
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "templates"] })
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "report"] })
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "summary"] })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "登记默认模板失败")
+    },
+  })
+  const updateTemplate = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) => patchCarbonApi<TemplateVersion>(`/api/carbon/verification/templates/${id}`, data),
+    onSuccess: () => {
+      toast.success("模板版本已更新")
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "templates"] })
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "report"] })
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "summary"] })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "更新模板版本失败")
+    },
+  })
   const summary = summaryQuery.data?.data
   const report = reportQuery.data?.data
   const jobs = jobsQuery.data?.data.items ?? []
+  const templates = templatesQuery.data?.data
+  const templateRows = templates?.items.length ? templates.items : templates?.active ? [templates.active] : []
 
   return (
     <div className="space-y-4">
@@ -619,6 +680,58 @@ export function VerificationReportPanel() {
                 </TableRow>
               ))}
               {!report?.inventory.source_summary?.length ? <EmptyRow colSpan={4} /> : null}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardTitle>报告模板版本</CardTitle>
+          <Button variant="outline" size="sm" onClick={() => ensureTemplate.mutate()} disabled={ensureTemplate.isPending}>
+            登记默认模板
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>模板</TableHead>
+                <TableHead>版本</TableHead>
+                <TableHead>标准</TableHead>
+                <TableHead>适用范围</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead>默认</TableHead>
+                <TableHead className="w-[190px]">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {templateRows.map((item) => (
+                <TableRow key={item.id ?? `${item.template_code}-${item.version}`}>
+                  <TableCell>
+                    <div className="font-medium">{item.template_name || item.name}</div>
+                    <div className="max-w-[320px] truncate text-xs text-muted-foreground">{item.template_path || item.path}</div>
+                  </TableCell>
+                  <TableCell>{item.version}</TableCell>
+                  <TableCell>
+                    <div>{item.standard_name ?? "-"}</div>
+                    <div className="text-xs text-muted-foreground">{item.standard_code ?? "-"}</div>
+                  </TableCell>
+                  <TableCell>{item.applicable_scope ?? item.applicable_industry ?? "-"}</TableCell>
+                  <TableCell>
+                    <TemplateStatusBadge status={item.status} />
+                  </TableCell>
+                  <TableCell>{item.is_default ? "是" : "否"}</TableCell>
+                  <TableCell>
+                    <TemplateActions
+                      template={item}
+                      onEnsure={() => ensureTemplate.mutate()}
+                      onUpdate={(id, patch) => updateTemplate.mutate({ id, data: patch })}
+                      disabled={ensureTemplate.isPending || updateTemplate.isPending}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!templateRows.length ? <EmptyRow colSpan={7} /> : null}
             </TableBody>
           </Table>
         </CardContent>
@@ -780,6 +893,45 @@ function FindingActions({ finding, onUpdate, disabled }: { finding: Verification
       整改中
     </Button>
   )
+}
+
+function TemplateActions({
+  template,
+  onEnsure,
+  onUpdate,
+  disabled,
+}: {
+  template: TemplateVersion
+  onEnsure: () => void
+  onUpdate: (id: number, patch: Record<string, unknown>) => void
+  disabled?: boolean
+}) {
+  if (!template.id) {
+    return (
+      <Button variant="outline" size="sm" onClick={onEnsure} disabled={disabled}>
+        登记
+      </Button>
+    )
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {!template.is_default ? (
+        <Button variant="outline" size="sm" onClick={() => onUpdate(template.id as number, { is_default: true, status: "active" })} disabled={disabled}>
+          设默认
+        </Button>
+      ) : null}
+      <Button variant="outline" size="sm" onClick={() => onUpdate(template.id as number, { status: template.status === "active" ? "disabled" : "active" })} disabled={disabled}>
+        {template.status === "active" ? "停用" : "启用"}
+      </Button>
+    </div>
+  )
+}
+
+function TemplateStatusBadge({ status }: { status?: string }) {
+  if (status === "active") return <Badge>启用</Badge>
+  if (status === "disabled") return <Badge variant="secondary">停用</Badge>
+  if (status === "draft") return <Badge variant="outline">草稿</Badge>
+  return <Badge variant="outline">{status || "-"}</Badge>
 }
 
 function ExportJobStatusBadge({ status }: { status?: string }) {

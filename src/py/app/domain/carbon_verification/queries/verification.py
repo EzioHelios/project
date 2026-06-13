@@ -1,4 +1,3 @@
-# ruff: noqa: RUF001
 from __future__ import annotations
 
 import datetime
@@ -16,15 +15,18 @@ from app.domain.carbon_verification.domain.policies import (
     material_readiness,
     record_material_status,
 )
+from app.domain.carbon_verification.queries.templates import CarbonVerificationTemplateQueryService
+from app.domain.carbon_verification.queries.verification_constants import (
+    REPORT_STANDARD_CODE,
+    REPORT_STANDARD_NAME,
+    REPORT_TEMPLATE_PATH,
+)
 from app.domain.energy.controllers._utils import model_to_dict
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
-REPORT_TEMPLATE_PATH = "docs/评价方案/templates/工业企业温室气体排放盘查报告与核查材料包通用模板.docx"
-REPORT_STANDARD_NAME = "工业其他行业企业温室气体排放核算方法与报告指南（试行）"
-REPORT_STANDARD_CODE = "发改办气候〔2015〕1722号附件"
 YEAR_MONTH_LENGTH = 7
 
 
@@ -49,17 +51,18 @@ class CarbonVerificationQueryService:
         issues = [issue for record in records if (issue := issue_for_status(record)) is not None]
         totals = _inventory_totals(records)
         statuses = [record["material_status"] for record in records]
+        template = await CarbonVerificationTemplateQueryService(self._session).active_template()
         return {
             "enterprise": enterprise,
             "reporting_period": _reporting_period(query.year, records),
-            "standard": _standard_payload(),
+            "standard": _standard_payload(template),
             "totals": totals,
             "status_summary": _count_by(records, "material_status"),
             "scope_summary": _scope_summary(records),
             "record_count": len(records),
             "issue_count": len(issues),
             "readiness": material_readiness(statuses),
-            "template": _template_payload(),
+            "template": template,
         }
 
     async def evidence_manifest(self, query: VerificationQuery) -> dict[str, Any]:
@@ -96,11 +99,12 @@ class CarbonVerificationQueryService:
         audit_trail = await self.audit_trail(query)
         finding_count = int(await self._session.scalar(select(func.count(m.CarbonVerificationFinding.id))) or 0)
         groups = _material_groups(records, evidence, issues, audit_trail, finding_count=finding_count)
+        template = await CarbonVerificationTemplateQueryService(self._session).active_template()
         return {
             "package_code": f"org-ghg-{query.year or 'all'}",
             "readiness": material_readiness([record["material_status"] for record in records]),
             "groups": groups,
-            "manifest": _package_manifest(query, groups),
+            "manifest": _package_manifest(query, groups, template=template),
             "filters": _filters(query),
         }
 
@@ -108,9 +112,10 @@ class CarbonVerificationQueryService:
         records = await self._filtered_records(query)
         summary = await self.summary(query)
         issues = await self.issues(query)
+        template = await CarbonVerificationTemplateQueryService(self._session).active_template()
         return {
-            "template": _template_payload(),
-            "standard": _standard_payload(),
+            "template": template,
+            "standard": _standard_payload(template),
             "enterprise": summary["enterprise"],
             "reporting_period": summary["reporting_period"],
             "inventory": {
@@ -541,10 +546,10 @@ def _material_groups(
     ]
 
 
-def _package_manifest(query: VerificationQuery, groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _package_manifest(query: VerificationQuery, groups: list[dict[str, Any]], *, template: dict[str, Any]) -> list[dict[str, Any]]:
     year = query.year or "all"
     return [
-        {"path": f"report/{year}-organization-ghg-report.docx", "type": "report", "source": REPORT_TEMPLATE_PATH},
+        {"path": f"report/{year}-organization-ghg-report.docx", "type": "report", "source": template.get("template_path") or template.get("path") or REPORT_TEMPLATE_PATH},
         {"path": f"report/{year}-organization-ghg-report.pdf", "type": "report_pdf", "source": "rendered_from_docx"},
         {"path": f"data/{year}-activity-data.xlsx", "type": "activity_data", "source": "carbon_accounting"},
         {"path": f"data/{year}-factor-parameters.xlsx", "type": "factor_parameters", "source": "factor_library"},
@@ -577,20 +582,12 @@ def _reporting_period(year: int | None, records: list[dict[str, Any]]) -> dict[s
     }
 
 
-def _standard_payload() -> dict[str, str]:
+def _standard_payload(template: dict[str, Any] | None = None) -> dict[str, str]:
     return {
-        "name": REPORT_STANDARD_NAME,
-        "code": REPORT_STANDARD_CODE,
-        "source_name": "国家发展改革委办公厅",
+        "name": str((template or {}).get("standard_name") or REPORT_STANDARD_NAME),
+        "code": str((template or {}).get("standard_code") or REPORT_STANDARD_CODE),
+        "source_name": str((template or {}).get("source_name") or "国家发展改革委办公厅"),
         "applicable_scope": "工业其他行业企业组织层面温室气体排放报告",
-    }
-
-
-def _template_payload() -> dict[str, str]:
-    return {
-        "name": "工业企业温室气体排放盘查报告与核查材料包通用模板",
-        "path": REPORT_TEMPLATE_PATH,
-        "format": "docx",
     }
 
 

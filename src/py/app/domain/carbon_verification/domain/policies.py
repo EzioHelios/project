@@ -30,6 +30,11 @@ ATTACHMENT_REJECTED = "rejected"
 ATTACHMENT_STATUSES = {ATTACHMENT_PENDING_UPLOAD, ATTACHMENT_READY, ATTACHMENT_ARCHIVED, ATTACHMENT_REJECTED}
 ATTACHMENT_TYPES = {"supporting_document", "invoice", "meter_record", "calibration_certificate", "inspection_report", "other"}
 
+TEMPLATE_ACTIVE = "active"
+TEMPLATE_DISABLED = "disabled"
+TEMPLATE_DRAFT = "draft"
+TEMPLATE_STATUSES = {TEMPLATE_ACTIVE, TEMPLATE_DISABLED, TEMPLATE_DRAFT}
+
 
 @dataclass(frozen=True, slots=True)
 class VerificationRule:
@@ -153,3 +158,14 @@ def attachment_material_status(status: str, file_path: str | None) -> str:
     if status == ATTACHMENT_REJECTED:
         return REJECTED_STATUS
     return MISSING_EVIDENCE_STATUS
+
+
+def validate_template_status(status: str) -> None:
+    if status not in TEMPLATE_STATUSES:
+        msg = f"不支持的报告模板状态: {status}"
+        raise ValueError(msg)
+
+
+def template_usable(status: str) -> bool:
+    validate_template_status(status)
+    return status == TEMPLATE_ACTIVE

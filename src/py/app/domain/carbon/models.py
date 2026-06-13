@@ -1863,6 +1863,34 @@ class CarbonVerificationAttachment(TeamScopedMixin, BigIntAuditBase):
     remark: Mapped[str | None] = mapped_column(Text)
 
 
+class CarbonVerificationTemplateVersion(TeamScopedMixin, BigIntAuditBase):
+    """Report template version metadata for carbon verification exports."""
+
+    __tablename__ = "carbon_verification_template_version"
+    __table_args__ = (
+        UniqueConstraint("team_id", "template_code", "version", name="uq_carbon_verification_template_team_code_version"),
+        Index("ix_carbon_verification_template_status", "team_id", "status", "is_default"),
+        Index("ix_carbon_verification_template_standard", "team_id", "standard_code", "applicable_industry"),
+    )
+
+    template_code: Mapped[str] = mapped_column(String(64), index=True)
+    template_name: Mapped[str] = mapped_column(String(255))
+    version: Mapped[str] = mapped_column(String(32), default="v1.0", index=True)
+    template_format: Mapped[str] = mapped_column(String(16), default="docx")
+    template_path: Mapped[str] = mapped_column(String(512))
+    applicable_industry: Mapped[str | None] = mapped_column(String(128), index=True)
+    applicable_scope: Mapped[str | None] = mapped_column(String(255))
+    standard_name: Mapped[str | None] = mapped_column(String(255))
+    standard_code: Mapped[str | None] = mapped_column(String(128), index=True)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    effective_from: Mapped[date | None] = mapped_column(Date)
+    effective_to: Mapped[date | None] = mapped_column(Date)
+    confidence_level: Mapped[str | None] = mapped_column(String(16))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
 class CarbonCompliancePeriod(TeamScopedMixin, BigIntAuditBase):
     """Carbon market compliance period bound to an organization inventory."""
 

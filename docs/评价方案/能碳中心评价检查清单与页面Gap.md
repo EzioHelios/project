@@ -517,7 +517,8 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | 核查问题 | `GET /api/carbon/verification/issues` 按缺凭证、缺因子、缺核算结果、待审核、已驳回生成问题清单 | 补问题生命周期、责任人、整改复核和关闭状态 |
 | 审核轨迹 | `GET /api/carbon/verification/audit-trail` 读取 `CarbonAuditLog` 并按盘查范围过滤 | 补核查机构/核查员视角的独立核查记录 |
 | 材料包目录 | `GET /api/carbon/verification/material-package` 输出材料组、就绪状态和导出 manifest，质量和证据计数已纳入独立附件 | 后续接附件原件打包、对象存储和大文件保留策略 |
-| 报告上下文 | `GET /api/carbon/verification/report` 输出通用 DOCX 模板字段、活动数据、因子参数、排放汇总和问题清单 | 已接入导出任务 DOCX/PDF 渲染；后续补模板版本管理 |
+| 报告上下文 | `GET /api/carbon/verification/report` 输出通用 DOCX 模板字段、活动数据、因子参数、排放汇总和问题清单 | 已接入导出任务 DOCX/PDF 渲染和模板版本读取 |
+| 报告模板版本 | `GET/POST/PATCH /api/carbon/verification/templates` 管理模板名称、版本、标准来源、适用行业、文件路径、启停和默认模板；`POST /api/carbon/verification/templates/ensure-default` 登记仓库内置通用模板 | 后续补行业模板导入、模板文件上传和审批发布 |
 | 导出任务 | `POST /api/carbon/verification/export-jobs` 生成 ZIP；`GET /api/carbon/verification/export-jobs` 查看历史；`GET /api/carbon/verification/export-jobs/{job_id}/download` 下载文件 | 后续补异步队列、大文件存储、导出保留期和失败重试 |
 | 核查发现 | `GET/POST/PATCH /api/carbon/verification/findings` 维护自动问题升级、整改中、待复核和关闭状态 | 后续补正式核查项目、责任人权限、附件证据和消息通知 |
 | 核查附件 | `GET/POST/PATCH /api/carbon/verification/attachments` 维护凭证原件元数据、来源对象、类型、路径、哈希、状态和版本 | 后续补实际文件上传、OCR 和附件原件入包 |
@@ -529,11 +530,11 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | 凭证清单 | 已接入凭证清单和独立附件接口，展示凭证数、独立附件数、缺失凭证、凭证明细和附件台账，并支持登记凭证路径或 URL |
 | 质量问题 | 已接入自动问题和核查发现接口，支持把自动问题升级为发现，并维护整改中、待复核和关闭状态 |
 | 核查材料包 | 已接入材料组和 manifest，不再显示建设中说明 |
-| 报告导出 | 已接入报告上下文、分源汇总、模板字段映射、生成材料包按钮和导出记录下载 |
+| 报告导出 | 已接入报告上下文、分源汇总、报告模板版本、模板字段映射、生成材料包按钮和导出记录下载 |
 
 ### 3. 领域关系
 
-`carbon_verification` 当前拥有读模型、独立附件、核查发现、报告渲染器和导出任务：只读取 `carbon_accounting`、`factor_library`、`master_data` 和 `CarbonAuditLog`，不修改 Scope 活动事实；独立附件落到 `CarbonVerificationAttachment`，承接凭证原件元数据、来源对象、文件路径、哈希、状态和版本；核查发现落到 `CarbonVerificationFinding`，承接自动问题升级、整改、复核和关闭；导出任务落到 `CarbonVerificationExportJob` 和 `CarbonVerificationExportFile`，生成 ZIP 包中的 manifest、DOCX/PDF 报告、报告上下文、活动数据、因子参数、问题清单和审核轨迹。通用 DOCX 模板已升级到 `organization_ghg_generic_v2026_06_13`，后续如果要形成正式核查项目，应新增核查项目、附件原件对象存储、整改责任人权限和消息通知，并继续保持对核算事实只读。
+`carbon_verification` 当前拥有读模型、模板版本、独立附件、核查发现、报告渲染器和导出任务：只读取 `carbon_accounting`、`factor_library`、`master_data` 和 `CarbonAuditLog`，不修改 Scope 活动事实；模板版本落到 `CarbonVerificationTemplateVersion`，承接模板名称、版本、标准来源、适用行业、文件路径、启停和默认模板；独立附件落到 `CarbonVerificationAttachment`，承接凭证原件元数据、来源对象、文件路径、哈希、状态和版本；核查发现落到 `CarbonVerificationFinding`，承接自动问题升级、整改、复核和关闭；导出任务落到 `CarbonVerificationExportJob` 和 `CarbonVerificationExportFile`，生成 ZIP 包中的 manifest、DOCX/PDF 报告、报告上下文、活动数据、因子参数、问题清单和审核轨迹。通用 DOCX 模板已升级到 `organization_ghg_generic_v2026_06_13`，后续如果要形成正式核查项目，应新增核查项目、附件原件对象存储、整改责任人权限和消息通知，并继续保持对核算事实只读。
 
 ## 十三、2026-06-13 组织碳盘查报告模板与材料包导出设计记录
 
@@ -560,7 +561,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | --- | --- |
 | 导出上下文与模板变量映射 | 明确 `/api/carbon/verification/report` 到 DOCX 占位符的字段来源和缺失处理 |
 | 核查材料包 ZIP 文件树 | 明确 `manifest`、报告、数据、附件、质量问题和审核轨迹的导出路径 |
-| 后续实现拆分任务 | 明确 `ReportTemplateVersion`、`ReportDocumentRenderer`、`VerificationAttachment`、`VerificationFinding`、`MaterialPackageAssembler` 和 `InventorySnapshotReader` 的边界；`VerificationAttachment` 和 `VerificationFinding` 已完成首版 |
+| 后续实现拆分任务 | 明确 `ReportTemplateVersion`、`ReportDocumentRenderer`、`VerificationAttachment`、`VerificationFinding`、`MaterialPackageAssembler` 和 `InventorySnapshotReader` 的边界；`ReportTemplateVersion`、`VerificationAttachment` 和 `VerificationFinding` 已完成首版 |
 
 ### 3. 后续验收
 
@@ -568,7 +569,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | --- | --- |
 | DOCX 渲染 | 已实现首版，导出 ZIP 中真实包含填充后的 `organization-ghg-report.docx`，而不是只有 `report-context.json` |
 | PDF 渲染 | 已实现首版，DOCX 可转为 PDF 并写入 `CarbonVerificationExportFile`，保留哈希和大小 |
-| 模板版本 | 导出任务记录模板版本、标准来源、适用行业和文件路径 |
+| 模板版本 | 已实现首版，报告上下文和材料包读取启用模板，页面可登记默认模板、设默认和启停模板版本 |
 | 附件实体 | 已实现首版，凭证原件、校准证书、检测报告等不再只依赖 Scope 记录的单一附件字段 |
 | 核查发现 | 已实现首版，自动问题可升级为可整改、复核、关闭的核查发现 |
 | 锁定清单 | 正式导出优先读取已发布组织边界和已锁定组织排放清单 |

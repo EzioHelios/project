@@ -8,10 +8,12 @@ from litestar.response import File, Response
 
 from app.domain.carbon_verification.queries.attachments import AttachmentQuery, CarbonVerificationAttachmentQueryService
 from app.domain.carbon_verification.queries.findings import CarbonVerificationFindingQueryService, FindingQuery
+from app.domain.carbon_verification.queries.templates import CarbonVerificationTemplateQueryService, TemplateQuery
 from app.domain.carbon_verification.queries.verification import CarbonVerificationQueryService, VerificationQuery
 from app.domain.carbon_verification.usecases.attachments import CarbonVerificationAttachmentUseCase
 from app.domain.carbon_verification.usecases.export import CarbonVerificationExportUseCase
 from app.domain.carbon_verification.usecases.findings import CarbonVerificationFindingUseCase
+from app.domain.carbon_verification.usecases.templates import CarbonVerificationTemplateUseCase
 from app.domain.energy.controllers._utils import ok_data
 
 if TYPE_CHECKING:
@@ -186,6 +188,53 @@ class CarbonVerificationController(Controller):
             _query(year=year, status=status, scope=scope, limit=limit, offset=offset)
         )
         return Response(content=ok_data(data))
+
+    @get("/api/carbon/verification/templates")
+    async def list_verification_templates(
+        self,
+        db_session: AsyncSession,
+        status: str | None = None,
+        applicable_industry: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Response[dict]:
+        data = await CarbonVerificationTemplateQueryService(db_session).list_templates(
+            TemplateQuery(status=status, applicable_industry=applicable_industry, limit=max(1, min(limit, 500)), offset=max(0, offset))
+        )
+        return Response(content=ok_data(data))
+
+    @post("/api/carbon/verification/templates")
+    async def create_verification_template(
+        self,
+        db_session: AsyncSession,
+        data: dict = EXPORT_BODY,
+    ) -> Response[dict]:
+        try:
+            template = await CarbonVerificationTemplateUseCase(db_session).create_template(data)
+            payload = await CarbonVerificationTemplateQueryService(db_session).get_template(template.id)
+        except ValueError as exc:
+            return Response(content={"code": 400, "msg": str(exc)}, status_code=400)
+        return Response(content=ok_data(payload))
+
+    @post("/api/carbon/verification/templates/ensure-default")
+    async def ensure_default_verification_template(self, db_session: AsyncSession) -> Response[dict]:
+        template = await CarbonVerificationTemplateUseCase(db_session).ensure_default_template()
+        payload = await CarbonVerificationTemplateQueryService(db_session).get_template(template.id)
+        return Response(content=ok_data(payload))
+
+    @patch("/api/carbon/verification/templates/{template_id:int}")
+    async def update_verification_template(
+        self,
+        db_session: AsyncSession,
+        template_id: int,
+        data: dict = EXPORT_BODY,
+    ) -> Response[dict]:
+        try:
+            template = await CarbonVerificationTemplateUseCase(db_session).update_template(template_id, data)
+            payload = await CarbonVerificationTemplateQueryService(db_session).get_template(template.id)
+        except ValueError as exc:
+            return Response(content={"code": 400, "msg": str(exc)}, status_code=400)
+        return Response(content=ok_data(payload))
 
     @get("/api/carbon/verification/report")
     async def get_verification_report_context(
