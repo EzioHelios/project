@@ -777,6 +777,8 @@ classDiagram
 | `GET/POST/PATCH /api/carbon/supply-chain/tasks` | 填报任务。 |
 | `POST /api/carbon/supply-chain/tasks/{id}/submit|approve|reject` | 状态流转。 |
 | `GET/POST /api/carbon/supply-chain/tasks/{id}/data` | 填报数据。 |
+| `GET/POST /api/carbon/supply-chain/tasks/{id}/evidence` | 证据。 |
+| `GET /api/carbon/supply-chain/releases`、`POST /api/carbon/supply-chain/tasks/{id}/releases` | 下游披露记录。 |
 | `GET /api/carbon/supply-chain/analysis` | 高碳环节、供应商排行和建议读模型。 |
 
 页面 Tabs 建议：
@@ -788,6 +790,16 @@ classDiagram
 | 数据审核 | 审核活动数据、PCF 数据和证据。 |
 | 下游披露 | 冻结并导出面向客户的产品足迹过程和结果。 |
 | 供应链分析 | 识别高碳供应商、高碳品类、风险等级和优化建议。 |
+
+2026-06-13 首版实现：
+
+| 层次 | 实现 |
+| --- | --- |
+| 数据模型 | 新增 `SupplyChainSupplier`、`SupplierSite`、`SupplierDisclosureTask`、`SupplierCarbonData`、`SupplierEvidence`、`SupplierReviewDecision`、`SupplierDisclosureRelease` 七类租户模型和迁移。 |
+| 应用层 | 新增 `domain/supply_chain_carbon`，按 policy/usecase/query/controller 分层；任务提交后才能审核，驳回/补正必须有原因，审核通过后数据才标记 verified/approved。 |
+| API | 首版开放供应商、场站、任务、数据、证据、审核流转、披露记录、汇总和分析接口，路径统一在 `/api/carbon/supply-chain/*`。 |
+| 前端 | `/carbon/supply-chain` 替换建设中占位，提供“供应商档案、填报任务、数据审核、下游披露、供应链分析”五个业务 Tab。 |
+| 边界保留 | 当前不实现外部供应商门户、Excel/API 导入、自动催办、正式发布到 Scope3/PCF 的转换用例和采购替代方案闭环。 |
 
 ### 7.5 碳资产管理 `carbon_assets`
 

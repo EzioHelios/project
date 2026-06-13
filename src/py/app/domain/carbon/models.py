@@ -891,6 +891,195 @@ class ProductFootprintResult(TeamScopedMixin, BigIntAuditBase):
     study: Mapped[ProductFootprintStudy] = relationship(back_populates="results", lazy="selectin")
 
 
+class SupplyChainSupplier(TeamScopedMixin, BigIntAuditBase):
+    """Supplier profile for supply-chain carbon collaboration."""
+
+    __tablename__ = "carbon_supply_chain_supplier"
+    __table_args__ = (
+        UniqueConstraint("team_id", "supplier_code", name="uq_supply_chain_supplier_team_code"),
+        Index("ix_supply_chain_supplier_status", "team_id", "status", "risk_level"),
+        Index("ix_supply_chain_supplier_industry", "team_id", "industry"),
+    )
+
+    supplier_code: Mapped[str] = mapped_column(String(64), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    industry: Mapped[str | None] = mapped_column(String(128), index=True)
+    supplier_type: Mapped[str | None] = mapped_column(String(32), index=True)
+    contact_name: Mapped[str | None] = mapped_column(String(64))
+    contact_email: Mapped[str | None] = mapped_column(String(128))
+    country_region: Mapped[str | None] = mapped_column(String(128))
+    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
+    risk_level: Mapped[str] = mapped_column(String(16), default="medium", index=True)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    sites: Mapped[list[SupplierSite]] = relationship(back_populates="supplier", cascade="all, delete-orphan", lazy="selectin")
+    tasks: Mapped[list[SupplierDisclosureTask]] = relationship(back_populates="supplier", cascade="all, delete-orphan", lazy="selectin")
+
+
+class SupplierSite(TeamScopedMixin, BigIntAuditBase):
+    """Supplier site or facility used for supplier carbon data scope."""
+
+    __tablename__ = "carbon_supplier_site"
+    __table_args__ = (
+        UniqueConstraint("team_id", "supplier_id", "site_code", name="uq_supplier_site_team_code"),
+        Index("ix_supplier_site_supplier_status", "team_id", "supplier_id", "status"),
+    )
+
+    supplier_id: Mapped[int] = mapped_column(ForeignKey("carbon_supply_chain_supplier.id", ondelete="CASCADE"), index=True)
+    site_code: Mapped[str] = mapped_column(String(64), index=True)
+    site_name: Mapped[str] = mapped_column(String(128))
+    country_region: Mapped[str | None] = mapped_column(String(128))
+    address: Mapped[str | None] = mapped_column(String(255))
+    facility_scope: Mapped[str | None] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    supplier: Mapped[SupplyChainSupplier] = relationship(back_populates="sites", lazy="selectin")
+
+
+class SupplierDisclosureTask(TeamScopedMixin, BigIntAuditBase):
+    """Supplier disclosure and data-collection task aggregate root."""
+
+    __tablename__ = "carbon_supplier_disclosure_task"
+    __table_args__ = (
+        UniqueConstraint("team_id", "task_no", name="uq_supplier_disclosure_task_team_no"),
+        Index("ix_supplier_disclosure_task_supplier_status", "team_id", "supplier_id", "status"),
+        Index("ix_supplier_disclosure_task_period", "team_id", "period_start", "period_end"),
+    )
+
+    task_no: Mapped[str] = mapped_column(String(64), index=True)
+    task_name: Mapped[str] = mapped_column(String(128))
+    supplier_id: Mapped[int] = mapped_column(ForeignKey("carbon_supply_chain_supplier.id", ondelete="CASCADE"), index=True)
+    task_type: Mapped[str] = mapped_column(String(32), default="mixed", index=True)
+    product_id: Mapped[int | None] = mapped_column(ForeignKey("dataapp_productionproduct.id", ondelete="SET NULL"), index=True)
+    product_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    product_name: Mapped[str | None] = mapped_column(String(128))
+    period_start: Mapped[date] = mapped_column(Date, index=True)
+    period_end: Mapped[date] = mapped_column(Date, index=True)
+    due_date: Mapped[date | None] = mapped_column(Date, index=True)
+    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime)
+    rejected_at: Mapped[datetime | None] = mapped_column(DateTime)
+    requested_by: Mapped[str | None] = mapped_column(String(128))
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    confidence_level: Mapped[str | None] = mapped_column(String(16))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    supplier: Mapped[SupplyChainSupplier] = relationship(back_populates="tasks", lazy="selectin")
+    product: Mapped[ProductionProduct | None] = relationship(lazy="selectin")
+    data_items: Mapped[list[SupplierCarbonData]] = relationship(back_populates="task", cascade="all, delete-orphan", lazy="selectin")
+    evidence_items: Mapped[list[SupplierEvidence]] = relationship(back_populates="task", cascade="all, delete-orphan", lazy="selectin")
+    review_decisions: Mapped[list[SupplierReviewDecision]] = relationship(back_populates="task", cascade="all, delete-orphan", lazy="selectin")
+    releases: Mapped[list[SupplierDisclosureRelease]] = relationship(back_populates="task", cascade="all, delete-orphan", lazy="selectin")
+
+
+class SupplierCarbonData(TeamScopedMixin, BigIntAuditBase):
+    """Supplier activity or PCF data submitted under a disclosure task."""
+
+    __tablename__ = "carbon_supplier_carbon_data"
+    __table_args__ = (
+        UniqueConstraint("team_id", "task_id", "data_no", name="uq_supplier_carbon_data_team_no"),
+        Index("ix_supplier_carbon_data_supplier_type", "team_id", "supplier_id", "data_type"),
+        Index("ix_supplier_carbon_data_status", "team_id", "task_id", "status"),
+    )
+
+    task_id: Mapped[int] = mapped_column(ForeignKey("carbon_supplier_disclosure_task.id", ondelete="CASCADE"), index=True)
+    supplier_id: Mapped[int] = mapped_column(ForeignKey("carbon_supply_chain_supplier.id", ondelete="CASCADE"), index=True)
+    data_no: Mapped[str] = mapped_column(String(64), index=True)
+    data_type: Mapped[str] = mapped_column(String(32), default="activity", index=True)
+    scope_category: Mapped[str | None] = mapped_column(String(64), index=True)
+    product_id: Mapped[int | None] = mapped_column(ForeignKey("dataapp_productionproduct.id", ondelete="SET NULL"), index=True)
+    product_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    product_name: Mapped[str | None] = mapped_column(String(128))
+    material_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    material_name: Mapped[str | None] = mapped_column(String(128))
+    activity_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    activity_unit: Mapped[str | None] = mapped_column(String(32))
+    pcf_value: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    pcf_unit: Mapped[str | None] = mapped_column(String(64))
+    co2e_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    factor_source: Mapped[str | None] = mapped_column(String(255))
+    boundary_type: Mapped[str | None] = mapped_column(String(32), index=True)
+    data_quality: Mapped[str] = mapped_column(String(32), default="supplier_reported", index=True)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    validity_start: Mapped[date | None] = mapped_column(Date)
+    validity_end: Mapped[date | None] = mapped_column(Date)
+    source_type: Mapped[str | None] = mapped_column(String(32))
+    source_ref: Mapped[str | None] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    published_to_scope3: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    published_to_pcf: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    task: Mapped[SupplierDisclosureTask] = relationship(back_populates="data_items", lazy="selectin")
+    supplier: Mapped[SupplyChainSupplier] = relationship(lazy="selectin")
+    product: Mapped[ProductionProduct | None] = relationship(lazy="selectin")
+
+
+class SupplierEvidence(TeamScopedMixin, BigIntAuditBase):
+    """Evidence submitted for a supplier disclosure task."""
+
+    __tablename__ = "carbon_supplier_evidence"
+    __table_args__ = (
+        UniqueConstraint("team_id", "task_id", "evidence_no", name="uq_supplier_evidence_team_no"),
+        Index("ix_supplier_evidence_task_status", "team_id", "task_id", "review_status"),
+    )
+
+    task_id: Mapped[int] = mapped_column(ForeignKey("carbon_supplier_disclosure_task.id", ondelete="CASCADE"), index=True)
+    evidence_no: Mapped[str] = mapped_column(String(64), index=True)
+    evidence_type: Mapped[str] = mapped_column(String(64), index=True)
+    file_name: Mapped[str] = mapped_column(String(255))
+    file_path: Mapped[str | None] = mapped_column(String(512))
+    file_sha256: Mapped[str | None] = mapped_column(String(64))
+    file_size_bytes: Mapped[int | None] = mapped_column(Integer)
+    review_status: Mapped[str] = mapped_column(String(24), default="pending", index=True)
+    submitted_by: Mapped[str | None] = mapped_column(String(128))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    task: Mapped[SupplierDisclosureTask] = relationship(back_populates="evidence_items", lazy="selectin")
+
+
+class SupplierReviewDecision(TeamScopedMixin, BigIntAuditBase):
+    """Review decision for supplier task submission."""
+
+    __tablename__ = "carbon_supplier_review_decision"
+    __table_args__ = (Index("ix_supplier_review_decision_task", "team_id", "task_id", "decision"),)
+
+    task_id: Mapped[int] = mapped_column(ForeignKey("carbon_supplier_disclosure_task.id", ondelete="CASCADE"), index=True)
+    decision: Mapped[str] = mapped_column(String(24), index=True)
+    reason: Mapped[str | None] = mapped_column(Text)
+    reviewed_by: Mapped[str | None] = mapped_column(String(128))
+    decided_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    task: Mapped[SupplierDisclosureTask] = relationship(back_populates="review_decisions", lazy="selectin")
+
+
+class SupplierDisclosureRelease(TeamScopedMixin, BigIntAuditBase):
+    """Frozen downstream disclosure record for approved supplier data."""
+
+    __tablename__ = "carbon_supplier_disclosure_release"
+    __table_args__ = (
+        UniqueConstraint("team_id", "release_no", name="uq_supplier_disclosure_release_team_no"),
+        Index("ix_supplier_disclosure_release_task", "team_id", "task_id", "status"),
+    )
+
+    release_no: Mapped[str] = mapped_column(String(64), index=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("carbon_supplier_disclosure_task.id", ondelete="CASCADE"), index=True)
+    release_type: Mapped[str] = mapped_column(String(32), default="customer_disclosure", index=True)
+    recipient_name: Mapped[str | None] = mapped_column(String(128))
+    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    released_at: Mapped[datetime | None] = mapped_column(DateTime)
+    payload: Mapped[dict | None] = mapped_column(JSON)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    task: Mapped[SupplierDisclosureTask] = relationship(back_populates="releases", lazy="selectin")
+
+
 class MonitorEquipment(TeamScopedMixin, BigIntBase):
     """监控终端：电表、光伏、摄像头（对应 Django dataapp.MonitorEquipment）。"""
 
