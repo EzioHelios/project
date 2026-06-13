@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Archive, Calculator, CheckCircle2, Download, FileSpreadsheet } from "lucide-react"
+import { Download } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
+import { AdminDataTable, AdminPanel, AdminTableStateRow, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -282,16 +282,16 @@ export function CarbonAccountingResultsPanel() {
     <div className="space-y-4">
       <MetricGrid
         items={[
-          { label: "清单总量(tCO2e)", value: formatNumber(summary?.totals.total_t_co2e ?? (activeBatch?.total_co2e ?? 0) / 1000), icon: Calculator },
-          { label: "纳入记录", value: String(summary?.totals.included_record_count ?? activeBatch?.included_record_count ?? 0), icon: FileSpreadsheet },
-          { label: "缺失结果", value: String(summary?.totals.missing_result_count ?? activeBatch?.missing_result_count ?? 0), icon: Archive },
-          { label: "批次状态", value: statusLabel(activeBatch?.status), icon: CheckCircle2 },
+          { label: "清单总量(tCO2e)", value: formatNumber(summary?.totals.total_t_co2e ?? (activeBatch?.total_co2e ?? 0) / 1000) },
+          { label: "纳入记录", value: String(summary?.totals.included_record_count ?? activeBatch?.included_record_count ?? 0) },
+          { label: "缺失结果", value: String(summary?.totals.missing_result_count ?? activeBatch?.missing_result_count ?? 0) },
+          { label: "批次状态", value: statusLabel(activeBatch?.status) },
         ]}
       />
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3">
-          <CardTitle>核算批次</CardTitle>
+      <AdminPanel
+        title="核算批次"
+        actions={
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
               <Button size="sm">创建批次</Button>
@@ -325,7 +325,9 @@ export function CarbonAccountingResultsPanel() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </CardHeader>
+        }
+        contentClassName="p-0"
+      >
         <Dialog
           open={revisionOpen}
           onOpenChange={(open) => {
@@ -426,7 +428,7 @@ export function CarbonAccountingResultsPanel() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        <CardContent>
+        <AdminDataTable className="rounded-none border-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -511,17 +513,14 @@ export function CarbonAccountingResultsPanel() {
               {!batches.length ? <EmptyRow colSpan={8} label="暂无核算批次" /> : null}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </AdminDataTable>
+      </AdminPanel>
 
       {activeBatch?.is_revision ? <RevisionDiffCard diff={revisionDiffQuery.data?.data} loading={revisionDiffQuery.isLoading} /> : null}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle>范围汇总</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <AdminPanel title="范围汇总" contentClassName="p-0">
+          <AdminDataTable className="rounded-none border-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -543,29 +542,21 @@ export function CarbonAccountingResultsPanel() {
                 {!summary?.scope_summary?.length ? <EmptyRow colSpan={3} label="暂无范围汇总" /> : null}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+          </AdminDataTable>
+        </AdminPanel>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>质量状态</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {Object.entries(summary?.quality_summary ?? {}).map(([status, count]) => (
-              <Badge key={status} variant={status === "ready" ? "default" : "secondary"}>
-                {qualityLabel(status)} {count}
-              </Badge>
-            ))}
-            {!Object.keys(summary?.quality_summary ?? {}).length ? <span className="text-muted-foreground text-sm">暂无质量状态</span> : null}
-          </CardContent>
-        </Card>
+        <AdminPanel title="质量状态" contentClassName="flex flex-wrap gap-2">
+          {Object.entries(summary?.quality_summary ?? {}).map(([status, count]) => (
+            <Badge key={status} variant={status === "ready" ? "default" : "secondary"}>
+              {qualityLabel(status)} {count}
+            </Badge>
+          ))}
+          {!Object.keys(summary?.quality_summary ?? {}).length ? <span className="text-muted-foreground text-sm">暂无质量状态</span> : null}
+        </AdminPanel>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>排放清单</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <AdminPanel title="排放清单" contentClassName="p-0">
+        <AdminDataTable className="rounded-none border-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -599,30 +590,27 @@ export function CarbonAccountingResultsPanel() {
               {!items.length ? <EmptyRow colSpan={8} label="暂无排放清单" /> : null}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </AdminDataTable>
+      </AdminPanel>
     </div>
   )
 }
 
 function RevisionDiffCard({ diff, loading }: { diff?: RevisionDiff; loading: boolean }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>修订差异</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          <Badge variant={diff?.status === "ready" ? "default" : "outline"}>{revisionDiffStatusLabel(diff?.status, loading)}</Badge>
-          {diff?.parent_batch?.batch_no ? <Badge variant="secondary">来源 {diff.parent_batch.batch_no}</Badge> : null}
-        </div>
-        <div className="grid gap-3 md:grid-cols-4">
-          <DiffMetric label="原清单" value={formatNumber(diff?.totals.parent_t_co2e)} unit="tCO2e" />
-          <DiffMetric label="修订后" value={formatNumber(diff?.totals.current_t_co2e)} unit="tCO2e" />
-          <DiffMetric label="差异" value={formatSignedNumber(diff?.totals.delta_t_co2e)} unit="tCO2e" />
-          <DiffMetric label="变更记录" value={String(diff?.totals.change_count ?? 0)} />
-        </div>
-        <div className="grid gap-4 lg:grid-cols-2">
+    <AdminPanel title="修订差异" contentClassName="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <Badge variant={diff?.status === "ready" ? "default" : "outline"}>{revisionDiffStatusLabel(diff?.status, loading)}</Badge>
+        {diff?.parent_batch?.batch_no ? <Badge variant="secondary">来源 {diff.parent_batch.batch_no}</Badge> : null}
+      </div>
+      <MetricStrip className="md:grid-cols-4 xl:grid-cols-4">
+        <DiffMetric label="原清单" value={formatNumber(diff?.totals.parent_t_co2e)} unit="tCO2e" />
+        <DiffMetric label="修订后" value={formatNumber(diff?.totals.current_t_co2e)} unit="tCO2e" />
+        <DiffMetric label="差异" value={formatSignedNumber(diff?.totals.delta_t_co2e)} unit="tCO2e" />
+        <DiffMetric label="变更记录" value={String(diff?.totals.change_count ?? 0)} />
+      </MetricStrip>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <AdminDataTable>
           <Table>
             <TableHeader>
               <TableRow>
@@ -644,6 +632,8 @@ function RevisionDiffCard({ diff, loading }: { diff?: RevisionDiff; loading: boo
               {!diff?.scope_deltas?.length ? <EmptyRow colSpan={4} label="暂无范围差异" /> : null}
             </TableBody>
           </Table>
+        </AdminDataTable>
+        <AdminDataTable>
           <Table>
             <TableHeader>
               <TableRow>
@@ -667,9 +657,9 @@ function RevisionDiffCard({ diff, loading }: { diff?: RevisionDiff; loading: boo
               {!diff?.changes?.length ? <EmptyRow colSpan={3} label="暂无记录差异" /> : null}
             </TableBody>
           </Table>
-        </div>
-      </CardContent>
-    </Card>
+        </AdminDataTable>
+      </div>
+    </AdminPanel>
   )
 }
 
@@ -735,36 +725,16 @@ function RevisionActions({
 }
 
 function DiffMetric({ label, value, unit }: { label: string; value: string; unit?: string }) {
-  return (
-    <div className="rounded-md border p-3">
-      <span className="block text-muted-foreground text-xs">{label}</span>
-      <span className="font-semibold text-lg">
-        {value} {unit ? <span className="font-normal text-muted-foreground text-xs">{unit}</span> : null}
-      </span>
-    </div>
-  )
+  return <MetricTile label={label} value={value} unit={unit} />
 }
 
-function MetricGrid({ items }: { items: { label: string; value: string; icon: typeof Calculator }[] }) {
+function MetricGrid({ items }: { items: { label: string; value: string }[] }) {
   return (
-    <div className="grid gap-3 md:grid-cols-4">
-      {items.map((item) => {
-        const Icon = item.icon
-        return (
-          <Card key={item.label}>
-            <CardContent className="flex items-center gap-3 p-4">
-              <span className="flex h-9 w-9 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                <Icon className="h-4 w-4" />
-              </span>
-              <span>
-                <span className="block text-muted-foreground text-xs">{item.label}</span>
-                <span className="block font-semibold text-xl">{item.value}</span>
-              </span>
-            </CardContent>
-          </Card>
-        )
-      })}
-    </div>
+    <MetricStrip className="md:grid-cols-4 xl:grid-cols-4">
+      {items.map((item) => (
+        <MetricTile key={item.label} label={item.label} value={item.value} />
+      ))}
+    </MetricStrip>
   )
 }
 
@@ -776,13 +746,7 @@ function InventoryStatusBadge({ status }: { status?: string | null }) {
 }
 
 function EmptyRow({ colSpan, label }: { colSpan: number; label: string }) {
-  return (
-    <TableRow>
-      <TableCell colSpan={colSpan} className="h-20 text-center text-muted-foreground">
-        {label}
-      </TableCell>
-    </TableRow>
-  )
+  return <AdminTableStateRow colSpan={colSpan}>{label}</AdminTableStateRow>
 }
 
 async function postCarbonApi<T>(url: string, payload: Record<string, unknown>) {
