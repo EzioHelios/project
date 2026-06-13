@@ -1,7 +1,7 @@
 import { Hammer, ListChecks } from "lucide-react"
 
+import { AdminPanel } from "@/components/admin-ui"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export type UnderConstructionModuleProps = {
   guideTitle: string
@@ -15,27 +15,26 @@ export type UnderConstructionModuleProps = {
 
 export function UnderConstructionModule({ guideTitle, moduleType, plannedTabs, dataDependencies, currentFoundation, nextTodos, status }: UnderConstructionModuleProps) {
   return (
-    <Card className="border-dashed">
-      <CardHeader className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
+    <AdminPanel
+      title={
+        <span className="flex items-center gap-2">
+          <Hammer className="h-4 w-4 text-muted-foreground" />
+          {guideTitle}
+        </span>
+      }
+      actions={
+        <>
           <Badge variant="secondary">{status}</Badge>
           <Badge variant="outline">{moduleType}</Badge>
-        </div>
-        <div>
-          <CardTitle className="flex items-center gap-2">
-            <Hammer className="h-5 w-5 text-muted-foreground" />
-            {guideTitle}
-          </CardTitle>
-          <CardDescription className="mt-2">该指南功能尚未完整建设，本页面只标注后续实现范围、依赖数据和待办事项。</CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent className="grid gap-4 lg:grid-cols-2">
-        <ConstructionList title="计划 Tabs" items={plannedTabs} />
-        <ConstructionList title="依赖数据" items={dataDependencies} />
-        <ConstructionList title="当前基础" items={currentFoundation} />
-        <ConstructionList title="后续 TODO" items={nextTodos} tone="todo" />
-      </CardContent>
-    </Card>
+        </>
+      }
+      contentClassName="grid gap-4 lg:grid-cols-2"
+    >
+      <ConstructionList title="页面范围" items={plannedTabs} />
+      <ConstructionList title="依赖数据" items={dataDependencies} />
+      <ConstructionList title="当前基础" items={currentFoundation} />
+      <ConstructionList title="后续动作" items={nextTodos} tone="todo" />
+    </AdminPanel>
   )
 }
 

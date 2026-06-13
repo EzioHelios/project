@@ -48,6 +48,7 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: `components/carbon/organization-boundary-panel.tsx` migrated organization, reporting-period, boundary-version, and facility ledger panels plus summary metrics to the shared Admin UI system; the file no longer imports or renders naked `Card`.
 - Done: `components/carbon/energy-guide-pages.tsx` completed migration of remaining consumption summary/facts/export panels, analysis strategy panels, flow report panels, and balance optimization panels to the shared Admin UI system; the file no longer imports or renders naked `Card`.
 - Done: `components/carbon/carbon-assets-panel.tsx` migrated asset summary metrics, compliance position, allowance/credit/account/transaction/forecast/risk ledger panels, and table empty rows to the shared Admin UI system; the file no longer imports or renders naked `Card`.
+- Done: `components/carbon/under-construction-module.tsx` migrated the placeholder surface to `AdminPanel`, removed visible developer-style helper copy, and replaced `Tabs` / `TODO` labels with product-facing wording.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 
