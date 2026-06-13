@@ -8,6 +8,7 @@ import {
   Scope2AccountingPanel,
   Scope3AccountingPanel,
 } from "@/components/carbon/accounting-panels"
+import { OrganizationBoundaryPanel } from "@/components/carbon/organization-boundary-panel"
 import { PageContainer, PageHeader, PageSection } from "@/components/ui/page-layout"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -18,11 +19,12 @@ export const Route = createFileRoute("/_app/carbon/accounting")({
 function CarbonAccountingPage() {
   return (
     <PageContainer className="flex-1 space-y-6" maxWidth="4xl">
-      <PageHeader eyebrow="碳排放管理" title="碳排放核算" description="组织碳排放核算业务页，集中承载 Scope1/2/3 填报、核算结果和待审核处理。" />
+      <PageHeader eyebrow="碳排放管理" title="碳排放核算" />
       <PageSection>
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-7">
             <TabsTrigger value="overview">核算总览</TabsTrigger>
+            <TabsTrigger value="boundary">组织边界</TabsTrigger>
             <TabsTrigger value="scope1">Scope1 填报</TabsTrigger>
             <TabsTrigger value="scope2">Scope2 填报</TabsTrigger>
             <TabsTrigger value="scope3">Scope3 填报</TabsTrigger>
@@ -31,6 +33,9 @@ function CarbonAccountingPage() {
           </TabsList>
           <TabsContent value="overview">
             <AccountingOverviewPanel />
+          </TabsContent>
+          <TabsContent value="boundary">
+            <OrganizationBoundaryPanel />
           </TabsContent>
           <TabsContent value="scope1">
             <Scope1AccountingPanel />

@@ -1278,6 +1278,181 @@ class CarbonFactorRawRecord(BigIntAuditBase):
     raw_payload: Mapped[dict | None] = mapped_column(JSON)
 
 
+class CarbonVerificationExportJob(TeamScopedMixin, BigIntAuditBase):
+    """Carbon verification report/material package export job."""
+
+    __tablename__ = "carbon_verification_export_job"
+    __table_args__ = (
+        UniqueConstraint("team_id", "job_no", name="uq_carbon_verification_export_job_team_no"),
+        Index("ix_carbon_verification_export_job_team_status", "team_id", "status"),
+        Index("ix_carbon_verification_export_job_period", "team_id", "report_year", "scope_filter"),
+    )
+
+    job_no: Mapped[str] = mapped_column(String(64), index=True)
+    export_type: Mapped[str] = mapped_column(String(32), default="material_package", index=True)
+    report_year: Mapped[int | None] = mapped_column(Integer, index=True)
+    scope_filter: Mapped[str | None] = mapped_column(String(16), index=True)
+    status_filter: Mapped[str | None] = mapped_column(String(24), index=True)
+    status: Mapped[str] = mapped_column(String(24), default="completed", index=True)
+    template_name: Mapped[str | None] = mapped_column(String(255))
+    template_path: Mapped[str | None] = mapped_column(String(512))
+    standard_name: Mapped[str | None] = mapped_column(String(255))
+    standard_code: Mapped[str | None] = mapped_column(String(128))
+    file_path: Mapped[str | None] = mapped_column(String(512))
+    file_sha256: Mapped[str | None] = mapped_column(String(64))
+    file_size_bytes: Mapped[int | None] = mapped_column(Integer)
+    manifest_payload: Mapped[dict | None] = mapped_column(JSON)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    requested_by: Mapped[str | None] = mapped_column(String(128))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    files: Mapped[list[CarbonVerificationExportFile]] = relationship(
+        back_populates="job",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class CarbonVerificationExportFile(TeamScopedMixin, BigIntAuditBase):
+    """A generated file entry inside a carbon verification export package."""
+
+    __tablename__ = "carbon_verification_export_file"
+    __table_args__ = (
+        Index("ix_carbon_verification_export_file_job", "team_id", "job_id"),
+        Index("ix_carbon_verification_export_file_type", "team_id", "file_type"),
+    )
+
+    job_id: Mapped[int] = mapped_column(
+        ForeignKey("carbon_verification_export_job.id", ondelete="CASCADE"),
+        index=True,
+    )
+    file_type: Mapped[str] = mapped_column(String(64), index=True)
+    path: Mapped[str] = mapped_column(String(512))
+    source_name: Mapped[str | None] = mapped_column(String(255))
+    content_type: Mapped[str | None] = mapped_column(String(128))
+    size_bytes: Mapped[int | None] = mapped_column(Integer)
+    sha256: Mapped[str | None] = mapped_column(String(64))
+
+    job: Mapped[CarbonVerificationExportJob] = relationship(
+        back_populates="files",
+        lazy="selectin",
+    )
+
+
+class ReportingOrganization(TeamScopedMixin, BigIntAuditBase):
+    """Reporting organization for organization-level GHG inventories."""
+
+    __tablename__ = "carbon_reporting_organization"
+    __table_args__ = (
+        UniqueConstraint("team_id", "code", name="uq_carbon_reporting_organization_team_code"),
+        Index("ix_carbon_reporting_organization_team_status", "team_id", "status"),
+    )
+
+    code: Mapped[str] = mapped_column(String(64), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    enterprise_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dataapp_enterpriseinfo.id", ondelete="SET NULL"),
+        index=True,
+    )
+    organization_type: Mapped[str] = mapped_column(String(32), default="enterprise", index=True)
+    legal_entity_code: Mapped[str | None] = mapped_column(String(64))
+    control_method: Mapped[str] = mapped_column(String(32), default="operational_control", index=True)
+    equity_share_pct: Mapped[Numeric | None] = mapped_column(Numeric(8, 4))
+    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    periods: Mapped[list[ReportingPeriod]] = relationship(back_populates="organization", lazy="selectin")
+    boundaries: Mapped[list[OrganizationBoundary]] = relationship(back_populates="organization", lazy="selectin")
+
+
+class ReportingPeriod(TeamScopedMixin, BigIntAuditBase):
+    """Reporting period for organization-level GHG inventories."""
+
+    __tablename__ = "carbon_reporting_period"
+    __table_args__ = (
+        UniqueConstraint("team_id", "reporting_org_id", "code", name="uq_carbon_reporting_period_org_code"),
+        Index("ix_carbon_reporting_period_org_range", "team_id", "reporting_org_id", "period_start", "period_end"),
+    )
+
+    reporting_org_id: Mapped[int] = mapped_column(ForeignKey("carbon_reporting_organization.id", ondelete="CASCADE"), index=True)
+    code: Mapped[str] = mapped_column(String(64), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    period_type: Mapped[str] = mapped_column(String(16), default="annual", index=True)
+    period_start: Mapped[date] = mapped_column(Date, index=True)
+    period_end: Mapped[date] = mapped_column(Date, index=True)
+    base_year: Mapped[int | None] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    organization: Mapped[ReportingOrganization] = relationship(back_populates="periods", lazy="selectin")
+    boundaries: Mapped[list[OrganizationBoundary]] = relationship(back_populates="period", lazy="selectin")
+
+
+class OrganizationBoundary(TeamScopedMixin, BigIntAuditBase):
+    """Versioned organization and operational boundary."""
+
+    __tablename__ = "carbon_organization_boundary"
+    __table_args__ = (
+        UniqueConstraint("team_id", "boundary_no", name="uq_carbon_organization_boundary_team_no"),
+        UniqueConstraint("team_id", "reporting_org_id", "period_id", "boundary_type", "version", name="uq_carbon_boundary_version"),
+        Index("ix_carbon_boundary_org_period_status", "team_id", "reporting_org_id", "period_id", "status"),
+    )
+
+    reporting_org_id: Mapped[int] = mapped_column(ForeignKey("carbon_reporting_organization.id", ondelete="CASCADE"), index=True)
+    period_id: Mapped[int] = mapped_column(ForeignKey("carbon_reporting_period.id", ondelete="CASCADE"), index=True)
+    boundary_no: Mapped[str] = mapped_column(String(64), index=True)
+    boundary_name: Mapped[str] = mapped_column(String(128))
+    boundary_type: Mapped[str] = mapped_column(String(32), default="organization", index=True)
+    boundary_method: Mapped[str] = mapped_column(String(32), default="operational_control", index=True)
+    operational_boundary: Mapped[dict | None] = mapped_column(JSON)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    confidence_level: Mapped[str | None] = mapped_column(String(16))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    organization: Mapped[ReportingOrganization] = relationship(back_populates="boundaries", lazy="selectin")
+    period: Mapped[ReportingPeriod] = relationship(back_populates="boundaries", lazy="selectin")
+    facilities: Mapped[list[BoundaryFacility]] = relationship(
+        back_populates="boundary",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class BoundaryFacility(TeamScopedMixin, BigIntAuditBase):
+    """Area/equipment/facility included in or excluded from an organization boundary."""
+
+    __tablename__ = "carbon_boundary_facility"
+    __table_args__ = (
+        Index("ix_carbon_boundary_facility_boundary", "team_id", "boundary_id", "included"),
+        Index("ix_carbon_boundary_facility_reference", "team_id", "facility_type", "area_id", "equipment_id"),
+    )
+
+    boundary_id: Mapped[int] = mapped_column(ForeignKey("carbon_organization_boundary.id", ondelete="CASCADE"), index=True)
+    facility_type: Mapped[str] = mapped_column(String(32), default="area", index=True)
+    area_id: Mapped[int | None] = mapped_column(ForeignKey("dataapp_monitorsector.id", ondelete="SET NULL"), index=True)
+    equipment_id: Mapped[int | None] = mapped_column(ForeignKey("dataapp_monitorequipment.id", ondelete="SET NULL"), index=True)
+    facility_code: Mapped[str | None] = mapped_column(String(128), index=True)
+    facility_name: Mapped[str | None] = mapped_column(String(128))
+    facility_role: Mapped[str | None] = mapped_column(String(64))
+    included: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    exclusion_reason: Mapped[str | None] = mapped_column(Text)
+    valid_from: Mapped[date | None] = mapped_column(Date)
+    valid_to: Mapped[date | None] = mapped_column(Date)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    boundary: Mapped[OrganizationBoundary] = relationship(back_populates="facilities", lazy="selectin")
+
+
 class IotTelemetry(TeamScopedMixin, BigIntBase):
     """IoT 设备上报时序数据（对应 Django dataapp.IotTelemetry）。"""
 

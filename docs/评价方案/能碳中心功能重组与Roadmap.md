@@ -1,6 +1,6 @@
 # 能碳中心菜单重组与页面改造 Roadmap
 
-更新时间：2026-06-12
+更新时间：2026-06-13
 
 ## 统一口径
 
@@ -62,10 +62,10 @@
 
 | 指南一级菜单 | 推荐路由 | 二级 Tabs | 当前承接 | 改造状态 |
 | --- | --- | --- | --- | --- |
-| 碳排放核算 | `/carbon/accounting` | 核算总览、Scope1 填报、Scope2 填报、Scope3 填报、核算结果、待审核 | 已重组为独立指南页面和二级 Tabs；后端 Scope CRUD、审核、Scope2 聚合/对账归入 `domain/carbon_accounting` | 首批已建，待专项 Gap 细化 |
+| 碳排放核算 | `/carbon/accounting` | 核算总览、组织边界、Scope1 填报、Scope2 填报、Scope3 填报、核算结果、待审核 | 已重组为独立指南页面和二级 Tabs；后端 Scope CRUD、审核、Scope2 聚合/对账归入 `domain/carbon_accounting`；组织边界首版归入 `domain/organization_boundary` | 首批已建，组织边界首版已接入 |
 | 产品碳足迹核算 | `/carbon/product-footprint` | 产品清单、BOM/工序、生命周期边界、活动数据、核算结果、报告生成 | 可复用因子库、入出库和运输台账 | 建设中 |
 | 供应链碳管理 | `/carbon/supply-chain` | 供应商档案、填报任务、数据审核、下游披露、供应链分析 | 可复用租户隔离、运输和追溯能力 | 建设中 |
-| 碳核查支撑 | `/carbon/verification` | 凭证清单、过程追溯、质量问题、审核日志、核查材料包、报告导出 | 已重组为独立指南页面；过程追溯/质量/审核日志复用 `domain/analytics` 与 `domain/carbon_accounting`，材料包和报告导出为建设中 Tabs | 首批已建，待专项 Gap 细化 |
+| 碳核查支撑 | `/carbon/verification` | 凭证清单、过程追溯、质量问题、审核日志、核查材料包、报告导出 | 已重组为独立指南页面；新增 `domain/carbon_verification` 读模型和导出任务，材料包/报告导出 Tabs 已接入 `/api/carbon/verification/*` 与 ZIP 下载 | 首批已建，后续补 DOCX/PDF 渲染和独立附件实体 |
 | 碳资产管理 | `/carbon/assets` | 配额台账、CCER/绿证、履约周期、交易模拟、风险预警 | 可复用组织碳排结果和趋势 | 建设中 |
 
 ## 当前后端领域拆分进度
@@ -82,6 +82,10 @@
 | Carbon accounting | Scope1/2/3 填报、提交/审核/驳回、Scope2 电表聚合和对账 | `src/py/app/domain/carbon_accounting` | 已迁移 |
 | Factor library | 排放因子查询、官方因子库概览、源记录、分类树 | `src/py/app/domain/factor_library` | 已迁移 |
 | Analytics | `/api/energy-carbon/*`、碳分析、能碳协同分析、质量问题、追溯查询 | `src/py/app/domain/analytics` | 已迁移 |
+| Organization boundary | 报告主体、报告期、组织/运营边界、边界设施和版本 | `src/py/app/domain/organization_boundary` | 首版已建：新增租户表、API、发布规则和 `/carbon/accounting` 组织边界 Tab |
+| Product footprint | 产品碳足迹研究、生命周期边界、活动清单、分配规则、足迹结果和报告 | `src/py/app/domain/product_footprint` | 已完成知识库和 DDD 设计，待开发 |
+| Supply chain carbon | 供应商档案、填报任务、供应商碳数据、证据、审核和下游披露 | `src/py/app/domain/supply_chain_carbon` | 已完成知识库和 DDD 设计，待开发 |
+| Carbon assets | 配额、CCER/绿证、履约周期、交易模拟、清缴和履约风险 | `src/py/app/domain/carbon_assets` | 已完成知识库和 DDD 设计，待开发 |
 | Legacy carbon | 旧 `/api/page*` 大屏、`/api/map*` 地图、视频大屏、旧告警兼容、WMS 入出库和员工通勤 | `src/py/app/domain/carbon/controllers.py` | 暂保留兼容，后续按页面逐步清理 |
 
 ## 统一建设中组件
@@ -127,7 +131,7 @@
 | 优先级 | 页面 | 改造目标 | 指南功能 |
 | --- | --- | --- | --- |
 | P0 | 碳排放核算 | 打通 Scope 填报、核算结果、待审核、状态流转 | 碳排放核算 |
-| P0 | 碳核查支撑 | 做凭证清单、追溯链路、审核日志、核查材料包、导出 | 碳核查支撑 |
+| P0 | 碳核查支撑 | 已补凭证清单、核查问题、材料包目录、报告上下文、模板字段映射、导出任务和 ZIP 下载；下一步补边界版本锁定、DOCX/PDF 渲染和独立附件实体 | 碳核查支撑 |
 | P0 | 企业与组织 / 采集设备与测点 / 碳排放因子库 | 梳理企业、区域、电表、设备、因子之间的数据关系 | 数据采集、数据架构、模型组件 |
 
 ### 阶段 2：拆能源分析页面
@@ -153,13 +157,14 @@
 
 ### 阶段 4：扩展高阶碳管理功能
 
-目标：等核算和基础台账稳定后，再做高阶业务，不提前暴露客户入口。
+目标：先把标准知识库、组织边界和领域模型做稳，再逐页开发高阶业务，不提前暴露客户入口。2026-06-13 已根据本地标准资料补齐碳侧知识库和 DDD 设计，页面开发应按 `organization_boundary -> product_footprint -> supply_chain_carbon -> carbon_assets` 顺序推进。
 
 | 优先级 | 页面 | 改造目标 | 指南功能 |
 | --- | --- | --- | --- |
-| P2 | 产品碳足迹核算 | 产品/BOM/工序/生命周期边界/报告 | 产品碳足迹核算 |
-| P2 | 供应链碳管理 | 供应商任务、数据审核、披露和分析 | 供应链碳管理 |
-| P3 | 碳资产管理 | 配额、CCER、交易模拟、履约风险 | 碳资产管理 |
+| P1 | 组织边界与碳核算增强 | 组织边界首版已完成报告主体、报告期、边界版本、边界设施和发布规则；下一步补核算批次和组织排放清单读模型 | 碳排放核算、碳核查支撑、碳资产管理前置底座 |
+| P2 | 产品碳足迹核算 | PCF 研究、生命周期边界、活动数据清单、分配规则、因子匹配、核算结果、报告 | 产品碳足迹核算 |
+| P2 | 供应链碳管理 | 供应商档案、填报任务、数据审核、证据、下游披露、供应链分析 | 供应链碳管理 |
+| P3 | 碳资产管理 | 配额、CCER/绿证、履约周期、交易模拟、清缴/注销、履约风险 | 碳资产管理 |
 
 ## 页面职责检查清单
 

@@ -19,6 +19,11 @@ flowchart LR
     MTR["metering<br/>计量采集/读数/遥测/告警"]
     ENG["energy<br/>能源品种/用能系统/能耗事实/强度/策略"]
     CA["carbon_accounting<br/>Scope活动/排放计算/审核"]
+    CV["carbon_verification<br/>核查材料/报告导出"]
+    OB["organization_boundary<br/>报告主体/边界/报告期"]
+    PF["product_footprint<br/>PCF研究/生命周期清单"]
+    SC["supply_chain_carbon<br/>供应商任务/披露/审核"]
+    ASSET["carbon_assets<br/>配额/信用/履约"]
     PD["production_denominator<br/>产品/批次/产量/价格"]
     FL["factor_library<br/>因子/折标/标准来源"]
     AN["analytics<br/>指南/评价/汇总读模型"]
@@ -27,6 +32,11 @@ flowchart LR
     Legacy -. "delegate" .-> MTR
     Legacy -. "delegate" .-> ENG
     Legacy -. "delegate" .-> CA
+    Legacy -. "new context" .-> CV
+    Legacy -. "new context" .-> OB
+    Legacy -. "new context" .-> PF
+    Legacy -. "new context" .-> SC
+    Legacy -. "new context" .-> ASSET
     Legacy -. "delegate" .-> PD
     Legacy -. "delegate" .-> FL
     Legacy -. "delegate" .-> AN
@@ -86,6 +96,8 @@ flowchart LR
 | `Scope3WasteDisposal` | `carbon.models` | `carbon_accounting` | Scope3 废弃物活动数据 | 不进入 P0 能耗查询。 |
 | `Scope3ThirdPartyTransport` | `carbon.models` | `carbon_accounting` | Scope3 第三方运输活动数据 | 不进入 P0 能耗查询。 |
 | `CarbonAuditLog` | `carbon.models` | `carbon_accounting` | 碳记录审核操作日志 | 跟随碳核算命令用例迁移。 |
+| `CarbonVerificationExportJob` / `carbon_verification_export_job` | `carbon.models` | `carbon_verification` | 核查报告/材料包导出任务，记录范围、模板、状态、ZIP 文件路径、哈希和导出人 | 已新建租户表；后续接异步队列和 DOCX/PDF 渲染。 |
+| `CarbonVerificationExportFile` / `carbon_verification_export_file` | `carbon.models` | `carbon_verification` | 导出包内文件清单，记录 manifest、活动数据、因子参数、问题、审核轨迹等文件 | 已新建租户表；后续接独立附件实体和原件打包。 |
 
 ### 2.5 生产/产品分母数据
 
@@ -117,6 +129,17 @@ flowchart LR
 | `EnergyCarbonCenterController` | `carbon.controllers` | `analytics` | 能碳中心汇总旧接口 | 只消费各领域查询，不直接做业务计算。 |
 | `BigscreenController` / `HuayiBigscreenController` | `carbon.routes` | `analytics.bigscreen` | 大屏展示 API | 与业务办理分离。 |
 
+### 2.8 高阶碳管理新增领域映射
+
+这些领域当前没有稳定的目标表，不能继续用现有产品分母、Scope 活动或能碳预算表临时冒充。首批应新建租户表，并只引用已有事实。
+
+| 新领域 | 可复用现有模型/读模型 | 不可复用为核心模型 | 目标语义 | 改造动作 |
+| --- | --- | --- | --- | --- |
+| `organization_boundary` | `EnterpriseInfo`、`MonitorSector`、`MonitorEquipment`、`team_id` | `EnterpriseInfo` 不能直接等同于报告边界 | 报告主体、报告期、组织/运营边界、边界设施、版本 | 首版已新建报告主体、报告期、边界版本和边界设施表；碳核算批次后续必须绑定边界版本。 |
+| `product_footprint` | `ProductionProduct`、`ProductionOutputFact`、`ProductionResourceBinding`、`EnergyIntervalFact`、`EmissionFactor` | `ProductionProduct`、`ProductionOutputFact` 不能冒充 PCF 研究和生命周期清单 | PCF 研究、产品系统、生命周期阶段、清单项、分配规则、结果和报告 | 新建 PCF 聚合表；已有产品/产量/能源事实只作为输入。 |
+| `supply_chain_carbon` | `Scope3ThirdPartyTransport`、`Scope3WasteDisposal`、`InMoney`、`OutMoney`、产品和供应商相关外部数据 | 运输/废弃物 Scope3 表不能冒充供应商协同任务 | 供应商档案、填报任务、供应商活动数据、PCF 数据、证据、审核、披露 | 新建供应商和任务表；审核通过后再发布给 Scope3 或 PCF。 |
+| `carbon_assets` | `energy_consumption_fact_v` 的碳排读数、`carbon_accounting` 组织排放清单、`energy_budget` 预算结果 | `EnergyCarbonBudgetPlan` 不能冒充配额；Scope 活动不能冒充资产持仓 | 履约周期、配额账户、CCER/绿证、交易、清缴、履约缺口 | 新建资产账户、持仓、交易和清缴表；只读取锁定清单计算缺口。 |
+
 ## 3. 现有接口到目标领域映射
 
 | 现有 API 前缀 | 当前 Controller | 目标领域 | 改造方式 |
@@ -129,6 +152,8 @@ flowchart LR
 | `/api/carbon/scope*` | `CarbonCRUDController` | `carbon_accounting.controllers.scope_records` | 旧路径兼容，新 Controller 承载业务。 |
 | `/api/carbon/scope2-meter-aggregate*` | `CarbonCRUDController` | `energy.usecases.rebuild_meter_aggregates` + `carbon_accounting` 审核 | 重建归 energy，提交/审核归 carbon。 |
 | `/api/carbon/factor-library*` | `CarbonCRUDController` | `factor_library.controllers` | 抽因子库查询和详情。 |
+| `/api/carbon/organization-boundary/*` | `OrganizationBoundaryController` | `organization_boundary.controllers` | 已新增报告主体、报告期、边界版本、边界设施、发布和汇总 API。 |
+| `/api/carbon/verification/*` | `CarbonVerificationController` | `carbon_verification.controllers` | 已新增读模型和导出任务；读取核算事实和审核日志，不反写 Scope 记录。 |
 | `/api/energy/types` | `CarbonCRUDController` | `energy.controllers.energy_types` | 能源字典。 |
 | `/api/energy/unit-conversions` | `CarbonCRUDController` | `energy.controllers.conversions` | 折标/单位换算。 |
 | `/api/energy/consumption/*` | `CarbonCRUDController` | `energy.controllers.consumption` + `energy.queries.consumption` | 查询服务化。 |
@@ -430,4 +455,3 @@ class CarbonCRUDController(Controller):
 | P1 | 设计 `AreaEquipmentBinding` 迁移 | Alembic migration 草案 | 可从现有 `sector_id` 回填当前绑定。 |
 | P1 | 增强 `DevicePoint` 点位语义 | 字段迁移草案 | 能标识累计/瞬时、指标类型、能源品种。 |
 | P2 | 投影任务批次和质量问题 | `EnergyProjectionRun`、`EnergyFactQualityIssue` | 重建可审计，异常可追溯。 |
-
