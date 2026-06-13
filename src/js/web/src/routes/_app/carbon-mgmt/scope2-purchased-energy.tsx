@@ -25,7 +25,6 @@ function Scope2PurchasedEnergyPage() {
   return (
     <ScopeRecordPage<Scope2PurchasedEnergy>
       title="[范围2] 外购热力/蒸汽/冷量"
-      description="维护 Scope2 外购热力、外购蒸汽、外购冷量业务数据，作为能耗查询聚合页的底层来源。"
       endpoint="/api/carbon/scope2-purchased-energy"
       queryKey={["carbon-mgmt", "scope2-purchased-energy", "list"]}
       searchPlaceholder="搜索：能源品种/供应商/区域/设施…"

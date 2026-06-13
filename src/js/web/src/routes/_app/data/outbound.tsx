@@ -9,7 +9,6 @@ function OutboundPage() {
   return (
     <ReadonlyLedgerPage
       title="出库管理"
-      description="查看外部系统同步的出库流水，不提供手工新增或编辑。"
       endpoint="/api/data/out-money"
       queryKey={["data", "out-money"]}
       columns={[

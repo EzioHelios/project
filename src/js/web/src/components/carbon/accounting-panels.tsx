@@ -27,7 +27,6 @@ export function AccountingOverviewPanel() {
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
       <AdminPanel
         title="本期核算工作台"
-        description="组织边界、活动数据、排放清单、审核归档"
         actions={
           <Button asChild variant="outline" size="sm">
             <Link to="/carbon/accounting">
@@ -160,7 +159,6 @@ function Scope1MobilePanel() {
     <ScopeRecordPage
       embedded
       title="[范围1] 移动源燃烧"
-      description="移动源燃烧数据填报、核算与审核流转。"
       endpoint="/api/carbon/scope1-mobile-combustion"
       queryKey={["carbon-mgmt", "scope1-mobile", "list"]}
       searchPlaceholder="搜索：资产名称/燃料类型/单位…"
@@ -199,7 +197,6 @@ function Scope1StationaryPanel() {
     <ScopeRecordPage
       embedded
       title="[范围1] 固定源燃烧"
-      description="固定源燃烧数据填报、核算与审核流转。"
       endpoint="/api/carbon/scope1-stationary-combustion"
       queryKey={["carbon-mgmt", "scope1-stationary", "list"]}
       searchPlaceholder="搜索：设施名称/燃料类型/单位…"
@@ -243,7 +240,6 @@ function Scope1RefrigerantPanel() {
     <ScopeRecordPage
       embedded
       title="[范围1] 制冷剂逸散"
-      description="制冷剂填充、泄漏数据填报、核算与审核流转。"
       endpoint="/api/carbon/scope1-refrigerant-leak"
       queryKey={["carbon-mgmt", "scope1-refrigerant", "list"]}
       searchPlaceholder="搜索：设备名称/制冷剂类型/类型…"
@@ -281,7 +277,6 @@ function Scope3WastePanel() {
     <ScopeRecordPage
       embedded
       title="[范围3] 废弃物处理"
-      description="废弃物处理数据填报、核算与审核流转。"
       endpoint="/api/carbon/scope3-waste-disposal"
       queryKey={["carbon-mgmt", "scope3-waste", "list"]}
       searchPlaceholder="搜索：类别/处理方式/处置方…"
@@ -320,7 +315,6 @@ function Scope3TransportPanel() {
     <ScopeRecordPage
       embedded
       title="[范围3] 外购运输"
-      description="外购运输数据填报、核算与审核流转。"
       endpoint="/api/carbon/scope3-third-party-transport"
       queryKey={["carbon-mgmt", "scope3-transport", "list"]}
       searchPlaceholder="搜索：运单号/起点/终点/车辆类型…"

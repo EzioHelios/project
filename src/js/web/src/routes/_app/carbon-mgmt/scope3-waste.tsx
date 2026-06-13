@@ -20,7 +20,6 @@ function Scope3WastePage() {
   return (
     <ScopeRecordPage<Scope3Waste>
       title="[范围3] 废弃物处理"
-      description="废弃物处理数据填报、核算与审核流转。"
       endpoint="/api/carbon/scope3-waste-disposal"
       queryKey={["carbon-mgmt", "scope3-waste", "list"]}
       searchPlaceholder="搜索：类别/处理方式/处置方…"

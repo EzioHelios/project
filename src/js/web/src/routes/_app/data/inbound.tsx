@@ -9,7 +9,6 @@ function InboundPage() {
   return (
     <ReadonlyLedgerPage
       title="入库管理"
-      description="查看外部系统同步的入库流水，不提供手工新增或编辑。"
       endpoint="/api/data/in-money"
       queryKey={["data", "in-money"]}
       columns={[

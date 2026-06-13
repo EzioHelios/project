@@ -9,7 +9,6 @@ function MeterPage() {
   return (
     <ReadonlyLedgerPage
       title="电表电量"
-      description="查看采集生成的电表读数明细，支持关键字查询和详情查看。"
       endpoint="/api/data/ammeter-values"
       queryKey={["data", "ammeter-values"]}
       columns={[

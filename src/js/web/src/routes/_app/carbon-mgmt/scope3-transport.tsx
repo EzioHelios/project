@@ -21,7 +21,6 @@ function Scope3TransportPage() {
   return (
     <ScopeRecordPage<Scope3Transport>
       title="[范围3] 外购运输"
-      description="外购运输数据填报、核算与审核流转。"
       endpoint="/api/carbon/scope3-third-party-transport"
       queryKey={["carbon-mgmt", "scope3-transport", "list"]}
       searchPlaceholder="搜索：运单号/起点/终点/车辆类型…"

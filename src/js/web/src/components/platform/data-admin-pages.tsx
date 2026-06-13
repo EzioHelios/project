@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 
@@ -242,7 +242,6 @@ function RowDetail({ row, title, labels, onClose }: { row: Row | null; title: st
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
-          <SheetDescription>查看关键业务字段与关联信息。</SheetDescription>
         </SheetHeader>
         <div className="space-y-2 px-4 pb-6">
           {visibleEntries.map(([key, value]) => (
@@ -268,9 +267,7 @@ export function CrudDataPage({
   onCreateSuccess,
   topContent,
 }: {
-  eyebrow?: string
   title: string
-  description: string
   endpoint: string
   queryKey: string[]
   columns: Column[]
@@ -459,9 +456,7 @@ export function RolesPage() {
   const fields: Field[] = [{ name: "name", label: "角色名称", required: true }]
   return (
     <CrudDataPage
-      eyebrow="权限中心"
       title="角色管理"
-      description="维护系统角色，并可在创建后直接进入权限配置。"
       endpoint="/api/roles"
       queryKey={["roles", "manage"]}
       searchPlaceholder="按角色名称或标识搜索"
@@ -554,7 +549,6 @@ export function MonitorAreaPage() {
   return (
     <CrudDataPage
       title="监测区域"
-      description="维护监测区域主数据，并在详情中查看照片路径和关联设备数量。"
       endpoint="/api/data/monitor-sectors"
       queryKey={["data", "monitor-sectors"]}
       columns={[
@@ -644,7 +638,6 @@ export function TerminalsPage() {
   return (
     <CrudDataPage
       title="监控终端"
-      description="维护设备主档、采集配置和基础台账信息。"
       endpoint="/api/data/monitor-equipments"
       queryKey={["data", "monitor-equipments"]}
       columns={[
@@ -666,7 +659,6 @@ export function DeviceTypesPage() {
   return (
     <CrudDataPage
       title="设备类型"
-      description="维护设备分类和默认能力模板。"
       endpoint="/api/data/device-types"
       queryKey={["data", "device-types"]}
       columns={[
@@ -695,7 +687,6 @@ export function DevicePointsPage() {
   return (
     <CrudDataPage
       title="设备测点"
-      description="维护设备测点定义和基础告警阈值。"
       endpoint="/api/data/device-points"
       queryKey={["data", "device-points"]}
       columns={[
@@ -739,7 +730,6 @@ export function VideoPage() {
   return (
     <CrudDataPage
       title="视频监控"
-      description="维护视频点位台账，并保留视频预警事件入口。"
       endpoint="/api/data/video-monitors"
       queryKey={["data", "video-monitors"]}
       columns={[
@@ -776,7 +766,6 @@ export function WarningRulesPage() {
   return (
     <CrudDataPage
       title="预警规则"
-      description="维护设备、用电、发电和碳排放异常规则，阈值使用结构化 JSON。"
       endpoint="/api/data/warning-rules"
       queryKey={["data", "warning-rules"]}
       columns={[
@@ -829,7 +818,6 @@ export function ApiKeyMappingPage() {
   return (
     <CrudDataPage
       title="接口结果key映射"
-      description="维护大屏接口字段的中文展示名称。"
       endpoint="/api/data/api-result-key-mappings"
       queryKey={["data", "api-result-key-mappings"]}
       columns={[
@@ -847,9 +835,7 @@ export function ApiKeyMappingPage() {
 export function ProductionProductsPage() {
   return (
     <CrudDataPage
-      eyebrow="企业与组织"
       title="产品档案"
-      description=""
       endpoint="/api/production/products"
       queryKey={["production", "products"]}
       searchPlaceholder="按产品编码、名称、规格搜索"
@@ -881,9 +867,7 @@ export function ProductionProductsPage() {
 export function ProductPricesPage() {
   return (
     <CrudDataPage
-      eyebrow="业务活动台账"
       title="产品价格"
-      description=""
       endpoint="/api/production/product-prices"
       queryKey={["production", "product-prices"]}
       searchPlaceholder="按产品编码、来源系统、源记录搜索"
@@ -925,9 +909,7 @@ export function ProductPricesPage() {
 export function ProductionOutputPage() {
   return (
     <CrudDataPage
-      eyebrow="业务活动台账"
       title="产品批次产量"
-      description=""
       endpoint="/api/production/output-facts"
       queryKey={["production", "output-facts"]}
       searchPlaceholder="按工单、批次、产品、产线、设备搜索"
@@ -988,9 +970,7 @@ export function ProductionOutputPage() {
 export function ProductResourceBindingsPage() {
   return (
     <CrudDataPage
-      eyebrow="业务活动台账"
       title="产品产线关联"
-      description=""
       endpoint="/api/production/resource-bindings"
       queryKey={["production", "resource-bindings"]}
       searchPlaceholder="按产品、工作中心、产线搜索"
@@ -1163,7 +1143,7 @@ export function EventWorkbenchPage({ title, endpoint, queryKey }: { title: strin
   )
 }
 
-export function ReadonlyLedgerPage({ title, endpoint, queryKey, columns }: { title: string; description: string; endpoint: string; queryKey: string[]; columns: Column[] }) {
+export function ReadonlyLedgerPage({ title, endpoint, queryKey, columns }: { title: string; endpoint: string; queryKey: string[]; columns: Column[] }) {
   const [keyword, setKeyword] = useState("")
   const [appliedKeyword, setAppliedKeyword] = useState("")
   const [detail, setDetail] = useState<Row | null>(null)

@@ -674,7 +674,7 @@ export function MonitorAreaWorkbenchPage() {
   )
 }
 
-function DeviceWorkbench({ title, initialTab }: { eyebrow: string; title: string; description: string; initialTab: "devices" | "types" | "points" }) {
+function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: "devices" | "types" | "points" }) {
   const qc = useQueryClient()
   const [expandedAreaIds, setExpandedAreaIds] = useState<Set<number>>(new Set())
   const [expandedTypeIds, setExpandedTypeIds] = useState<Set<number>>(new Set())
@@ -1348,15 +1348,15 @@ function DeviceWorkbench({ title, initialTab }: { eyebrow: string; title: string
 }
 
 export function TerminalsWorkbenchPage() {
-  return <DeviceWorkbench eyebrow="监控运维" title="设备主数据工作台" description="把设备、区域、类型、子设备和测点放进一张可维护的工作台。" initialTab="devices" />
+  return <DeviceWorkbench title="设备主数据工作台" initialTab="devices" />
 }
 
 export function DeviceTypesWorkbenchPage() {
-  return <DeviceWorkbench eyebrow="监控运维" title="设备类型与结构工作台" description="先从类型树和设备结构切入，再进入设备详情和测点维护。" initialTab="types" />
+  return <DeviceWorkbench title="设备类型与结构工作台" initialTab="types" />
 }
 
 export function DevicePointsWorkbenchPage() {
-  return <DeviceWorkbench eyebrow="监控运维" title="设备测点工作台" description="测点不再脱离设备上下文维护，而是直接挂在设备详情下。" initialTab="points" />
+  return <DeviceWorkbench title="设备测点工作台" initialTab="points" />
 }
 
 function SummaryMetric({ label, value }: { label: string; value: string }) {

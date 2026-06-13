@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 
@@ -108,7 +108,6 @@ function FieldControl({ field, value, onChange }: { field: Field; value: string;
 
 export function ScopeRecordPage<T extends ScopeRow>({
   title,
-  description,
   endpoint,
   queryKey,
   searchPlaceholder,
@@ -117,7 +116,6 @@ export function ScopeRecordPage<T extends ScopeRow>({
   embedded = false,
 }: {
   title: string
-  description: string
   endpoint: string
   queryKey: string[]
   searchPlaceholder: string
@@ -159,11 +157,15 @@ export function ScopeRecordPage<T extends ScopeRow>({
 
   const items = listQuery.data?.items ?? []
   const formReady = useMemo(() => fields.every((field) => !field.required || Boolean((form[field.name] ?? "").trim())), [fields, form])
+  const detailLabels = useMemo(
+    () => Object.fromEntries([...columns.map((column) => [column.key, column.label] as const), ...fields.map((field) => [field.name, field.label] as const)]),
+    [columns, fields],
+  )
 
   const content = (
     <>
       <PageSection>
-        <AdminPanel title="数据列表" description={embedded ? undefined : description}>
+        <AdminPanel title="数据列表">
           <div className="space-y-3">
             <AdminTableToolbar
               search={
@@ -320,13 +322,12 @@ export function ScopeRecordPage<T extends ScopeRow>({
         <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
           <SheetHeader>
             <SheetTitle>记录详情</SheetTitle>
-            <SheetDescription>查看完整字段与核算信息。</SheetDescription>
           </SheetHeader>
           <div className="space-y-2 px-4 pb-6">
             {detail &&
               Object.entries(detail).map(([key, value]) => (
                 <div key={key} className="grid grid-cols-[132px_1fr] gap-3 rounded-md border px-3 py-2 text-sm">
-                  <div className="text-muted-foreground">{key}</div>
+                  <div className="text-muted-foreground">{detailLabels[key] ?? key}</div>
                   <div className="min-w-0 break-all">{display(value)}</div>
                 </div>
               ))}

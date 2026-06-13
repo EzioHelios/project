@@ -28,21 +28,11 @@ function Scope2Page() {
           </TabsContent>
 
           <TabsContent value="bill" className="pt-4">
-            <SubViewEntryCard
-              title="账单补录"
-              description="当电表数据缺失或需要补录人工账单时，从这里进入账单来源视图。"
-              actionLabel="进入账单补录"
-              to="/carbon-mgmt/scope2-bill"
-            />
+            <SubViewEntryCard title="账单补录" actionLabel="进入账单补录" to="/carbon-mgmt/scope2-bill" />
           </TabsContent>
 
           <TabsContent value="reconciliation" className="pt-4">
-            <SubViewEntryCard
-              title="数据对账"
-              description="按账期比较账单总量与电表月聚合总量，用于核对差异和排查缺失点位。"
-              actionLabel="进入数据对账"
-              to="/carbon-mgmt/scope2-reconciliation"
-            />
+            <SubViewEntryCard title="数据对账" actionLabel="进入数据对账" to="/carbon-mgmt/scope2-reconciliation" />
           </TabsContent>
         </Tabs>
       </PageSection>
@@ -50,19 +40,9 @@ function Scope2Page() {
   )
 }
 
-function SubViewEntryCard({
-  title,
-  description,
-  actionLabel,
-  to,
-}: {
-  title: string
-  description: string
-  actionLabel: string
-  to: "/carbon-mgmt/scope2-bill" | "/carbon-mgmt/scope2-reconciliation"
-}) {
+function SubViewEntryCard({ title, actionLabel, to }: { title: string; actionLabel: string; to: "/carbon-mgmt/scope2-bill" | "/carbon-mgmt/scope2-reconciliation" }) {
   return (
-    <AdminPanel title={title} description={description}>
+    <AdminPanel title={title}>
       <div>
         <Button asChild>
           <Link to={to}>{actionLabel}</Link>

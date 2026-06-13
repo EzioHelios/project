@@ -20,7 +20,6 @@ function Scope1RefrigerantPage() {
   return (
     <ScopeRecordPage<Scope1Refrigerant>
       title="[范围1] 制冷剂逸散"
-      description="制冷剂填充/泄漏数据填报、核算与审核流转。"
       endpoint="/api/carbon/scope1-refrigerant-leak"
       queryKey={["carbon-mgmt", "scope1-refrigerant", "list"]}
       searchPlaceholder="搜索：设备名称/制冷剂类型/类型…"

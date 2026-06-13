@@ -21,7 +21,6 @@ function Scope1StationaryPage() {
   return (
     <ScopeRecordPage<Scope1Stationary>
       title="[范围1] 固定源燃烧"
-      description="固定源燃烧数据填报、核算与审核流转。"
       endpoint="/api/carbon/scope1-stationary-combustion"
       queryKey={["carbon-mgmt", "scope1-stationary", "list"]}
       searchPlaceholder="搜索：设施名称/燃料类型/单位…"

@@ -10,7 +10,6 @@ function EnergyConsumptionFactsPage() {
   return (
     <ReadonlyLedgerPage
       title="能源消费明细查询"
-      description="只读查询统一能源消费事实视图，按源记录追溯 Scope1 燃料、Scope2 外购电力和外购热力/蒸汽/冷量。"
       endpoint="/api/energy/consumption/facts"
       queryKey={["data", "energy-consumption", "facts"]}
       columns={[

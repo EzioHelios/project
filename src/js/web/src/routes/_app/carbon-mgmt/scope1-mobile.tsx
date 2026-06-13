@@ -21,7 +21,6 @@ function Scope1MobilePage() {
   return (
     <ScopeRecordPage<Scope1Mobile>
       title="[范围1] 移动源燃烧"
-      description="移动源燃烧数据填报、核算与审核流转。"
       endpoint="/api/carbon/scope1-mobile-combustion"
       queryKey={["carbon-mgmt", "scope1-mobile", "list"]}
       searchPlaceholder="搜索：资产名称/燃料类型/单位…"
