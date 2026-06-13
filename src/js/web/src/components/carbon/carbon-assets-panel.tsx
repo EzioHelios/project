@@ -1,15 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { AlertTriangle, BadgeDollarSign, CheckCircle2, Landmark, Plus, RefreshCw, ShieldCheck, TrendingUp } from "lucide-react"
+import { AlertTriangle, Plus, RefreshCw, TrendingUp } from "lucide-react"
 import type * as React from "react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
+import { AdminDataTable, AdminPanel, AdminTableStateRow, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -611,15 +611,15 @@ export function CarbonAssetsPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={<Landmark className="size-4" />} label="履约周期" value={summary?.period_count ?? 0} />
-        <MetricCard icon={<BadgeDollarSign className="size-4" />} label="资产账户" value={summary?.account_count ?? 0} />
-        <MetricCard icon={<ShieldCheck className="size-4" />} label="配额可用" value={summary?.allowance_available ?? 0} unit="tCO2e" />
-        <MetricCard icon={<CheckCircle2 className="size-4" />} label="信用可用" value={summary?.credit_available ?? 0} unit="tCO2e" />
-      </div>
+      <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
+        <MetricTile label="履约周期" value={summary?.period_count ?? 0} />
+        <MetricTile label="资产账户" value={summary?.account_count ?? 0} />
+        <MetricTile label="配额可用" value={formatNumber(summary?.allowance_available ?? 0)} unit="tCO2e" />
+        <MetricTile label="信用可用" value={formatNumber(summary?.credit_available ?? 0)} unit="tCO2e" />
+      </MetricStrip>
 
-      <Card>
-        <CardContent className="grid gap-4 pt-6 md:grid-cols-3 xl:grid-cols-6">
+      <AdminPanel contentClassName="p-4">
+        <MetricStrip className="md:grid-cols-3 xl:grid-cols-6">
           <PositionMetric label="核定排放" value={position?.verified_emission} unit="tCO2e" />
           <PositionMetric label="可用资产" value={position?.available_assets} unit="tCO2e" />
           <PositionMetric label="已清缴" value={position?.surrendered_amount} unit="tCO2e" />
@@ -638,8 +638,8 @@ export function CarbonAssetsPanel() {
             </div>
             <div className="mt-2 text-xs text-muted-foreground">{position?.inventory_message ?? "-"}</div>
           </div>
-        </CardContent>
-      </Card>
+        </MetricStrip>
+      </AdminPanel>
 
       <div className="flex flex-wrap items-center gap-3">
         <Select value={activePeriodId ? String(activePeriodId) : ""} onValueChange={(value) => setSelectedPeriodId(Number(value))}>
@@ -673,6 +673,7 @@ export function CarbonAssetsPanel() {
         <TabsContent value="allowances">
           <SectionCard
             title="配额台账"
+            table
             action={
               <Dialog open={allowanceOpen} onOpenChange={setAllowanceOpen}>
                 <DialogTrigger asChild>
@@ -730,6 +731,7 @@ export function CarbonAssetsPanel() {
         <TabsContent value="credits">
           <SectionCard
             title="CCER/绿证"
+            table
             action={
               <Dialog open={creditOpen} onOpenChange={setCreditOpen}>
                 <DialogTrigger asChild>
@@ -790,6 +792,7 @@ export function CarbonAssetsPanel() {
           <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
             <SectionCard
               title="履约周期"
+              table
               action={
                 <Dialog open={periodOpen} onOpenChange={setPeriodOpen}>
                   <DialogTrigger asChild>
@@ -843,6 +846,7 @@ export function CarbonAssetsPanel() {
 
             <SectionCard
               title="资产账户"
+              table
               action={
                 <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
                   <DialogTrigger asChild>
@@ -928,6 +932,7 @@ export function CarbonAssetsPanel() {
 
             <SectionCard
               title="模拟记录"
+              table
               action={
                 <Dialog open={surrenderOpen} onOpenChange={setSurrenderOpen}>
                   <DialogTrigger asChild>
@@ -1066,7 +1071,7 @@ export function CarbonAssetsPanel() {
                 </Table>
               </SectionCard>
 
-              <SectionCard title="月度滚动预测">
+              <SectionCard title="月度滚动预测" table>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1101,7 +1106,7 @@ export function CarbonAssetsPanel() {
 
         <TabsContent value="risk">
           <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-            <SectionCard title="风险预警">
+            <SectionCard title="风险预警" table>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1144,7 +1149,7 @@ export function CarbonAssetsPanel() {
               </div>
             </SectionCard>
 
-            <SectionCard title="清缴记录">
+            <SectionCard title="清缴记录" table>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1178,44 +1183,15 @@ export function CarbonAssetsPanel() {
   )
 }
 
-function MetricCard({ icon, label, value, unit }: { icon: React.ReactNode; label: string; value: number; unit?: string }) {
-  return (
-    <Card>
-      <CardContent className="flex items-center justify-between pt-6">
-        <div>
-          <div className="text-xs text-muted-foreground">{label}</div>
-          <div className="mt-1 text-2xl font-semibold">
-            {formatNumber(value)}
-            {unit ? <span className="ml-1 text-sm font-normal text-muted-foreground">{unit}</span> : null}
-          </div>
-        </div>
-        <div className="rounded-md border bg-muted/30 p-2">{icon}</div>
-      </CardContent>
-    </Card>
-  )
-}
-
 function PositionMetric({ label, value, unit }: { label: string; value?: number | null; unit?: string }) {
-  return (
-    <div className="rounded-md border p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 text-xl font-semibold">
-        {formatNumber(value)}
-        {unit ? <span className="ml-1 text-sm font-normal text-muted-foreground">{unit}</span> : null}
-      </div>
-    </div>
-  )
+  return <MetricTile label={label} value={formatNumber(value)} unit={unit} />
 }
 
-function SectionCard({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
+function SectionCard({ title, action, children, table }: { title: string; action?: React.ReactNode; children: React.ReactNode; table?: boolean }) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3">
-        <CardTitle>{title}</CardTitle>
-        {action}
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+    <AdminPanel title={title} actions={action} contentClassName={table ? "p-0" : undefined}>
+      {table ? <AdminDataTable className="rounded-none border-0">{children}</AdminDataTable> : children}
+    </AdminPanel>
   )
 }
 
@@ -1226,13 +1202,7 @@ function RiskBadge({ value }: { value: string }) {
 }
 
 function EmptyRow({ columns }: { columns: number }) {
-  return (
-    <TableRow>
-      <TableCell colSpan={columns} className="py-8 text-center text-muted-foreground">
-        暂无数据
-      </TableCell>
-    </TableRow>
-  )
+  return <AdminTableStateRow colSpan={columns}>暂无数据</AdminTableStateRow>
 }
 
 function PeriodFormView({ form, setForm }: { form: PeriodForm; setForm: (value: PeriodForm) => void }) {
