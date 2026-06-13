@@ -95,15 +95,9 @@ function EnergyCarbonFactorsPage() {
       </PageSection>
 
       <PageSection className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)_340px]">
-        <DistributionChart title="范围分布" description="当前平台实际命中的因子主要分布在哪些范围。" items={usageQuery.data?.data.scope_distribution ?? []} />
-        <RankingList
-          title="因子来源分布"
-          description="优先确认当前命中的因子主要来自哪些口径。"
-          items={usageQuery.data?.data.factor_source_distribution ?? []}
-          unit="次"
-          height={300}
-        />
-        <DistributionChart title="缺失因子分布" description="用来识别最需要补强的范围。" items={usageQuery.data?.data.missing_by_scope ?? []} />
+        <DistributionChart title="范围分布" items={usageQuery.data?.data.scope_distribution ?? []} />
+        <RankingList title="因子来源分布" items={usageQuery.data?.data.factor_source_distribution ?? []} unit="次" height={300} />
+        <DistributionChart title="缺失因子分布" items={usageQuery.data?.data.missing_by_scope ?? []} />
       </PageSection>
 
       <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">

@@ -113,7 +113,6 @@ export function QualityTracePage({ embedded = false }: { embedded?: boolean } = 
       <PageSection className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_340px_340px]">
         <TrendChart
           title="质量问题趋势"
-          description="不是为了看图，而是为了确认问题是在扩大还是在收敛。"
           points={trendQuery.data?.data.series ?? []}
           lines={[
             { key: "alerts_count", label: "问题数", colorKey: "danger" },
@@ -121,8 +120,8 @@ export function QualityTracePage({ embedded = false }: { embedded?: boolean } = 
           ]}
           height={300}
         />
-        <DistributionChart title="问题类型构成" description="先看问题集中在哪一类。" items={Object.entries(summary).map(([name, value]) => ({ name, value }))} />
-        <RankingList title="影响模块排行" description="优先看对监测、聚合、核算影响最大的模块。" items={summaryQuery.data?.data.by_module ?? []} unit="项" height={300} />
+        <DistributionChart title="问题类型构成" items={Object.entries(summary).map(([name, value]) => ({ name, value }))} />
+        <RankingList title="影响模块排行" items={summaryQuery.data?.data.by_module ?? []} unit="项" height={300} />
       </PageSection>
 
       <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">

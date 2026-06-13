@@ -128,7 +128,7 @@ export function KpiStrip({ items }: { items: KpiItem[] }) {
   )
 }
 
-export function TrendChart({ title, points, lines, height = 340 }: { title: string; description?: string; points: TrendPoint[]; lines: SeriesConfig[]; height?: number }) {
+export function TrendChart({ title, points, lines, height = 340 }: { title: string; points: TrendPoint[]; lines: SeriesConfig[]; height?: number }) {
   return <ChartPanel title={title} option={createTrendChartOption(points, lines)} height={height} emptyLabel="暂无趋势数据" />
 }
 
@@ -142,7 +142,6 @@ export function CompositeTrendChart({
   rightAxisName,
 }: {
   title: string
-  description?: string
   points: TrendPoint[]
   bars: BarSeriesConfig[]
   lines: LineSeriesConfig[]
@@ -153,15 +152,15 @@ export function CompositeTrendChart({
   return <ChartPanel title={title} option={createComboTrendChartOption(points, { bars, lines, leftAxisName, rightAxisName })} height={height} emptyLabel="暂无趋势数据" />
 }
 
-export function RankingList({ title, items, unit, height = 320 }: { title: string; description?: string; items: RankingItem[]; unit?: string; height?: number }) {
+export function RankingList({ title, items, unit, height = 320 }: { title: string; items: RankingItem[]; unit?: string; height?: number }) {
   return <ChartPanel title={title} unit={unit} option={createRankingChartOption(items, { unit })} height={height} emptyLabel="暂无排行数据" />
 }
 
-export function DistributionChart({ title, items, unit, height = 280 }: { title: string; description?: string; items: DistributionItem[]; unit?: string; height?: number }) {
+export function DistributionChart({ title, items, unit, height = 280 }: { title: string; items: DistributionItem[]; unit?: string; height?: number }) {
   return <ChartPanel title={title} unit={unit} option={createDistributionChartOption(items, { unit })} height={height} emptyLabel="暂无分布数据" />
 }
 
-export function GaugeStatCard({ title, value, suffix, height = 240 }: { title: string; description?: string; value: number; suffix?: string; height?: number }) {
+export function GaugeStatCard({ title, value, suffix, height = 240 }: { title: string; value: number; suffix?: string; height?: number }) {
   return <ChartPanel title={title} unit={suffix} option={createGaugeChartOption(value, { suffix })} height={height} emptyLabel="暂无完成度数据" />
 }
 
@@ -180,20 +179,7 @@ export function DiagnosticsPanel({ title, items }: { title: string; items: { lab
   )
 }
 
-export function FlowGraph({
-  title,
-  unit,
-  nodes,
-  links,
-  height = 620,
-}: {
-  title: string
-  description?: string
-  unit?: string
-  nodes: FlowNode[]
-  links: FlowLink[]
-  height?: number
-}) {
+export function FlowGraph({ title, unit, nodes, links, height = 620 }: { title: string; unit?: string; nodes: FlowNode[]; links: FlowLink[]; height?: number }) {
   return <ChartPanel title={title} unit={unit} option={createSankeyChartOption(nodes, links)} height={height} emptyLabel="暂无流向数据" />
 }
 
@@ -289,7 +275,7 @@ export function SectionHeader({ badge, title, description }: { badge?: string; t
   )
 }
 
-export function TrendComparison({ title, points }: { title: string; description?: string; points: TrendPoint[] }) {
+export function TrendComparison({ title, points }: { title: string; points: TrendPoint[] }) {
   return (
     <CompositeTrendChart
       title={title}

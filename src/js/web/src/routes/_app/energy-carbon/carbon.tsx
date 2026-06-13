@@ -135,7 +135,6 @@ function CarbonWorkbenchPage() {
       <PageSection className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)_340px]">
         <CompositeTrendChart
           title="范围级碳排趋势"
-          description="看范围1/2/3 的期间波动，确认当前碳排贡献结构。"
           points={trendQuery.data?.data.series ?? []}
           bars={[
             { key: "scope1_co2e", label: "范围1", colorKey: "scope1", stack: "scope" },
@@ -149,7 +148,6 @@ function CarbonWorkbenchPage() {
         />
         <FlowGraph
           title={flowQuery.data?.data.title ?? "碳流图"}
-          description="用来源和范围串起核算结果，不再只看孤立表格。"
           unit={flowQuery.data?.data.unit}
           nodes={flowQuery.data?.data.nodes ?? []}
           links={flowQuery.data?.data.links ?? []}
@@ -158,7 +156,6 @@ function CarbonWorkbenchPage() {
         <div className="grid gap-4">
           <DistributionChart
             title="审核状态构成"
-            description="先确认工作量堵在哪。"
             items={[
               { name: "待审核", value: summary?.pending ?? 0 },
               { name: "已通过", value: summary?.approved ?? 0 },

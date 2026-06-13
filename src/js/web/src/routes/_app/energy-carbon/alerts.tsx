@@ -123,7 +123,6 @@ function AlertsCenterPage() {
       <PageSection className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_340px_340px]">
         <CompositeTrendChart
           title="告警新增与处理趋势"
-          description="用趋势判断问题是否正在扩大，还是已经开始收敛。"
           points={trendQuery.data?.data.series ?? []}
           bars={[{ key: "alerts_count", label: "新增告警", colorKey: "danger" }]}
           lines={[{ key: "handled_count", label: "已处理", colorKey: "success", yAxisIndex: 1 }]}
@@ -131,12 +130,8 @@ function AlertsCenterPage() {
           rightAxisName="处理"
           height={320}
         />
-        <DistributionChart title="来源分布" description="四类告警统一看，不让碳告警在业务上掉队。" items={summaryQuery.data?.data.by_source ?? []} />
-        <DistributionChart
-          title="等级分布"
-          description="判断高风险是否集中爆发。"
-          items={(summaryQuery.data?.data.by_severity ?? []).map((item) => ({ name: severityLabel(item.name), value: item.value }))}
-        />
+        <DistributionChart title="来源分布" items={summaryQuery.data?.data.by_source ?? []} />
+        <DistributionChart title="等级分布" items={(summaryQuery.data?.data.by_severity ?? []).map((item) => ({ name: severityLabel(item.name), value: item.value }))} />
       </PageSection>
 
       <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
@@ -186,7 +181,7 @@ function AlertsCenterPage() {
       <PageSection className="grid gap-4 xl:grid-cols-[260px_minmax(0,1.1fr)_380px]">
         <div className="space-y-4">
           <FacetNavigation title="告警分组" items={facetItems} selectedKey={source} onSelect={setSource} />
-          <RankingList title="区域集中度" description="用区域维度确认问题是否集中在同一片区。" items={summaryQuery.data?.data.by_area ?? []} unit="条" height={280} />
+          <RankingList title="区域集中度" items={summaryQuery.data?.data.by_area ?? []} unit="条" height={280} />
         </div>
 
         <div className="rounded-lg border border-border/60 bg-card shadow-sm">

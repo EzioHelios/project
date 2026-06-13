@@ -165,10 +165,9 @@ function MonitorCenterPage() {
             { label: "未处理异常", value: areas.reduce((sum, item) => sum + (item.alert_unhandled ?? 0), 0) },
           ]}
         />
-        <DistributionChart title="区域风险分布" description="先看哪些区域异常最集中。" items={areaDistribution} unit="条" height={280} />
+        <DistributionChart title="区域风险分布" items={areaDistribution} unit="条" height={280} />
         <TrendChart
           title="设备近时段测点趋势"
-          description="优先看当前选中设备的短周期趋势，避免只剩静态字段。"
           points={timeseriesQuery.data?.data.series ?? []}
           lines={[{ key: "energy_kwh", label: "设备测点", colorKey: "energy" }]}
           height={280}

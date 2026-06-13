@@ -52,6 +52,8 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: `components/carbon/data-view.tsx` and `components/carbon/accounting-panels.tsx` migrated the remaining shared data/entry surfaces to `AdminPanel` and `AdminDataTable`; `components/carbon` no longer imports or renders naked `Card`.
 - Done: `components/platform/master-data-workbench.tsx` migrated area tree/detail and device tree/list/detail workbench shells to `AdminPanel`, `MetricStrip`, `MetricTile`, `AdminDataTable`, and `AdminTableStateRow`; the file no longer imports or renders naked `Card`.
 - Done: `/home` replaced colorful card entry tiles and explanatory card copy with restrained `AdminPanel` sections and neutral action rows; the route no longer imports or renders naked `Card`.
+- Done: `ChartPanel` and shared carbon chart wrappers no longer accept chart `description`; migrated energy-carbon factor, monitor, carbon, alert, and quality charts now use title/unit/axis/legend/tooltip instead of explanatory chart prose.
+- Done: `/auth/users` and `/admin/roles` migrated from naked `Card` / `CardDescription` shells to `AdminPanel`, `AdminDataTable`, `AdminTableStateRow`, and status badges; the unauthorized users header no longer uses `meta` as a disguised subtitle.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 

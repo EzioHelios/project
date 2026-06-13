@@ -14,7 +14,6 @@ echarts.use([LineChart, BarChart, PieChart, GaugeChart, SankeyChart, GridCompone
 
 type ChartPanelProps = {
   title: React.ReactNode
-  description?: React.ReactNode
   unit?: React.ReactNode
   source?: React.ReactNode
   updatedAt?: React.ReactNode
@@ -25,11 +24,11 @@ type ChartPanelProps = {
   className?: string
 }
 
-export function ChartPanel({ title, description, unit, source, updatedAt, actions, option, height = 320, emptyLabel = "暂无图表数据", className }: ChartPanelProps) {
+export function ChartPanel({ title, unit, source, updatedAt, actions, option, height = 320, emptyLabel = "暂无图表数据", className }: ChartPanelProps) {
   const metaItems = [unit ? `单位：${unit}` : null, source ? `来源：${source}` : null, updatedAt ? `更新：${updatedAt}` : null].filter(Boolean)
 
   return (
-    <AdminPanel title={title} description={description} actions={actions} className={className} contentClassName="pt-3" data-chart-panel="">
+    <AdminPanel title={title} actions={actions} className={className} contentClassName="pt-3" data-chart-panel="">
       {metaItems.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground text-[0.72rem]">{metaItems.map((item) => item && <span key={item}>{item}</span>)}</div>
       )}

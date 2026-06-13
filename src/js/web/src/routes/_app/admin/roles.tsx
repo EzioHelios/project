@@ -2,10 +2,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
 import { z } from "zod"
 import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
-import { AdminPageHeader } from "@/components/admin-ui"
+import { AdminPageHeader, AdminPanel } from "@/components/admin-ui"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { useAdminPermissions, useAdminRolePermissions, useAdminRoles, useAdminUpdateRolePermissions } from "@/lib/api/hooks/admin"
 
@@ -45,7 +44,7 @@ function AdminRolesPage() {
   const search = Route.useSearch()
   const navigate = useNavigate()
   const { data: rolesData, isLoading: rolesLoading } = useAdminRoles()
-  const { data: permissions = [], isLoading: permissionsLoading } = useAdminPermissions()
+  const { data: permissions = [] } = useAdminPermissions()
   const roles = rolesData?.items ?? []
   const [selectedRoleId, setSelectedRoleId] = useState<string>("")
   const rolePermissionsQuery = useAdminRolePermissions(selectedRoleId)
@@ -93,12 +92,8 @@ function AdminRolesPage() {
       <PermissionCenterNav />
 
       <PageSection className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <Card className="border-border/60">
-          <CardHeader>
-            <CardTitle className="text-base">角色列表</CardTitle>
-            <CardDescription>选择一个角色，编辑它的权限集合。</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
+        <AdminPanel title="角色列表">
+          <div className="space-y-2">
             {rolesLoading ? (
               <p className="text-sm text-muted-foreground">正在加载角色...</p>
             ) : roles.length === 0 ? (
@@ -123,67 +118,58 @@ function AdminRolesPage() {
                 )
               })
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </AdminPanel>
 
-        <Card className="border-border/60">
-          <CardHeader className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <CardTitle className="text-base">{selectedRole?.name ?? "请选择角色"}</CardTitle>
-              {selectedRole ? <Badge variant="secondary">{selectedRole.slug}</Badge> : null}
-            </div>
-            <CardDescription>{permissionsLoading ? "正在加载权限..." : "勾选权限后保存即可更新该角色。"}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {!hasSelection ? (
-              <p className="text-sm text-muted-foreground">请先从左侧选择一个角色。</p>
-            ) : rolePermissionsQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">正在加载角色权限...</p>
-            ) : (
-              <>
-                {Object.entries(permissionsByModule).map(([module, modulePermissions]) => (
-                  <div key={module} className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium tracking-wide text-muted-foreground">{moduleLabels[module] ?? module}</h3>
-                      <Badge variant="outline">{modulePermissions.length}</Badge>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {modulePermissions.map((permission) => {
-                        const checked = draftPermissionCodes.includes(permission.code)
-                        const permissionLabel = permissionLabels[permission.code] ?? {
-                          name: permission.name,
-                          description: permission.description ?? permission.code,
-                        }
-                        return (
-                          <label key={permission.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 p-3 transition-colors hover:bg-muted/40">
-                            <input
-                              type="checkbox"
-                              className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                              checked={checked}
-                              onChange={() => togglePermission(permission.code)}
-                            />
-                            <span className="space-y-1">
-                              <span className="block text-sm font-medium">{permissionLabel.name}</span>
-                              <span className="block text-xs text-muted-foreground">{permission.code}</span>
-                              <span className="block text-xs text-muted-foreground">{permissionLabel.description}</span>
-                            </span>
-                          </label>
-                        )
-                      })}
-                    </div>
+        <AdminPanel title={selectedRole?.name ?? "请选择角色"} actions={selectedRole ? <Badge variant="secondary">{selectedRole.slug}</Badge> : null} contentClassName="space-y-6">
+          {!hasSelection ? (
+            <p className="text-sm text-muted-foreground">请先从左侧选择一个角色。</p>
+          ) : rolePermissionsQuery.isLoading ? (
+            <p className="text-sm text-muted-foreground">正在加载角色权限...</p>
+          ) : (
+            <>
+              {Object.entries(permissionsByModule).map(([module, modulePermissions]) => (
+                <div key={module} className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium tracking-wide text-muted-foreground">{moduleLabels[module] ?? module}</h3>
+                    <Badge variant="outline">{modulePermissions.length}</Badge>
                   </div>
-                ))}
-
-                <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-4">
-                  <Button type="button" onClick={handleSave} disabled={updateRolePermissions.isPending}>
-                    {updateRolePermissions.isPending ? "保存中..." : "保存权限"}
-                  </Button>
-                  <p className="text-sm text-muted-foreground">已选择 {draftPermissionCodes.length} 项权限</p>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {modulePermissions.map((permission) => {
+                      const checked = draftPermissionCodes.includes(permission.code)
+                      const permissionLabel = permissionLabels[permission.code] ?? {
+                        name: permission.name,
+                        description: permission.description ?? permission.code,
+                      }
+                      return (
+                        <label key={permission.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 p-3 transition-colors hover:bg-muted/40">
+                          <input
+                            type="checkbox"
+                            className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                            checked={checked}
+                            onChange={() => togglePermission(permission.code)}
+                          />
+                          <span className="space-y-1">
+                            <span className="block text-sm font-medium">{permissionLabel.name}</span>
+                            <span className="block text-xs text-muted-foreground">{permission.code}</span>
+                            <span className="block text-xs text-muted-foreground">{permissionLabel.description}</span>
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              ))}
+
+              <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-4">
+                <Button type="button" onClick={handleSave} disabled={updateRolePermissions.isPending}>
+                  {updateRolePermissions.isPending ? "保存中..." : "保存权限"}
+                </Button>
+                <p className="text-sm text-muted-foreground">已选择 {draftPermissionCodes.length} 项权限</p>
+              </div>
+            </>
+          )}
+        </AdminPanel>
       </PageSection>
     </PageContainer>
   )
