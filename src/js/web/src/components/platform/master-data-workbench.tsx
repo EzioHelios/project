@@ -607,7 +607,7 @@ export function MonitorAreaWorkbenchPage() {
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editingArea ? "编辑区域" : "新增区域"}</DialogTitle>
-            <DialogDescription>维护区域树节点的名称、层级语义和管理归属。</DialogDescription>
+            <DialogDescription className="sr-only">维护区域树节点的名称、层级语义和管理归属。</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="区域编码">
@@ -1098,7 +1098,7 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: "de
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{editingDevice ? "编辑设备" : "新增设备"}</DialogTitle>
-            <DialogDescription>先选归属区域和设备类型，再补充结构与台账信息。</DialogDescription>
+            <DialogDescription className="sr-only">先选归属区域和设备类型，再补充结构与台账信息。</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="设备编码">
@@ -1259,7 +1259,7 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: "de
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editingPoint ? "编辑测点" : "新增测点"}</DialogTitle>
-            <DialogDescription>测点直接挂在当前选中设备下维护，不再手填设备 ID。</DialogDescription>
+            <DialogDescription className="sr-only">测点直接挂在当前选中设备下维护，不再手填设备 ID。</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="测点编码">

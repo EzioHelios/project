@@ -66,7 +66,7 @@ export function MfaSection() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>重新生成备用码</DialogTitle>
-            <DialogDescription>输入当前密码后生成新的备用码，旧备用码将失效。</DialogDescription>
+            <DialogDescription className="sr-only">输入当前密码后生成新的备用码，旧备用码将失效。</DialogDescription>
           </DialogHeader>
           {regenCodes ? (
             <BackupCodesDisplay codes={regenCodes} />

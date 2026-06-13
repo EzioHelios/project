@@ -69,6 +69,7 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: profile, MFA, team, and permission-center surfaces removed remaining English template labels/toasts in the authenticated admin experience and dropped redundant error-state description copy.
 - Done: shared team switcher, user menu, email verification, OAuth sign-in, signup, placeholder, and enterprise error surfaces now use localized operational labels and avoid decorative description copy in global entry points.
 - Done: shared Admin UI and carbon utility components removed unused explanatory `description` slots from `AdminPanel`, `AdminSectionHeader`, `QuickLinkGrid`, `InsightCallout`, and `SectionHeader`, making compact title/action/data composition the default.
+- Done: MFA and master-data dialogs now keep operation guidance screen-reader only instead of rendering visible subtitle copy under modal titles; the mobile sidebar default description is localized.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 

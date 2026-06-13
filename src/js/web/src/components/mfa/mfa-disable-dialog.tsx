@@ -67,7 +67,7 @@ export function MfaDisableDialog({ disabled }: MfaDisableDialogProps) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>停用多因素认证</DialogTitle>
-          <DialogDescription>{hasPassword ? "输入当前密码以停用多因素认证。" : "使用已关联账号完成校验后停用多因素认证。"}</DialogDescription>
+          <DialogDescription className="sr-only">{hasPassword ? "输入当前密码以停用多因素认证。" : "使用已关联账号完成校验后停用多因素认证。"}</DialogDescription>
         </DialogHeader>
 
         {hasPassword ? (

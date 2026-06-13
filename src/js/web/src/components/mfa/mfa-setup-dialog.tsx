@@ -85,7 +85,7 @@ export function MfaSetupDialog({ disabled }: MfaSetupDialogProps) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>启用多因素认证</DialogTitle>
-          <DialogDescription>使用认证器扫描二维码，然后输入 6 位验证码。</DialogDescription>
+          <DialogDescription className="sr-only">使用认证器扫描二维码，然后输入 6 位验证码。</DialogDescription>
         </DialogHeader>
         {codes ? <BackupCodesDisplay codes={codes} /> : qrContent}
         <DialogFooter>
