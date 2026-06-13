@@ -1,0 +1,1 @@
+"""Carbon accounting query services."""

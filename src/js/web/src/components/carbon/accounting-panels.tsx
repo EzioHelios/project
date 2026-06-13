@@ -1,8 +1,7 @@
-import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { ClipboardCheck, Fuel, PlugZap, Truck } from "lucide-react"
 
-import { type ApiEnvelope, fetchCarbonApi, LedgerTable } from "@/components/carbon/analytics-panels"
+import { CarbonAccountingResultsPanel } from "@/components/carbon/accounting-inventory-panel"
 import { ScopeRecordPage } from "@/components/carbon/scope-record-page"
 import { Scope2RecordsPanel } from "@/components/carbon/scope2-records-panel"
 import { Button } from "@/components/ui/button"
@@ -92,36 +91,7 @@ export function Scope3AccountingPanel() {
   )
 }
 
-export { PendingReviewPanel }
-
-type CarbonRecordsPage = {
-  items: Record<string, unknown>[]
-}
-
-export function CarbonAccountingResultsPanel() {
-  const recordsQuery = useQuery<ApiEnvelope<CarbonRecordsPage>>({
-    queryKey: ["energy-carbon", "carbon", "records"],
-    queryFn: () => fetchCarbonApi<CarbonRecordsPage>("/api/energy-carbon/carbon/records?limit=200&offset=0"),
-  })
-
-  return (
-    <LedgerTable
-      title="核算结果账本"
-      description="汇总 Scope1/2/3 已形成的组织碳排放核算结果，作为核查、报告和碳资产管理的结果来源。"
-      rows={recordsQuery.data?.data.items ?? []}
-      columns={[
-        { key: "scope", label: "范围" },
-        { key: "record_label", label: "记录类型" },
-        { key: "display_name", label: "对象" },
-        { key: "period", label: "期间" },
-        { key: "source_kind", label: "来源" },
-        { key: "activity_amount", label: "活动量", align: "right" },
-        { key: "computed_co2e", label: "核算结果", align: "right" },
-        { key: "status", label: "状态" },
-      ]}
-    />
-  )
-}
+export { CarbonAccountingResultsPanel, PendingReviewPanel }
 
 function Scope1MobilePanel() {
   return (

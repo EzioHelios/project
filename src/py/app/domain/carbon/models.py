@@ -1278,6 +1278,77 @@ class CarbonFactorRawRecord(BigIntAuditBase):
     raw_payload: Mapped[dict | None] = mapped_column(JSON)
 
 
+class CarbonAccountingBatch(TeamScopedMixin, BigIntAuditBase):
+    """Organization-carbon accounting batch bound to one reporting boundary."""
+
+    __tablename__ = "carbon_accounting_batch"
+    __table_args__ = (
+        UniqueConstraint("team_id", "batch_no", name="uq_carbon_accounting_batch_team_no"),
+        Index("ix_carbon_accounting_batch_boundary", "team_id", "boundary_id", "status"),
+        Index("ix_carbon_accounting_batch_period", "team_id", "reporting_org_id", "period_id"),
+    )
+
+    batch_no: Mapped[str] = mapped_column(String(64), index=True)
+    batch_name: Mapped[str] = mapped_column(String(128))
+    reporting_org_id: Mapped[int] = mapped_column(ForeignKey("carbon_reporting_organization.id", ondelete="CASCADE"), index=True)
+    period_id: Mapped[int] = mapped_column(ForeignKey("carbon_reporting_period.id", ondelete="CASCADE"), index=True)
+    boundary_id: Mapped[int] = mapped_column(ForeignKey("carbon_organization_boundary.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    inventory_status: Mapped[str] = mapped_column(String(24), default="empty", index=True)
+    standard_code: Mapped[str | None] = mapped_column(String(64))
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    total_co2e: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    record_count: Mapped[int] = mapped_column(Integer, default=0)
+    included_record_count: Mapped[int] = mapped_column(Integer, default=0)
+    missing_result_count: Mapped[int] = mapped_column(Integer, default=0)
+    inventory_payload: Mapped[dict | None] = mapped_column(JSON)
+    rebuilt_at: Mapped[datetime | None] = mapped_column(DateTime)
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    boundary: Mapped[OrganizationBoundary] = relationship(lazy="selectin")
+    organization: Mapped[ReportingOrganization] = relationship(lazy="selectin")
+    period: Mapped[ReportingPeriod] = relationship(lazy="selectin")
+    items: Mapped[list[CarbonEmissionInventoryItem]] = relationship(
+        back_populates="batch",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class CarbonEmissionInventoryItem(TeamScopedMixin, BigIntAuditBase):
+    """Snapshot row in an organization-carbon emission inventory."""
+
+    __tablename__ = "carbon_emission_inventory_item"
+    __table_args__ = (
+        UniqueConstraint("team_id", "batch_id", "record_type", "record_id", name="uq_carbon_inventory_item_batch_record"),
+        Index("ix_carbon_inventory_item_batch_scope", "team_id", "batch_id", "scope"),
+        Index("ix_carbon_inventory_item_record", "team_id", "record_type", "record_id"),
+    )
+
+    batch_id: Mapped[int] = mapped_column(ForeignKey("carbon_accounting_batch.id", ondelete="CASCADE"), index=True)
+    record_type: Mapped[str] = mapped_column(String(64), index=True)
+    record_id: Mapped[int] = mapped_column(Integer, index=True)
+    scope: Mapped[str] = mapped_column(String(16), index=True)
+    record_label: Mapped[str] = mapped_column(String(64))
+    display_name: Mapped[str | None] = mapped_column(String(255))
+    period: Mapped[str | None] = mapped_column(String(16), index=True)
+    source_kind: Mapped[str | None] = mapped_column(String(32), index=True)
+    activity_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    activity_unit: Mapped[str | None] = mapped_column(String(32))
+    computed_co2e: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    factor_source: Mapped[str | None] = mapped_column(String(255))
+    factor_year: Mapped[int | None] = mapped_column(Integer)
+    factor_unit: Mapped[str | None] = mapped_column(String(32))
+    calc_status: Mapped[str | None] = mapped_column(String(24), index=True)
+    quality_status: Mapped[str] = mapped_column(String(24), default="ready", index=True)
+    included: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    exclusion_reason: Mapped[str | None] = mapped_column(Text)
+    source_payload: Mapped[dict | None] = mapped_column(JSON)
+
+    batch: Mapped[CarbonAccountingBatch] = relationship(back_populates="items", lazy="selectin")
+
+
 class CarbonVerificationExportJob(TeamScopedMixin, BigIntAuditBase):
     """Carbon verification report/material package export job."""
 

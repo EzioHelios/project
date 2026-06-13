@@ -536,8 +536,20 @@ flowchart LR
 | --- | --- |
 | `POST /api/carbon/accounting/batches` | 创建组织核算批次。 |
 | `POST /api/carbon/accounting/batches/{id}/rebuild-inventory` | 重建组织排放清单。 |
+| `PATCH /api/carbon/accounting/batches/{id}/lock` | 锁定已生成清单的核算批次。 |
+| `GET /api/carbon/accounting/batches/{id}/summary` | 查询批次总量、Scope 汇总和质量状态。 |
 | `GET /api/carbon/accounting/inventories` | 查询组织排放清单结果。 |
 | `POST /api/carbon/accounting/records/{id}/submit|approve|reject|lock` | 统一活动记录状态流转。 |
+
+2026-06-13 首版实现：
+
+| 层 | 已落地内容 |
+| --- | --- |
+| 数据模型 | `carbon_accounting_batch` 和 `carbon_emission_inventory_item` 两张租户表，均有 RLS policy 和常用索引。 |
+| 应用层 | `domain/carbon_accounting` 新增 `domain/policies.py`、`usecases/inventory.py`、`queries/inventory.py`、`controllers/inventory.py`。 |
+| 页面入口 | `/carbon/accounting` 的“核算结果”Tab 已接入创建批次、重建清单、锁定批次、Scope 汇总、质量状态和清单明细。 |
+| 当前边界 | 首版按报告期纳入已审核 Scope 记录；带 `area_id` 的记录会按边界设施过滤；组织级记录按报告期纳入。 |
+| 下一步 | 把 `carbon_verification` 和 `carbon_assets` 默认数据源切到已锁定清单，并补活动记录统一 lock 状态与修订流程。 |
 
 ### 7.3 产品碳足迹 `product_footprint`
 

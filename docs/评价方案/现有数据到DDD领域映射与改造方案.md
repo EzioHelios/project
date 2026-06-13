@@ -96,6 +96,8 @@ flowchart LR
 | `Scope3WasteDisposal` | `carbon.models` | `carbon_accounting` | Scope3 废弃物活动数据 | 不进入 P0 能耗查询。 |
 | `Scope3ThirdPartyTransport` | `carbon.models` | `carbon_accounting` | Scope3 第三方运输活动数据 | 不进入 P0 能耗查询。 |
 | `CarbonAuditLog` | `carbon.models` | `carbon_accounting` | 碳记录审核操作日志 | 跟随碳核算命令用例迁移。 |
+| `CarbonAccountingBatch` / `carbon_accounting_batch` | `carbon.models` | `carbon_accounting` | 绑定报告主体、报告期和组织边界版本的一次组织碳核算批次 | 已新建租户表；后续补修订流程和活动记录统一锁定。 |
+| `CarbonEmissionInventoryItem` / `carbon_emission_inventory_item` | `carbon.models` | `carbon_accounting` | 组织排放清单快照明细，供核查、碳资产和报告读取 | 已新建租户表；只统计已审核记录并保留质量状态。 |
 | `CarbonVerificationExportJob` / `carbon_verification_export_job` | `carbon.models` | `carbon_verification` | 核查报告/材料包导出任务，记录范围、模板、状态、ZIP 文件路径、哈希和导出人 | 已新建租户表；后续接异步队列和 DOCX/PDF 渲染。 |
 | `CarbonVerificationExportFile` / `carbon_verification_export_file` | `carbon.models` | `carbon_verification` | 导出包内文件清单，记录 manifest、活动数据、因子参数、问题、审核轨迹等文件 | 已新建租户表；后续接独立附件实体和原件打包。 |
 
@@ -151,6 +153,8 @@ flowchart LR
 | `/api/data/alarm-events*` | `CarbonCRUDController` | `metering.controllers.alarms` | 告警处理命令迁到 metering usecases。 |
 | `/api/carbon/scope*` | `CarbonCRUDController` | `carbon_accounting.controllers.scope_records` | 旧路径兼容，新 Controller 承载业务。 |
 | `/api/carbon/scope2-meter-aggregate*` | `CarbonCRUDController` | `energy.usecases.rebuild_meter_aggregates` + `carbon_accounting` 审核 | 重建归 energy，提交/审核归 carbon。 |
+| `/api/carbon/accounting/batches*` | `CarbonAccountingInventoryController` | `carbon_accounting.controllers` | 已新增核算批次创建、重建清单、锁定和摘要 API。 |
+| `/api/carbon/accounting/inventories*` | `CarbonAccountingInventoryController` | `carbon_accounting.controllers` | 已新增组织排放清单快照查询 API。 |
 | `/api/carbon/factor-library*` | `CarbonCRUDController` | `factor_library.controllers` | 抽因子库查询和详情。 |
 | `/api/carbon/organization-boundary/*` | `OrganizationBoundaryController` | `organization_boundary.controllers` | 已新增报告主体、报告期、边界版本、边界设施、发布和汇总 API。 |
 | `/api/carbon/verification/*` | `CarbonVerificationController` | `carbon_verification.controllers` | 已新增读模型和导出任务；读取核算事实和审核日志，不反写 Scope 记录。 |

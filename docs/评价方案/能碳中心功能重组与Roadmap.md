@@ -62,7 +62,7 @@
 
 | 指南一级菜单 | 推荐路由 | 二级 Tabs | 当前承接 | 改造状态 |
 | --- | --- | --- | --- | --- |
-| 碳排放核算 | `/carbon/accounting` | 核算总览、组织边界、Scope1 填报、Scope2 填报、Scope3 填报、核算结果、待审核 | 已重组为独立指南页面和二级 Tabs；后端 Scope CRUD、审核、Scope2 聚合/对账归入 `domain/carbon_accounting`；组织边界首版归入 `domain/organization_boundary` | 首批已建，组织边界首版已接入 |
+| 碳排放核算 | `/carbon/accounting` | 核算总览、组织边界、Scope1 填报、Scope2 填报、Scope3 填报、核算结果、待审核 | 已重组为独立指南页面和二级 Tabs；后端 Scope CRUD、审核、Scope2 聚合/对账、核算批次和组织排放清单归入 `domain/carbon_accounting`；组织边界首版归入 `domain/organization_boundary` | 首批已建，组织边界和清单批次已接入 |
 | 产品碳足迹核算 | `/carbon/product-footprint` | 产品清单、BOM/工序、生命周期边界、活动数据、核算结果、报告生成 | 可复用因子库、入出库和运输台账 | 建设中 |
 | 供应链碳管理 | `/carbon/supply-chain` | 供应商档案、填报任务、数据审核、下游披露、供应链分析 | 可复用租户隔离、运输和追溯能力 | 建设中 |
 | 碳核查支撑 | `/carbon/verification` | 凭证清单、过程追溯、质量问题、审核日志、核查材料包、报告导出 | 已重组为独立指南页面；新增 `domain/carbon_verification` 读模型和导出任务，材料包/报告导出 Tabs 已接入 `/api/carbon/verification/*` 与 ZIP 下载 | 首批已建，后续补 DOCX/PDF 渲染和独立附件实体 |
@@ -79,7 +79,7 @@
 | Master data | 区域、设备、设备类型、设备测点以及相关兼容数据接口 | `src/py/app/domain/master_data` | 已迁移，部分 helper 仍复用 legacy |
 | Metering | 电表读数、IoT telemetry、告警事件和视频告警处理 | `src/py/app/domain/metering` | 已迁移 |
 | Energy budget | 用能与碳排放预算方案、月度分解、调整记录、执行偏差、预警、预测和规则建议 | `src/py/app/domain/energy_budget` | 已迁移 |
-| Carbon accounting | Scope1/2/3 填报、提交/审核/驳回、Scope2 电表聚合和对账 | `src/py/app/domain/carbon_accounting` | 已迁移 |
+| Carbon accounting | Scope1/2/3 填报、提交/审核/驳回、Scope2 电表聚合和对账、核算批次、组织排放清单快照和锁定 | `src/py/app/domain/carbon_accounting` | 已迁移并增强 |
 | Factor library | 排放因子查询、官方因子库概览、源记录、分类树 | `src/py/app/domain/factor_library` | 已迁移 |
 | Analytics | `/api/energy-carbon/*`、碳分析、能碳协同分析、质量问题、追溯查询 | `src/py/app/domain/analytics` | 已迁移 |
 | Organization boundary | 报告主体、报告期、组织/运营边界、边界设施和版本 | `src/py/app/domain/organization_boundary` | 首版已建：新增租户表、API、发布规则和 `/carbon/accounting` 组织边界 Tab |
@@ -161,7 +161,7 @@
 
 | 优先级 | 页面 | 改造目标 | 指南功能 |
 | --- | --- | --- | --- |
-| P1 | 组织边界与碳核算增强 | 组织边界首版已完成报告主体、报告期、边界版本、边界设施和发布规则；下一步补核算批次和组织排放清单读模型 | 碳排放核算、碳核查支撑、碳资产管理前置底座 |
+| P1 | 组织边界与碳核算增强 | 已完成报告主体、报告期、边界版本、边界设施、核算批次、组织排放清单快照、重建和锁定；后续补统一活动记录锁定、正式修订流程和更细边界设施匹配 | 碳排放核算、碳核查支撑、碳资产管理前置底座 |
 | P2 | 产品碳足迹核算 | PCF 研究、生命周期边界、活动数据清单、分配规则、因子匹配、核算结果、报告 | 产品碳足迹核算 |
 | P2 | 供应链碳管理 | 供应商档案、填报任务、数据审核、证据、下游披露、供应链分析 | 供应链碳管理 |
 | P3 | 碳资产管理 | 配额、CCER/绿证、履约周期、交易模拟、清缴/注销、履约风险 | 碳资产管理 |
