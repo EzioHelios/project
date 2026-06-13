@@ -67,6 +67,14 @@ Header density budget:
 - The header should not consume more than roughly 10% of a 768px-high viewport. If it does, the page is drifting toward a hero layout.
 - Button groups should remain one row. If more than three actions are needed, keep one primary action and move the rest into secondary menu or toolbar actions.
 
+Header hard gates:
+
+- A migrated admin page must not pass `eyebrow` or `description` to `AdminPageHeader`.
+- A migrated admin page must not keep a local `<h1>` / `<h2>` title block above or next to `AdminPageHeader`.
+- `meta` cannot contain a module label, marketing noun, or helper sentence. It must be a factual value such as `2026 Q2`, `已锁定`, `上海工厂`, or `更新于 09:30`.
+- If breadcrumb/sidebar/topbar already says "碳排放管理", the content header must not repeat "碳排放管理" as a small label.
+- When screenshot reviewing a page, reject it if the first viewport is dominated by title copy instead of data, controls, table rows, or charts.
+
 Header ownership rules:
 
 | UI area | Owns | Must not own |
@@ -133,6 +141,15 @@ Chart visual density budget:
 - Panel title row: one title plus optional unit/source/freshness/action metadata. No chart subtitle paragraph.
 - Axis labels should stay readable at table-adjacent density; rotate labels only when truncation would be worse.
 - A page with multiple charts should use one shared grid rhythm. Do not mix unrelated chart panel padding, legends, or tooltip treatments.
+
+Chart hard gates:
+
+- A migrated admin chart must not render `ReactECharts` directly from a route file.
+- A migrated admin chart must not define `CHART_COLORS`, `PIE_COLORS`, local hex palettes, local tooltip shells, local legend styling, local axis styling, or local grid styling.
+- `ChartPanel` alone is not sufficient. The option must be produced by `createAdminChartOption()` or a shared chart builder that itself uses the admin chart theme.
+- If the chart type is not yet supported by the shared chart layer, add the shared builder first, then migrate the page.
+- Each analysis chart must expose at least one audit/context field through panel metadata or axis/tooltip semantics: unit, source, updated time, period, scope, or data grain.
+- Screenshot review must compare at least one trend, ranking, composition, and anomaly chart where available; they should clearly belong to the same admin product.
 
 ## Page Rules
 

@@ -57,6 +57,7 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: team management surfaces (`TeamList`, `/teams/new`, `/teams/$teamId`, invitation acceptance, and invite dialog) moved away from colorful card grids, tips sidebars, and English helper copy toward `AdminPanel`, neutral list rows, concise status fields, and localized operational labels.
 - Done: `/admin` permission-center overview replaced shortcut cards and `CardDescription` copy with a compact `AdminPanel` action list.
 - Done: shared permission-center admin components (`UserTable`, `TeamTable`, `StatsCards`, `RecentActivity`, `AuditLogTable`) now use `AdminPanel`, `AdminDataTable`, `AdminTableStateRow`, `AdminTableToolbar`, `MetricStrip`, and status badges instead of naked `Card` shells and English dashboard copy.
+- Done: `/carbon-mgmt/factors` migrated the official factor library KPI strip, category tree, filters, raw-factor table, and empty rows to shared Admin UI primitives; the route no longer imports or renders naked `Card`.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 

@@ -448,6 +448,15 @@ Header 要求：
 7. 配置页面。
 8. 低频页面收尾。
 
+当前标题 / 图表专项修正的执行顺序：
+
+1. 标题区 pass：删除重复 eyebrow、副标题、header 说明文案，拒绝把 `meta` 当成 description 使用。
+2. 图表层 pass：先把 ECharts 视觉 option 收回 `admin-chart-theme.ts` 或共享 builder，再改页面布局。
+3. 表格 / 面板 pass：把裸 `Card` 表格壳替换为 `AdminPanel`、`AdminTableToolbar`、`AdminDataTable`、`AdminTableStateRow`。
+4. 截图 pass：至少检查一个 Ledger、一个 Analysis、一个 Audit、一个 Reference Data 页面，桌面高度以 768px 为基准。
+
+不要从逐页装饰开始。当前目标是减少能表达视觉风格的位置，让标题、图表、表格壳都回到共享系统。
+
 ### 7.2 页面迁移步骤
 
 每个页面按以下步骤迁移：
@@ -472,6 +481,20 @@ Header 要求：
 - 控制内容标题区高度：无 ContextBar 时 48px 到 64px，极限不超过 80px。
 - 截图确认第一屏标题区高度没有挤压业务内容。
 
+标题区扫描命令：
+
+```bash
+rg -n "PageHeader|AdminPageHeader|eyebrow=|description=|CardDescription|meta=\".*(管理|中心|平台|用于|帮助|说明)" src/js/web/src/routes src/js/web/src/components
+rg -n "<h1|<h2" src/js/web/src/routes/_app src/js/web/src/components
+```
+
+标题区验收标准：
+
+- 内容区只出现一个页面标题。
+- 没有标题上方的小副标题。
+- Header 不超过 80px，除非包含真实的状态 / 操作换行。
+- 首屏必须露出业务数据、表格或图表。
+
 图表迁移补充步骤：
 
 - 先替换为 `ChartPanel`。
@@ -480,6 +503,21 @@ Header 要求：
 - 把趋势、排行、构成、仪表盘、桑基、热力图沉淀为共享 chart builder，不在 route 组件里写视觉 option。
 - 删除 chart description prose；用 title、unit、source、updatedAt、axis、legend 和 tooltip 表达。
 - 截图确认趋势、构成、排行、异常图表属于同一视觉体系。
+
+图表层扫描命令：
+
+```bash
+rg -n "ReactECharts|echarts-for-react" src/js/web/src/routes src/js/web/src/components
+rg -n "CHART_COLORS|PIE_COLORS|color: \\[|color: \"#|backgroundColor: \"#" src/js/web/src/routes src/js/web/src/components
+rg -n "tooltip: \\{|legend: \\{|grid: \\{|axisLabel: \\{|splitLine: \\{|itemStyle: \\{" src/js/web/src/routes src/js/web/src/components
+```
+
+图表层验收标准：
+
+- 普通后台路由不直接拥有 ECharts renderer。
+- 页面不定义视觉 option，只传数据、单位、来源、更新时间、阈值和钻取。
+- 新图表类型先进入共享 builder，再进入页面。
+- 趋势、排行、构成和异常图的 palette、tooltip、legend、axis、grid 属于同一视觉体系。
 
 ### 7.3 降低成本策略
 

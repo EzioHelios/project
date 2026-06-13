@@ -7,14 +7,12 @@
  */
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Archive, CheckCircle2, ChevronRight, Layers3, ShieldCheck } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
-import { AdminPageHeader } from "@/components/admin-ui"
-import { SummaryMetricCard } from "@/components/summary-metric-card"
+import { AdminDataTable, AdminPageHeader, AdminPanel, AdminTableStateRow, AdminTableToolbar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -198,17 +196,20 @@ function FactorsPage() {
     <PageContainer className="flex-1 space-y-4">
       <AdminPageHeader title="排放因子库" />
 
-      <PageSection className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <SummaryMetricCard icon={ShieldCheck} label="官方库" value={formatNumber(overview?.library_count)} meta={batch?.source_system ?? "未导入"} />
-        <SummaryMetricCard icon={Layers3} label="分类节点" value={formatNumber(overview?.category_count)} meta={`${formatNumber(overview?.leaf_category_count)} 个叶子分类`} />
-        <SummaryMetricCard icon={Archive} label="原始记录" value={formatNumber(overview?.raw_record_count)} meta={`${formatNumber(batch?.xlsx_count)} 个审阅文件`} />
-        <SummaryMetricCard icon={CheckCircle2} label="校验状态" value={batch?.checksum_verified ? "通过" : "待校验"} meta={batch?.snapshot_id ?? "-"} />
+      <PageSection>
+        <MetricStrip className="xl:grid-cols-4">
+          <MetricTile label="官方库" value={formatNumber(overview?.library_count)} meta={batch?.source_system ?? "未导入"} />
+          <MetricTile label="分类节点" value={formatNumber(overview?.category_count)} meta={`${formatNumber(overview?.leaf_category_count)} 个叶子分类`} />
+          <MetricTile label="原始记录" value={formatNumber(overview?.raw_record_count)} meta={`${formatNumber(batch?.xlsx_count)} 个审阅文件`} />
+          <MetricTile label="校验状态" value={batch?.checksum_verified ? "通过" : "待校验"} meta={batch?.snapshot_id ?? "-"} />
+        </MetricStrip>
       </PageSection>
 
       <PageSection className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
-        <Card className="xl:sticky xl:top-20 xl:self-start">
-          <CardHeader className="space-y-3">
-            <CardTitle>分类树</CardTitle>
+        <AdminPanel
+          title="分类树"
+          className="xl:sticky xl:top-20 xl:self-start"
+          actions={
             <Select
               value={selectedLibraryKey}
               onValueChange={(value) => {
@@ -227,54 +228,55 @@ function FactorsPage() {
                 ))}
               </SelectContent>
             </Select>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {categoryTreeQuery.isLoading && <div className="text-muted-foreground text-sm">正在加载分类...</div>}
-            {categoryTreeQuery.isError && <div className="text-destructive text-sm">分类加载失败。</div>}
-            {!categoryTreeQuery.isLoading && !categoryTreeQuery.isError && (
-              <div className="max-h-[640px] overflow-y-auto pr-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedCategory(null)
-                    setOffset(0)
-                  }}
-                  className={cn(
-                    "mb-1 flex w-full items-center rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-accent",
-                    !selectedCategory && "bg-primary/10 font-medium text-primary",
-                  )}
-                >
-                  全部分类
-                </button>
-                {(selectedGroup?.children ?? []).map((node) => (
-                  <CategoryTreeNode
-                    key={node.source_category_id}
-                    node={node}
-                    expandedIds={expandedIds}
-                    selectedPath={selectedCategory?.category_path ?? null}
-                    onToggle={toggleNode}
-                    onSelect={selectCategory}
-                  />
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="min-w-0">
-          <CardHeader className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <CardTitle>官方原始因子</CardTitle>
-                <div className="mt-1 text-muted-foreground text-sm">
-                  {selectedCategory ? selectedCategory.category_path : "全部分类"} · 共 {formatNumber(recordsPage?.total)} 条
-                </div>
-              </div>
-              <Button variant="outline" size="sm" onClick={resetFilters}>
-                重置
-              </Button>
+          }
+          contentClassName="space-y-3"
+        >
+          {categoryTreeQuery.isLoading && <div className="text-muted-foreground text-sm">正在加载分类...</div>}
+          {categoryTreeQuery.isError && <div className="text-destructive text-sm">分类加载失败。</div>}
+          {!categoryTreeQuery.isLoading && !categoryTreeQuery.isError && (
+            <div className="max-h-[640px] overflow-y-auto pr-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory(null)
+                  setOffset(0)
+                }}
+                className={cn(
+                  "mb-1 flex w-full items-center rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-accent",
+                  !selectedCategory && "bg-primary/10 font-medium text-primary",
+                )}
+              >
+                全部分类
+              </button>
+              {(selectedGroup?.children ?? []).map((node) => (
+                <CategoryTreeNode
+                  key={node.source_category_id}
+                  node={node}
+                  expandedIds={expandedIds}
+                  selectedPath={selectedCategory?.category_path ?? null}
+                  onToggle={toggleNode}
+                  onSelect={selectCategory}
+                />
+              ))}
             </div>
-            <div className="grid gap-3 md:grid-cols-[1fr_160px]">
+          )}
+        </AdminPanel>
+
+        <AdminPanel
+          title="官方原始因子"
+          actions={
+            <Button variant="outline" size="sm" onClick={resetFilters}>
+              重置
+            </Button>
+          }
+          className="min-w-0"
+          contentClassName="space-y-4"
+        >
+          <div className="text-muted-foreground text-sm">
+            {selectedCategory ? selectedCategory.category_path : "全部分类"} · 共 {formatNumber(recordsPage?.total)} 条
+          </div>
+          <AdminTableToolbar
+            search={
               <Input
                 value={keyword}
                 onChange={(event) => {
@@ -283,6 +285,8 @@ function FactorsPage() {
                 }}
                 placeholder="搜索：因子名称/分类/单位/发布方"
               />
+            }
+            filters={
               <Select
                 value={projectionStatus}
                 onValueChange={(value) => {
@@ -299,12 +303,13 @@ function FactorsPage() {
                   <SelectItem value="raw_only">仅原始保留</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4 overflow-x-auto">
-            {recordsQuery.isLoading && <div className="text-muted-foreground text-sm">正在加载...</div>}
-            {recordsQuery.isError && <div className="text-destructive text-sm">加载失败，请检查后端接口。</div>}
-            {!recordsQuery.isLoading && !recordsQuery.isError && (
+            }
+            className="rounded-md border border-border/70 bg-muted/20"
+          />
+          {recordsQuery.isLoading && <div className="text-muted-foreground text-sm">正在加载...</div>}
+          {recordsQuery.isError && <div className="text-destructive text-sm">加载失败，请检查后端接口。</div>}
+          {!recordsQuery.isLoading && !recordsQuery.isError && (
+            <AdminDataTable className="rounded-none border-0">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -320,13 +325,7 @@ function FactorsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {records.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
-                        暂无数据
-                      </TableCell>
-                    </TableRow>
-                  )}
+                  {records.length === 0 && <AdminTableStateRow colSpan={9}>暂无数据</AdminTableStateRow>}
                   {records.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell className="max-w-[260px] truncate">{record.category_path}</TableCell>
@@ -346,22 +345,22 @@ function FactorsPage() {
                   ))}
                 </TableBody>
               </Table>
-            )}
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-muted-foreground text-sm">
-                {recordsPage?.total ? `${formatNumber(offset + 1)} - ${formatNumber(Math.min(offset + (recordsPage?.limit ?? 50), recordsPage.total))}` : "0 - 0"}
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={!canGoPrev} onClick={() => setOffset(Math.max(0, offset - 50))}>
-                  上一页
-                </Button>
-                <Button variant="outline" size="sm" disabled={!canGoNext} onClick={() => setOffset(offset + 50)}>
-                  下一页
-                </Button>
-              </div>
+            </AdminDataTable>
+          )}
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-muted-foreground text-sm">
+              {recordsPage?.total ? `${formatNumber(offset + 1)} - ${formatNumber(Math.min(offset + (recordsPage?.limit ?? 50), recordsPage.total))}` : "0 - 0"}
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={!canGoPrev} onClick={() => setOffset(Math.max(0, offset - 50))}>
+                上一页
+              </Button>
+              <Button variant="outline" size="sm" disabled={!canGoNext} onClick={() => setOffset(offset + 50)}>
+                下一页
+              </Button>
+            </div>
+          </div>
+        </AdminPanel>
       </PageSection>
 
       <RecordDetailSheet record={selectedRecord} onOpenChange={(open) => !open && setSelectedRecord(null)} />

@@ -129,6 +129,20 @@ Chart cleanup must happen in this order:
 
 Do not migrate charts by wrapping a visually unchanged local option in `ChartPanel`. That only changes the container and leaves the UI problem intact.
 
+## Migration Acceptance Gate
+
+A chart migration is accepted only when all of these are true:
+
+- The route or business component does not import `ReactECharts` / `echarts-for-react` directly unless it is the shared chart wrapper itself.
+- The chart option is composed through `createAdminChartOption()` or a named shared builder from the admin chart layer.
+- Visual fields are absent from the route/business component: palette arrays, hex colors, tooltip shell style, legend style, grid spacing, axis line/tick/label styling, split line styling, decorative `itemStyle`, default pie radius, bar width, line symbol, gauge progress style, and sankey node/link colors.
+- Domain code passes only business semantics: data, labels, units, source, updated time, threshold values, event markers, and drilldown metadata.
+- The chart panel shows a compact title row and at least one context field where available: unit, source, updated time, period, data grain, or scope.
+- Empty, loading, and error states are handled by `ChartPanel` or a shared wrapper, not by ad hoc page copy.
+- Screenshot review confirms that the migrated chart does not look like default ECharts or a separate BI plugin embedded into the page.
+
+Treat source scans as a gate, not as proof by themselves. A page can pass scans and still fail if its chart hierarchy, density, title row, metadata, or tooltip behavior feels visually unrelated to the rest of the backend admin system.
+
 Recommended scans:
 
 ```bash
