@@ -4,11 +4,11 @@ import { Download, Plus, RefreshCw, Trash2, Upload } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
+import { AdminDataTable, AdminEmptyState, AdminPanel, AdminTableStateRow, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { fetchCarbonApi } from "@/components/carbon/analytics-panels"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -335,60 +335,61 @@ export function EnergyBenchmarkPanel() {
 
   return (
     <PageSection className="space-y-4">
-      <Card>
-        <CardContent className="grid gap-3 pt-6 md:grid-cols-2 xl:grid-cols-6">
-          <Input type="date" value={filters.periodStart} onChange={(event) => setFilters((state) => ({ ...state, periodStart: event.target.value }))} />
-          <Input type="date" value={filters.periodEnd} onChange={(event) => setFilters((state) => ({ ...state, periodEnd: event.target.value }))} />
-          <Select value={filters.profileId} onValueChange={(value) => setFilters((state) => ({ ...state, profileId: value }))}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="auto">最新启用方案</SelectItem>
-              {profiles.map((profile) => (
-                <SelectItem key={profile.id} value={String(profile.id)}>
-                  {profile.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filters.targetType} onValueChange={(value) => setFilters((state) => ({ ...state, targetType: value }))}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {targetTypes.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filters.metricCode} onValueChange={(value) => setFilters((state) => ({ ...state, metricCode: value }))}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {metrics.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <ContextBar
+        actions={
           <Button variant="outline" onClick={refreshAll}>
             <RefreshCw className="mr-2 h-4 w-4" />
             刷新
           </Button>
-        </CardContent>
-      </Card>
+        }
+      >
+        <Input type="date" value={filters.periodStart} onChange={(event) => setFilters((state) => ({ ...state, periodStart: event.target.value }))} />
+        <Input type="date" value={filters.periodEnd} onChange={(event) => setFilters((state) => ({ ...state, periodEnd: event.target.value }))} />
+        <Select value={filters.profileId} onValueChange={(value) => setFilters((state) => ({ ...state, profileId: value }))}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="auto">最新启用方案</SelectItem>
+            {profiles.map((profile) => (
+              <SelectItem key={profile.id} value={String(profile.id)}>
+                {profile.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filters.targetType} onValueChange={(value) => setFilters((state) => ({ ...state, targetType: value }))}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {targetTypes.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filters.metricCode} onValueChange={(value) => setFilters((state) => ({ ...state, metricCode: value }))}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {metrics.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </ContextBar>
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <MetricStrip className="md:grid-cols-4 xl:grid-cols-4">
         <StatCard label="对标对象" value={conclusions?.summary.total ?? comparisons.length} />
         <StatCard label="重点偏差" value={conclusions?.summary.status_counts?.severe ?? 0} />
         <StatCard label="预警对象" value={conclusions?.summary.status_counts?.warning ?? 0} />
         <StatCard label="节能潜力" value={formatNumber(conclusions?.summary.saving_potential)} suffix={conclusions?.summary.unit} />
-      </div>
+      </MetricStrip>
 
       <Tabs defaultValue="baseline" className="space-y-4">
         <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5">
@@ -400,10 +401,10 @@ export function EnergyBenchmarkPanel() {
         </TabsList>
 
         <TabsContent value="baseline" className="space-y-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-3">
-              <CardTitle>历史基线</CardTitle>
-              <div className="flex flex-wrap gap-2">
+          <AdminPanel
+            title="历史基线"
+            actions={
+              <>
                 <Button variant="outline" size="sm" onClick={() => generate.mutate("best_period")} disabled={generate.isPending}>
                   <Download className="mr-2 h-4 w-4" />
                   最优基线生成
@@ -414,19 +415,21 @@ export function EnergyBenchmarkPanel() {
                 <Button variant="outline" size="sm" onClick={() => generate.mutate("average")} disabled={generate.isPending}>
                   均值生成
                 </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
+              </>
+            }
+            contentClassName="p-0"
+          >
+            <AdminDataTable className="rounded-none border-0">
               <BaselineTable rows={baseline} />
-            </CardContent>
-          </Card>
+            </AdminDataTable>
+          </AdminPanel>
         </TabsContent>
 
         <TabsContent value="library" className="space-y-4">
           <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>标杆方案</CardTitle>
+            <AdminPanel
+              title="标杆方案"
+              actions={
                 <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm">
@@ -449,33 +452,33 @@ export function EnergyBenchmarkPanel() {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {profiles.map((profile) => (
-                  <button
-                    key={profile.id}
-                    type="button"
-                    className={`w-full rounded-lg border p-3 text-left transition-colors ${selectedProfileId === profile.id ? "border-primary bg-primary/5" : "border-border/60 hover:bg-accent/40"}`}
-                    onClick={() => setFilters((state) => ({ ...state, profileId: String(profile.id) }))}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="font-medium">{profile.name}</div>
-                      <Badge variant={profile.is_enabled ? "secondary" : "outline"}>{profile.is_enabled ? "启用" : "停用"}</Badge>
-                    </div>
-                    <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
-                      <span>{profile.industry_name || "行业未标注"}</span>
-                      <span>{profile.source_name || "来源未标注"}</span>
-                    </div>
-                  </button>
-                ))}
-                {profiles.length === 0 && <EmptyText text="暂无标杆方案" />}
-              </CardContent>
-            </Card>
+              }
+              contentClassName="space-y-3"
+            >
+              {profiles.map((profile) => (
+                <button
+                  key={profile.id}
+                  type="button"
+                  className={`w-full rounded-md border p-3 text-left transition-colors ${selectedProfileId === profile.id ? "border-primary bg-primary/5" : "border-border/60 hover:bg-accent/40"}`}
+                  onClick={() => setFilters((state) => ({ ...state, profileId: String(profile.id) }))}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="font-medium">{profile.name}</div>
+                    <Badge variant={profile.is_enabled ? "secondary" : "outline"}>{profile.is_enabled ? "启用" : "停用"}</Badge>
+                  </div>
+                  <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
+                    <span>{profile.industry_name || "行业未标注"}</span>
+                    <span>{profile.source_name || "来源未标注"}</span>
+                  </div>
+                </button>
+              ))}
+              {profiles.length === 0 && <EmptyText text="暂无标杆方案" />}
+            </AdminPanel>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle>标杆项</CardTitle>
-                <div className="flex flex-wrap gap-2">
+            <AdminPanel
+              title="标杆项"
+              actions={
+                <>
                   <Dialog open={csvOpen} onOpenChange={setCsvOpen}>
                     <DialogTrigger asChild>
                       <Button variant="outline" size="sm" disabled={!selectedProfileId}>
@@ -528,52 +531,50 @@ export function EnergyBenchmarkPanel() {
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
-                </div>
-              </CardHeader>
-              <CardContent>
+                </>
+              }
+              contentClassName="p-0"
+            >
+              <AdminDataTable className="rounded-none border-0">
                 <BenchmarkItemsTable rows={itemsQuery.data?.items ?? []} onDelete={(itemId) => deleteItem.mutate(itemId)} />
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </div>
         </TabsContent>
 
         <TabsContent value="comparison">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>设备/工序对标</CardTitle>
-              <div className="flex gap-2">
+          <AdminPanel
+            title="设备/工序对标"
+            actions={
+              <>
                 <Button variant="outline" size="sm" asChild>
                   <Link to="/energy/analysis">能源分析</Link>
                 </Button>
                 <Button variant="outline" size="sm" asChild>
                   <Link to="/energy/consumption">能耗查询</Link>
                 </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
+              </>
+            }
+            contentClassName="p-0"
+          >
+            <AdminDataTable className="rounded-none border-0">
               <ComparisonTable rows={comparisons} />
-            </CardContent>
-          </Card>
+            </AdminDataTable>
+          </AdminPanel>
         </TabsContent>
 
         <TabsContent value="conclusion">
           <div className="grid gap-4 xl:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>偏差排行</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <AdminPanel title="偏差排行" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <ComparisonTable rows={conclusions?.top_deviations ?? []} compact />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>覆盖缺口</CardTitle>
-              </CardHeader>
-              <CardContent>
+              </AdminDataTable>
+            </AdminPanel>
+            <AdminPanel title="覆盖缺口" contentClassName="p-0">
+              <AdminDataTable className="rounded-none border-0">
                 <ComparisonTable rows={conclusions?.missing_benchmarks ?? []} compact />
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </div>
         </TabsContent>
 
@@ -581,44 +582,37 @@ export function EnergyBenchmarkPanel() {
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
             <div className="space-y-3">
               {recommendations.map((item) => (
-                <Card key={item.code}>
-                  <CardContent className="pt-6">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <div className="font-medium">{item.title}</div>
-                        <div className="mt-1 text-sm text-muted-foreground">{item.target}</div>
+                <AdminPanel key={item.code}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="font-medium">{item.title}</div>
+                      <div className="mt-1 text-sm text-muted-foreground">{item.target}</div>
+                    </div>
+                    <Badge variant={item.priority === "high" ? "destructive" : "secondary"}>{item.priority === "high" ? "高优先级" : "中优先级"}</Badge>
+                  </div>
+                  <div className="mt-4 grid gap-2 text-sm">
+                    {item.steps.map((step) => (
+                      <div key={step} className="rounded-md bg-muted/60 px-3 py-2">
+                        {step}
                       </div>
-                      <Badge variant={item.priority === "high" ? "destructive" : "secondary"}>{item.priority === "high" ? "高优先级" : "中优先级"}</Badge>
-                    </div>
-                    <div className="mt-4 grid gap-2 text-sm">
-                      {item.steps.map((step) => (
-                        <div key={step} className="rounded-md bg-muted/60 px-3 py-2">
-                          {step}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3 text-sm text-muted-foreground">{item.expected_effect}</div>
-                  </CardContent>
-                </Card>
+                    ))}
+                  </div>
+                  <div className="mt-3 text-sm text-muted-foreground">{item.expected_effect}</div>
+                </AdminPanel>
               ))}
               {recommendations.length === 0 && <EmptyText text="当前筛选条件下暂无整改建议" />}
             </div>
-            <Card>
-              <CardHeader>
-                <CardTitle>关联入口</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-2">
-                <Button variant="outline" asChild>
-                  <Link to="/energy/intensity">能源强度</Link>
-                </Button>
-                <Button variant="outline" asChild>
-                  <Link to="/data/terminals">设备台账</Link>
-                </Button>
-                <Button variant="outline" asChild>
-                  <Link to="/energy/balance">能效平衡</Link>
-                </Button>
-              </CardContent>
-            </Card>
+            <AdminPanel title="关联入口" contentClassName="grid gap-2">
+              <Button variant="outline" asChild>
+                <Link to="/energy/intensity">能源强度</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/data/terminals">设备台账</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/energy/balance">能效平衡</Link>
+              </Button>
+            </AdminPanel>
           </div>
         </TabsContent>
       </Tabs>
@@ -627,17 +621,7 @@ export function EnergyBenchmarkPanel() {
 }
 
 function StatCard({ label, value, suffix }: { label: string; value: string | number; suffix?: string }) {
-  return (
-    <Card>
-      <CardContent className="pt-5">
-        <div className="text-xs text-muted-foreground">{label}</div>
-        <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-2xl font-semibold">{value}</span>
-          {suffix && <span className="text-xs text-muted-foreground">{suffix}</span>}
-        </div>
-      </CardContent>
-    </Card>
-  )
+  return <MetricTile label={label} value={value} unit={suffix} />
 }
 
 function BaselineTable({ rows }: { rows: BaselineItem[] }) {
@@ -882,17 +866,11 @@ function Field({ label, value, onChange, type = "text" }: { label: string; value
 }
 
 function EmptyRow({ colSpan }: { colSpan: number }) {
-  return (
-    <TableRow>
-      <TableCell colSpan={colSpan} className="h-24 text-center text-muted-foreground">
-        暂无数据
-      </TableCell>
-    </TableRow>
-  )
+  return <AdminTableStateRow colSpan={colSpan}>暂无数据</AdminTableStateRow>
 }
 
 function EmptyText({ text }: { text: string }) {
-  return <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">{text}</div>
+  return <AdminEmptyState title={text} />
 }
 
 function parseCsv(value: string) {
