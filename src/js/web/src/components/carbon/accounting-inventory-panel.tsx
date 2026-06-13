@@ -97,6 +97,42 @@ type InventoryItem = {
   exclusion_reason?: string | null
 }
 
+type RevisionDiff = {
+  status: string
+  batch: AccountingBatch
+  parent_batch: AccountingBatch
+  totals: {
+    parent_t_co2e: number
+    current_t_co2e: number
+    delta_t_co2e: number
+    added_count: number
+    removed_count: number
+    changed_count: number
+    change_count: number
+  }
+  scope_deltas: {
+    scope: string
+    before_t_co2e: number
+    after_t_co2e: number
+    delta_t_co2e: number
+    before_included_record_count: number
+    after_included_record_count: number
+  }[]
+  changes: {
+    change_type: string
+    record_type?: string | null
+    record_id?: number | null
+    scope?: string | null
+    record_label?: string | null
+    display_name?: string | null
+    before_kg_co2e?: number | null
+    after_kg_co2e?: number | null
+    delta_kg_co2e?: number | null
+    before_quality_status?: string | null
+    after_quality_status?: string | null
+  }[]
+}
+
 const QUERY_KEY = ["carbon-accounting-inventory"]
 
 export function CarbonAccountingResultsPanel() {
@@ -143,6 +179,11 @@ export function CarbonAccountingResultsPanel() {
   )
   const summary = summaryQuery.data?.data
   const items = itemsQuery.data?.data.items ?? []
+  const revisionDiffQuery = useQuery<ApiEnvelope<RevisionDiff>>({
+    queryKey: [...QUERY_KEY, "revision-diff", activeBatchId],
+    queryFn: () => fetchCarbonApi<RevisionDiff>(`/api/carbon/accounting/batches/${activeBatchId}/revision-diff`),
+    enabled: Boolean(activeBatchId && activeBatch?.is_revision),
+  })
 
   const createBatch = useMutation({
     mutationFn: () => postCarbonApi<AccountingBatch>("/api/carbon/accounting/batches", { boundary_id: Number.parseInt(boundaryId, 10) }),
@@ -364,6 +405,8 @@ export function CarbonAccountingResultsPanel() {
         </CardContent>
       </Card>
 
+      {activeBatch?.is_revision ? <RevisionDiffCard diff={revisionDiffQuery.data?.data} loading={revisionDiffQuery.isLoading} /> : null}
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
         <Card>
           <CardHeader>
@@ -453,6 +496,85 @@ export function CarbonAccountingResultsPanel() {
   )
 }
 
+function RevisionDiffCard({ diff, loading }: { diff?: RevisionDiff; loading: boolean }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>修订差异</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          <Badge variant={diff?.status === "ready" ? "default" : "outline"}>{revisionDiffStatusLabel(diff?.status, loading)}</Badge>
+          {diff?.parent_batch?.batch_no ? <Badge variant="secondary">来源 {diff.parent_batch.batch_no}</Badge> : null}
+        </div>
+        <div className="grid gap-3 md:grid-cols-4">
+          <DiffMetric label="原清单" value={formatNumber(diff?.totals.parent_t_co2e)} unit="tCO2e" />
+          <DiffMetric label="修订后" value={formatNumber(diff?.totals.current_t_co2e)} unit="tCO2e" />
+          <DiffMetric label="差异" value={formatSignedNumber(diff?.totals.delta_t_co2e)} unit="tCO2e" />
+          <DiffMetric label="变更记录" value={String(diff?.totals.change_count ?? 0)} />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>范围</TableHead>
+                <TableHead className="text-right">原值</TableHead>
+                <TableHead className="text-right">修订后</TableHead>
+                <TableHead className="text-right">差异</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(diff?.scope_deltas ?? []).map((item) => (
+                <TableRow key={item.scope}>
+                  <TableCell>{item.scope}</TableCell>
+                  <TableCell className="text-right">{formatNumber(item.before_t_co2e)}</TableCell>
+                  <TableCell className="text-right">{formatNumber(item.after_t_co2e)}</TableCell>
+                  <TableCell className="text-right">{formatSignedNumber(item.delta_t_co2e)}</TableCell>
+                </TableRow>
+              ))}
+              {!diff?.scope_deltas?.length ? <EmptyRow colSpan={4} label="暂无范围差异" /> : null}
+            </TableBody>
+          </Table>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>类型</TableHead>
+                <TableHead>对象</TableHead>
+                <TableHead className="text-right">tCO2e</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(diff?.changes ?? []).slice(0, 8).map((item) => (
+                <TableRow key={`${item.record_type}-${item.record_id}-${item.change_type}`}>
+                  <TableCell>
+                    <Badge variant="outline">{changeTypeLabel(item.change_type)}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="max-w-[240px] truncate">{item.display_name || item.record_label || "-"}</div>
+                  </TableCell>
+                  <TableCell className="text-right">{formatSignedNumber((item.delta_kg_co2e ?? 0) / 1000)}</TableCell>
+                </TableRow>
+              ))}
+              {!diff?.changes?.length ? <EmptyRow colSpan={3} label="暂无记录差异" /> : null}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function DiffMetric({ label, value, unit }: { label: string; value: string; unit?: string }) {
+  return (
+    <div className="rounded-md border p-3">
+      <span className="block text-muted-foreground text-xs">{label}</span>
+      <span className="font-semibold text-lg">
+        {value} {unit ? <span className="font-normal text-muted-foreground text-xs">{unit}</span> : null}
+      </span>
+    </div>
+  )
+}
+
 function MetricGrid({ items }: { items: { label: string; value: string; icon: typeof Calculator }[] }) {
   return (
     <div className="grid gap-3 md:grid-cols-4">
@@ -524,6 +646,14 @@ function formatNumber(value?: number | null) {
   return Number(value).toLocaleString("zh-CN", { maximumFractionDigits: 3 })
 }
 
+function formatSignedNumber(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "-"
+  const formatted = formatNumber(Math.abs(value))
+  if (value > 0) return `+${formatted}`
+  if (value < 0) return `-${formatted}`
+  return formatted
+}
+
 function statusLabel(value?: string | null) {
   if (value === "draft") return "草稿"
   if (value === "rebuilt") return "已重建"
@@ -540,6 +670,21 @@ function qualityLabel(value?: string | null) {
   if (value === "missing_result") return "缺结果"
   if (value === "calculation_issue") return "计算问题"
   if (value === "excluded") return "边界外"
+  return value || "-"
+}
+
+function revisionDiffStatusLabel(value?: string | null, loading?: boolean) {
+  if (loading) return "加载中"
+  if (value === "ready") return "已生成"
+  if (value === "empty_revision_inventory") return "待重建"
+  if (value === "parent_inventory_empty") return "来源无清单"
+  return value || "无数据"
+}
+
+function changeTypeLabel(value?: string | null) {
+  if (value === "added") return "新增"
+  if (value === "removed") return "移除"
+  if (value === "changed") return "变更"
   return value || "-"
 }
 

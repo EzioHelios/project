@@ -77,6 +77,14 @@ class CarbonAccountingInventoryController(Controller):
             return _error(exc)
         return Response(content=ok_data(data))
 
+    @get("/api/carbon/accounting/batches/{batch_id:int}/revision-diff")
+    async def get_revision_diff(self, db_session: AsyncSession, batch_id: int) -> Response[dict]:
+        try:
+            data = await CarbonAccountingInventoryQueryService(db_session).revision_diff(batch_id)
+        except ValueError as exc:
+            return _error(exc)
+        return Response(content=ok_data(data))
+
     @get("/api/carbon/accounting/inventories")
     async def list_inventory_items(
         self,
