@@ -10,6 +10,7 @@ from datetime import UTC
 from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import unquote, urlparse
 
 from sqlalchemy import select
 
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
 
 
 EXPORT_ROOT = Path(".exports/carbon-verification")
+CONTROL_CHARACTER_LIMIT = 32
 
 
 class CarbonVerificationExportUseCase:
@@ -176,6 +178,7 @@ def _write_export_archive(
         "audit/audit-trail.csv": _csv_bytes(audit_trail.get("items", [])),
     }
     archive_files: list[dict[str, Any]] = []
+    evidence_files: list[dict[str, Any]] = []
     with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for rendered in rendered_files:
             archive.writestr(rendered.path, rendered.content)
@@ -202,10 +205,18 @@ def _write_export_archive(
                     "sha256": hashlib.sha256(payload).hexdigest(),
                 }
             )
+        evidence_files = _write_evidence_originals(
+            archive=archive,
+            evidence_items=evidence.get("items", []),
+            archive_files=archive_files,
+            year=str(report.get("reporting_period", {}).get("year") or package.get("filters", {}).get("year") or "all"),
+        )
         manifest_payload = {
             **package,
             "generated_at": _utc_now_naive().isoformat(),
             "exported_files": list(archive_files),
+            "evidence_files": evidence_files,
+            "evidence_file_summary": _evidence_file_summary(evidence_files),
         }
         manifest_content = _json_bytes(manifest_payload)
         archive.writestr("manifest.json", manifest_content)
@@ -220,6 +231,141 @@ def _write_export_archive(
             }
         )
     return archive_path, archive_files, manifest_payload
+
+
+def _write_evidence_originals(
+    *,
+    archive: zipfile.ZipFile,
+    evidence_items: list[dict[str, Any]],
+    archive_files: list[dict[str, Any]],
+    year: str,
+) -> list[dict[str, Any]]:
+    evidence_files: list[dict[str, Any]] = []
+    used_archive_paths = {item["path"] for item in archive_files}
+    for item in evidence_items:
+        source_path = _str_or_none(item.get("path"))
+        manifest_item = _evidence_file_manifest_item(item, source_path=source_path)
+        if not source_path:
+            manifest_item["package_status"] = "missing_path"
+            evidence_files.append(manifest_item)
+            continue
+        file_path, unavailable_reason = _local_evidence_path(source_path)
+        if file_path is None:
+            manifest_item["package_status"] = unavailable_reason
+            evidence_files.append(manifest_item)
+            continue
+        archive_path = _deduplicate_archive_path(
+            _evidence_archive_path(year=year, evidence_code=str(item.get("evidence_code") or "evidence"), file_path=file_path, item=item),
+            used_archive_paths,
+        )
+        used_archive_paths.add(archive_path)
+        sha256 = _sha256_file(file_path)
+        size_bytes = file_path.stat().st_size
+        archive.write(file_path, arcname=archive_path)
+        exported_file = {
+            "file_type": "evidence_original",
+            "path": archive_path,
+            "source_name": str(item.get("source") or "scope_record_attachments"),
+            "content_type": item.get("content_type") or _content_type_from_suffix(file_path),
+            "size_bytes": size_bytes,
+            "sha256": sha256,
+        }
+        archive_files.append(exported_file)
+        manifest_item.update(
+            {
+                "package_status": "included",
+                "package_path": archive_path,
+                "size_bytes": size_bytes,
+                "sha256": sha256,
+            }
+        )
+        evidence_files.append(manifest_item)
+    return evidence_files
+
+
+def _evidence_file_manifest_item(item: dict[str, Any], *, source_path: str | None) -> dict[str, Any]:
+    return {
+        "evidence_code": item.get("evidence_code"),
+        "record_type": item.get("record_type"),
+        "record_id": item.get("record_id"),
+        "scope": item.get("scope"),
+        "display_name": item.get("display_name"),
+        "period": item.get("period"),
+        "source_path": source_path,
+        "source": item.get("source") or "scope_record_attachments",
+        "material_status": item.get("material_status"),
+        "attachment_type": item.get("attachment_type"),
+    }
+
+
+def _local_evidence_path(source_path: str) -> tuple[Path | None, str]:
+    parsed = urlparse(source_path)
+    if parsed.scheme in {"http", "https", "s3", "oss", "cos"}:
+        return None, "remote_file_unavailable"
+    path = Path(unquote(parsed.path)).expanduser() if parsed.scheme == "file" else Path(source_path).expanduser()
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    if not path.exists():
+        return None, "missing_file"
+    if not path.is_file():
+        return None, "not_a_file"
+    return path, "included"
+
+
+def _evidence_archive_path(*, year: str, evidence_code: str, file_path: Path, item: dict[str, Any]) -> str:
+    filename = _safe_archive_segment(str(item.get("file_name") or file_path.name or "evidence-file"))
+    code = _safe_archive_segment(evidence_code)
+    return f"evidence/{_safe_archive_segment(year)}/{code}-{filename}"
+
+
+def _deduplicate_archive_path(path: str, used_paths: set[str]) -> str:
+    if path not in used_paths:
+        return path
+    base_path = Path(path)
+    stem = base_path.stem
+    suffix = base_path.suffix
+    parent = base_path.parent.as_posix()
+    counter = 2
+    while True:
+        candidate = f"{parent}/{stem}-{counter}{suffix}" if parent != "." else f"{stem}-{counter}{suffix}"
+        if candidate not in used_paths:
+            return candidate
+        counter += 1
+
+
+def _safe_archive_segment(value: str) -> str:
+    cleaned = "".join("_" if char in {"/", "\\"} or ord(char) < CONTROL_CHARACTER_LIMIT else char for char in value).strip(" .")
+    return cleaned or "unknown"
+
+
+def _content_type_from_suffix(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix == ".pdf":
+        return "application/pdf"
+    if suffix in {".jpg", ".jpeg"}:
+        return "image/jpeg"
+    if suffix == ".png":
+        return "image/png"
+    if suffix in {".xlsx", ".xls"}:
+        return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    if suffix == ".docx":
+        return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    return "application/octet-stream"
+
+
+def _evidence_file_summary(items: list[dict[str, Any]]) -> dict[str, int]:
+    summary = {
+        "total": len(items),
+        "included": 0,
+        "missing_path": 0,
+        "missing_file": 0,
+        "remote_file_unavailable": 0,
+        "not_a_file": 0,
+    }
+    for item in items:
+        status = str(item.get("package_status") or "unknown")
+        summary[status] = summary.get(status, 0) + 1
+    return summary
 
 
 def _csv_bytes(rows: list[dict[str, Any]]) -> bytes:
