@@ -1,13 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Building2, CalendarRange, CheckCircle2, Factory, GitBranch } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
+import { AdminDataTable, AdminPanel, AdminTableStateRow, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -305,18 +304,18 @@ export function OrganizationBoundaryPanel() {
     <div className="space-y-4">
       <MetricGrid
         items={[
-          { label: "报告主体", value: summary?.organization_count ?? 0, icon: Building2 },
-          { label: "报告期", value: summary?.period_count ?? 0, icon: CalendarRange },
-          { label: "边界版本", value: summary?.boundary_count ?? 0, icon: GitBranch },
-          { label: "已发布边界", value: summary?.published_boundary_count ?? 0, icon: CheckCircle2 },
-          { label: "边界设施", value: summary?.facility_count ?? 0, icon: Factory },
+          { label: "报告主体", value: summary?.organization_count ?? 0 },
+          { label: "报告期", value: summary?.period_count ?? 0 },
+          { label: "边界版本", value: summary?.boundary_count ?? 0 },
+          { label: "已发布边界", value: summary?.published_boundary_count ?? 0 },
+          { label: "边界设施", value: summary?.facility_count ?? 0 },
         ]}
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-3">
-            <CardTitle>报告主体</CardTitle>
+        <AdminPanel
+          title="报告主体"
+          actions={
             <Dialog open={organizationOpen} onOpenChange={setOrganizationOpen}>
               <DialogTrigger asChild>
                 <Button size="sm">新增主体</Button>
@@ -345,8 +344,10 @@ export function OrganizationBoundaryPanel() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          </CardHeader>
-          <CardContent>
+          }
+          contentClassName="p-0"
+        >
+          <AdminDataTable className="rounded-none border-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -370,12 +371,12 @@ export function OrganizationBoundaryPanel() {
                 <EmptyRow visible={!organizations.length} colSpan={4} label="暂无报告主体" />
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+          </AdminDataTable>
+        </AdminPanel>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-3">
-            <CardTitle>报告期</CardTitle>
+        <AdminPanel
+          title="报告期"
+          actions={
             <Dialog open={periodOpen} onOpenChange={setPeriodOpen}>
               <DialogTrigger asChild>
                 <Button size="sm">新增报告期</Button>
@@ -405,8 +406,10 @@ export function OrganizationBoundaryPanel() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          </CardHeader>
-          <CardContent>
+          }
+          contentClassName="p-0"
+        >
+          <AdminDataTable className="rounded-none border-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -432,13 +435,13 @@ export function OrganizationBoundaryPanel() {
                 <EmptyRow visible={!periods.length} colSpan={5} label="暂无报告期" />
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+          </AdminDataTable>
+        </AdminPanel>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3">
-          <CardTitle>组织边界版本</CardTitle>
+      <AdminPanel
+        title="组织边界版本"
+        actions={
           <Dialog open={boundaryOpen} onOpenChange={setBoundaryOpen}>
             <DialogTrigger asChild>
               <Button size="sm">新增边界</Button>
@@ -468,8 +471,10 @@ export function OrganizationBoundaryPanel() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </CardHeader>
-        <CardContent>
+        }
+        contentClassName="p-0"
+      >
+        <AdminDataTable className="rounded-none border-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -507,12 +512,12 @@ export function OrganizationBoundaryPanel() {
               <EmptyRow visible={!boundaries.length} colSpan={8} label="暂无组织边界" />
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </AdminDataTable>
+      </AdminPanel>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3">
-          <CardTitle>边界设施</CardTitle>
+      <AdminPanel
+        title="边界设施"
+        actions={
           <Dialog open={facilityOpen} onOpenChange={setFacilityOpen}>
             <DialogTrigger asChild>
               <Button size="sm">维护设施</Button>
@@ -540,8 +545,10 @@ export function OrganizationBoundaryPanel() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </CardHeader>
-        <CardContent>
+        }
+        contentClassName="p-0"
+      >
+        <AdminDataTable className="rounded-none border-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -571,32 +578,19 @@ export function OrganizationBoundaryPanel() {
               <EmptyRow visible={!facilities.length} colSpan={7} label="暂无边界设施" />
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </AdminDataTable>
+      </AdminPanel>
     </div>
   )
 }
 
-function MetricGrid({ items }: { items: { label: string; value: number; icon: typeof Building2 }[] }) {
+function MetricGrid({ items }: { items: { label: string; value: number }[] }) {
   return (
-    <div className="grid gap-3 md:grid-cols-5">
-      {items.map((item) => {
-        const Icon = item.icon
-        return (
-          <Card key={item.label}>
-            <CardContent className="flex items-center gap-3 p-4">
-              <span className="flex h-9 w-9 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                <Icon className="h-4 w-4" />
-              </span>
-              <span>
-                <span className="block text-muted-foreground text-xs">{item.label}</span>
-                <span className="block font-semibold text-xl">{item.value}</span>
-              </span>
-            </CardContent>
-          </Card>
-        )
-      })}
-    </div>
+    <MetricStrip className="md:grid-cols-5 xl:grid-cols-5">
+      {items.map((item) => (
+        <MetricTile key={item.label} label={item.label} value={item.value} />
+      ))}
+    </MetricStrip>
   )
 }
 
@@ -739,13 +733,7 @@ function IncludedSelect({ value, onChange }: { value: string; onChange: (value: 
 
 function EmptyRow({ visible, colSpan, label }: { visible: boolean; colSpan: number; label: string }) {
   if (!visible) return null
-  return (
-    <TableRow>
-      <TableCell colSpan={colSpan} className="h-20 text-center text-muted-foreground">
-        {label}
-      </TableCell>
-    </TableRow>
-  )
+  return <AdminTableStateRow colSpan={colSpan}>{label}</AdminTableStateRow>
 }
 
 async function postCarbonApi<T>(url: string, payload: Record<string, unknown>) {
