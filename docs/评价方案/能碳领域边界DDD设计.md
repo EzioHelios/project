@@ -871,6 +871,7 @@ classDiagram
         +available_assets
         +gap_amount
         +risk_level
+        +inventory_status
     }
 
     class ForecastScenario {
@@ -899,7 +900,7 @@ classDiagram
 | `AssetTransaction` | 交易或划转记录 | 模拟交易和正式交易分开；正式交易需要状态、价格、费用、凭证。 |
 | `SurrenderRecord` | 清缴/注销记录 | 清缴后减少可用余额，且不可重复使用。 |
 | `ForecastScenario` | 企业履约预测情景 | 只保存企业假设、计划减排、计划购买、计划清缴和价格，不改写组织清单或资产余额。 |
-| `CompliancePosition` | 履约缺口读模型 | 从 `EmissionInventory` 和资产余额生成，不作为事实表手工编辑。 |
+| `CompliancePosition` | 履约缺口读模型 | 只从已锁定的 `EmissionInventory`/`CarbonAccountingBatch` 和资产余额生成，不作为事实表手工编辑；未绑定、未锁定或缺总量时返回业务状态，不输出正式缺口口径。 |
 
 推荐 API：
 
@@ -925,16 +926,16 @@ classDiagram
 | CCER/绿证 | 持仓、项目、有效期、可用状态。 |
 | 履约周期 | 履约边界、排放清单引用、清缴截止和状态。 |
 | 交易模拟 | 买入/卖出/抵消组合模拟，不生成正式交易。 |
-| 滚动预测 | 情景假设、预测缺口、资金需求和月度滚动点。 |
-| 风险预警 | 缺口、缺口率、资产价值、建议组合和处理状态。 |
+| 滚动预测 | 情景假设、预测缺口、资金需求和月度滚动点；未锁定清单不生成正式预测点。 |
+| 风险预警 | 缺口、缺口率、资产价值、清单口径状态、建议组合和处理状态。 |
 
 首版落地状态：
 
 | 层次 | 当前实现 |
 | --- | --- |
 | 数据模型 | `carbon_compliance_period`、`carbon_asset_account`、`carbon_quota_allocation`、`carbon_credit_holding`、`carbon_asset_transaction`、`carbon_surrender_record`、`carbon_asset_forecast_scenario` 七张租户表，均有 RLS policy 和常用索引。 |
-| 后端领域 | `src/py/app/domain/carbon_assets` 已拆分 `domain/policies.py`、`usecases/assets.py`、`queries/assets.py` 和 `controllers/assets.py`。 |
-| 前端 | `/carbon/assets` 已替换建设中占位，提供“配额台账、CCER/绿证、履约周期、交易模拟、滚动预测、风险预警”六个业务 Tab。 |
+| 后端领域 | `src/py/app/domain/carbon_assets` 已拆分 `domain/policies.py`、`usecases/assets.py`、`queries/assets.py` 和 `controllers/assets.py`；履约缺口和预测只读取锁定清单，未锁定返回 `unlocked_inventory` 等业务状态。 |
+| 前端 | `/carbon/assets` 已替换建设中占位，提供“配额台账、CCER/绿证、履约周期、交易模拟、滚动预测、风险预警”六个业务 Tab，并在履约概览展示清单口径状态。 |
 | 边界保留 | 当前不实现真实交易下单、交割结算、碳中和声明、多币种估值和价格曲线；这些后续独立建模。 |
 
 ### 7.6 碳排放管理页面开发顺序

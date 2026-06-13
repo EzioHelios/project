@@ -10,6 +10,7 @@ CREDIT_STATUSES = {"active", "expired", "used", "frozen"}
 TRANSACTION_TYPES = {"buy", "sell", "transfer", "offset"}
 SURRENDER_STATUSES = {"draft", "completed", "cancelled"}
 FORECAST_SCENARIO_STATUSES = {"draft", "active", "archived"}
+LOCKED_INVENTORY_STATUS = "locked"
 
 
 def validate_period_payload(payload: dict[str, Any]) -> None:
@@ -147,6 +148,17 @@ def compliance_risk_level(
     if ratio >= _decimal(yellow, Decimal("0.03")):
         return "yellow"
     return "low"
+
+
+def inventory_position_status(*, has_batch: bool, is_locked: bool, has_total: bool) -> str:
+    """Return the carbon-assets data status for the bound accounting inventory."""
+    if not has_batch:
+        return "missing_batch"
+    if not is_locked:
+        return "unlocked_inventory"
+    if not has_total:
+        return "missing_inventory_total"
+    return LOCKED_INVENTORY_STATUS
 
 
 def simulate_transaction(

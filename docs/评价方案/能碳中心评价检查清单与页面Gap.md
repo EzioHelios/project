@@ -489,7 +489,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | 核算批次 | `GET/POST /api/carbon/accounting/batches` 创建和查询批次；批次绑定已发布组织边界、报告主体和报告期 | 后续补批次复制、修订原因和跨边界差异比较 |
 | 清单重建 | `POST /api/carbon/accounting/batches/{batch_id}/rebuild-inventory` 按报告期纳入已审核 Scope1/2/3 记录并生成清单快照 | 后续补更精细的设施/设备级活动记录映射和重建任务异步化 |
 | 清单锁定 | `PATCH /api/carbon/accounting/batches/{batch_id}/lock` 锁定已生成清单的批次 | 后续补 Scope 活动记录统一 lock 状态和正式修订流程 |
-| 清单查询 | `GET /api/carbon/accounting/inventories` 查询清单明细；`GET /api/carbon/accounting/batches/{batch_id}/summary` 查询总量、Scope 汇总和质量状态 | 后续让 `carbon_verification` 和 `carbon_assets` 默认读取已锁定清单 |
+| 清单查询 | `GET /api/carbon/accounting/inventories` 查询清单明细；`GET /api/carbon/accounting/batches/{batch_id}/summary` 查询总量、Scope 汇总和质量状态；`carbon_assets` 履约缺口已只接受锁定清单批次 | 后续让 `carbon_verification` 默认读取已锁定清单 |
 
 新增租户表：`carbon_accounting_batch`、`carbon_emission_inventory_item`。清单总量只统计 included 且有 `computed_co2e` 的记录；缺因子、缺核算结果和边界外记录进入质量状态，不硬算为正式排放。
 
@@ -502,7 +502,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 
 ### 3. 领域关系
 
-`carbon_accounting` 现在拥有 `CarbonAccountingBatch` 和 `CarbonEmissionInventoryItem` 的生命周期。`organization_boundary` 仍只定义边界，不计算排放；`carbon_verification` 与 `carbon_assets` 后续应优先读取锁定后的 `CarbonEmissionInventoryItem`，而不是重新扫描活动记录。
+`carbon_accounting` 现在拥有 `CarbonAccountingBatch` 和 `CarbonEmissionInventoryItem` 的生命周期。`organization_boundary` 仍只定义边界，不计算排放；`carbon_assets` 的履约缺口和滚动预测已只使用 `status=locked` 且 `inventory_status=locked` 的批次总量，未绑定、未锁定或缺总量时返回业务状态；`carbon_verification` 后续应优先读取锁定后的 `CarbonEmissionInventoryItem`，而不是重新扫描活动记录。
 
 ## 十二、2026-06-13 碳核查支撑开发进度记录
 
@@ -656,9 +656,9 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | 信用/绿证持仓 | `GET/POST/PATCH /api/carbon/assets/credits` 维护 CCER、绿证、碳信用项目、签发年份、数量、价格和状态 | 后续补项目方法学、有效期校验和可用于履约范围判断 |
 | 交易模拟 | `POST /api/carbon/assets/transactions/simulate` 生成模拟交易记录和含费用/税费的金额测算 | 后续补多场景组合、市场价格曲线和真实交易/交割审批 |
 | 清缴记录 | `GET/POST /api/carbon/assets/surrenders` 维护清缴/注销记录，创建时扣减配额或信用 used 数量并禁止超用 | 后续补撤销、修订、附件和外部注销凭证 |
-| 履约缺口 | `GET /api/carbon/assets/compliance-position` 读取履约周期绑定的 `CarbonAccountingBatch.total_co2e`，按 tCO2e 与资产余额测算缺口 | 后续只允许读取已锁定清单 |
+| 履约缺口 | `GET /api/carbon/assets/compliance-position` 只读取履约周期绑定且已锁定的 `CarbonAccountingBatch.total_co2e`，按 tCO2e 与资产余额测算缺口；未绑定、未锁定或缺总量返回 `missing_batch`、`unlocked_inventory`、`missing_inventory_total` 等业务状态 | 后续补按市场/行业口径的履约边界校验 |
 | 预测情景 | `GET/POST/PATCH /api/carbon/assets/forecast-scenarios` 维护企业情景假设，记录增长率、计划减排、计划购买、计划清缴、价格和置信等级 | 后续补多场景组合、市场价格曲线和政策规则版本 |
-| 月度滚动预测 | `GET /api/carbon/assets/forecast` 输出预测排放、预测资产、预测缺口、资金需求和月度滚动点 | 当前为企业情景外推，不替代监管核算；后续补多币种估值和价格曲线 |
+| 月度滚动预测 | `GET /api/carbon/assets/forecast` 基于已锁定清单输出预测排放、预测资产、预测缺口、资金需求和月度滚动点；未锁定清单不生成正式预测点 | 当前为企业情景外推，不替代监管核算；后续补多币种估值和价格曲线 |
 | 风险建议 | `GET /api/carbon/assets/alerts`、`GET /api/carbon/assets/recommendations` 输出风险等级和规则建议 | 后续补消息通知、责任人、处理闭环和阈值配置 |
 
 新增租户表：`carbon_compliance_period`、`carbon_asset_account`、`carbon_quota_allocation`、`carbon_credit_holding`、`carbon_asset_transaction`、`carbon_surrender_record`、`carbon_asset_forecast_scenario`。七张表均纳入 `team_id`、常用索引和 RLS policy。
@@ -672,8 +672,8 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | 履约周期 | 已接入履约周期创建、资产账户创建、周期选择和状态展示 |
 | 交易模拟 | 已接入模拟交易输入、费用/税费测算、模拟记录和清缴创建 |
 | 滚动预测 | 已接入预测情景创建、情景切换、预测排放/资产/缺口/资金需求和月度滚动预测 |
-| 风险预警 | 已接入核定排放、可用资产、缺口、缺口率、风险等级、建议和清缴记录 |
+| 风险预警 | 已接入核定排放、可用资产、缺口、缺口率、风险等级、清单口径状态、建议和清缴记录 |
 
 ### 3. 领域关系
 
-`carbon_assets` 拥有履约周期、资产账户、配额、信用/绿证持仓、交易模拟、清缴记录和预测情景生命周期。履约缺口和滚动预测是读模型：读取 `carbon_accounting` 已形成的组织排放清单批次，并结合资产余额、清缴记录和企业情景假设计算，不允许手工写入缺口。`energy_budget` 仍是管理目标，不等同于碳配额；CCER、绿证、配额和碳信用分类型管理，不合并为一个余额字段。
+`carbon_assets` 拥有履约周期、资产账户、配额、信用/绿证持仓、交易模拟、清缴记录和预测情景生命周期。履约缺口和滚动预测是读模型：只读取 `carbon_accounting` 已锁定的组织排放清单批次，并结合资产余额、清缴记录和企业情景假设计算，不允许手工写入缺口；未锁定清单只返回业务状态，不输出正式缺口口径。`energy_budget` 仍是管理目标，不等同于碳配额；CCER、绿证、配额和碳信用分类型管理，不合并为一个余额字段。

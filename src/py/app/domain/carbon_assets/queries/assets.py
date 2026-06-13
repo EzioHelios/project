@@ -12,6 +12,7 @@ from app.domain.carbon_assets.domain.policies import (
     compliance_risk_level,
     credit_available,
     forecast_position,
+    inventory_position_status,
 )
 from app.domain.energy.controllers._utils import model_to_dict
 
@@ -177,6 +178,8 @@ class CarbonAssetsQueryService:
                 "gap_amount": item["gap_amount"],
                 "gap_rate": item["gap_rate"],
                 "message": _risk_message(item),
+                "inventory_status": item["inventory_status"],
+                "inventory_message": item["inventory_message"],
             }
             for item in positions
             if query.status in (None, "all") or item["risk_level"] == query.status
@@ -189,8 +192,10 @@ class CarbonAssetsQueryService:
             return {"items": [{"priority": "medium", "action": "先创建履约周期并绑定已锁定组织排放清单"}], "data": []}
         position = await self.compliance_position(period.id)
         items = []
-        if position["verified_emission"] <= 0:
-            items.append({"priority": "high", "action": "绑定已锁定组织排放清单后再测算履约缺口"})
+        if not position["inventory_locked"]:
+            items.append({"priority": "high", "action": position["inventory_message"]})
+        elif position["verified_emission"] <= 0:
+            items.append({"priority": "high", "action": "已锁定组织排放清单为零排放, 需复核核算范围和清单结果"})
         if position["gap_amount"] > 0:
             items.append({"priority": "high", "action": "补充配额、CCER 或其他可用信用, 并复核清缴计划"})
         if position["credit_available"] > 0 and position["allowance_available"] <= 0:
@@ -203,7 +208,8 @@ class CarbonAssetsQueryService:
         period = await self._period_or_latest(period_id)
         if period is None:
             return _empty_position()
-        verified_emission = await self._verified_emission_tco2e(period)
+        inventory = await self._verified_inventory(period)
+        verified_emission = inventory["verified_emission"]
         allowance_value = await self._allowance_available(period.id)
         credit_value = await self._credit_available()
         surrendered_amount = await self._surrendered_amount(period.id)
@@ -211,12 +217,16 @@ class CarbonAssetsQueryService:
         net_position = available_assets + surrendered_amount - verified_emission
         gap_amount = abs(net_position) if net_position < 0 else Decimal(0)
         gap_rate = gap_amount / verified_emission if verified_emission > 0 else Decimal(0)
-        risk_level = compliance_risk_level(
-            gap_amount,
-            verified_emission,
-            period.risk_threshold_yellow,
-            period.risk_threshold_orange,
-            period.risk_threshold_red,
+        risk_level = (
+            compliance_risk_level(
+                gap_amount,
+                verified_emission,
+                period.risk_threshold_yellow,
+                period.risk_threshold_orange,
+                period.risk_threshold_red,
+            )
+            if inventory["inventory_locked"]
+            else inventory["inventory_status"]
         )
         return {
             "period_id": period.id,
@@ -235,6 +245,12 @@ class CarbonAssetsQueryService:
             "risk_level": risk_level,
             "accounting_batch_id": period.accounting_batch_id,
             "boundary_id": period.boundary_id,
+            "inventory_status": inventory["inventory_status"],
+            "inventory_locked": inventory["inventory_locked"],
+            "inventory_message": inventory["inventory_message"],
+            "accounting_batch_status": inventory["accounting_batch_status"],
+            "accounting_inventory_status": inventory["accounting_inventory_status"],
+            "inventory_locked_at": inventory["inventory_locked_at"],
         }
 
     async def forecast(self, period_id: int | None = None, scenario_id: int | None = None) -> dict[str, Any]:
@@ -242,7 +258,13 @@ class CarbonAssetsQueryService:
         period = await self._period_or_latest(scenario.period_id if scenario else period_id)
         if period is None:
             return {"position": _empty_position(), "scenario": None, "result": _empty_forecast_result(), "monthly_points": []}
-        verified_emission = await self._verified_emission_tco2e(period)
+        position = await self.compliance_position(period.id)
+        scenario_payload = await self._forecast_scenario_payload(scenario) if scenario else _default_scenario_payload(period)
+        if not position["inventory_locked"]:
+            result = _empty_forecast_result()
+            result["risk_level"] = position["risk_level"]
+            return {"position": position, "scenario": scenario_payload, "result": result, "monthly_points": []}
+        verified_emission = Decimal(str(position["verified_emission"]))
         allowance_value = await self._allowance_available(period.id)
         credit_value = await self._credit_available()
         surrendered_amount = await self._surrendered_amount(period.id)
@@ -263,8 +285,6 @@ class CarbonAssetsQueryService:
             orange=period.risk_threshold_orange,
             red=period.risk_threshold_red,
         )
-        position = await self.compliance_position(period.id)
-        scenario_payload = await self._forecast_scenario_payload(scenario) if scenario else _default_scenario_payload(period)
         monthly_points = _monthly_points(
             period=period,
             scenario=scenario,
@@ -351,13 +371,24 @@ class CarbonAssetsQueryService:
             .limit(1)
         )
 
-    async def _verified_emission_tco2e(self, period: m.CarbonCompliancePeriod) -> Decimal:
+    async def _verified_inventory(self, period: m.CarbonCompliancePeriod) -> dict[str, Any]:
         if not period.accounting_batch_id:
-            return Decimal(0)
+            return _inventory_payload(
+                verified_emission=Decimal(0),
+                status=inventory_position_status(has_batch=False, is_locked=False, has_total=False),
+                batch=None,
+            )
         batch = await self._session.get(m.CarbonAccountingBatch, period.accounting_batch_id)
-        if batch is None or batch.total_co2e is None:
-            return Decimal(0)
-        return Decimal(batch.total_co2e) / KG_PER_TONNE
+        if batch is None:
+            return _inventory_payload(
+                verified_emission=Decimal(0),
+                status=inventory_position_status(has_batch=False, is_locked=False, has_total=False),
+                batch=None,
+            )
+        is_locked = batch.status == "locked" and batch.inventory_status == "locked"
+        status = inventory_position_status(has_batch=True, is_locked=is_locked, has_total=batch.total_co2e is not None)
+        verified_emission = Decimal(batch.total_co2e or 0) / KG_PER_TONNE if status == "locked" else Decimal(0)
+        return _inventory_payload(verified_emission=verified_emission, status=status, batch=batch)
 
     async def _allowance_available(self, period_id: int | None = None, account_id: int | None = None) -> Decimal:
         conditions = []
@@ -436,6 +467,12 @@ def _empty_position() -> dict[str, Any]:
         "risk_level": "empty",
         "accounting_batch_id": None,
         "boundary_id": None,
+        "inventory_status": "empty",
+        "inventory_locked": False,
+        "inventory_message": "未创建履约周期",
+        "accounting_batch_status": None,
+        "accounting_inventory_status": None,
+        "inventory_locked_at": None,
     }
 
 
@@ -450,6 +487,30 @@ def _empty_forecast_result() -> dict[str, Any]:
         "funding_need": 0,
         "risk_level": "empty",
     }
+
+
+def _inventory_payload(*, verified_emission: Decimal, status: str, batch: m.CarbonAccountingBatch | None) -> dict[str, Any]:
+    return {
+        "verified_emission": verified_emission,
+        "inventory_status": status,
+        "inventory_locked": status == "locked",
+        "inventory_message": _inventory_message(status),
+        "accounting_batch_status": batch.status if batch else None,
+        "accounting_inventory_status": batch.inventory_status if batch else None,
+        "inventory_locked_at": batch.locked_at.isoformat() if batch and batch.locked_at else None,
+    }
+
+
+def _inventory_message(status: str) -> str:
+    if status == "locked":
+        return "已使用锁定组织排放清单"
+    if status == "missing_batch":
+        return "履约周期未绑定组织排放清单批次"
+    if status == "unlocked_inventory":
+        return "绑定的组织排放清单尚未锁定, 不能作为正式履约缺口口径"
+    if status == "missing_inventory_total":
+        return "已锁定组织排放清单缺少排放总量"
+    return "组织排放清单状态不可用"
 
 
 def _scenario_values(scenario: m.CarbonAssetForecastScenario | None) -> dict[str, Decimal]:
@@ -547,8 +608,10 @@ def _month_labels(start: Any, end: Any) -> list[str]:
 
 
 def _risk_message(item: dict[str, Any]) -> str:
+    if not item.get("inventory_locked"):
+        return str(item.get("inventory_message") or "未绑定已锁定组织排放清单")
     if item["risk_level"] in {"red", "orange", "yellow"}:
         return "履约资产余额不足, 需补充配额或可用信用"
     if item["verified_emission"] <= 0:
-        return "未绑定已锁定组织排放清单"
+        return "已锁定组织排放清单为零排放"
     return "履约资产余额正常"

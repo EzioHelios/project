@@ -34,6 +34,12 @@ type CompliancePosition = {
   risk_level: string
   accounting_batch_id?: number | null
   boundary_id?: number | null
+  inventory_status?: string | null
+  inventory_locked?: boolean
+  inventory_message?: string | null
+  accounting_batch_status?: string | null
+  accounting_inventory_status?: string | null
+  inventory_locked_at?: string | null
 }
 
 type ForecastScenario = {
@@ -186,6 +192,8 @@ type AlertItem = {
   gap_amount: number
   gap_rate: number
   message: string
+  inventory_status?: string | null
+  inventory_message?: string | null
 }
 
 type Recommendation = {
@@ -370,11 +378,15 @@ const assetTypeLabels: Record<string, string> = {
 
 const riskLabels: Record<string, string> = {
   empty: "无周期",
+  locked: "已锁定",
   low: "低",
   medium: "中",
+  missing_batch: "缺清单",
+  missing_inventory_total: "缺总量",
   yellow: "黄色",
   orange: "橙色",
   red: "红色",
+  unlocked_inventory: "未锁定",
 }
 
 export function CarbonAssetsPanel() {
@@ -607,7 +619,7 @@ export function CarbonAssetsPanel() {
       </div>
 
       <Card>
-        <CardContent className="grid gap-4 pt-6 md:grid-cols-5">
+        <CardContent className="grid gap-4 pt-6 md:grid-cols-3 xl:grid-cols-6">
           <PositionMetric label="核定排放" value={position?.verified_emission} unit="tCO2e" />
           <PositionMetric label="可用资产" value={position?.available_assets} unit="tCO2e" />
           <PositionMetric label="已清缴" value={position?.surrendered_amount} unit="tCO2e" />
@@ -617,6 +629,14 @@ export function CarbonAssetsPanel() {
             <div className="mt-2">
               <RiskBadge value={position?.risk_level ?? "empty"} />
             </div>
+          </div>
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">清单口径</div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <RiskBadge value={position?.inventory_status ?? "empty"} />
+              {position?.accounting_batch_id ? <Badge variant="outline">批次 {position.accounting_batch_id}</Badge> : null}
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">{position?.inventory_message ?? "-"}</div>
           </div>
         </CardContent>
       </Card>
@@ -1200,7 +1220,8 @@ function SectionCard({ title, action, children }: { title: string; action?: Reac
 }
 
 function RiskBadge({ value }: { value: string }) {
-  const variant = value === "red" || value === "orange" ? "destructive" : "outline"
+  const variant =
+    value === "red" || value === "orange" || value === "unlocked_inventory" || value === "missing_inventory_total" || value === "missing_batch" ? "destructive" : "outline"
   return <Badge variant={variant}>{riskLabels[value] ?? value}</Badge>
 }
 
