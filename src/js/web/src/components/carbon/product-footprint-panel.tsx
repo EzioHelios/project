@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Calculator, Download, Layers3, Package, Plus, RefreshCw, ShieldCheck } from "lucide-react"
+import { Calculator, Download, Layers3, Link, Package, Plus, RefreshCw, ShieldCheck } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
@@ -92,7 +92,32 @@ type ProductInventoryItem = {
   computed_co2e?: number | null
   calc_status: string
   data_quality?: string | null
+  source_type?: string | null
+  source_ref?: string | null
   included: boolean
+}
+
+type SupplierDataCandidate = {
+  id: number
+  data_no: string
+  data_type: string
+  product_code?: string | null
+  product_name?: string | null
+  material_code?: string | null
+  material_name?: string | null
+  activity_amount?: number | null
+  activity_unit?: string | null
+  pcf_value?: number | null
+  pcf_unit?: string | null
+  data_quality?: string | null
+  supplier_name?: string | null
+  supplier_code?: string | null
+  task_no?: string | null
+  task_name?: string | null
+  period_start?: string | null
+  period_end?: string | null
+  match_type?: string | null
+  published_to_pcf?: boolean
 }
 
 type ProductAllocationRule = {
@@ -190,6 +215,12 @@ type InventoryForm = {
   included: string
 }
 
+type SupplierImportForm = {
+  supplier_data_id: string
+  stage_id: string
+  allocation_ratio: string
+}
+
 type AllocationForm = {
   process_code: string
   process_name: string
@@ -253,6 +284,12 @@ const defaultInventoryForm: InventoryForm = {
   included: "true",
 }
 
+const defaultSupplierImportForm: SupplierImportForm = {
+  supplier_data_id: "",
+  stage_id: "",
+  allocation_ratio: "1",
+}
+
 const defaultAllocationForm: AllocationForm = {
   process_code: "",
   process_name: "",
@@ -285,17 +322,26 @@ const activityLabels: Record<string, string> = {
   other: "其他",
 }
 
+const supplierMatchLabels: Record<string, string> = {
+  data_product: "产品匹配",
+  task_product: "任务匹配",
+  material: "物料数据",
+  approved_pcf: "已审核PCF",
+}
+
 export function ProductFootprintPanel() {
   const qc = useQueryClient()
   const [selectedStudyId, setSelectedStudyId] = useState<number | null>(null)
   const [studyOpen, setStudyOpen] = useState(false)
   const [stageOpen, setStageOpen] = useState(false)
   const [inventoryOpen, setInventoryOpen] = useState(false)
+  const [supplierImportOpen, setSupplierImportOpen] = useState(false)
   const [allocationOpen, setAllocationOpen] = useState(false)
   const [studyForm, setStudyForm] = useState<StudyForm>(defaultStudyForm)
   const [boundaryForm, setBoundaryForm] = useState<BoundaryForm>(defaultBoundaryForm)
   const [stageForm, setStageForm] = useState<StageForm>(defaultStageForm)
   const [inventoryForm, setInventoryForm] = useState<InventoryForm>(defaultInventoryForm)
+  const [supplierImportForm, setSupplierImportForm] = useState<SupplierImportForm>(defaultSupplierImportForm)
   const [allocationForm, setAllocationForm] = useState<AllocationForm>(defaultAllocationForm)
 
   const summaryQuery = useQuery<ApiEnvelope<ProductFootprintSummary>>({
@@ -326,6 +372,11 @@ export function ProductFootprintPanel() {
     queryFn: () => requestPage<ProductInventoryItem>("/api/carbon/product-footprint/inventory-items", { study_id: activeStudyId, limit: 200 }),
     enabled: Boolean(activeStudyId),
   })
+  const supplierCandidatesQuery = useQuery<PageResult<SupplierDataCandidate>>({
+    queryKey: [...QUERY_KEY, "supplier-data-candidates", activeStudyId],
+    queryFn: () => requestPage<SupplierDataCandidate>(`/api/carbon/product-footprint/studies/${activeStudyId}/supplier-data-candidates`, { limit: 100 }),
+    enabled: Boolean(activeStudyId),
+  })
   const allocationQuery = useQuery<PageResult<ProductAllocationRule>>({
     queryKey: [...QUERY_KEY, "allocations", activeStudyId],
     queryFn: () => requestPage<ProductAllocationRule>("/api/carbon/product-footprint/allocation-rules", { study_id: activeStudyId, limit: 200 }),
@@ -345,6 +396,7 @@ export function ProductFootprintPanel() {
   const summary = summaryQuery.data?.data
   const stages = stagesQuery.data?.items ?? []
   const inventoryItems = inventoryQuery.data?.items ?? []
+  const supplierCandidates = supplierCandidatesQuery.data?.items ?? []
   const allocationRules = allocationQuery.data?.items ?? []
   const results = resultsQuery.data?.items ?? []
   const boundary = boundaryQuery.data?.data
@@ -359,6 +411,11 @@ export function ProductFootprintPanel() {
     }
     setBoundaryForm(boundaryToForm(boundary))
   }, [activeStudyId, boundary])
+
+  useEffect(() => {
+    if (!supplierImportOpen || supplierImportForm.supplier_data_id || !supplierCandidates.length) return
+    setSupplierImportForm((current) => ({ ...current, supplier_data_id: String(supplierCandidates[0].id) }))
+  }, [supplierCandidates, supplierImportForm.supplier_data_id, supplierImportOpen])
 
   const createStudy = useMutation({
     mutationFn: () =>
@@ -421,6 +478,22 @@ export function ProductFootprintPanel() {
       await invalidateFootprint(qc)
     },
     onError: toastError("创建活动数据失败"),
+  })
+
+  const importSupplierData = useMutation({
+    mutationFn: () =>
+      request<ProductInventoryItem>(`/api/carbon/product-footprint/studies/${activeStudyId}/import-supplier-data`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(supplierImportPayload(supplierImportForm)),
+      }),
+    onSuccess: async () => {
+      toast.success("供应商数据已引用")
+      setSupplierImportOpen(false)
+      setSupplierImportForm(defaultSupplierImportForm)
+      await invalidateFootprint(qc)
+    },
+    onError: toastError("引用供应商数据失败"),
   })
 
   const createAllocation = useMutation({
@@ -629,28 +702,52 @@ export function ProductFootprintPanel() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-3">
               <CardTitle>活动数据清单</CardTitle>
-              <Dialog open={inventoryOpen} onOpenChange={setInventoryOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" disabled={!activeStudyId}>
-                    <Plus className="size-4" />
-                    新增活动
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl">
-                  <DialogHeader>
-                    <DialogTitle>新增活动数据</DialogTitle>
-                  </DialogHeader>
-                  <InventoryFormView stages={stages} value={inventoryForm} onChange={setInventoryForm} />
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setInventoryOpen(false)}>
-                      取消
+              <div className="flex flex-wrap items-center gap-2">
+                <Dialog open={supplierImportOpen} onOpenChange={setSupplierImportOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline" disabled={!activeStudyId}>
+                      <Link className="size-4" />
+                      引用供应商
                     </Button>
-                    <Button disabled={createInventory.isPending} onClick={() => createInventory.mutate()}>
-                      保存
+                  </DialogTrigger>
+                  <DialogContent className="max-w-5xl">
+                    <DialogHeader>
+                      <DialogTitle>引用供应商数据</DialogTitle>
+                    </DialogHeader>
+                    <SupplierImportView candidates={supplierCandidates} stages={stages} value={supplierImportForm} onChange={setSupplierImportForm} />
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setSupplierImportOpen(false)}>
+                        取消
+                      </Button>
+                      <Button disabled={importSupplierData.isPending || !supplierImportForm.supplier_data_id} onClick={() => importSupplierData.mutate()}>
+                        引用
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+                <Dialog open={inventoryOpen} onOpenChange={setInventoryOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" disabled={!activeStudyId}>
+                      <Plus className="size-4" />
+                      新增活动
                     </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl">
+                    <DialogHeader>
+                      <DialogTitle>新增活动数据</DialogTitle>
+                    </DialogHeader>
+                    <InventoryFormView stages={stages} value={inventoryForm} onChange={setInventoryForm} />
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setInventoryOpen(false)}>
+                        取消
+                      </Button>
+                      <Button disabled={createInventory.isPending} onClick={() => createInventory.mutate()}>
+                        保存
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </CardHeader>
             <CardContent>
               <Table>
@@ -960,6 +1057,78 @@ function StageFormView({ value, onChange }: { value: StageForm; onChange: (value
   )
 }
 
+function SupplierImportView({
+  candidates,
+  stages,
+  value,
+  onChange,
+}: {
+  candidates: SupplierDataCandidate[]
+  stages: ProductLifeCycleStage[]
+  value: SupplierImportForm
+  onChange: (value: SupplierImportForm) => void
+}) {
+  const set = (key: keyof SupplierImportForm, next: string) => onChange({ ...value, [key]: next })
+  const selected = candidates.find((item) => String(item.id) === value.supplier_data_id)
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <SelectField
+          label="供应商数据"
+          value={value.supplier_data_id || "none"}
+          options={[
+            { label: "未选择", value: "none" },
+            ...candidates.map((item) => ({
+              label: `${item.supplier_name || "供应商"} · ${item.product_name || item.material_name || item.data_no}`,
+              value: String(item.id),
+            })),
+          ]}
+          onChange={(next) => set("supplier_data_id", next === "none" ? "" : next)}
+        />
+        <SelectField
+          label="生命周期阶段"
+          value={value.stage_id || "none"}
+          options={[{ label: "未分配", value: "none" }, ...stages.map((item) => ({ label: item.stage_name, value: String(item.id) }))]}
+          onChange={(next) => set("stage_id", next === "none" ? "" : next)}
+        />
+        <Field label="分配比例" type="number" value={value.allocation_ratio} onChange={(next) => set("allocation_ratio", next)} />
+      </div>
+      <div className="overflow-x-auto rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>供应商</TableHead>
+              <TableHead>对象</TableHead>
+              <TableHead>PCF</TableHead>
+              <TableHead>周期</TableHead>
+              <TableHead>匹配</TableHead>
+              <TableHead>状态</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {candidates.slice(0, 8).map((item) => (
+              <TableRow key={item.id} className={selected?.id === item.id ? "bg-muted/50" : undefined}>
+                <TableCell>{item.supplier_name || "-"}</TableCell>
+                <TableCell>
+                  <div>{item.product_name || item.material_name || item.data_no}</div>
+                  <div className="text-muted-foreground text-xs">{item.product_code || item.material_code || item.task_no || "-"}</div>
+                </TableCell>
+                <TableCell>{amountWithUnit(item.pcf_value, item.pcf_unit || "kgCO2e")}</TableCell>
+                <TableCell>{dateRange(item.period_start, item.period_end)}</TableCell>
+                <TableCell>
+                  <Badge variant="outline">{supplierMatchLabels[item.match_type || "approved_pcf"] ?? item.match_type}</Badge>
+                </TableCell>
+                <TableCell>{item.published_to_pcf ? "已引用" : "可引用"}</TableCell>
+              </TableRow>
+            ))}
+            {!candidates.length ? <EmptyRow colSpan={6} label="暂无可引用供应商数据" /> : null}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  )
+}
+
 function InventoryFormView({ stages, value, onChange }: { stages: ProductLifeCycleStage[]; value: InventoryForm; onChange: (value: InventoryForm) => void }) {
   const set = (key: keyof InventoryForm, next: string) => onChange({ ...value, [key]: next })
   return (
@@ -1181,6 +1350,14 @@ function inventoryPayload(form: InventoryForm) {
     data_quality: optional(form.data_quality),
     source_type: "manual",
     included: form.included === "true",
+  }
+}
+
+function supplierImportPayload(form: SupplierImportForm) {
+  return {
+    supplier_data_id: toNumber(form.supplier_data_id),
+    stage_id: toNumber(form.stage_id),
+    allocation_ratio: toNumber(form.allocation_ratio) ?? 1,
   }
 }
 

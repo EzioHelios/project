@@ -138,6 +138,29 @@ class ProductFootprintController(Controller):
             return _error(exc)
         return Response(content=ok_data({"deleted": True}))
 
+    @get("/api/carbon/product-footprint/studies/{study_id:int}/supplier-data-candidates")
+    async def list_supplier_data_candidates(
+        self,
+        db_session: AsyncSession,
+        study_id: int,
+        keyword: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Response[dict]:
+        data = await ProductFootprintQueryService(db_session).supplier_data_candidates(
+            study_id,
+            _query(keyword=keyword, limit=limit, offset=offset),
+        )
+        return Response(content=ok_data(data))
+
+    @post("/api/carbon/product-footprint/studies/{study_id:int}/import-supplier-data")
+    async def import_supplier_data(self, db_session: AsyncSession, study_id: int, data: dict = FOOTPRINT_BODY) -> Response[dict]:
+        try:
+            obj = await ProductFootprintUseCase(db_session).import_supplier_data(study_id, data)
+        except ValueError as exc:
+            return _error(exc)
+        return Response(content=ok_data(model_to_dict(obj)))
+
     @get("/api/carbon/product-footprint/allocation-rules")
     async def list_allocation_rules(
         self,

@@ -592,7 +592,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | PCF 研究 | `GET/POST/PATCH /api/carbon/product-footprint/studies` 维护研究编号、产品、标准、PCR、功能单位/声明单位、研究期和状态 | 后续接产品选择器、研究复制和正式修订原因 |
 | 生命周期边界 | `GET/PATCH /api/carbon/product-footprint/studies/{study_id}/boundary` 维护边界类型、纳入/排除阶段、取舍规则和假设 | 后续接标准/PCR 规则库，约束不同产品适用阶段 |
 | 生命周期阶段 | `GET/POST/PATCH/DELETE /api/carbon/product-footprint/stages` 维护阶段编码、名称、排序和纳入状态 | 后续接 BOM/工序树和运输/使用/回收阶段模板 |
-| 活动数据清单 | `GET/POST/PATCH/DELETE /api/carbon/product-footprint/inventory-items` 维护物料、能源、运输、过程、废弃物和供应商 PCF 数据 | 后续支持 Excel/BOM 导入、证据附件和供应链审核数据引用 |
+| 活动数据清单 | `GET/POST/PATCH/DELETE /api/carbon/product-footprint/inventory-items` 维护物料、能源、运输、过程、废弃物和供应商 PCF 数据；`GET /studies/{study_id}/supplier-data-candidates`、`POST /studies/{study_id}/import-supplier-data` 支持引用已审核供应商 PCF | 后续支持 Excel/BOM 导入、证据附件和批量引用治理 |
 | 分配规则 | `GET/POST/PATCH/DELETE /api/carbon/product-footprint/allocation-rules` 维护多输出过程分配方法、依据和比例 | 后续把生产分母、价格台账和物料平衡接入分配依据 |
 | 核算结果 | `POST /api/carbon/product-footprint/studies/{study_id}/calculate` 生成结果版本；缺边界、缺活动量或缺因子返回业务状态 | 后续补 GWP 版本、单位换算、批量重算和异步任务 |
 | 报告读模型与导出 | `GET /api/carbon/product-footprint/studies/{study_id}/report` 输出研究、边界、阶段、清单、分配、结果和质量摘要；`POST /api/carbon/product-footprint/studies/{study_id}/export-report` 导出内部报告 ZIP，包含 DOCX、可选 PDF、清单 CSV、阶段汇总、分配规则、质量摘要和 manifest | 后续补模板版本管理、认证/EPD 独立流程和异步导出治理 |
@@ -626,7 +626,7 @@ P0 首版已经改为事实视图查询和服务端筛选，后续不再回到�
 | 供应商场站 | `GET/POST/PATCH /api/carbon/supply-chain/sites` 维护供应商场站、区域和设施范围 | 后续接供应商组织边界和场站级证据 |
 | 填报任务 | `GET/POST/PATCH /api/carbon/supply-chain/tasks` 维护任务、周期、产品、截止日期和状态 | 后续接外部门户、批量任务、自动催办和到期过期任务 |
 | 状态流转 | `POST /submit`、`POST /approve`、`POST /reject`、`POST /request-revision` 控制提交、审核通过、驳回和补正 | 后续补审核规则、责任人、消息通知和补正轮次 |
-| 供应商数据 | `GET/POST /api/carbon/supply-chain/tasks/{task_id}/data` 维护活动数据和 PCF 数据 | 后续补 Excel/API 导入、单位换算、数据校验和正式发布到 Scope3/PCF 的转换用例 |
+| 供应商数据 | `GET/POST /api/carbon/supply-chain/tasks/{task_id}/data` 维护活动数据和 PCF 数据；已审核且有效期覆盖研究周期的 PCF 数据可被产品碳足迹引用，并回写 `published_to_pcf` | 后续补 Excel/API 导入、单位换算、数据校验和正式发布到 Scope3 的转换用例 |
 | 证据 | `GET/POST /api/carbon/supply-chain/tasks/{task_id}/evidence` 维护 PCF 报告、发票、检测报告等证据元数据 | 后续补附件实体、哈希校验和 OCR |
 | 下游披露 | `GET /api/carbon/supply-chain/releases`、`POST /api/carbon/supply-chain/tasks/{task_id}/releases` 生成已审核任务的冻结披露记录 | 后续补披露模板、版本冻结、客户下载和撤回流程 |
 | 供应链分析 | `GET /api/carbon/supply-chain/analysis` 输出供应商排行、高碳品类和规则建议 | 后续补行业基准、风险阈值配置和采购替代方案测算 |

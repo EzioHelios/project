@@ -702,10 +702,10 @@ classDiagram
 | --- | --- |
 | 数据模型 | 新增 `ProductFootprintStudy`、`ProductSystemBoundary`、`ProductLifeCycleStage`、`ProductFootprintInventoryItem`、`ProductFootprintAllocationRule`、`ProductFootprintResult` 六类租户模型和迁移。 |
 | 应用层 | 新增 `domain/product_footprint`，按 policy/usecase/query/controller 分层；计算前强制存在生命周期边界；缺活动量或缺因子返回 `incomplete_inventory`，不抛 500。 |
-| API | 首版开放研究、边界、阶段、清单、分配、计算、结果、报告读模型和内部报告导出接口，路径统一在 `/api/carbon/product-footprint/*`。 |
+| API | 首版开放研究、边界、阶段、清单、分配、供应商已审核 PCF 候选/引用、计算、结果、报告读模型和内部报告导出接口，路径统一在 `/api/carbon/product-footprint/*`。 |
 | 导出 | `ProductFootprintReportExportUseCase` 已接入内部报告 ZIP/DOCX 导出；有 LibreOffice 时同步生成 PDF，ZIP 中保留 report context、inventory CSV、stage summary、allocation rules、quality summary 和 manifest。 |
-| 前端 | `/carbon/product-footprint` 替换建设中占位，提供“产品与研究、生命周期边界、活动数据清单、分配与因子、核算结果、报告生成”六个业务 Tab；报告生成 Tab 已接入导出报告按钮。 |
-| 边界保留 | 当前不实现认证/EPD、绿证抵扣、BOM/工序导入、供应链审核数据引用、模板版本管理和异步导出治理，这些后续独立推进。 |
+| 前端 | `/carbon/product-footprint` 替换建设中占位，提供“产品与研究、生命周期边界、活动数据清单、分配与因子、核算结果、报告生成”六个业务 Tab；活动数据清单已接入供应商数据引用，报告生成 Tab 已接入导出报告按钮。 |
+| 边界保留 | 当前不实现认证/EPD、绿证抵扣、BOM/工序导入、模板版本管理和异步导出治理，这些后续独立推进。 |
 
 ### 7.4 供应链碳管理 `supply_chain_carbon`
 
@@ -810,7 +810,7 @@ classDiagram
 | 应用层 | 新增 `domain/supply_chain_carbon`，按 policy/usecase/query/controller 分层；任务提交后才能审核，驳回/补正必须有原因，审核通过后数据才标记 verified/approved。 |
 | API | 首版开放供应商、场站、任务、数据、证据、审核流转、披露记录、汇总和分析接口，路径统一在 `/api/carbon/supply-chain/*`。 |
 | 前端 | `/carbon/supply-chain` 替换建设中占位，提供“供应商档案、填报任务、数据审核、下游披露、供应链分析”五个业务 Tab。 |
-| 边界保留 | 当前不实现外部供应商门户、Excel/API 导入、自动催办、正式发布到 Scope3/PCF 的转换用例和采购替代方案闭环。 |
+| 边界保留 | 当前不实现外部供应商门户、Excel/API 导入、自动催办、正式发布到 Scope3 的转换用例和采购替代方案闭环；发布到 PCF 的首版由 `product_footprint` 引用用例承接。 |
 
 ### 7.5 碳资产管理 `carbon_assets`
 

@@ -96,6 +96,8 @@ DATE_FIELDS = {"period_start", "period_end"}
 DECIMAL_FIELDS = {"activity_amount", "factor_value", "supplier_pcf_value", "allocation_ratio", "ratio"}
 INTEGER_FIELDS = {"product_id", "study_id", "stage_id", "factor_id", "sequence"}
 BOOLEAN_FIELDS = {"included"}
+SUPPLIER_IMPORT_FIELDS = {"supplier_data_id", "stage_id", "item_no", "allocation_ratio", "included"}
+SUPPLIER_SOURCE_TYPE = "supplier_chain"
 
 
 class ProductFootprintUseCase:
@@ -186,6 +188,64 @@ class ProductFootprintUseCase:
         payload["computed_co2e"] = _compute_item_co2e(payload)
         obj = m.ProductFootprintInventoryItem(**payload)
         self._session.add(obj)
+        await self._session.commit()
+        await self._session.refresh(obj)
+        return obj
+
+    async def import_supplier_data(self, study_id: int, data: dict[str, Any]) -> m.ProductFootprintInventoryItem:
+        study = await self._get_or_raise(m.ProductFootprintStudy, study_id, "产品碳足迹研究不存在")
+        payload = _payload(data, SUPPLIER_IMPORT_FIELDS, required={"supplier_data_id"})
+        supplier_data = await self._get_or_raise(m.SupplierCarbonData, int(payload["supplier_data_id"]), "供应商碳数据不存在")
+        task = await self._get_or_raise(m.SupplierDisclosureTask, supplier_data.task_id, "供应商填报任务不存在")
+        if task.status != "approved" or supplier_data.status != "approved" or not supplier_data.verified:
+            msg = "只能引用已审核通过的供应商数据"
+            raise ValueError(msg)
+        if supplier_data.pcf_value in (None, ""):
+            msg = "供应商数据缺少PCF值"
+            raise ValueError(msg)
+        if not _period_overlaps(study.period_start, study.period_end, supplier_data.validity_start, supplier_data.validity_end):
+            msg = "供应商数据有效期不覆盖研究周期"
+            raise ValueError(msg)
+        source_ref = f"supplier_carbon_data:{supplier_data.id}"
+        obj = await self._session.scalar(
+            select(m.ProductFootprintInventoryItem).where(
+                m.ProductFootprintInventoryItem.study_id == study_id,
+                m.ProductFootprintInventoryItem.source_type == SUPPLIER_SOURCE_TYPE,
+                m.ProductFootprintInventoryItem.source_ref == source_ref,
+            )
+        )
+        supplier = await self._get_or_raise(m.SupplyChainSupplier, supplier_data.supplier_id, "供应商不存在")
+        item_payload = {
+            "study_id": study_id,
+            "stage_id": payload.get("stage_id"),
+            "item_no": payload.get("item_no") or (obj.item_no if obj is not None else await self._next_supplier_item_no(study_id, supplier_data.id)),
+            "activity_type": "supplier_pcf",
+            "item_name": supplier_data.product_name
+            or supplier_data.material_name
+            or task.product_name
+            or supplier_data.data_no,
+            "activity_amount": supplier_data.activity_amount,
+            "activity_unit": supplier_data.activity_unit,
+            "supplier_pcf_value": supplier_data.pcf_value,
+            "supplier_pcf_unit": supplier_data.pcf_unit or "kgCO2e",
+            "supplier_name": supplier.name,
+            "allocation_ratio": payload.get("allocation_ratio") or Decimal(1),
+            "data_quality": supplier_data.data_quality or "supplier_reported",
+            "source_type": SUPPLIER_SOURCE_TYPE,
+            "source_ref": source_ref,
+            "included": payload.get("included", True),
+            "remark": f"供应链审核数据引用: {task.task_no}/{supplier_data.data_no}",
+        }
+        await self._validate_inventory_refs(item_payload)
+        validate_inventory_payload(item_payload)
+        item_payload["calc_status"] = inventory_calc_status(item_payload)
+        item_payload["computed_co2e"] = _compute_item_co2e(item_payload)
+        if obj is None:
+            obj = m.ProductFootprintInventoryItem(**item_payload)
+            self._session.add(obj)
+        else:
+            _assign(obj, item_payload)
+        supplier_data.published_to_pcf = True
         await self._session.commit()
         await self._session.refresh(obj)
         return obj
@@ -358,6 +418,25 @@ class ProductFootprintUseCase:
         )
         return int(current or 0) + 1
 
+    async def _next_supplier_item_no(self, study_id: int, supplier_data_id: int) -> str:
+        base = f"SCI-{supplier_data_id}"
+        existing = set(
+            (
+                await self._session.execute(
+                    select(m.ProductFootprintInventoryItem.item_no).where(
+                        m.ProductFootprintInventoryItem.study_id == study_id,
+                        m.ProductFootprintInventoryItem.item_no.like(f"{base}%"),
+                    )
+                )
+            ).scalars()
+        )
+        if base not in existing:
+            return base
+        suffix = 2
+        while f"{base}-{suffix}" in existing:
+            suffix += 1
+        return f"{base}-{suffix}"
+
     async def _get_or_raise(self, model: type[Any], item_id: int, message: str) -> Any:
         obj = await self._session.get(model, item_id)
         if obj is None:
@@ -406,3 +485,14 @@ def _compute_item_co2e(payload: dict[str, Any]) -> Decimal | None:
 
 def _utc_now_naive() -> datetime.datetime:
     return datetime.datetime.now(UTC).replace(tzinfo=None)
+
+
+def _period_overlaps(
+    study_start: date,
+    study_end: date,
+    validity_start: date | None,
+    validity_end: date | None,
+) -> bool:
+    if validity_start is not None and validity_start > study_end:
+        return False
+    return not (validity_end is not None and validity_end < study_start)

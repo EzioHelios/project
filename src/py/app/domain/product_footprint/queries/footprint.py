@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from app.db import models as m
 from app.domain.energy.controllers._utils import model_to_dict
@@ -72,6 +72,43 @@ class ProductFootprintQueryService:
         )
         page = await self._page(stmt, query, include_rows=True)
         page["items"] = [await self._item_payload(row) for row in page.pop("_rows")]
+        page["data"] = page["items"]
+        return page
+
+    async def supplier_data_candidates(self, study_id: int, query: ProductFootprintQuery) -> dict[str, Any]:
+        study = await self._session.get(m.ProductFootprintStudy, study_id)
+        if study is None:
+            return {"items": [], "data": [], "total": 0, "limit": _limit(query.limit), "offset": max(0, query.offset)}
+        conditions = [
+            m.SupplierDisclosureTask.status == "approved",
+            m.SupplierCarbonData.status == "approved",
+            m.SupplierCarbonData.verified.is_(True),
+            m.SupplierCarbonData.pcf_value.is_not(None),
+            or_(m.SupplierCarbonData.validity_start.is_(None), m.SupplierCarbonData.validity_start <= study.period_end),
+            or_(m.SupplierCarbonData.validity_end.is_(None), m.SupplierCarbonData.validity_end >= study.period_start),
+        ]
+        if query.keyword:
+            pattern = f"%{query.keyword.strip()}%"
+            conditions.append(
+                (m.SupplierCarbonData.product_code.ilike(pattern))
+                | (m.SupplierCarbonData.product_name.ilike(pattern))
+                | (m.SupplierCarbonData.material_code.ilike(pattern))
+                | (m.SupplierCarbonData.material_name.ilike(pattern))
+                | (m.SupplyChainSupplier.name.ilike(pattern))
+            )
+        stmt = (
+            select(m.SupplierCarbonData)
+            .join(m.SupplierDisclosureTask, m.SupplierDisclosureTask.id == m.SupplierCarbonData.task_id)
+            .join(m.SupplyChainSupplier, m.SupplyChainSupplier.id == m.SupplierCarbonData.supplier_id)
+            .where(*conditions)
+            .order_by(
+                (m.SupplierCarbonData.product_code == study.product_code).desc(),
+                (m.SupplierDisclosureTask.product_code == study.product_code).desc(),
+                m.SupplierCarbonData.id.desc(),
+            )
+        )
+        page = await self._page(stmt, query, include_rows=True)
+        page["items"] = [await self._supplier_data_candidate_payload(study, row) for row in page.pop("_rows")]
         page["data"] = page["items"]
         return page
 
@@ -173,6 +210,23 @@ class ProductFootprintQueryService:
             payload["stage_name"] = stage.stage_name if stage else None
         return payload
 
+    async def _supplier_data_candidate_payload(
+        self,
+        study: m.ProductFootprintStudy,
+        row: m.SupplierCarbonData,
+    ) -> dict[str, Any]:
+        payload = model_to_dict(row)
+        task = await self._session.get(m.SupplierDisclosureTask, row.task_id)
+        supplier = await self._session.get(m.SupplyChainSupplier, row.supplier_id)
+        payload["task_no"] = task.task_no if task else None
+        payload["task_name"] = task.task_name if task else None
+        payload["period_start"] = task.period_start.isoformat() if task else None
+        payload["period_end"] = task.period_end.isoformat() if task else None
+        payload["supplier_name"] = supplier.name if supplier else None
+        payload["supplier_code"] = supplier.supplier_code if supplier else None
+        payload["match_type"] = _supplier_match_type(study, row, task)
+        return payload
+
     async def _count(self, model: type[Any], *conditions: Any) -> int:
         return int((await self._session.execute(select(func.count()).select_from(model).where(*conditions))).scalar_one() or 0)
 
@@ -187,3 +241,17 @@ def _quality_summary(items: list[m.ProductFootprintInventoryItem]) -> dict[str, 
         key = item.calc_status or "unknown"
         summary[key] = summary.get(key, 0) + 1
     return summary
+
+
+def _supplier_match_type(
+    study: m.ProductFootprintStudy,
+    data: m.SupplierCarbonData,
+    task: m.SupplierDisclosureTask | None,
+) -> str:
+    if data.product_code and data.product_code == study.product_code:
+        return "data_product"
+    if task and task.product_code and task.product_code == study.product_code:
+        return "task_product"
+    if data.material_code or data.material_name:
+        return "material"
+    return "approved_pcf"
