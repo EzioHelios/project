@@ -46,7 +46,7 @@ export function statusBadge(status?: string | null) {
   return <Badge variant="secondary">{status || "未标注"}</Badge>
 }
 
-export function QuickLinkGrid({ items }: { items: { label: string; to: string; description?: string; icon?: LucideIcon }[] }) {
+export function QuickLinkGrid({ items }: { items: { label: string; to: string; icon?: LucideIcon }[] }) {
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       {items.map((item) => (
@@ -56,12 +56,9 @@ export function QuickLinkGrid({ items }: { items: { label: string; to: string; d
           className={cn("group rounded-lg border border-border/60 bg-card px-4 py-4 transition-colors", "hover:border-primary/40 hover:bg-accent/40")}
         >
           <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                {item.icon && <item.icon className="h-4 w-4 text-primary" />}
-                <span>{item.label}</span>
-              </div>
-              {item.description && <div className="text-xs text-muted-foreground">{item.description}</div>}
+            <div className="flex items-center gap-2 text-sm font-medium">
+              {item.icon && <item.icon className="h-4 w-4 text-primary" />}
+              <span>{item.label}</span>
             </div>
             <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
           </div>

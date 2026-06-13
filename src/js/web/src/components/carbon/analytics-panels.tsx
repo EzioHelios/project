@@ -220,7 +220,7 @@ export function ScopeSummary({ items }: { items: RankingItem[] }) {
   return <ChartPanel title="范围贡献" unit="kgCO2e" option={createDistributionChartOption(chartItems, { unit: "kgCO2e" })} height={260} emptyLabel="暂无范围汇总" />
 }
 
-export function InsightCallout({ title, description, tone = "default" }: { title: string; description: string; tone?: "default" | "warning" }) {
+export function InsightCallout({ title, tone = "default" }: { title: string; tone?: "default" | "warning" }) {
   return (
     <div
       className={cn(
@@ -229,10 +229,7 @@ export function InsightCallout({ title, description, tone = "default" }: { title
       )}
     >
       {tone === "warning" ? <AlertTriangle className="mt-0.5 h-4 w-4" /> : <GitBranch className="mt-0.5 h-4 w-4" />}
-      <div className="space-y-1">
-        <div className="font-medium">{title}</div>
-        <div className="text-muted-foreground dark:text-inherit/80">{description}</div>
-      </div>
+      <div className="font-medium">{title}</div>
     </div>
   )
 }
@@ -252,7 +249,7 @@ export function MiniStatList({ title, items }: { title: string; items: { label: 
   )
 }
 
-export function SectionHeader({ badge, title, description }: { badge?: string; title: string; description?: string }) {
+export function SectionHeader({ badge, title }: { badge?: string; title: string }) {
   return (
     <div className="space-y-2">
       {badge && <Badge variant="outline">{badge}</Badge>}
@@ -260,7 +257,6 @@ export function SectionHeader({ badge, title, description }: { badge?: string; t
         <ArrowRight className="h-4 w-4 text-primary" />
         <h3 className="text-lg font-semibold">{title}</h3>
       </div>
-      {description && <p className="text-sm text-muted-foreground">{description}</p>}
     </div>
   )
 }

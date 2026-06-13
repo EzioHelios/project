@@ -68,6 +68,7 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: `energy-carbon` legacy center pages tightened shared `DetailPanel`, `LedgerTable`, and `EmptyStateCard` APIs by removing explanatory description props; carbon, alerts, factors, monitor, and quality routes now use data fields, actions, `MetricStrip`, `MetricTile`, and `AdminDataTable` instead of local metric cards and instructional copy.
 - Done: profile, MFA, team, and permission-center surfaces removed remaining English template labels/toasts in the authenticated admin experience and dropped redundant error-state description copy.
 - Done: shared team switcher, user menu, email verification, OAuth sign-in, signup, placeholder, and enterprise error surfaces now use localized operational labels and avoid decorative description copy in global entry points.
+- Done: shared Admin UI and carbon utility components removed unused explanatory `description` slots from `AdminPanel`, `AdminSectionHeader`, `QuickLinkGrid`, `InsightCallout`, and `SectionHeader`, making compact title/action/data composition the default.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 
