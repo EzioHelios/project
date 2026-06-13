@@ -3,12 +3,12 @@ import { BarChart3, Building2, CheckCircle2, ClipboardList, FileCheck2, Plus, Se
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
+import { AdminDataTable, AdminPanel, AdminTableStateRow, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -471,9 +471,9 @@ export function SupplyChainCarbonPanel() {
 
         <TabsContent value="suppliers">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle>供应商档案</CardTitle>
+            <AdminPanel
+              title="供应商档案"
+              actions={
                 <Dialog open={supplierOpen} onOpenChange={setSupplierOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm">
@@ -496,8 +496,10 @@ export function SupplyChainCarbonPanel() {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
-              </CardHeader>
-              <CardContent>
+              }
+              contentClassName="p-0"
+            >
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -535,12 +537,12 @@ export function SupplyChainCarbonPanel() {
                     {!suppliers.length ? <EmptyRow colSpan={6} label="暂无供应商" /> : null}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle>供应商场站</CardTitle>
+            <AdminPanel
+              title="供应商场站"
+              actions={
                 <Dialog open={siteOpen} onOpenChange={setSiteOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" disabled={!suppliers.length}>
@@ -563,8 +565,10 @@ export function SupplyChainCarbonPanel() {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
-              </CardHeader>
-              <CardContent>
+              }
+              contentClassName="p-0"
+            >
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -587,15 +591,15 @@ export function SupplyChainCarbonPanel() {
                     {!sites.length ? <EmptyRow colSpan={3} label="暂无场站" /> : null}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </div>
         </TabsContent>
 
         <TabsContent value="tasks">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-3">
-              <CardTitle>填报任务</CardTitle>
+          <AdminPanel
+            title="填报任务"
+            actions={
               <Dialog open={taskOpen} onOpenChange={setTaskOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" disabled={!suppliers.length}>
@@ -618,8 +622,10 @@ export function SupplyChainCarbonPanel() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-            </CardHeader>
-            <CardContent>
+            }
+            contentClassName="p-0"
+          >
+            <AdminDataTable className="rounded-none border-0">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -665,15 +671,15 @@ export function SupplyChainCarbonPanel() {
                   {!tasks.length ? <EmptyRow colSpan={8} label="暂无填报任务" /> : null}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </AdminDataTable>
+          </AdminPanel>
         </TabsContent>
 
         <TabsContent value="review">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle>填报数据</CardTitle>
+            <AdminPanel
+              title="填报数据"
+              actions={
                 <Dialog open={dataOpen} onOpenChange={setDataOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" disabled={!activeTaskId || activeTask?.status === "approved"}>
@@ -696,8 +702,10 @@ export function SupplyChainCarbonPanel() {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
-              </CardHeader>
-              <CardContent>
+              }
+              contentClassName="p-0"
+            >
+              <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -733,12 +741,12 @@ export function SupplyChainCarbonPanel() {
                     {!dataItems.length ? <EmptyRow colSpan={7} label="暂无填报数据" /> : null}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle>证据与审核</CardTitle>
+            <AdminPanel
+              title="证据与审核"
+              actions={
                 <Dialog open={evidenceOpen} onOpenChange={setEvidenceOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" disabled={!activeTaskId || activeTask?.status === "approved"}>
@@ -761,29 +769,31 @@ export function SupplyChainCarbonPanel() {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    disabled={!activeTaskId || activeTask?.status !== "submitted"}
-                    onClick={() => decideTask.mutate({ taskId: activeTaskId ?? 0, action: "approve" })}
-                  >
-                    <CheckCircle2 className="size-4" />
-                    通过
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!activeTaskId || activeTask?.status !== "submitted"}
-                    onClick={() => {
-                      const reason = window.prompt("驳回原因", "资料不完整")
-                      if (reason) decideTask.mutate({ taskId: activeTaskId ?? 0, action: "reject", reason })
-                    }}
-                  >
-                    驳回
-                  </Button>
-                </div>
+              }
+              contentClassName="space-y-4"
+            >
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  disabled={!activeTaskId || activeTask?.status !== "submitted"}
+                  onClick={() => decideTask.mutate({ taskId: activeTaskId ?? 0, action: "approve" })}
+                >
+                  <CheckCircle2 className="size-4" />
+                  通过
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!activeTaskId || activeTask?.status !== "submitted"}
+                  onClick={() => {
+                    const reason = window.prompt("驳回原因", "资料不完整")
+                    if (reason) decideTask.mutate({ taskId: activeTaskId ?? 0, action: "reject", reason })
+                  }}
+                >
+                  驳回
+                </Button>
+              </div>
+              <AdminDataTable>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -806,15 +816,15 @@ export function SupplyChainCarbonPanel() {
                     {!evidenceItems.length ? <EmptyRow colSpan={3} label="暂无证据" /> : null}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </AdminDataTable>
+            </AdminPanel>
           </div>
         </TabsContent>
 
         <TabsContent value="disclosure">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-3">
-              <CardTitle>下游披露</CardTitle>
+          <AdminPanel
+            title="下游披露"
+            actions={
               <Dialog open={releaseOpen} onOpenChange={setReleaseOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" disabled={!activeTaskId || activeTask?.status !== "approved"}>
@@ -837,8 +847,10 @@ export function SupplyChainCarbonPanel() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-            </CardHeader>
-            <CardContent>
+            }
+            contentClassName="p-0"
+          >
+            <AdminDataTable className="rounded-none border-0">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -866,8 +878,8 @@ export function SupplyChainCarbonPanel() {
                   {!releases.length ? <EmptyRow colSpan={6} label="暂无披露记录" /> : null}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </AdminDataTable>
+          </AdminPanel>
         </TabsContent>
 
         <TabsContent value="analysis">
@@ -889,11 +901,8 @@ export function SupplyChainCarbonPanel() {
               }))}
             />
           </div>
-          <Card>
-            <CardHeader>
-              <CardTitle>建议</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <AdminPanel title="建议" contentClassName="p-0">
+            <AdminDataTable className="rounded-none border-0">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -915,8 +924,8 @@ export function SupplyChainCarbonPanel() {
                   {!analysis?.recommendations?.length ? <EmptyRow colSpan={3} label="暂无建议" /> : null}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </AdminDataTable>
+          </AdminPanel>
         </TabsContent>
       </Tabs>
     </div>
@@ -1063,32 +1072,18 @@ function ReleaseFormView({ value, onChange }: { value: ReleaseForm; onChange: (v
 
 function MetricGrid({ items }: { items: { label: string; value: string; icon: typeof Building2 }[] }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {items.map((item) => {
-        const Icon = item.icon
-        return (
-          <Card key={item.label}>
-            <CardContent className="flex items-center justify-between gap-3 p-4">
-              <div>
-                <div className="text-muted-foreground text-sm">{item.label}</div>
-                <div className="font-semibold text-2xl">{item.value}</div>
-              </div>
-              <Icon className="size-5 text-muted-foreground" />
-            </CardContent>
-          </Card>
-        )
-      })}
-    </div>
+    <MetricStrip className="sm:grid-cols-2 xl:grid-cols-4">
+      {items.map((item) => (
+        <MetricTile key={item.label} label={item.label} value={item.value} />
+      ))}
+    </MetricStrip>
   )
 }
 
 function AnalysisTable({ title, rows }: { title: string; rows: { name: string; value: number; meta: string }[] }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <AdminPanel title={title} contentClassName="p-0">
+      <AdminDataTable className="rounded-none border-0">
         <Table>
           <TableHeader>
             <TableRow>
@@ -1108,8 +1103,8 @@ function AnalysisTable({ title, rows }: { title: string; rows: { name: string; v
             {!rows.length ? <EmptyRow colSpan={3} label="暂无数据" /> : null}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </AdminDataTable>
+    </AdminPanel>
   )
 }
 
@@ -1143,13 +1138,7 @@ function SelectField({ label, value, options, onChange }: { label: string; value
 }
 
 function EmptyRow({ colSpan, label }: { colSpan: number; label: string }) {
-  return (
-    <TableRow>
-      <TableCell colSpan={colSpan} className="h-24 text-center text-muted-foreground">
-        {label}
-      </TableCell>
-    </TableRow>
-  )
+  return <AdminTableStateRow colSpan={colSpan}>{label}</AdminTableStateRow>
 }
 
 function TaskStatusBadge({ status }: { status: string }) {
