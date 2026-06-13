@@ -1,8 +1,7 @@
 import { AlertTriangle, ArrowRight, GitBranch, TrendingUp } from "lucide-react"
 
-import { ChartPanel } from "@/components/admin-ui"
+import { AdminDataTable, AdminPanel, AdminTableStateRow, ChartPanel, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   type AdminChartBarSeriesConfig,
@@ -110,25 +109,22 @@ function sourceLabel(value?: string | null) {
 
 export function KpiStrip({ items }: { items: KpiItem[] }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+    <MetricStrip className="xl:grid-cols-6">
       {items.map((item) => (
-        <Card key={item.id} className="border-border/60 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardDescription>{item.label}</CardDescription>
-            <div className="flex items-center justify-between gap-3">
-              <CardTitle className="text-3xl font-semibold tabular-nums">{formatAdminChartNumber(item.value)}</CardTitle>
-              {item.unit && <Badge variant="secondary">{item.unit}</Badge>}
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <MetricTile
+          key={item.id}
+          label={item.label}
+          value={formatAdminChartNumber(item.value)}
+          unit={item.unit}
+          meta={
+            <span className="inline-flex items-center gap-1">
               <TrendingUp className="h-3.5 w-3.5" />
-              <span>{ratioText(item.ratio)}</span>
-            </div>
-          </CardContent>
-        </Card>
+              {ratioText(item.ratio)}
+            </span>
+          }
+        />
       ))}
-    </div>
+    </MetricStrip>
   )
 }
 
@@ -171,19 +167,16 @@ export function GaugeStatCard({ title, value, suffix, height = 240 }: { title: s
 
 export function DiagnosticsPanel({ title, items }: { title: string; items: { label: string; value: string | number | null | undefined }[] }) {
   return (
-    <Card className="border-border/60 shadow-sm">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-3 sm:grid-cols-2">
+    <AdminPanel title={title}>
+      <div className="grid gap-3 sm:grid-cols-2">
         {items.map((item) => (
-          <div key={item.label} className="rounded-md border border-border/60 bg-card/70 px-3 py-2">
+          <div key={item.label} className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
             <div className="text-xs text-muted-foreground">{item.label}</div>
             <div className="mt-1 text-sm font-medium">{item.value === null || item.value === undefined || item.value === "" ? "-" : String(item.value)}</div>
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </AdminPanel>
   )
 }
 
@@ -216,12 +209,8 @@ export function LedgerTable({
   columns: { key: string; label: string; align?: "left" | "right" }[]
 }) {
   return (
-    <Card className="border-border/60 shadow-sm">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        {description && <CardDescription>{description}</CardDescription>}
-      </CardHeader>
-      <CardContent>
+    <AdminPanel title={title} description={description} contentClassName="p-0">
+      <AdminDataTable className="rounded-none border-0">
         <Table>
           <TableHeader>
             <TableRow>
@@ -233,13 +222,7 @@ export function LedgerTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                  暂无账本数据
-                </TableCell>
-              </TableRow>
-            )}
+            {rows.length === 0 && <AdminTableStateRow colSpan={columns.length}>暂无账本数据</AdminTableStateRow>}
             {rows.map((row, index) => (
               <TableRow key={`${row.record_type ?? "row"}-${row.record_id ?? index}`}>
                 {columns.map((column) => (
@@ -251,8 +234,8 @@ export function LedgerTable({
             ))}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </AdminDataTable>
+    </AdminPanel>
   )
 }
 
@@ -280,19 +263,16 @@ export function InsightCallout({ title, description, tone = "default" }: { title
 
 export function MiniStatList({ title, items }: { title: string; items: { label: string; value: string | number }[] }) {
   return (
-    <Card className="border-border/60 shadow-sm">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <AdminPanel title={title}>
+      <div className="space-y-3">
         {items.map((item) => (
           <div key={item.label} className="flex items-center justify-between gap-3 text-sm">
             <span className="text-muted-foreground">{item.label}</span>
             <span className="font-medium tabular-nums">{item.value}</span>
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </AdminPanel>
   )
 }
 

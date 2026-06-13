@@ -35,6 +35,7 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: obvious `AdminPageHeader meta` misuse in platform placeholder/home pages has been removed; `meta` should not be used as a disguised subtitle.
 - Done: shared chart visual option details for trend, combo trend, ranking, distribution, gauge, and sankey have moved from `components/carbon/analytics-panels.tsx` into `src/js/web/src/lib/admin-chart-theme.ts`.
 - Done: `components/carbon/analytics-panels.tsx` no longer passes explanatory `description` strings into `ChartPanel`.
+- Done: shared `components/carbon/analytics-panels.tsx` KPI, diagnostics, mini-stat, and ledger table wrappers now use `MetricStrip`, `AdminPanel`, `AdminDataTable`, and `AdminTableStateRow` instead of naked `Card`.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 
