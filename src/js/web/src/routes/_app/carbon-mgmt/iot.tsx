@@ -6,8 +6,8 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 
-import { AdminPageHeader } from "@/components/admin-ui"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AdminDataTable, AdminPageHeader, AdminPanel, AdminTableStateRow, AdminTableToolbar } from "@/components/admin-ui"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -55,16 +55,19 @@ function IotPage() {
     <PageContainer className="flex-1 space-y-4">
       <AdminPageHeader title="IoT时序数据" />
       <PageSection>
-        <Card>
-          <CardHeader className="space-y-3">
-            <CardTitle>数据列表</CardTitle>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="w-[160px]">
-                <Input value={siteId} onChange={(e) => setSiteId(e.target.value)} placeholder="站点ID(site_id)" />
-              </div>
-              <div className="w-[180px]">
-                <Input value={deviceId} onChange={(e) => setDeviceId(e.target.value)} placeholder="设备ID(device_id)" />
-              </div>
+        <AdminPanel title="数据列表" contentClassName="space-y-3">
+          <AdminTableToolbar
+            search={
+              <>
+                <div className="w-[160px]">
+                  <Input value={siteId} onChange={(e) => setSiteId(e.target.value)} placeholder="站点ID(site_id)" />
+                </div>
+                <div className="w-[180px]">
+                  <Input value={deviceId} onChange={(e) => setDeviceId(e.target.value)} placeholder="设备ID(device_id)" />
+                </div>
+              </>
+            }
+            filters={
               <div className="w-[140px]">
                 <Select value={limit} onValueChange={setLimit}>
                   <SelectTrigger>
@@ -78,20 +81,17 @@ function IotPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <button
-                type="button"
-                className="inline-flex h-9 items-center rounded-md border border-border/70 bg-secondary px-3 text-xs font-medium text-secondary-foreground hover:bg-secondary/80"
-                onClick={() => refetch()}
-                disabled={isLoading}
-              >
+            }
+            actions={
+              <Button type="button" variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
                 查询
-              </button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isLoading && <div className="text-sm text-muted-foreground">正在加载…</div>}
-            {isError && <div className="text-sm text-destructive">加载失败，请检查后端接口。</div>}
-            {!isLoading && !isError && (
+              </Button>
+            }
+          />
+          {isLoading && <div className="text-sm text-muted-foreground">正在加载…</div>}
+          {isError && <div className="text-sm text-destructive">加载失败，请检查后端接口。</div>}
+          {!isLoading && !isError && (
+            <AdminDataTable>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -104,13 +104,7 @@ function IotPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                        暂无数据
-                      </TableCell>
-                    </TableRow>
-                  )}
+                  {rows.length === 0 && <AdminTableStateRow colSpan={6}>暂无数据</AdminTableStateRow>}
                   {rows.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell>{r.site_id}</TableCell>
@@ -123,9 +117,9 @@ function IotPage() {
                   ))}
                 </TableBody>
               </Table>
-            )}
-          </CardContent>
-        </Card>
+            </AdminDataTable>
+          )}
+        </AdminPanel>
       </PageSection>
     </PageContainer>
   )

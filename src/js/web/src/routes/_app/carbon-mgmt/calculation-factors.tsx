@@ -4,14 +4,11 @@
  */
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Calculator, CheckCircle2, Database } from "lucide-react"
 import { useState } from "react"
 
-import { AdminPageHeader } from "@/components/admin-ui"
+import { AdminDataTable, AdminPageHeader, AdminPanel, AdminTableStateRow, AdminTableToolbar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { PaginationBar, requestPage } from "@/components/platform/data-admin-pages"
-import { SummaryMetricCard } from "@/components/summary-metric-card"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -87,20 +84,18 @@ function CalculationFactorsPage() {
     <PageContainer className="flex-1 space-y-4">
       <AdminPageHeader title="计算因子库" />
 
-      <PageSection className="grid items-stretch gap-4 md:grid-cols-3">
-        <SummaryMetricCard icon={Calculator} label="计算因子" value={formatNumber(factorsQuery.data?.total)} meta="可用于 活动量 × 因子" />
-        <SummaryMetricCard icon={CheckCircle2} label="本页启用" value={formatNumber(activeCount)} meta="当前页参与核算" />
-        <SummaryMetricCard icon={Database} label="本页来源" value={formatNumber(sourceCount)} meta="当前页官方库/人工维护" />
+      <PageSection>
+        <MetricStrip className="md:grid-cols-3 xl:grid-cols-3">
+          <MetricTile label="计算因子" value={formatNumber(factorsQuery.data?.total)} meta="可用于活动量与因子核算" />
+          <MetricTile label="本页启用" value={formatNumber(activeCount)} meta="当前页参与核算" tone="success" />
+          <MetricTile label="本页来源" value={formatNumber(sourceCount)} meta="当前页官方库/人工维护" />
+        </MetricStrip>
       </PageSection>
 
       <PageSection>
-        <Card>
-          <CardHeader className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <CardTitle>因子列表</CardTitle>
-              <div className="text-muted-foreground text-sm">共 {formatNumber(factorsQuery.data?.total)} 条</div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-[1fr_160px_160px]">
+        <AdminPanel title="因子列表" actions={<div className="text-muted-foreground text-sm">共 {formatNumber(factorsQuery.data?.total)} 条</div>} contentClassName="space-y-3">
+          <AdminTableToolbar
+            search={
               <Input
                 value={keyword}
                 onChange={(event) => {
@@ -109,48 +104,52 @@ function CalculationFactorsPage() {
                 }}
                 placeholder="搜索：范围/类别/子类/单位/来源"
               />
-              <Select
-                value={scope}
-                onValueChange={(value) => {
-                  setScope(value)
-                  setPageIndex(0)
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="范围" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部范围</SelectItem>
-                  <SelectItem value="scope1">范围1</SelectItem>
-                  <SelectItem value="scope2">范围2</SelectItem>
-                  <SelectItem value="scope3">范围3</SelectItem>
-                  <SelectItem value="Scope1">范围1</SelectItem>
-                  <SelectItem value="Scope2">范围2</SelectItem>
-                  <SelectItem value="Scope3">范围3</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select
-                value={active}
-                onValueChange={(value) => {
-                  setActive(value)
-                  setPageIndex(0)
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="状态" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部状态</SelectItem>
-                  <SelectItem value="active">启用</SelectItem>
-                  <SelectItem value="inactive">停用</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3 overflow-x-auto">
-            {factorsQuery.isLoading && <div className="text-muted-foreground text-sm">正在加载...</div>}
-            {factorsQuery.isError && <div className="text-destructive text-sm">加载失败，请检查后端接口。</div>}
-            {!factorsQuery.isLoading && !factorsQuery.isError && (
+            }
+            filters={
+              <>
+                <Select
+                  value={scope}
+                  onValueChange={(value) => {
+                    setScope(value)
+                    setPageIndex(0)
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="范围" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部范围</SelectItem>
+                    <SelectItem value="scope1">范围1</SelectItem>
+                    <SelectItem value="scope2">范围2</SelectItem>
+                    <SelectItem value="scope3">范围3</SelectItem>
+                    <SelectItem value="Scope1">范围1</SelectItem>
+                    <SelectItem value="Scope2">范围2</SelectItem>
+                    <SelectItem value="Scope3">范围3</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={active}
+                  onValueChange={(value) => {
+                    setActive(value)
+                    setPageIndex(0)
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="状态" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部状态</SelectItem>
+                    <SelectItem value="active">启用</SelectItem>
+                    <SelectItem value="inactive">停用</SelectItem>
+                  </SelectContent>
+                </Select>
+              </>
+            }
+          />
+          {factorsQuery.isLoading && <div className="text-muted-foreground text-sm">正在加载...</div>}
+          {factorsQuery.isError && <div className="text-destructive text-sm">加载失败，请检查后端接口。</div>}
+          {!factorsQuery.isLoading && !factorsQuery.isError && (
+            <AdminDataTable>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -167,13 +166,7 @@ function CalculationFactorsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {factors.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
-                        暂无数据
-                      </TableCell>
-                    </TableRow>
-                  )}
+                  {factors.length === 0 && <AdminTableStateRow colSpan={10}>暂无数据</AdminTableStateRow>}
                   {factors.map((factor) => (
                     <TableRow key={factor.id}>
                       <TableCell>
@@ -205,19 +198,19 @@ function CalculationFactorsPage() {
                   ))}
                 </TableBody>
               </Table>
-            )}
-            <PaginationBar
-              page={factorsQuery.data ?? { items: [], total: 0, limit: pageSize, offset: pageIndex * pageSize }}
-              pageIndex={pageIndex}
-              pageSize={pageSize}
-              onPageChange={setPageIndex}
-              onPageSizeChange={(size) => {
-                setPageSize(size)
-                setPageIndex(0)
-              }}
-            />
-          </CardContent>
-        </Card>
+            </AdminDataTable>
+          )}
+          <PaginationBar
+            page={factorsQuery.data ?? { items: [], total: 0, limit: pageSize, offset: pageIndex * pageSize }}
+            pageIndex={pageIndex}
+            pageSize={pageSize}
+            onPageChange={setPageIndex}
+            onPageSizeChange={(size) => {
+              setPageSize(size)
+              setPageIndex(0)
+            }}
+          />
+        </AdminPanel>
       </PageSection>
     </PageContainer>
   )

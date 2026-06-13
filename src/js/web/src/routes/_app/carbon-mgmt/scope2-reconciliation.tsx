@@ -3,9 +3,8 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import { toast } from "sonner"
 
-import { AdminPageHeader } from "@/components/admin-ui"
+import { AdminPageHeader, AdminPanel, AdminTableToolbar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
 
@@ -63,39 +62,38 @@ function Scope2ReconciliationPage() {
     <PageContainer className="flex-1 space-y-4">
       <AdminPageHeader title="[范围2] 数据对账" />
       <PageSection>
-        <Card>
-          <CardHeader className="space-y-3">
-            <CardTitle>月度对账</CardTitle>
-            <div className="flex flex-wrap items-center gap-3">
+        <AdminPanel title="月度对账" contentClassName="space-y-4">
+          <AdminTableToolbar
+            filters={
               <div className="w-[180px]">
                 <Input value={billingMonth} onChange={(event) => setBillingMonth(event.target.value)} placeholder="账期 YYYY-MM" />
               </div>
-              <Button variant="secondary" onClick={() => reconciliationQuery.refetch()} disabled={!billingMonth.trim() || reconciliationQuery.isFetching}>
-                查询
-              </Button>
-              <Button onClick={() => rebuildMut.mutate()} disabled={!billingMonth.trim() || rebuildMut.isPending}>
-                执行月聚合
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <MetricCard label="账期" value={data?.billing_month ?? "-"} />
-            <MetricCard label="人工账单总电量" value={data ? `${data.manual_bill_total_kwh} kWh` : "-"} />
-            <MetricCard label="电表聚合总电量" value={data ? `${data.meter_aggregate_total_kwh} kWh` : "-"} />
-            <MetricCard label="差异值" value={data ? `${data.difference_kwh} kWh` : "-"} />
-            <MetricCard label="差异率 / 缺失电表" value={data ? `${data.difference_rate ?? "-"}% / ${data.missing_meter_count}` : "-"} />
-          </CardContent>
-        </Card>
+            }
+            actions={
+              <>
+                <Button variant="outline" size="sm" onClick={() => reconciliationQuery.refetch()} disabled={!billingMonth.trim() || reconciliationQuery.isFetching}>
+                  查询
+                </Button>
+                <Button onClick={() => rebuildMut.mutate()} disabled={!billingMonth.trim() || rebuildMut.isPending}>
+                  执行月聚合
+                </Button>
+              </>
+            }
+          />
+          <MetricStrip className="xl:grid-cols-5">
+            <MetricTile label="账期" value={data?.billing_month ?? "-"} />
+            <MetricTile label="人工账单总电量" value={data ? data.manual_bill_total_kwh : "-"} unit={data ? "kWh" : undefined} />
+            <MetricTile label="电表聚合总电量" value={data ? data.meter_aggregate_total_kwh : "-"} unit={data ? "kWh" : undefined} />
+            <MetricTile
+              label="差异值"
+              value={data ? data.difference_kwh : "-"}
+              unit={data ? "kWh" : undefined}
+              tone={data && Math.abs(data.difference_kwh) > 0 ? "warning" : "default"}
+            />
+            <MetricTile label="差异率 / 缺失电表" value={data ? `${data.difference_rate ?? "-"}% / ${data.missing_meter_count}` : "-"} />
+          </MetricStrip>
+        </AdminPanel>
       </PageSection>
     </PageContainer>
-  )
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border px-4 py-5">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-2 text-lg font-semibold">{value}</div>
-    </div>
   )
 }
