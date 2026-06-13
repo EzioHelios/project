@@ -1982,6 +1982,7 @@ class CarbonCompliancePeriod(TeamScopedMixin, BigIntAuditBase):
     accounting_batch: Mapped[CarbonAccountingBatch | None] = relationship(lazy="selectin")
     allowances: Mapped[list[CarbonQuotaAllocation]] = relationship(back_populates="period", lazy="selectin")
     surrenders: Mapped[list[CarbonSurrenderRecord]] = relationship(back_populates="period", lazy="selectin")
+    forecast_scenarios: Mapped[list[CarbonAssetForecastScenario]] = relationship(back_populates="period", lazy="selectin")
 
 
 class CarbonAssetAccount(TeamScopedMixin, BigIntAuditBase):
@@ -2129,6 +2130,38 @@ class CarbonSurrenderRecord(TeamScopedMixin, BigIntAuditBase):
     account: Mapped[CarbonAssetAccount] = relationship(lazy="selectin")
     quota_allocation: Mapped[CarbonQuotaAllocation | None] = relationship(lazy="selectin")
     credit_holding: Mapped[CarbonCreditHolding | None] = relationship(lazy="selectin")
+
+
+class CarbonAssetForecastScenario(TeamScopedMixin, BigIntAuditBase):
+    """Enterprise assumption scenario for rolling carbon asset compliance forecasts."""
+
+    __tablename__ = "carbon_asset_forecast_scenario"
+    __table_args__ = (
+        UniqueConstraint("team_id", "scenario_code", name="uq_carbon_asset_forecast_scenario_team_code"),
+        Index("ix_carbon_asset_forecast_scenario_period", "team_id", "period_id", "status"),
+        Index("ix_carbon_asset_forecast_scenario_status", "team_id", "status", "forecast_end"),
+    )
+
+    period_id: Mapped[int] = mapped_column(ForeignKey("carbon_compliance_period.id", ondelete="CASCADE"), index=True)
+    scenario_code: Mapped[str] = mapped_column(String(64), index=True)
+    scenario_name: Mapped[str] = mapped_column(String(128))
+    base_year: Mapped[int | None] = mapped_column(Integer, index=True)
+    forecast_start: Mapped[date | None] = mapped_column(Date)
+    forecast_end: Mapped[date | None] = mapped_column(Date, index=True)
+    emission_growth_rate: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=Decimal(0))
+    planned_reduction: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    planned_allowance_purchase: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    planned_credit_purchase: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    planned_surrender: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    allowance_price: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    credit_price: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
+    currency: Mapped[str] = mapped_column(String(16), default="CNY")
+    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    source_name: Mapped[str | None] = mapped_column(String(128))
+    confidence_level: Mapped[str | None] = mapped_column(String(16))
+    remark: Mapped[str | None] = mapped_column(Text)
+
+    period: Mapped[CarbonCompliancePeriod] = relationship(back_populates="forecast_scenarios", lazy="selectin")
 
 
 class ReportingOrganization(TeamScopedMixin, BigIntAuditBase):

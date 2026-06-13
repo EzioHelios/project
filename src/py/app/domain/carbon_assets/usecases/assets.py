@@ -13,6 +13,7 @@ from app.domain.carbon_assets.domain.policies import (
     ensure_period_open,
     simulate_transaction,
     validate_account_payload,
+    validate_forecast_payload,
     validate_non_negative_amount,
     validate_period_payload,
     validate_positive_amount,
@@ -122,6 +123,26 @@ SURRENDER_FIELDS = {
     "source_name",
     "remark",
 }
+FORECAST_SCENARIO_FIELDS = {
+    "period_id",
+    "scenario_code",
+    "scenario_name",
+    "base_year",
+    "forecast_start",
+    "forecast_end",
+    "emission_growth_rate",
+    "planned_reduction",
+    "planned_allowance_purchase",
+    "planned_credit_purchase",
+    "planned_surrender",
+    "allowance_price",
+    "credit_price",
+    "currency",
+    "status",
+    "source_name",
+    "confidence_level",
+    "remark",
+}
 DECIMAL_FIELDS = {
     "risk_threshold_yellow",
     "risk_threshold_orange",
@@ -138,10 +159,26 @@ DECIMAL_FIELDS = {
     "unit_price",
     "fee_rate",
     "tax_rate",
+    "emission_growth_rate",
+    "planned_reduction",
+    "planned_allowance_purchase",
+    "planned_credit_purchase",
+    "planned_surrender",
+    "allowance_price",
+    "credit_price",
 }
-DATE_FIELDS = {"period_start", "period_end", "surrender_due_date", "valid_from", "valid_to", "trade_date"}
+DATE_FIELDS = {"period_start", "period_end", "surrender_due_date", "valid_from", "valid_to", "trade_date", "forecast_start", "forecast_end"}
 DATETIME_FIELDS = {"surrendered_at"}
-INTEGER_FIELDS = {"boundary_id", "accounting_batch_id", "period_id", "account_id", "quota_allocation_id", "credit_holding_id", "vintage_year"}
+INTEGER_FIELDS = {
+    "boundary_id",
+    "accounting_batch_id",
+    "period_id",
+    "account_id",
+    "quota_allocation_id",
+    "credit_holding_id",
+    "vintage_year",
+    "base_year",
+}
 
 
 class CarbonAssetsUseCase:
@@ -290,6 +327,35 @@ class CarbonAssetsUseCase:
         await self._session.refresh(obj)
         return obj
 
+    async def create_forecast_scenario(self, data: dict[str, Any]) -> m.CarbonAssetForecastScenario:
+        payload = _payload(data, FORECAST_SCENARIO_FIELDS, required={"period_id", "scenario_code", "scenario_name"})
+        payload.setdefault("emission_growth_rate", Decimal(0))
+        payload.setdefault("planned_reduction", Decimal(0))
+        payload.setdefault("planned_allowance_purchase", Decimal(0))
+        payload.setdefault("planned_credit_purchase", Decimal(0))
+        payload.setdefault("planned_surrender", Decimal(0))
+        payload.setdefault("allowance_price", Decimal(0))
+        payload.setdefault("credit_price", Decimal(0))
+        payload.setdefault("currency", "CNY")
+        payload.setdefault("status", "draft")
+        payload.setdefault("source_name", "enterprise_asset_rule")
+        await self._validate_forecast(payload)
+        obj = m.CarbonAssetForecastScenario(**payload)
+        self._session.add(obj)
+        await self._session.commit()
+        await self._session.refresh(obj)
+        return obj
+
+    async def update_forecast_scenario(self, scenario_id: int, data: dict[str, Any]) -> m.CarbonAssetForecastScenario:
+        obj = await self._get_or_raise(m.CarbonAssetForecastScenario, scenario_id, "预测情景不存在")
+        payload = _payload(data, FORECAST_SCENARIO_FIELDS - {"scenario_code"})
+        next_payload = {**{key: getattr(obj, key) for key in FORECAST_SCENARIO_FIELDS if hasattr(obj, key)}, **payload}
+        await self._validate_forecast(next_payload)
+        _assign(obj, payload)
+        await self._session.commit()
+        await self._session.refresh(obj)
+        return obj
+
     async def _validate_refs(self, payload: dict[str, Any]) -> None:
         if payload.get("boundary_id") and await self._session.get(m.OrganizationBoundary, payload["boundary_id"]) is None:
             msg = "组织边界不存在"
@@ -317,6 +383,10 @@ class CarbonAssetsUseCase:
         for field in ("used_quantity", "frozen_quantity", "market_price"):
             if payload.get(field) is not None:
                 validate_non_negative_amount(payload.get(field), field)
+
+    async def _validate_forecast(self, payload: dict[str, Any]) -> None:
+        await self._get_or_raise(m.CarbonCompliancePeriod, int(payload["period_id"]), "履约周期不存在")
+        validate_forecast_payload(payload)
 
     async def _apply_surrender_usage(self, payload: dict[str, Any]) -> None:
         amount = payload["amount"]

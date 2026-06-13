@@ -9,6 +9,7 @@ PERIOD_STATUSES = {"open", "locked", "closed"}
 CREDIT_STATUSES = {"active", "expired", "used", "frozen"}
 TRANSACTION_TYPES = {"buy", "sell", "transfer", "offset"}
 SURRENDER_STATUSES = {"draft", "completed", "cancelled"}
+FORECAST_SCENARIO_STATUSES = {"draft", "active", "archived"}
 
 
 def validate_period_payload(payload: dict[str, Any]) -> None:
@@ -50,6 +51,67 @@ def validate_non_negative_amount(value: Decimal | None, field: str = "amount") -
     if value is None or value < 0:
         msg = f"{field} cannot be negative"
         raise ValueError(msg)
+
+
+def validate_forecast_payload(payload: dict[str, Any]) -> None:
+    for key in ("period_id", "scenario_code", "scenario_name"):
+        if payload.get(key) in (None, ""):
+            msg = f"{key} is required"
+            raise ValueError(msg)
+    status = str(payload.get("status") or "draft")
+    if status not in FORECAST_SCENARIO_STATUSES:
+        msg = f"unsupported forecast scenario status: {status}"
+        raise ValueError(msg)
+    if payload.get("forecast_start") and payload.get("forecast_end") and payload["forecast_end"] < payload["forecast_start"]:
+        msg = "预测结束日期不能早于开始日期"
+        raise ValueError(msg)
+    for field in (
+        "planned_reduction",
+        "planned_allowance_purchase",
+        "planned_credit_purchase",
+        "planned_surrender",
+        "allowance_price",
+        "credit_price",
+    ):
+        validate_non_negative_amount(_decimal(payload.get(field)), field)
+
+
+def forecast_position(
+    *,
+    verified_emission: Decimal,
+    allowance_available_value: Decimal,
+    credit_available_value: Decimal,
+    surrendered_amount: Decimal,
+    emission_growth_rate: Decimal | None,
+    planned_reduction: Decimal | None,
+    planned_allowance_purchase: Decimal | None,
+    planned_credit_purchase: Decimal | None,
+    planned_surrender: Decimal | None,
+    allowance_price: Decimal | None,
+    credit_price: Decimal | None,
+    yellow: Decimal | None,
+    orange: Decimal | None,
+    red: Decimal | None,
+) -> dict[str, Decimal | str]:
+    growth_rate = _decimal(emission_growth_rate)
+    forecast_emission = (verified_emission * (Decimal(1) + growth_rate)) - _decimal(planned_reduction)
+    if forecast_emission < 0:
+        forecast_emission = Decimal(0)
+    forecast_available_assets = allowance_available_value + credit_available_value + _decimal(planned_allowance_purchase) + _decimal(planned_credit_purchase)
+    forecast_surrendered = surrendered_amount + _decimal(planned_surrender)
+    net_position = forecast_available_assets + forecast_surrendered - forecast_emission
+    gap_amount = abs(net_position) if net_position < 0 else Decimal(0)
+    funding_need = (_decimal(planned_allowance_purchase) * _decimal(allowance_price)) + (_decimal(planned_credit_purchase) * _decimal(credit_price))
+    return {
+        "forecast_emission": forecast_emission.quantize(Decimal("0.000001")),
+        "forecast_available_assets": forecast_available_assets.quantize(Decimal("0.000001")),
+        "forecast_surrendered": forecast_surrendered.quantize(Decimal("0.000001")),
+        "forecast_net_position": net_position.quantize(Decimal("0.000001")),
+        "forecast_gap_amount": gap_amount.quantize(Decimal("0.000001")),
+        "forecast_gap_rate": (gap_amount / forecast_emission).quantize(Decimal("0.000001")) if forecast_emission > 0 else Decimal(0),
+        "funding_need": funding_need.quantize(Decimal("0.000001")),
+        "risk_level": compliance_risk_level(gap_amount, forecast_emission, yellow, orange, red),
+    }
 
 
 def ensure_period_open(status: str) -> None:

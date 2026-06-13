@@ -196,6 +196,47 @@ class CarbonAssetsController(Controller):
             return _error(exc)
         return Response(content=ok_data(model_to_dict(obj)))
 
+    @get("/api/carbon/assets/forecast-scenarios")
+    async def list_forecast_scenarios(
+        self,
+        db_session: AsyncSession,
+        period_id: int | None = None,
+        status: str | None = None,
+        keyword: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Response[dict]:
+        data = await CarbonAssetsQueryService(db_session).forecast_scenarios(
+            _query(period_id=period_id, status=status, keyword=keyword, limit=limit, offset=offset)
+        )
+        return Response(content=ok_data(data))
+
+    @post("/api/carbon/assets/forecast-scenarios")
+    async def create_forecast_scenario(self, db_session: AsyncSession, data: dict[str, Any] = ASSETS_BODY) -> Response[dict]:
+        try:
+            obj = await CarbonAssetsUseCase(db_session).create_forecast_scenario(data)
+        except ValueError as exc:
+            return _error(exc)
+        return Response(content=ok_data(model_to_dict(obj)))
+
+    @patch("/api/carbon/assets/forecast-scenarios/{scenario_id:int}")
+    async def update_forecast_scenario(self, db_session: AsyncSession, scenario_id: int, data: dict[str, Any] = ASSETS_BODY) -> Response[dict]:
+        try:
+            obj = await CarbonAssetsUseCase(db_session).update_forecast_scenario(scenario_id, data)
+        except ValueError as exc:
+            return _error(exc)
+        return Response(content=ok_data(model_to_dict(obj)))
+
+    @get("/api/carbon/assets/forecast")
+    async def get_forecast(
+        self,
+        db_session: AsyncSession,
+        period_id: int | None = None,
+        scenario_id: int | None = None,
+    ) -> Response[dict]:
+        data = await CarbonAssetsQueryService(db_session).forecast(period_id=period_id, scenario_id=scenario_id)
+        return Response(content=ok_data(data))
+
     @get("/api/carbon/assets/compliance-position")
     async def get_compliance_position(self, db_session: AsyncSession, period_id: int | None = None) -> Response[dict]:
         data = await CarbonAssetsQueryService(db_session).compliance_position(period_id)
@@ -215,6 +256,7 @@ class CarbonAssetsController(Controller):
 def _query(
     *,
     period_id: int | None = None,
+    scenario_id: int | None = None,
     account_id: int | None = None,
     asset_type: str | None = None,
     status: str | None = None,
@@ -225,6 +267,7 @@ def _query(
 ) -> CarbonAssetsQuery:
     return CarbonAssetsQuery(
         period_id=period_id,
+        scenario_id=scenario_id,
         account_id=account_id,
         asset_type=asset_type,
         status=status,

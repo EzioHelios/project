@@ -7,18 +7,26 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import func, select
 
 from app.db import models as m
-from app.domain.carbon_assets.domain.policies import allowance_available, compliance_risk_level, credit_available
+from app.domain.carbon_assets.domain.policies import (
+    allowance_available,
+    compliance_risk_level,
+    credit_available,
+    forecast_position,
+)
 from app.domain.energy.controllers._utils import model_to_dict
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 KG_PER_TONNE = Decimal(1000)
+MAX_FORECAST_MONTHS = 60
+MONTHS_PER_YEAR = 12
 
 
 @dataclass(frozen=True, slots=True)
 class CarbonAssetsQuery:
     period_id: int | None = None
+    scenario_id: int | None = None
     account_id: int | None = None
     asset_type: str | None = None
     status: str | None = None
@@ -122,6 +130,25 @@ class CarbonAssetsQueryService:
         stmt = select(m.CarbonSurrenderRecord).where(*conditions).order_by(m.CarbonSurrenderRecord.id.desc())
         return await self._page(stmt, query)
 
+    async def forecast_scenarios(self, query: CarbonAssetsQuery) -> dict[str, Any]:
+        conditions = []
+        if query.period_id is not None:
+            conditions.append(m.CarbonAssetForecastScenario.period_id == query.period_id)
+        if query.status and query.status != "all":
+            conditions.append(m.CarbonAssetForecastScenario.status == query.status)
+        if query.keyword:
+            pattern = f"%{query.keyword.strip()}%"
+            conditions.append(
+                (m.CarbonAssetForecastScenario.scenario_name.ilike(pattern)) | (m.CarbonAssetForecastScenario.scenario_code.ilike(pattern))
+            )
+        stmt = select(m.CarbonAssetForecastScenario).where(*conditions).order_by(
+            m.CarbonAssetForecastScenario.created_at.desc(), m.CarbonAssetForecastScenario.id.desc()
+        )
+        page = await self._page(stmt, query, include_rows=True)
+        page["items"] = [await self._forecast_scenario_payload(row) for row in page.pop("_rows")]
+        page["data"] = page["items"]
+        return page
+
     async def summary(self) -> dict[str, Any]:
         period_count = await self._count(m.CarbonCompliancePeriod)
         account_count = await self._count(m.CarbonAssetAccount)
@@ -210,6 +237,52 @@ class CarbonAssetsQueryService:
             "boundary_id": period.boundary_id,
         }
 
+    async def forecast(self, period_id: int | None = None, scenario_id: int | None = None) -> dict[str, Any]:
+        scenario = await self._scenario_or_active(period_id, scenario_id)
+        period = await self._period_or_latest(scenario.period_id if scenario else period_id)
+        if period is None:
+            return {"position": _empty_position(), "scenario": None, "result": _empty_forecast_result(), "monthly_points": []}
+        verified_emission = await self._verified_emission_tco2e(period)
+        allowance_value = await self._allowance_available(period.id)
+        credit_value = await self._credit_available()
+        surrendered_amount = await self._surrendered_amount(period.id)
+        scenario_values = _scenario_values(scenario)
+        result = forecast_position(
+            verified_emission=verified_emission,
+            allowance_available_value=allowance_value,
+            credit_available_value=credit_value,
+            surrendered_amount=surrendered_amount,
+            emission_growth_rate=scenario_values["emission_growth_rate"],
+            planned_reduction=scenario_values["planned_reduction"],
+            planned_allowance_purchase=scenario_values["planned_allowance_purchase"],
+            planned_credit_purchase=scenario_values["planned_credit_purchase"],
+            planned_surrender=scenario_values["planned_surrender"],
+            allowance_price=scenario_values["allowance_price"],
+            credit_price=scenario_values["credit_price"],
+            yellow=period.risk_threshold_yellow,
+            orange=period.risk_threshold_orange,
+            red=period.risk_threshold_red,
+        )
+        position = await self.compliance_position(period.id)
+        scenario_payload = await self._forecast_scenario_payload(scenario) if scenario else _default_scenario_payload(period)
+        monthly_points = _monthly_points(
+            period=period,
+            scenario=scenario,
+            forecast_result=result,
+            allowance_available_value=allowance_value,
+            credit_available_value=credit_value,
+            surrendered_amount=surrendered_amount,
+            planned_allowance_purchase=scenario_values["planned_allowance_purchase"],
+            planned_credit_purchase=scenario_values["planned_credit_purchase"],
+            planned_surrender=scenario_values["planned_surrender"],
+        )
+        return {
+            "position": position,
+            "scenario": scenario_payload,
+            "result": {key: _float(value) if isinstance(value, Decimal) else value for key, value in result.items()},
+            "monthly_points": monthly_points,
+        }
+
     async def _period_payload(self, row: m.CarbonCompliancePeriod) -> dict[str, Any]:
         payload = model_to_dict(row)
         payload["position"] = await self.compliance_position(row.id)
@@ -239,6 +312,12 @@ class CarbonAssetsQueryService:
         payload["available_amount"] = _float(credit_available(row.quantity, row.used_quantity, row.frozen_quantity))
         return payload
 
+    async def _forecast_scenario_payload(self, row: m.CarbonAssetForecastScenario) -> dict[str, Any]:
+        payload = model_to_dict(row)
+        period = await self._session.get(m.CarbonCompliancePeriod, row.period_id)
+        payload["period_name"] = period.period_name if period else None
+        return payload
+
     async def _page(self, stmt: Any, query: CarbonAssetsQuery, *, include_rows: bool = False) -> dict[str, Any]:
         total = int((await self._session.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one() or 0)
         rows = (await self._session.execute(stmt.limit(_limit(query.limit)).offset(max(0, query.offset)))).scalars().all()
@@ -255,6 +334,22 @@ class CarbonAssetsQueryService:
         if period_id is not None:
             return await self._session.get(m.CarbonCompliancePeriod, period_id)
         return await self._session.scalar(select(m.CarbonCompliancePeriod).order_by(m.CarbonCompliancePeriod.period_start.desc()).limit(1))
+
+    async def _scenario_or_active(self, period_id: int | None, scenario_id: int | None) -> m.CarbonAssetForecastScenario | None:
+        if scenario_id is not None:
+            return await self._session.get(m.CarbonAssetForecastScenario, scenario_id)
+        period = await self._period_or_latest(period_id)
+        if period is None:
+            return None
+        return await self._session.scalar(
+            select(m.CarbonAssetForecastScenario)
+            .where(
+                m.CarbonAssetForecastScenario.period_id == period.id,
+                m.CarbonAssetForecastScenario.status == "active",
+            )
+            .order_by(m.CarbonAssetForecastScenario.updated_at.desc(), m.CarbonAssetForecastScenario.id.desc())
+            .limit(1)
+        )
 
     async def _verified_emission_tco2e(self, period: m.CarbonCompliancePeriod) -> Decimal:
         if not period.accounting_batch_id:
@@ -342,6 +437,113 @@ def _empty_position() -> dict[str, Any]:
         "accounting_batch_id": None,
         "boundary_id": None,
     }
+
+
+def _empty_forecast_result() -> dict[str, Any]:
+    return {
+        "forecast_emission": 0,
+        "forecast_available_assets": 0,
+        "forecast_surrendered": 0,
+        "forecast_net_position": 0,
+        "forecast_gap_amount": 0,
+        "forecast_gap_rate": 0,
+        "funding_need": 0,
+        "risk_level": "empty",
+    }
+
+
+def _scenario_values(scenario: m.CarbonAssetForecastScenario | None) -> dict[str, Decimal]:
+    if scenario is None:
+        return {
+            "emission_growth_rate": Decimal(0),
+            "planned_reduction": Decimal(0),
+            "planned_allowance_purchase": Decimal(0),
+            "planned_credit_purchase": Decimal(0),
+            "planned_surrender": Decimal(0),
+            "allowance_price": Decimal(0),
+            "credit_price": Decimal(0),
+        }
+    return {
+        "emission_growth_rate": Decimal(scenario.emission_growth_rate or 0),
+        "planned_reduction": Decimal(scenario.planned_reduction or 0),
+        "planned_allowance_purchase": Decimal(scenario.planned_allowance_purchase or 0),
+        "planned_credit_purchase": Decimal(scenario.planned_credit_purchase or 0),
+        "planned_surrender": Decimal(scenario.planned_surrender or 0),
+        "allowance_price": Decimal(scenario.allowance_price or 0),
+        "credit_price": Decimal(scenario.credit_price or 0),
+    }
+
+
+def _default_scenario_payload(period: m.CarbonCompliancePeriod) -> dict[str, Any]:
+    return {
+        "id": None,
+        "period_id": period.id,
+        "period_name": period.period_name,
+        "scenario_code": "baseline",
+        "scenario_name": "基线预测",
+        "status": "baseline",
+        "forecast_start": period.period_start,
+        "forecast_end": period.period_end,
+        "currency": "CNY",
+        **dict.fromkeys(_scenario_values(None), 0),
+    }
+
+
+def _monthly_points(
+    *,
+    period: m.CarbonCompliancePeriod,
+    scenario: m.CarbonAssetForecastScenario | None,
+    forecast_result: dict[str, Decimal | str],
+    allowance_available_value: Decimal,
+    credit_available_value: Decimal,
+    surrendered_amount: Decimal,
+    planned_allowance_purchase: Decimal,
+    planned_credit_purchase: Decimal,
+    planned_surrender: Decimal,
+) -> list[dict[str, Any]]:
+    start = (scenario.forecast_start if scenario else None) or period.period_start
+    end = (scenario.forecast_end if scenario else None) or period.period_end
+    month_labels = _month_labels(start, end)
+    total = max(1, len(month_labels))
+    points: list[dict[str, Any]] = []
+    forecast_emission = Decimal(forecast_result["forecast_emission"]) if isinstance(forecast_result["forecast_emission"], Decimal) else Decimal(0)
+    for index, label in enumerate(month_labels, start=1):
+        ratio = Decimal(index) / Decimal(total)
+        projected_emission = forecast_emission * ratio
+        projected_assets = (
+            allowance_available_value
+            + credit_available_value
+            + surrendered_amount
+            + (planned_allowance_purchase + planned_credit_purchase + planned_surrender) * ratio
+        )
+        gap = projected_emission - projected_assets
+        gap = gap if gap > 0 else Decimal(0)
+        points.append(
+            {
+                "month": label,
+                "projected_emission": _float(projected_emission),
+                "projected_assets": _float(projected_assets),
+                "projected_gap": _float(gap),
+                "gap_rate": _float(gap / projected_emission) if projected_emission > 0 else 0,
+                "risk_level": compliance_risk_level(gap, projected_emission, period.risk_threshold_yellow, period.risk_threshold_orange, period.risk_threshold_red),
+            }
+        )
+    return points
+
+
+def _month_labels(start: Any, end: Any) -> list[str]:
+    labels: list[str] = []
+    year = int(start.year)
+    month = int(start.month)
+    end_year = int(end.year)
+    end_month = int(end.month)
+    while (year, month) <= (end_year, end_month) and len(labels) < MAX_FORECAST_MONTHS:
+        labels.append(f"{year:04d}-{month:02d}")
+        month += 1
+        if month > MONTHS_PER_YEAR:
+            month = 1
+            year += 1
+    return labels or [f"{start.year:04d}-{start.month:02d}"]
 
 
 def _risk_message(item: dict[str, Any]) -> str:

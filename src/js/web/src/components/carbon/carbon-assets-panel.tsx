@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { AlertTriangle, BadgeDollarSign, CheckCircle2, Landmark, Plus, RefreshCw, ShieldCheck } from "lucide-react"
+import { AlertTriangle, BadgeDollarSign, CheckCircle2, Landmark, Plus, RefreshCw, ShieldCheck, TrendingUp } from "lucide-react"
 import type * as React from "react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -34,6 +34,53 @@ type CompliancePosition = {
   risk_level: string
   accounting_batch_id?: number | null
   boundary_id?: number | null
+}
+
+type ForecastScenario = {
+  id?: number | null
+  period_id: number
+  period_name?: string | null
+  scenario_code: string
+  scenario_name: string
+  base_year?: number | null
+  forecast_start?: string | null
+  forecast_end?: string | null
+  emission_growth_rate: number
+  planned_reduction: number
+  planned_allowance_purchase: number
+  planned_credit_purchase: number
+  planned_surrender: number
+  allowance_price: number
+  credit_price: number
+  currency: string
+  status: string
+}
+
+type ForecastResult = {
+  forecast_emission: number
+  forecast_available_assets: number
+  forecast_surrendered: number
+  forecast_net_position: number
+  forecast_gap_amount: number
+  forecast_gap_rate: number
+  funding_need: number
+  risk_level: string
+}
+
+type ForecastMonthlyPoint = {
+  month: string
+  projected_emission: number
+  projected_assets: number
+  projected_gap: number
+  gap_rate: number
+  risk_level: string
+}
+
+type ForecastPayload = {
+  position: CompliancePosition
+  scenario: ForecastScenario | null
+  result: ForecastResult
+  monthly_points: ForecastMonthlyPoint[]
 }
 
 type CarbonAssetsSummary = {
@@ -209,6 +256,26 @@ type SurrenderForm = {
   purpose: string
 }
 
+type ForecastScenarioForm = {
+  period_id: string
+  scenario_code: string
+  scenario_name: string
+  base_year: string
+  forecast_start: string
+  forecast_end: string
+  emission_growth_rate: string
+  planned_reduction: string
+  planned_allowance_purchase: string
+  planned_credit_purchase: string
+  planned_surrender: string
+  allowance_price: string
+  credit_price: string
+  currency: string
+  status: string
+  confidence_level: string
+  remark: string
+}
+
 const QUERY_KEY = ["carbon-assets"]
 
 const defaultPeriodForm: PeriodForm = {
@@ -274,6 +341,26 @@ const defaultSurrenderForm: SurrenderForm = {
   purpose: "compliance",
 }
 
+const defaultForecastScenarioForm: ForecastScenarioForm = {
+  period_id: "",
+  scenario_code: "",
+  scenario_name: "",
+  base_year: "",
+  forecast_start: "",
+  forecast_end: "",
+  emission_growth_rate: "0",
+  planned_reduction: "0",
+  planned_allowance_purchase: "0",
+  planned_credit_purchase: "0",
+  planned_surrender: "0",
+  allowance_price: "0",
+  credit_price: "0",
+  currency: "CNY",
+  status: "active",
+  confidence_level: "medium",
+  remark: "",
+}
+
 const assetTypeLabels: Record<string, string> = {
   quota: "配额",
   ccer: "CCER",
@@ -298,13 +385,16 @@ export function CarbonAssetsPanel() {
   const [creditOpen, setCreditOpen] = useState(false)
   const [transactionOpen, setTransactionOpen] = useState(false)
   const [surrenderOpen, setSurrenderOpen] = useState(false)
+  const [forecastOpen, setForecastOpen] = useState(false)
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null)
+  const [selectedScenarioId, setSelectedScenarioId] = useState<number | null>(null)
   const [periodForm, setPeriodForm] = useState<PeriodForm>(defaultPeriodForm)
   const [accountForm, setAccountForm] = useState<AccountForm>(defaultAccountForm)
   const [allowanceForm, setAllowanceForm] = useState<AllowanceForm>(defaultAllowanceForm)
   const [creditForm, setCreditForm] = useState<CreditForm>(defaultCreditForm)
   const [transactionForm, setTransactionForm] = useState<TransactionForm>(defaultTransactionForm)
   const [surrenderForm, setSurrenderForm] = useState<SurrenderForm>(defaultSurrenderForm)
+  const [forecastForm, setForecastForm] = useState<ForecastScenarioForm>(defaultForecastScenarioForm)
   const [simulation, setSimulation] = useState<AssetTransaction | null>(null)
 
   const summaryQuery = useQuery<ApiEnvelope<CarbonAssetsSummary>>({
@@ -356,6 +446,15 @@ export function CarbonAssetsPanel() {
     queryKey: [...QUERY_KEY, "recommendations", activePeriodId],
     queryFn: () => fetchCarbonApi<{ items: Recommendation[] }>(`/api/carbon/assets/recommendations${activePeriodId ? `?period_id=${activePeriodId}` : ""}`),
   })
+  const forecastScenariosQuery = useQuery<PageResult<ForecastScenario>>({
+    queryKey: [...QUERY_KEY, "forecast-scenarios", activePeriodId],
+    queryFn: () => requestPage<ForecastScenario>("/api/carbon/assets/forecast-scenarios", { period_id: activePeriodId, limit: 100 }),
+    enabled: Boolean(activePeriodId),
+  })
+  const forecastQuery = useQuery<ApiEnvelope<ForecastPayload>>({
+    queryKey: [...QUERY_KEY, "forecast", activePeriodId, selectedScenarioId],
+    queryFn: () => fetchCarbonApi<ForecastPayload>(`/api/carbon/assets/forecast${forecastQueryString({ period_id: activePeriodId, scenario_id: selectedScenarioId })}`),
+  })
 
   const summary = summaryQuery.data?.data
   const position = positionQuery.data?.data ?? summary?.latest_position
@@ -365,6 +464,10 @@ export function CarbonAssetsPanel() {
   const surrenders = surrendersQuery.data?.items ?? []
   const alerts = alertsQuery.data?.data.items ?? []
   const recommendations = recommendationsQuery.data?.data.items ?? []
+  const forecastScenarios = forecastScenariosQuery.data?.items ?? []
+  const forecast = forecastQuery.data?.data
+  const forecastResult = forecast?.result
+  const monthlyPoints = forecast?.monthly_points ?? []
 
   const activePeriodOptions = useMemo(() => periods.map((item) => ({ label: `${item.period_name} (${item.period_code})`, value: String(item.id) })), [periods])
 
@@ -464,6 +567,36 @@ export function CarbonAssetsPanel() {
     onError: toastError("创建清缴记录失败"),
   })
 
+  const createForecastScenario = useMutation({
+    mutationFn: () =>
+      request<ForecastScenario>("/api/carbon/assets/forecast-scenarios", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...numberPayload(forecastForm, [
+            "period_id",
+            "base_year",
+            "emission_growth_rate",
+            "planned_reduction",
+            "planned_allowance_purchase",
+            "planned_credit_purchase",
+            "planned_surrender",
+            "allowance_price",
+            "credit_price",
+          ]),
+          period_id: Number(forecastForm.period_id || activePeriodId),
+        }),
+      }),
+    onSuccess: async (res) => {
+      toast.success("预测情景已创建")
+      setForecastOpen(false)
+      setForecastForm(defaultForecastScenarioForm)
+      if (res.data?.id) setSelectedScenarioId(res.data.id)
+      await invalidateAssets(qc)
+    },
+    onError: toastError("创建预测情景失败"),
+  })
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -513,6 +646,7 @@ export function CarbonAssetsPanel() {
           <TabsTrigger value="credits">CCER/绿证</TabsTrigger>
           <TabsTrigger value="periods">履约周期</TabsTrigger>
           <TabsTrigger value="transactions">交易模拟</TabsTrigger>
+          <TabsTrigger value="forecast">滚动预测</TabsTrigger>
           <TabsTrigger value="risk">风险预警</TabsTrigger>
         </TabsList>
 
@@ -827,6 +961,124 @@ export function CarbonAssetsPanel() {
           </div>
         </TabsContent>
 
+        <TabsContent value="forecast">
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <PositionMetric label="预测排放" value={forecastResult?.forecast_emission} unit="tCO2e" />
+              <PositionMetric label="预测资产" value={forecastResult?.forecast_available_assets} unit="tCO2e" />
+              <PositionMetric label="预测缺口" value={forecastResult?.forecast_gap_amount} unit="tCO2e" />
+              <PositionMetric label="资金需求" value={forecastResult?.funding_need} unit={forecast?.scenario?.currency ?? "CNY"} />
+              <div className="rounded-md border p-3">
+                <div className="text-xs text-muted-foreground">预测风险</div>
+                <div className="mt-2">
+                  <RiskBadge value={forecastResult?.risk_level ?? "empty"} />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+              <SectionCard
+                title="预测情景"
+                action={
+                  <Dialog open={forecastOpen} onOpenChange={setForecastOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <TrendingUp className="mr-2 size-4" />
+                        新增情景
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>新增预测情景</DialogTitle>
+                      </DialogHeader>
+                      <ForecastScenarioFormView form={forecastForm} setForm={setForecastForm} periods={periods} activePeriodId={activePeriodId} />
+                      <DialogFooter>
+                        <Button onClick={() => createForecastScenario.mutate()} disabled={createForecastScenario.isPending || !activePeriodId}>
+                          保存
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                }
+              >
+                <div className="mb-3">
+                  <Select
+                    value={selectedScenarioId ? String(selectedScenarioId) : "baseline"}
+                    onValueChange={(value) => setSelectedScenarioId(value === "baseline" ? null : Number(value))}
+                  >
+                    <SelectTrigger className="w-[260px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="baseline">基线预测</SelectItem>
+                      {forecastScenarios.map((item) => (
+                        <SelectItem key={item.id ?? item.scenario_code} value={String(item.id)}>
+                          {item.scenario_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>编号</TableHead>
+                      <TableHead>名称</TableHead>
+                      <TableHead className="text-right">增长率</TableHead>
+                      <TableHead className="text-right">计划减排</TableHead>
+                      <TableHead>状态</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {forecastScenarios.map((item) => (
+                      <TableRow key={item.id ?? item.scenario_code}>
+                        <TableCell>{item.scenario_code}</TableCell>
+                        <TableCell>{item.scenario_name}</TableCell>
+                        <TableCell className="text-right">{formatPercent(item.emission_growth_rate)}</TableCell>
+                        <TableCell className="text-right">{formatNumber(item.planned_reduction)}</TableCell>
+                        <TableCell>
+                          <CarbonStatusBadge status={item.status} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {forecastScenarios.length === 0 && <EmptyRow columns={5} />}
+                  </TableBody>
+                </Table>
+              </SectionCard>
+
+              <SectionCard title="月度滚动预测">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>月份</TableHead>
+                      <TableHead className="text-right">预计排放</TableHead>
+                      <TableHead className="text-right">预计资产</TableHead>
+                      <TableHead className="text-right">预计缺口</TableHead>
+                      <TableHead className="text-right">缺口率</TableHead>
+                      <TableHead>风险</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {monthlyPoints.map((item) => (
+                      <TableRow key={item.month}>
+                        <TableCell>{item.month}</TableCell>
+                        <TableCell className="text-right">{formatNumber(item.projected_emission)}</TableCell>
+                        <TableCell className="text-right">{formatNumber(item.projected_assets)}</TableCell>
+                        <TableCell className="text-right">{formatNumber(item.projected_gap)}</TableCell>
+                        <TableCell className="text-right">{formatPercent(item.gap_rate)}</TableCell>
+                        <TableCell>
+                          <RiskBadge value={item.risk_level} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {monthlyPoints.length === 0 && <EmptyRow columns={6} />}
+                  </TableBody>
+                </Table>
+              </SectionCard>
+            </div>
+          </div>
+        </TabsContent>
+
         <TabsContent value="risk">
           <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
             <SectionCard title="风险预警">
@@ -1120,6 +1372,48 @@ function SurrenderFormView({
   )
 }
 
+function ForecastScenarioFormView({
+  form,
+  setForm,
+  periods,
+  activePeriodId,
+}: {
+  form: ForecastScenarioForm
+  setForm: (value: ForecastScenarioForm) => void
+  periods: CompliancePeriod[]
+  activePeriodId: number | null
+}) {
+  const selectedPeriod = form.period_id || (activePeriodId ? String(activePeriodId) : "")
+  return (
+    <div className="grid gap-4 py-2">
+      <SelectField label="履约周期" value={selectedPeriod} onChange={(period_id) => setForm({ ...form, period_id })} items={periods} getLabel={(item) => item.period_name} />
+      <FormInput label="情景编号" value={form.scenario_code} onChange={(scenario_code) => setForm({ ...form, scenario_code })} />
+      <FormInput label="情景名称" value={form.scenario_name} onChange={(scenario_name) => setForm({ ...form, scenario_name })} />
+      <FormInput label="基准年" value={form.base_year} onChange={(base_year) => setForm({ ...form, base_year })} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <FormInput label="预测开始" type="date" value={form.forecast_start} onChange={(forecast_start) => setForm({ ...form, forecast_start })} />
+        <FormInput label="预测结束" type="date" value={form.forecast_end} onChange={(forecast_end) => setForm({ ...form, forecast_end })} />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <FormInput label="排放增长率" value={form.emission_growth_rate} onChange={(emission_growth_rate) => setForm({ ...form, emission_growth_rate })} />
+        <FormInput label="计划减排" value={form.planned_reduction} onChange={(planned_reduction) => setForm({ ...form, planned_reduction })} />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <FormInput label="计划配额购买" value={form.planned_allowance_purchase} onChange={(planned_allowance_purchase) => setForm({ ...form, planned_allowance_purchase })} />
+        <FormInput label="计划信用购买" value={form.planned_credit_purchase} onChange={(planned_credit_purchase) => setForm({ ...form, planned_credit_purchase })} />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <FormInput label="计划清缴" value={form.planned_surrender} onChange={(planned_surrender) => setForm({ ...form, planned_surrender })} />
+        <FormInput label="币种" value={form.currency} onChange={(currency) => setForm({ ...form, currency })} />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <FormInput label="配额价格" value={form.allowance_price} onChange={(allowance_price) => setForm({ ...form, allowance_price })} />
+        <FormInput label="信用价格" value={form.credit_price} onChange={(credit_price) => setForm({ ...form, credit_price })} />
+      </div>
+    </div>
+  )
+}
+
 function FormInput({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
   return (
     <Label>
@@ -1186,6 +1480,14 @@ function numberPayload<T extends Record<string, string>>(form: T, numericKeys: s
 
 function periodPayload(form: PeriodForm) {
   return numberPayload(form, ["accounting_batch_id", "boundary_id"])
+}
+
+function forecastQueryString(params: { period_id: number | null; scenario_id: number | null }) {
+  const query = new URLSearchParams()
+  if (params.period_id) query.set("period_id", String(params.period_id))
+  if (params.scenario_id) query.set("scenario_id", String(params.scenario_id))
+  const text = query.toString()
+  return text ? `?${text}` : ""
 }
 
 async function invalidateAssets(qc: ReturnType<typeof useQueryClient>) {
