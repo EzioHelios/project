@@ -665,6 +665,7 @@ classDiagram
 | `PcfInventoryItem` | 生命周期活动数据清单 | 活动量、单位、来源、因子或供应商 PCF 至少有一条可追溯链路；缺因子时状态为待匹配。 |
 | `PcfAllocationRule` | 多产品/多输出分配规则 | 多输出工序不能默认按产量分配；分配方法和依据必须记录。 |
 | `PcfResult` | 计算结果版本 | 清单或因子变更后旧结果保留版本，不覆盖历史报告。 |
+| `ProductFootprintReportExportUseCase` | 内部 PCF 报告和材料包导出 | 只读取报告读模型，不反写清单事实；导出包需包含 DOCX、可选 PDF、CSV/JSON 数据和 manifest；内部报告不得标记为 EPD、碳标签或第三方认证。 |
 
 推荐 API：
 
@@ -678,6 +679,7 @@ classDiagram
 | `POST /api/carbon/product-footprint/studies/{id}/calculate` | 计算足迹结果。 |
 | `GET /api/carbon/product-footprint/results` | 查询结果版本。 |
 | `GET /api/carbon/product-footprint/studies/{id}/report` | 查询报告读模型。 |
+| `POST /api/carbon/product-footprint/studies/{id}/export-report` | 导出内部 PCF 报告 ZIP，包含 DOCX、可选 PDF、清单 CSV、阶段汇总、分配规则、质量摘要和 manifest。 |
 
 页面 Tabs 建议：
 
@@ -696,9 +698,10 @@ classDiagram
 | --- | --- |
 | 数据模型 | 新增 `ProductFootprintStudy`、`ProductSystemBoundary`、`ProductLifeCycleStage`、`ProductFootprintInventoryItem`、`ProductFootprintAllocationRule`、`ProductFootprintResult` 六类租户模型和迁移。 |
 | 应用层 | 新增 `domain/product_footprint`，按 policy/usecase/query/controller 分层；计算前强制存在生命周期边界；缺活动量或缺因子返回 `incomplete_inventory`，不抛 500。 |
-| API | 首版开放研究、边界、阶段、清单、分配、计算、结果和报告读模型接口，路径统一在 `/api/carbon/product-footprint/*`。 |
-| 前端 | `/carbon/product-footprint` 替换建设中占位，提供“产品与研究、生命周期边界、活动数据清单、分配与因子、核算结果、报告生成”六个业务 Tab。 |
-| 边界保留 | 当前不实现认证/EPD、绿证抵扣、BOM/工序导入、供应链审核数据引用和 DOCX/PDF 报告导出，这些后续独立推进。 |
+| API | 首版开放研究、边界、阶段、清单、分配、计算、结果、报告读模型和内部报告导出接口，路径统一在 `/api/carbon/product-footprint/*`。 |
+| 导出 | `ProductFootprintReportExportUseCase` 已接入内部报告 ZIP/DOCX 导出；有 LibreOffice 时同步生成 PDF，ZIP 中保留 report context、inventory CSV、stage summary、allocation rules、quality summary 和 manifest。 |
+| 前端 | `/carbon/product-footprint` 替换建设中占位，提供“产品与研究、生命周期边界、活动数据清单、分配与因子、核算结果、报告生成”六个业务 Tab；报告生成 Tab 已接入导出报告按钮。 |
+| 边界保留 | 当前不实现认证/EPD、绿证抵扣、BOM/工序导入、供应链审核数据引用、模板版本管理和异步导出治理，这些后续独立推进。 |
 
 ### 7.4 供应链碳管理 `supply_chain_carbon`
 

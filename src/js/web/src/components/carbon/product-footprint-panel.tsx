@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Calculator, Layers3, Package, Plus, RefreshCw, ShieldCheck } from "lucide-react"
+import { Calculator, Download, Layers3, Package, Plus, RefreshCw, ShieldCheck } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
@@ -453,6 +453,15 @@ export function ProductFootprintPanel() {
     onError: toastError("核算失败"),
   })
 
+  const exportReport = useMutation({
+    mutationFn: async () => {
+      if (!activeStudyId) throw new Error("请选择产品碳足迹研究")
+      await downloadProductFootprintReport(activeStudyId)
+    },
+    onSuccess: () => toast.success("产品碳足迹报告已导出"),
+    onError: toastError("导出报告失败"),
+  })
+
   return (
     <div className="space-y-4">
       <MetricGrid
@@ -825,8 +834,12 @@ export function ProductFootprintPanel() {
         <TabsContent value="report">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between gap-3">
                 <CardTitle>报告上下文</CardTitle>
+                <Button size="sm" disabled={!activeStudyId || exportReport.isPending} onClick={() => exportReport.mutate()}>
+                  <Download className="size-4" />
+                  导出报告
+                </Button>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <KeyValue label="研究编号" value={activeStudy?.study_code} />
@@ -1274,6 +1287,39 @@ function percentOf(value: number, total: number) {
 
 function toastError(prefix: string) {
   return (error: Error) => toast.error(prefix, { description: error.message })
+}
+
+async function downloadProductFootprintReport(studyId: number) {
+  const response = await fetch(`/api/carbon/product-footprint/studies/${studyId}/export-report`, { method: "POST" })
+  if (!response.ok) {
+    const text = await response.text()
+    let message = `HTTP ${response.status}`
+    try {
+      const payload = JSON.parse(text) as { msg?: string; detail?: string }
+      message = payload.msg || payload.detail || message
+    } catch {
+      message = text || message
+    }
+    throw new Error(message)
+  }
+  const blob = await response.blob()
+  const filename = filenameFromDisposition(response.headers.get("content-disposition")) ?? `product-footprint-report-${studyId}.zip`
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = url
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
+}
+
+function filenameFromDisposition(disposition: string | null) {
+  if (!disposition) return null
+  const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
+  if (encoded) return decodeURIComponent(encoded)
+  const plain = disposition.match(/filename="?([^";]+)"?/i)?.[1]
+  return plain || null
 }
 
 async function invalidateFootprint(qc: ReturnType<typeof useQueryClient>) {

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from litestar import Controller, delete, get, patch, post
 from litestar.params import Body
-from litestar.response import Response
+from litestar.response import File, Response
 
 from app.domain.energy.controllers._utils import model_to_dict, ok_data
 from app.domain.product_footprint.queries.footprint import (
@@ -12,6 +12,7 @@ from app.domain.product_footprint.queries.footprint import (
     ProductFootprintQueryService,
 )
 from app.domain.product_footprint.usecases.footprint import ProductFootprintUseCase
+from app.domain.product_footprint.usecases.report_export import ProductFootprintReportExportUseCase
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -201,6 +202,14 @@ class ProductFootprintController(Controller):
         if not data:
             return Response(content={"code": 404, "msg": "产品碳足迹研究不存在"}, status_code=status_code)
         return Response(content=ok_data(data))
+
+    @post("/api/carbon/product-footprint/studies/{study_id:int}/export-report")
+    async def export_report(self, db_session: AsyncSession, study_id: int) -> File | Response[dict]:
+        try:
+            exported = await ProductFootprintReportExportUseCase(db_session).export_report(study_id)
+        except ValueError as exc:
+            return _error(exc)
+        return File(path=exported.path, filename=exported.filename, media_type="application/zip")
 
 
 def _query(

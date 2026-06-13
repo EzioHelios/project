@@ -63,7 +63,7 @@
 | 指南一级菜单 | 推荐路由 | 二级 Tabs | 当前承接 | 改造状态 |
 | --- | --- | --- | --- | --- |
 | 碳排放核算 | `/carbon/accounting` | 核算总览、组织边界、Scope1 填报、Scope2 填报、Scope3 填报、核算结果、待审核 | 已重组为独立指南页面和二级 Tabs；后端 Scope CRUD、审核、Scope2 聚合/对账、核算批次和组织排放清单归入 `domain/carbon_accounting`；组织边界首版归入 `domain/organization_boundary` | 首批已建，组织边界和清单批次已接入 |
-| 产品碳足迹核算 | `/carbon/product-footprint` | 产品与研究、生命周期边界、活动数据清单、分配与因子、核算结果、报告生成 | 后端新增 `domain/product_footprint`，复用产品档案和排放因子，支持 PCF 研究、边界、阶段、清单、分配规则、结果版本和报告读模型 | 首版已建，待专项验收 |
+| 产品碳足迹核算 | `/carbon/product-footprint` | 产品与研究、生命周期边界、活动数据清单、分配与因子、核算结果、报告生成 | 后端新增 `domain/product_footprint`，复用产品档案和排放因子，支持 PCF 研究、边界、阶段、清单、分配规则、结果版本、报告读模型和内部报告 ZIP/DOCX 导出 | 首版已建，待专项验收 |
 | 供应链碳管理 | `/carbon/supply-chain` | 供应商档案、填报任务、数据审核、下游披露、供应链分析 | 后端新增 `domain/supply_chain_carbon`，支持供应商、场站、填报任务、碳数据、证据、审核决定、披露记录和分析读模型 | 首版已建，待专项验收 |
 | 碳核查支撑 | `/carbon/verification` | 核查项目、凭证清单、过程追溯、质量问题、审核日志、核查材料包、报告导出 | 已重组为独立指南页面；新增 `domain/carbon_verification` 读模型和导出任务，材料包/报告导出 Tabs 已接入 `/api/carbon/verification/*` 与 ZIP 下载；通用 DOCX 模板已按工业其他行业通用报告和核查材料包目标升级；导出包已包含填充后的 DOCX、PDF 和本地可访问附件原件；核查发现整改闭环已接入质量问题 Tab；独立附件台账已接入凭证清单 Tab；报告模板版本管理已接入报告导出 Tab；正式核查项目台账已接入并可归集附件、发现和导出任务，项目报告和项目导出已切到锁定清单口径 | 首批已建，后续接对象存储/OCR、异步导出治理和项目权限/消息通知 |
 | 碳资产管理 | `/carbon/assets` | 配额台账、CCER/绿证、履约周期、交易模拟、滚动预测、风险预警 | 后端新增 `domain/carbon_assets`，支持履约周期、资产账户、配额、信用/绿证持仓、交易模拟、清缴记录、履约缺口、预测情景、月度滚动预测和风险预警；缺口只读取已锁定组织排放清单，未锁定批次返回业务状态，不反写核算事实 | 首版已建，待专项验收 |
@@ -83,7 +83,7 @@
 | Factor library | 排放因子查询、官方因子库概览、源记录、分类树 | `src/py/app/domain/factor_library` | 已迁移 |
 | Analytics | `/api/energy-carbon/*`、碳分析、能碳协同分析、质量问题、追溯查询 | `src/py/app/domain/analytics` | 已迁移 |
 | Organization boundary | 报告主体、报告期、组织/运营边界、边界设施和版本 | `src/py/app/domain/organization_boundary` | 首版已建：新增租户表、API、发布规则和 `/carbon/accounting` 组织边界 Tab |
-| Product footprint | 产品碳足迹研究、生命周期边界、生命周期阶段、活动清单、分配规则、足迹结果和报告读模型 | `src/py/app/domain/product_footprint` | 首版已建：新增租户表、API、计算用例和 `/carbon/product-footprint` 业务页 |
+| Product footprint | 产品碳足迹研究、生命周期边界、生命周期阶段、活动清单、分配规则、足迹结果和报告读模型/导出 | `src/py/app/domain/product_footprint` | 首版已建：新增租户表、API、计算用例、内部报告 ZIP/DOCX 导出和 `/carbon/product-footprint` 业务页 |
 | Supply chain carbon | 供应商档案、场站、填报任务、供应商碳数据、证据、审核决定、下游披露和分析读模型 | `src/py/app/domain/supply_chain_carbon` | 首版已建：新增租户表、API、任务状态机和 `/carbon/supply-chain` 业务页 |
 | Carbon assets | 配额、CCER/绿证、履约周期、交易模拟、清缴、履约风险和预测情景 | `src/py/app/domain/carbon_assets` | 首版已建：新增租户表、API、履约缺口/滚动预测读模型和 `/carbon/assets` 业务页 |
 | Legacy carbon | 旧 `/api/page*` 大屏、`/api/map*` 地图、视频大屏、旧告警兼容、WMS 入出库和员工通勤 | `src/py/app/domain/carbon/controllers.py` | 暂保留兼容，后续按页面逐步清理 |
@@ -157,12 +157,12 @@
 
 ### 阶段 4：扩展高阶碳管理功能
 
-目标：先把标准知识库、组织边界和领域模型做稳，再逐页开发高阶业务，不提前暴露客户入口。2026-06-13 已根据本地标准资料补齐碳侧知识库和 DDD 设计，并补充组织碳盘查通用报告模板；`organization_boundary`、`carbon_accounting` 清单批次、锁定清单引用保护、修订链和差异比较、`product_footprint`、`supply_chain_carbon`、`carbon_assets`、碳核查 DOCX/PDF 导出、附件原件入包、核查发现闭环、独立附件台账、报告模板版本、项目锁定清单口径和正式核查项目首版已落地。后续重点转向供应链外部门户、PCF 深化和碳资产预测/估值增强。
+目标：先把标准知识库、组织边界和领域模型做稳，再逐页开发高阶业务，不提前暴露客户入口。2026-06-13 已根据本地标准资料补齐碳侧知识库和 DDD 设计，并补充组织碳盘查通用报告模板；`organization_boundary`、`carbon_accounting` 清单批次、锁定清单引用保护、修订链和差异比较、`product_footprint` 内部报告 ZIP/DOCX 导出、`supply_chain_carbon`、`carbon_assets`、碳核查 DOCX/PDF 导出、附件原件入包、核查发现闭环、独立附件台账、报告模板版本、项目锁定清单口径和正式核查项目首版已落地。后续重点转向供应链外部门户、PCF 深化和碳资产预测/估值增强。
 
 | 优先级 | 页面 | 改造目标 | 指南功能 |
 | --- | --- | --- | --- |
 | P1 | 组织边界与碳核算增强 | 已完成报告主体、报告期、边界版本、边界设施、核算批次、组织排放清单快照、重建、锁定、已锁定清单引用记录改删保护、修订批次创建和修订差异比较；后续补修订审批、修订说明导出和更细边界设施匹配 | 碳排放核算、碳核查支撑、碳资产管理前置底座 |
-| P2 | 产品碳足迹核算 | 已完成 PCF 研究、生命周期边界、活动数据清单、分配规则、因子匹配、核算结果和报告读模型；后续补 BOM/工序导入、供应链审核数据引用、DOCX 报告导出和认证/EPD 独立流程 | 产品碳足迹核算 |
+| P2 | 产品碳足迹核算 | 已完成 PCF 研究、生命周期边界、活动数据清单、分配规则、因子匹配、核算结果、报告读模型和内部报告 ZIP/DOCX 导出；后续补 BOM/工序导入、供应链审核数据引用、模板版本管理和认证/EPD 独立流程 | 产品碳足迹核算 |
 | P2 | 供应链碳管理 | 已完成供应商档案、场站、填报任务、数据审核、证据、下游披露和供应链分析读模型；后续补供应商外部门户、Excel/API 导入、自动催办、数据发布到 Scope3/PCF 的正式转换流程 | 供应链碳管理 |
 | P3 | 碳资产管理 | 已完成履约周期、资产账户、配额、CCER/绿证持仓、交易模拟、清缴记录、基于锁定清单的履约缺口、预测情景、月度滚动预测和风险预警；后续补多币种估值、多场景交易组合和真实交易/交割审计 | 碳资产管理 |
 
