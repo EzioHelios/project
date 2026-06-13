@@ -69,6 +69,30 @@ class CarbonAccountingInventoryController(Controller):
             return _error(exc)
         return Response(content=ok_data(model_to_dict(obj)))
 
+    @post("/api/carbon/accounting/batches/{batch_id:int}/submit-revision")
+    async def submit_revision(self, db_session: AsyncSession, batch_id: int) -> Response[dict]:
+        try:
+            obj = await CarbonAccountingInventoryUseCase(db_session).submit_revision(batch_id)
+        except ValueError as exc:
+            return _error(exc)
+        return Response(content=ok_data(model_to_dict(obj)))
+
+    @post("/api/carbon/accounting/batches/{batch_id:int}/approve-revision")
+    async def approve_revision(self, db_session: AsyncSession, batch_id: int) -> Response[dict]:
+        try:
+            obj = await CarbonAccountingInventoryUseCase(db_session).approve_revision(batch_id)
+        except ValueError as exc:
+            return _error(exc)
+        return Response(content=ok_data(model_to_dict(obj)))
+
+    @post("/api/carbon/accounting/batches/{batch_id:int}/reject-revision")
+    async def reject_revision(self, db_session: AsyncSession, batch_id: int, data: dict = INVENTORY_BODY) -> Response[dict]:
+        try:
+            obj = await CarbonAccountingInventoryUseCase(db_session).reject_revision(batch_id, data)
+        except ValueError as exc:
+            return _error(exc)
+        return Response(content=ok_data(model_to_dict(obj)))
+
     @get("/api/carbon/accounting/batches/{batch_id:int}/summary")
     async def get_inventory_summary(self, db_session: AsyncSession, batch_id: int) -> Response[dict]:
         try:

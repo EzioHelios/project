@@ -143,6 +143,8 @@ export function CarbonAccountingResultsPanel() {
   const [revisionBoundaryId, setRevisionBoundaryId] = useState("")
   const [revisionReason, setRevisionReason] = useState("")
   const [revisionBatch, setRevisionBatch] = useState<AccountingBatch | null>(null)
+  const [rejectBatch, setRejectBatch] = useState<AccountingBatch | null>(null)
+  const [rejectReason, setRejectReason] = useState("")
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null)
 
   const boundariesQuery = useQuery<ApiEnvelope<PageResult<BoundaryVersion>>>({
@@ -231,6 +233,36 @@ export function CarbonAccountingResultsPanel() {
       await invalidateInventory(qc)
     },
     onError: toastError("创建修订批次失败"),
+  })
+
+  const submitRevision = useMutation({
+    mutationFn: (batchId: number) => postCarbonApi<AccountingBatch>(`/api/carbon/accounting/batches/${batchId}/submit-revision`, {}),
+    onSuccess: async () => {
+      toast.success("修订批次已提交审批")
+      await invalidateInventory(qc)
+    },
+    onError: toastError("提交修订审批失败"),
+  })
+
+  const approveRevision = useMutation({
+    mutationFn: (batchId: number) => postCarbonApi<AccountingBatch>(`/api/carbon/accounting/batches/${batchId}/approve-revision`, {}),
+    onSuccess: async () => {
+      toast.success("修订批次已通过并锁定")
+      await invalidateInventory(qc)
+    },
+    onError: toastError("通过修订审批失败"),
+  })
+
+  const rejectRevision = useMutation({
+    mutationFn: (payload: { batchId: number; reason: string }) =>
+      postCarbonApi<AccountingBatch>(`/api/carbon/accounting/batches/${payload.batchId}/reject-revision`, { reason: payload.reason }),
+    onSuccess: async () => {
+      toast.success("修订批次已驳回")
+      setRejectBatch(null)
+      setRejectReason("")
+      await invalidateInventory(qc)
+    },
+    onError: toastError("驳回修订审批失败"),
   })
 
   const openRevision = (batch: AccountingBatch) => {
@@ -345,6 +377,49 @@ export function CarbonAccountingResultsPanel() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        <Dialog
+          open={Boolean(rejectBatch)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setRejectBatch(null)
+              setRejectReason("")
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>驳回修订审批</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-3">
+              <div className="grid gap-2">
+                <Label>修订批次</Label>
+                <div className="rounded-md border px-3 py-2 text-sm">{rejectBatch?.batch_no ?? "-"}</div>
+              </div>
+              <div className="grid gap-2">
+                <Label>驳回原因</Label>
+                <Textarea value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} rows={4} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRejectBatch(null)}>
+                取消
+              </Button>
+              <Button
+                disabled={!rejectBatch || rejectRevision.isPending}
+                onClick={() =>
+                  rejectBatch
+                    ? rejectRevision.mutate({
+                        batchId: rejectBatch.id,
+                        reason: rejectReason.trim() || "修订审批驳回",
+                      })
+                    : undefined
+                }
+              >
+                驳回
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <CardContent>
           <Table>
             <TableHeader>
@@ -386,15 +461,41 @@ export function CarbonAccountingResultsPanel() {
                       <Button size="sm" variant="outline" onClick={() => setSelectedBatchId(item.id)}>
                         查看
                       </Button>
-                      <Button size="sm" variant="outline" disabled={item.status === "locked" || rebuildBatch.isPending} onClick={() => rebuildBatch.mutate(item.id)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={item.status === "locked" || item.status === "pending_revision" || rebuildBatch.isPending}
+                        onClick={() => rebuildBatch.mutate(item.id)}
+                      >
                         重建
                       </Button>
-                      <Button size="sm" disabled={item.status === "locked" || item.inventory_status === "empty" || lockBatch.isPending} onClick={() => lockBatch.mutate(item.id)}>
-                        锁定
-                      </Button>
-                      <Button size="sm" variant="outline" disabled={item.status !== "locked" || createRevision.isPending} onClick={() => openRevision(item)}>
-                        修订
-                      </Button>
+                      {item.is_revision ? (
+                        <RevisionActions
+                          batch={item}
+                          submitPending={submitRevision.isPending}
+                          approvePending={approveRevision.isPending}
+                          rejectPending={rejectRevision.isPending}
+                          onSubmit={() => submitRevision.mutate(item.id)}
+                          onApprove={() => approveRevision.mutate(item.id)}
+                          onReject={() => {
+                            setRejectBatch(item)
+                            setRejectReason("")
+                          }}
+                        />
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            disabled={item.status === "locked" || item.inventory_status === "empty" || lockBatch.isPending}
+                            onClick={() => lockBatch.mutate(item.id)}
+                          >
+                            锁定
+                          </Button>
+                          <Button size="sm" variant="outline" disabled={item.status !== "locked" || createRevision.isPending} onClick={() => openRevision(item)}>
+                            修订
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -564,6 +665,45 @@ function RevisionDiffCard({ diff, loading }: { diff?: RevisionDiff; loading: boo
   )
 }
 
+function RevisionActions({
+  batch,
+  submitPending,
+  approvePending,
+  rejectPending,
+  onSubmit,
+  onApprove,
+  onReject,
+}: {
+  batch: AccountingBatch
+  submitPending: boolean
+  approvePending: boolean
+  rejectPending: boolean
+  onSubmit: () => void
+  onApprove: () => void
+  onReject: () => void
+}) {
+  if (batch.status === "pending_revision") {
+    return (
+      <>
+        <Button size="sm" disabled={approvePending} onClick={onApprove}>
+          通过
+        </Button>
+        <Button size="sm" variant="outline" disabled={rejectPending} onClick={onReject}>
+          驳回
+        </Button>
+      </>
+    )
+  }
+  if (isRevisionEditable(batch.status)) {
+    return (
+      <Button size="sm" disabled={batch.inventory_status === "empty" || submitPending} onClick={onSubmit}>
+        提交审批
+      </Button>
+    )
+  }
+  return null
+}
+
 function DiffMetric({ label, value, unit }: { label: string; value: string; unit?: string }) {
   return (
     <div className="rounded-md border p-3">
@@ -657,9 +797,15 @@ function formatSignedNumber(value?: number | null) {
 function statusLabel(value?: string | null) {
   if (value === "draft") return "草稿"
   if (value === "rebuilt") return "已重建"
+  if (value === "pending_revision") return "修订待审批"
+  if (value === "rejected") return "已驳回"
   if (value === "locked") return "已锁定"
   if (value === "archived") return "已归档"
   return value || "-"
+}
+
+function isRevisionEditable(value?: string | null) {
+  return value === "draft" || value === "rebuilt" || value === "rejected"
 }
 
 function qualityLabel(value?: string | null) {

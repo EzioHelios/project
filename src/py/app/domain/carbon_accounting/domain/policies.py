@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-BATCH_STATUSES = {"draft", "rebuilt", "locked", "archived"}
+BATCH_STATUSES = {"draft", "rebuilt", "pending_revision", "rejected", "locked", "archived"}
 INVENTORY_STATUSES = {"empty", "ready", "issues", "locked"}
 READY_CALC_STATUS = "ready"
 

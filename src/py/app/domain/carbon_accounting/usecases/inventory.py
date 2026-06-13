@@ -25,6 +25,8 @@ if TYPE_CHECKING:
 
 BATCH_FIELDS = {"boundary_id", "batch_no", "batch_name", "status", "standard_code", "source_name", "remark"}
 STATUS_APPROVED = "approved"
+REVISION_EDITABLE_STATUSES = {"draft", "rebuilt", "rejected"}
+REVISION_PENDING_STATUS = "pending_revision"
 
 
 class CarbonAccountingInventoryUseCase:
@@ -65,6 +67,9 @@ class CarbonAccountingInventoryUseCase:
         if batch.status == "locked":
             msg = "已锁定核算批次不可重建"
             raise ValueError(msg)
+        if batch.status == REVISION_PENDING_STATUS:
+            msg = "待审批修订批次不可重建"
+            raise ValueError(msg)
         boundary = await self._get_or_raise(m.OrganizationBoundary, batch.boundary_id, "组织边界不存在")
         period = await self._get_or_raise(m.ReportingPeriod, batch.period_id, "报告期不存在")
         await self._session.execute(delete(m.CarbonEmissionInventoryItem).where(m.CarbonEmissionInventoryItem.batch_id == batch.id))
@@ -99,12 +104,53 @@ class CarbonAccountingInventoryUseCase:
 
     async def lock_batch(self, batch_id: int) -> m.CarbonAccountingBatch:
         batch = await self._get_or_raise(m.CarbonAccountingBatch, batch_id, "核算批次不存在")
+        if batch.parent_batch_id is not None:
+            msg = "修订批次需通过修订审批锁定"
+            raise ValueError(msg)
         if batch.inventory_status == "empty":
             msg = "核算批次尚未生成清单"
             raise ValueError(msg)
         batch.status = "locked"
         batch.inventory_status = "locked"
         batch.locked_at = _utc_now_naive()
+        await self._session.commit()
+        await self._session.refresh(batch)
+        return batch
+
+    async def submit_revision(self, batch_id: int) -> m.CarbonAccountingBatch:
+        batch = await self._revision_batch_or_raise(batch_id)
+        if batch.status not in REVISION_EDITABLE_STATUSES:
+            msg = "仅草稿、已重建或已驳回修订批次可提交审批"
+            raise ValueError(msg)
+        await self._ensure_revision_ready(batch)
+        batch.status = REVISION_PENDING_STATUS
+        batch.remark = _append_remark(batch.remark, "修订批次已提交审批")
+        await self._session.commit()
+        await self._session.refresh(batch)
+        return batch
+
+    async def approve_revision(self, batch_id: int) -> m.CarbonAccountingBatch:
+        batch = await self._revision_batch_or_raise(batch_id)
+        if batch.status != REVISION_PENDING_STATUS:
+            msg = "仅待审批修订批次可通过"
+            raise ValueError(msg)
+        await self._ensure_revision_ready(batch)
+        batch.status = "locked"
+        batch.inventory_status = "locked"
+        batch.locked_at = _utc_now_naive()
+        batch.remark = _append_remark(batch.remark, "修订批次审批通过并锁定")
+        await self._session.commit()
+        await self._session.refresh(batch)
+        return batch
+
+    async def reject_revision(self, batch_id: int, data: dict[str, Any]) -> m.CarbonAccountingBatch:
+        batch = await self._revision_batch_or_raise(batch_id)
+        if batch.status != REVISION_PENDING_STATUS:
+            msg = "仅待审批修订批次可驳回"
+            raise ValueError(msg)
+        reason = str(data.get("reason") or data.get("comment") or "修订审批驳回")[:1000]
+        batch.status = "rejected"
+        batch.remark = _append_remark(batch.remark, f"修订审批驳回: {reason}")
         await self._session.commit()
         await self._session.refresh(batch)
         return batch
@@ -220,6 +266,26 @@ class CarbonAccountingInventoryUseCase:
     async def _boundary_facilities(self, boundary_id: int) -> list[m.BoundaryFacility]:
         return (await self._session.execute(select(m.BoundaryFacility).where(m.BoundaryFacility.boundary_id == boundary_id))).scalars().all()
 
+    async def _revision_batch_or_raise(self, batch_id: int) -> m.CarbonAccountingBatch:
+        batch = await self._get_or_raise(m.CarbonAccountingBatch, batch_id, "核算批次不存在")
+        if batch.parent_batch_id is None:
+            msg = "当前批次不是修订批次"
+            raise ValueError(msg)
+        return batch
+
+    async def _ensure_revision_ready(self, batch: m.CarbonAccountingBatch) -> None:
+        parent = await self._session.get(m.CarbonAccountingBatch, batch.parent_batch_id)
+        if parent is None or parent.status != "locked" or parent.inventory_status != "locked":
+            msg = "来源清单未锁定或不存在"
+            raise ValueError(msg)
+        if batch.inventory_status == "empty":
+            msg = "修订批次尚未生成清单"
+            raise ValueError(msg)
+        item_count = await self._session.scalar(select(func.count(m.CarbonEmissionInventoryItem.id)).where(m.CarbonEmissionInventoryItem.batch_id == batch.id))
+        if int(item_count or 0) == 0:
+            msg = "修订批次没有清单明细"
+            raise ValueError(msg)
+
     async def _get_or_raise(self, model: type[Any], item_id: int, message: str) -> Any:
         obj = await self._session.get(model, item_id)
         if obj is None:
@@ -234,6 +300,12 @@ def _batch_no(boundary: m.OrganizationBoundary) -> str:
 def _revision_batch_no(source: m.CarbonAccountingBatch, revision_no: int) -> str:
     suffix = f"-R{revision_no}-{datetime.datetime.now(UTC):%Y%m%d%H%M%S}"
     return f"{source.batch_no[: max(1, 64 - len(suffix))]}{suffix}"
+
+
+def _append_remark(current: str | None, line: str) -> str:
+    timestamp = datetime.datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+    entry = f"[{timestamp}] {line}"
+    return f"{current}\n{entry}" if current else entry
 
 
 def _int_or_none(value: Any) -> int | None:

@@ -96,7 +96,7 @@ flowchart LR
 | `Scope3WasteDisposal` | `carbon.models` | `carbon_accounting` | Scope3 废弃物活动数据 | 不进入 P0 能耗查询。 |
 | `Scope3ThirdPartyTransport` | `carbon.models` | `carbon_accounting` | Scope3 第三方运输活动数据 | 不进入 P0 能耗查询。 |
 | `CarbonAuditLog` | `carbon.models` | `carbon_accounting` | 碳记录审核操作日志 | 跟随碳核算命令用例迁移。 |
-| `CarbonAccountingBatch` / `carbon_accounting_batch` | `carbon.models` | `carbon_accounting` | 绑定报告主体、报告期和组织边界版本的一次组织碳核算批次 | 已新建租户表；后续补修订流程和活动记录统一锁定。 |
+| `CarbonAccountingBatch` / `carbon_accounting_batch` | `carbon.models` | `carbon_accounting` | 绑定报告主体、报告期和组织边界版本的一次组织碳核算批次 | 已新建租户表；已补修订创建、差异比较、提交审批、通过锁定和驳回；后续补修订说明导出。 |
 | `CarbonEmissionInventoryItem` / `carbon_emission_inventory_item` | `carbon.models` | `carbon_accounting` | 组织排放清单快照明细，供核查、碳资产和报告读取 | 已新建租户表；只统计已审核记录并保留质量状态。 |
 | `CarbonVerificationExportJob` / `carbon_verification_export_job` | `carbon.models` | `carbon_verification` | 核查报告/材料包导出任务，记录范围、模板、状态、ZIP 文件路径、哈希和导出人 | 已新建租户表；已接入 DOCX/PDF 渲染；后续接异步队列。 |
 | `CarbonVerificationExportFile` / `carbon_verification_export_file` | `carbon.models` | `carbon_verification` | 导出包内文件清单，记录 DOCX/PDF、manifest、活动数据、因子参数、问题、审核轨迹等文件 | 已新建租户表；后续接附件原件打包和对象存储。 |
