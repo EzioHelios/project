@@ -6,10 +6,10 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 
-import { AdminPageHeader } from "@/components/admin-ui"
+import { AdminDataTable, AdminPageHeader, AdminPanel, AdminTableStateRow, AdminTableToolbar } from "@/components/admin-ui"
 import { PaginationBar, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -62,51 +62,54 @@ export function AuditLogPanel() {
   const rows = data?.items ?? []
 
   return (
-    <Card>
-      <CardHeader className="space-y-3">
-        <CardTitle>日志列表</CardTitle>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="w-[200px]">
-            <Select
-              value={recordType}
-              onValueChange={(value) => {
-                setRecordType(value)
-                setPageIndex(0)
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="记录类型" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部类型</SelectItem>
-                <SelectItem value="Scope1MobileCombustion">Scope1MobileCombustion</SelectItem>
-                <SelectItem value="Scope1StationaryCombustion">Scope1StationaryCombustion</SelectItem>
-                <SelectItem value="Scope1RefrigerantLeak">Scope1RefrigerantLeak</SelectItem>
-                <SelectItem value="Scope2ElectricityBill">Scope2ElectricityBill</SelectItem>
-                <SelectItem value="Scope3WasteDisposal">Scope3WasteDisposal</SelectItem>
-                <SelectItem value="Scope3ThirdPartyTransport">Scope3ThirdPartyTransport</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="w-[160px]">
-            <Select
-              value={action}
-              onValueChange={(value) => {
-                setAction(value)
-                setPageIndex(0)
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="操作" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部操作</SelectItem>
-                <SelectItem value="submit">submit</SelectItem>
-                <SelectItem value="approve">approve</SelectItem>
-                <SelectItem value="reject">reject</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+    <AdminPanel title="日志列表" contentClassName="space-y-3">
+      <AdminTableToolbar
+        filters={
+          <>
+            <div className="w-[200px]">
+              <Select
+                value={recordType}
+                onValueChange={(value) => {
+                  setRecordType(value)
+                  setPageIndex(0)
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="记录类型" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部类型</SelectItem>
+                  <SelectItem value="Scope1MobileCombustion">Scope1MobileCombustion</SelectItem>
+                  <SelectItem value="Scope1StationaryCombustion">Scope1StationaryCombustion</SelectItem>
+                  <SelectItem value="Scope1RefrigerantLeak">Scope1RefrigerantLeak</SelectItem>
+                  <SelectItem value="Scope2ElectricityBill">Scope2ElectricityBill</SelectItem>
+                  <SelectItem value="Scope3WasteDisposal">Scope3WasteDisposal</SelectItem>
+                  <SelectItem value="Scope3ThirdPartyTransport">Scope3ThirdPartyTransport</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-[160px]">
+              <Select
+                value={action}
+                onValueChange={(value) => {
+                  setAction(value)
+                  setPageIndex(0)
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="操作" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部操作</SelectItem>
+                  <SelectItem value="submit">submit</SelectItem>
+                  <SelectItem value="approve">approve</SelectItem>
+                  <SelectItem value="reject">reject</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        }
+        search={
           <div className="min-w-[260px] flex-1">
             <Input
               value={keyword}
@@ -117,20 +120,17 @@ export function AuditLogPanel() {
               placeholder="搜索：记录ID/说明…"
             />
           </div>
-          <button
-            type="button"
-            className="inline-flex h-9 items-center rounded-md border border-border/70 bg-secondary px-3 text-xs font-medium text-secondary-foreground hover:bg-secondary/80"
-            onClick={() => refetch()}
-            disabled={isLoading}
-          >
+        }
+        actions={
+          <Button type="button" variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
             查询
-          </button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {isLoading && <div className="text-sm text-muted-foreground">正在加载…</div>}
-        {isError && <div className="text-sm text-destructive">加载失败，请检查后端接口。</div>}
-        {!isLoading && !isError && (
+          </Button>
+        }
+      />
+      {isLoading && <div className="text-sm text-muted-foreground">正在加载…</div>}
+      {isError && <div className="text-sm text-destructive">加载失败，请检查后端接口。</div>}
+      {!isLoading && !isError && (
+        <AdminDataTable>
           <Table>
             <TableHeader>
               <TableRow>
@@ -142,13 +142,7 @@ export function AuditLogPanel() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                    暂无数据
-                  </TableCell>
-                </TableRow>
-              )}
+              {rows.length === 0 && <AdminTableStateRow colSpan={5}>暂无数据</AdminTableStateRow>}
               {rows.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell>{row.created_at}</TableCell>
@@ -165,18 +159,18 @@ export function AuditLogPanel() {
               ))}
             </TableBody>
           </Table>
-        )}
-        <PaginationBar
-          page={data ?? { items: [], total: 0, limit: pageSize, offset: pageIndex * pageSize }}
-          pageIndex={pageIndex}
-          pageSize={pageSize}
-          onPageChange={setPageIndex}
-          onPageSizeChange={(size) => {
-            setPageSize(size)
-            setPageIndex(0)
-          }}
-        />
-      </CardContent>
-    </Card>
+        </AdminDataTable>
+      )}
+      <PaginationBar
+        page={data ?? { items: [], total: 0, limit: pageSize, offset: pageIndex * pageSize }}
+        pageIndex={pageIndex}
+        pageSize={pageSize}
+        onPageChange={setPageIndex}
+        onPageSizeChange={(size) => {
+          setPageSize(size)
+          setPageIndex(0)
+        }}
+      />
+    </AdminPanel>
   )
 }

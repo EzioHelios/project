@@ -2,12 +2,11 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 
-import { AdminPageHeader } from "@/components/admin-ui"
+import { AdminDataTable, AdminPageHeader, AdminPanel, AdminTableStateRow, AdminTableToolbar } from "@/components/admin-ui"
 import { CarbonRecordActions } from "@/components/carbon/record-actions"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { PaginationBar, requestPage } from "@/components/platform/data-admin-pages"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -76,13 +75,14 @@ export function PendingReviewPanel() {
   }
 
   return (
-    <Card>
-      <CardHeader className="space-y-3">
-        <CardTitle>待审核记录</CardTitle>
-        <div className="flex flex-wrap items-center gap-3">
+    <AdminPanel title="待审核记录" contentClassName="space-y-3">
+      <AdminTableToolbar
+        search={
           <div className="min-w-[260px] flex-1">
             <Input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索：记录类型/来源/备注…" />
           </div>
+        }
+        filters={
           <div className="w-[220px]">
             <Select value={recordType} onValueChange={setRecordType}>
               <SelectTrigger>
@@ -98,12 +98,14 @@ export function PendingReviewPanel() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="secondary" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>
+        }
+        actions={
+          <Button variant="outline" size="sm" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>
             查询
           </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
+        }
+      />
+      <AdminDataTable>
         <Table>
           <TableHeader>
             <TableRow>
@@ -116,13 +118,7 @@ export function PendingReviewPanel() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {items.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                  暂无待审核记录
-                </TableCell>
-              </TableRow>
-            )}
+            {items.length === 0 && <AdminTableStateRow colSpan={6}>暂无待审核记录</AdminTableStateRow>}
             {items.map((row) => (
               <TableRow key={`${row.record_type}-${row.record_id}`}>
                 <TableCell>{row.record_type}</TableCell>
@@ -139,18 +135,18 @@ export function PendingReviewPanel() {
             ))}
           </TableBody>
         </Table>
+      </AdminDataTable>
 
-        <PaginationBar
-          page={filteredPage}
-          pageIndex={pageIndex}
-          pageSize={pageSize}
-          onPageChange={setPageIndex}
-          onPageSizeChange={(value) => {
-            setPageSize(value)
-            setPageIndex(0)
-          }}
-        />
-      </CardContent>
-    </Card>
+      <PaginationBar
+        page={filteredPage}
+        pageIndex={pageIndex}
+        pageSize={pageSize}
+        onPageChange={setPageIndex}
+        onPageSizeChange={(value) => {
+          setPageSize(value)
+          setPageIndex(0)
+        }}
+      />
+    </AdminPanel>
   )
 }

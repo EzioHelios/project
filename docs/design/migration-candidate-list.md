@@ -59,6 +59,9 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: shared permission-center admin components (`UserTable`, `TeamTable`, `StatsCards`, `RecentActivity`, `AuditLogTable`) now use `AdminPanel`, `AdminDataTable`, `AdminTableStateRow`, `AdminTableToolbar`, `MetricStrip`, and status badges instead of naked `Card` shells and English dashboard copy.
 - Done: `/carbon-mgmt/factors` migrated the official factor library KPI strip, category tree, filters, raw-factor table, and empty rows to shared Admin UI primitives; the route no longer imports or renders naked `Card`.
 - Done: `/platform` replaced the large icon-card shortcut grid and plain empty recent-action card with grouped `AdminPanel` entry lists and `AdminEmptyState`; the route no longer imports or renders naked `Card`.
+- Done: `/data/company` migrated the enterprise profile detail, key facts, loading state, and error state to `AdminPanel`, `MetricStrip`, `MetricTile`, and `AdminEmptyState`; the route no longer imports or renders naked `Card`.
+- Done: `/admin/users/$userId` and `/admin/teams/$teamId` migrated permission-center detail surfaces to `AdminPanel`, `MetricStrip`, `MetricTile`, and `AdminEmptyState`, with localized operational labels; both routes no longer import or render naked `Card`.
+- Done: `/carbon-mgmt/pending` and `/carbon-mgmt/audit` migrated review/audit table shells, toolbars, and empty rows to `AdminPanel`, `AdminTableToolbar`, `AdminDataTable`, and `AdminTableStateRow`; both routes no longer import or render naked `Card`.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 
