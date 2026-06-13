@@ -81,14 +81,25 @@ Header ownership rules:
 | --- | --- | --- |
 | App shell / breadcrumb | Product area, module path, parent object path | Page-local status or business explanation |
 | `AdminPageHeader` | Current page title, status badge, concise meta facts, primary actions | Eyebrow, long description, repeated module name |
-| `ContextBar` | Period, organization, scope, filters, operating context | Page title or explanatory copy |
+| `AdminFilterBar` / `ContextBar` | Period, organization, scope, filters, operating context | Page title or explanatory copy |
 | Table / audit footer | Source, standard, effective date, confidence, reviewer | Marketing or tutorial text |
 
 Recommended compact header structure:
 
 1. Breadcrumb or module path in the app top bar.
 2. Content header with title, status, and actions.
-3. ContextBar immediately below when filters or operating scope are needed.
+3. Module-level tabs when the page has peer workflow views.
+4. `AdminFilterBar` / `ContextBar` immediately below when filters or operating scope are needed.
+5. `MetricStrip` below filters so KPI values clearly reflect the active filter state.
+6. Tables, charts, detail panels, and secondary tabs in the content area.
+
+Scaffold hard gates:
+
+- New or migrated admin pages should use `AdminPageScaffold` when they combine tabs, filters, metrics, and content.
+- Standard order is `AdminPageHeader -> primary TabsList -> AdminFilterBar/ContextBar -> MetricStrip -> content`.
+- Do not place KPI cards above filters when the values are filter-dependent.
+- Do not place module-level tabs below KPI cards. Tabs define the view; filters define the slice; metrics summarize the slice.
+- Secondary tabs are allowed inside content panels only when they switch detail subsections for a selected object.
 
 Anti-pattern:
 

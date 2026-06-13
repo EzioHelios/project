@@ -195,6 +195,11 @@ Navigation and page structure:
 - Treat small subtitles above page titles as disallowed by default in admin routes. They are usually repeated navigation context and make the platform feel template-generated.
 - `AdminPageHeader meta` is not a replacement for descriptions. Use it only for auditable facts such as period, organization, tenant, lock state, freshness, approval state, or permission scope.
 - If header actions wrap or the header feels like a hero, keep one primary action and move secondary actions into the toolbar or a more menu.
+- Pages that combine tabs, filters, metrics, and content must use the shared order: `AdminPageHeader -> primary TabsList -> AdminFilterBar/ContextBar -> MetricStrip -> content`. Prefer `AdminPageScaffold` to enforce this order.
+- Module-level tabs belong above filters. KPI / `MetricStrip` content belongs below filters because metrics should reflect the active filter state. Secondary tabs are allowed inside content panels only for selected-object details.
+- New filter rows must use `AdminFilterBar`; existing `ContextBar` is a compatibility wrapper. A collapsed filter row shows at most 4 primary fields, and lower-priority fields expand behind `显示全部`.
+- Search is a filter field and normally appears first. Query, reset, refresh, create, import/export, and batch actions belong in the right-side `actions` area, not mixed among filter fields.
+- Do not hardcode ad hoc filter widths such as `w-[160px]` in business pages unless a documented exceptional field requires it.
 
 Component rules:
 - Cards are for grouped business objects only. Do not wrap every section in generic card boxes.

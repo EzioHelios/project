@@ -126,24 +126,30 @@ function CommutePage() {
         <AdminPanel title="员工通勤列表">
           <div className="space-y-3">
             <AdminTableToolbar
-              search={<Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="搜索：姓名 / 通勤类别…" />}
-              filters={
-                <div className="w-[160px]">
-                  <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="通勤类别" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全部类别</SelectItem>
-                      <SelectItem value="自驾">自驾</SelectItem>
-                      <SelectItem value="公交">公交</SelectItem>
-                      <SelectItem value="班车">班车</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              }
+              fields={[
+                { key: "keyword", node: <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="搜索：姓名 / 通勤类别…" /> },
+                {
+                  key: "category",
+                  node: (
+                    <Select value={category} onValueChange={setCategory}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="通勤类别" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">全部类别</SelectItem>
+                        <SelectItem value="自驾">自驾</SelectItem>
+                        <SelectItem value="公交">公交</SelectItem>
+                        <SelectItem value="班车">班车</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ),
+                },
+              ]}
               actions={
                 <>
+                  <Button variant="secondary" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>
+                    查询
+                  </Button>
                   <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                     <DialogTrigger asChild>
                       <Button>新增</Button>
@@ -207,11 +213,7 @@ function CommutePage() {
                   </Button>
                 </>
               }
-            >
-              <Button variant="secondary" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>
-                查询
-              </Button>
-            </AdminTableToolbar>
+            />
             <AdminDataTable>
               <Table>
                 <TableHeader>

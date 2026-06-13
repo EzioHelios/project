@@ -16,11 +16,13 @@ This file records the reusable UI layer needed for a consistent industrial energ
 | --- | --- | --- |
 | `AdminPanel` | Added | Standard backend panel surface with compact border, header, actions, and content spacing. |
 | `AdminSectionHeader` | Added | Small panel-local title/action row. |
-| `ContextBar` | Added | Filter and scope controls. Use for dates, tenant/team, area, equipment, status, and query actions. |
+| `AdminFilterBar` | Added | Standard filter row with fixed density, first 4 fields visible by default, `显示全部` expansion, and right-side actions. |
+| `ContextBar` | Compatibility | Legacy scope/filter wrapper now backed by `AdminFilterBar`; use `AdminFilterBar` directly for new pages. |
 | `MetricStrip`, `MetricTile` | Added | KPI groups with stable compact density and tabular numeric values. |
 | `StatusBadge`, `QualityBadge` | Added | Shared operational status and data-quality language. |
 | `AdminEmptyState` | Added | Quiet empty state for tables and panels without illustration or marketing copy. |
 | `AdminPageHeader` | Added | Compact page title, status, meta, and actions. No eyebrow or default description. |
+| `AdminPageScaffold` | Added | Page slot order contract for `header -> tabs -> filters -> metrics -> content`. |
 | `ChartPanel` | Added | Unified chart container with title, unit, source, updated time, empty state, and ECharts rendering shell. |
 | `adminChartPalette`, `createAdminChartOption` | Added | Shared ECharts palette, grid, tooltip, legend, axis, and series defaults. |
 | Shared chart builders | Partial | Trend, combo trend, ranking, distribution, gauge, and sankey option builders live in `admin-chart-theme.ts`; heat-grid remains to add when needed. |
@@ -55,3 +57,5 @@ Page titles, CRUD tables, and charts are now hard gates:
 - Do not build table loading/empty/error rows inline. Use `AdminTableStateRow` so density, tone, and copy stay consistent.
 - Do not add chart-specific color arrays or full visual `option` styling in domain pages. Extend `adminChartTheme` or a shared chart builder instead.
 - Do not add chart prose descriptions by default. Use title, unit, source, updated time, axis labels, legends, tooltip values, and drilldown tables.
+- Do not freely reorder tabs, filters, KPI strips, and content. Use `AdminPageScaffold` for combined pages; the standard order is primary tabs, filters, metrics, then content.
+- Do not show more than 4 primary filter fields in the collapsed filter row. Use `AdminFilterBar` expansion for lower-priority filters.

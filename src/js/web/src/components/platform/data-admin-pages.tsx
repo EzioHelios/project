@@ -1042,53 +1042,60 @@ export function EventWorkbenchPage({ title, endpoint, queryKey }: { title: strin
         <AdminPanel title="事件列表">
           <div className="space-y-3">
             <AdminTableToolbar
-              search={
-                <Input
-                  value={keyword}
-                  onChange={(event) => {
-                    setKeyword(event.target.value)
-                  }}
-                  placeholder="搜索事件说明"
-                />
-              }
-              filters={
-                <div className="w-[160px]">
-                  <Select
-                    value={handled}
-                    onValueChange={(value) => {
-                      setHandled(value)
-                      setPageIndex(0)
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全部状态</SelectItem>
-                      <SelectItem value="false">未处理</SelectItem>
-                      <SelectItem value="true">已处理</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              }
+              fields={[
+                {
+                  key: "keyword",
+                  node: (
+                    <Input
+                      value={keyword}
+                      onChange={(event) => {
+                        setKeyword(event.target.value)
+                      }}
+                      placeholder="搜索事件说明"
+                    />
+                  ),
+                },
+                {
+                  key: "handled",
+                  node: (
+                    <Select
+                      value={handled}
+                      onValueChange={(value) => {
+                        setHandled(value)
+                        setPageIndex(0)
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">全部状态</SelectItem>
+                        <SelectItem value="false">未处理</SelectItem>
+                        <SelectItem value="true">已处理</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ),
+                },
+              ]}
               actions={
-                <Button onClick={() => handleBatch.mutate()} disabled={unhandledIds.length === 0 || handleBatch.isPending}>
-                  处理当前未处理
-                </Button>
+                <>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setAppliedKeyword(keyword)
+                      setPageIndex(0)
+                      if (keyword === appliedKeyword) void query.refetch()
+                    }}
+                    disabled={query.isFetching}
+                  >
+                    查询
+                  </Button>
+                  <Button onClick={() => handleBatch.mutate()} disabled={unhandledIds.length === 0 || handleBatch.isPending}>
+                    处理当前未处理
+                  </Button>
+                </>
               }
-            >
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setAppliedKeyword(keyword)
-                  setPageIndex(0)
-                  if (keyword === appliedKeyword) void query.refetch()
-                }}
-                disabled={query.isFetching}
-              >
-                查询
-              </Button>
-            </AdminTableToolbar>
+            />
             <AdminDataTable>
               <Table>
                 <TableHeader>

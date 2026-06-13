@@ -4,7 +4,7 @@ import { Download, Plus, RefreshCw, Trash2, Upload } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
-import { AdminDataTable, AdminEmptyState, AdminPanel, AdminTableStateRow, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
+import { AdminDataTable, AdminEmptyState, AdminPageScaffold, AdminPanel, AdminTableStateRow, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { fetchCarbonApi } from "@/components/carbon/analytics-panels"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
@@ -335,286 +335,292 @@ export function EnergyBenchmarkPanel() {
 
   return (
     <PageSection className="space-y-4">
-      <ContextBar
-        actions={
-          <Button variant="outline" onClick={refreshAll}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            刷新
-          </Button>
-        }
-      >
-        <Input type="date" value={filters.periodStart} onChange={(event) => setFilters((state) => ({ ...state, periodStart: event.target.value }))} />
-        <Input type="date" value={filters.periodEnd} onChange={(event) => setFilters((state) => ({ ...state, periodEnd: event.target.value }))} />
-        <Select value={filters.profileId} onValueChange={(value) => setFilters((state) => ({ ...state, profileId: value }))}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="auto">最新启用方案</SelectItem>
-            {profiles.map((profile) => (
-              <SelectItem key={profile.id} value={String(profile.id)}>
-                {profile.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filters.targetType} onValueChange={(value) => setFilters((state) => ({ ...state, targetType: value }))}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {targetTypes.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filters.metricCode} onValueChange={(value) => setFilters((state) => ({ ...state, metricCode: value }))}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {metrics.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </ContextBar>
-
-      <MetricStrip className="md:grid-cols-4 xl:grid-cols-4">
-        <StatCard label="对标对象" value={conclusions?.summary.total ?? comparisons.length} />
-        <StatCard label="重点偏差" value={conclusions?.summary.status_counts?.severe ?? 0} />
-        <StatCard label="预警对象" value={conclusions?.summary.status_counts?.warning ?? 0} />
-        <StatCard label="节能潜力" value={formatNumber(conclusions?.summary.saving_potential)} suffix={conclusions?.summary.unit} />
-      </MetricStrip>
-
       <Tabs defaultValue="baseline" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5">
-          <TabsTrigger value="baseline">历史基线</TabsTrigger>
-          <TabsTrigger value="library">行业标杆库</TabsTrigger>
-          <TabsTrigger value="comparison">设备/工序对标</TabsTrigger>
-          <TabsTrigger value="conclusion">对标结论</TabsTrigger>
-          <TabsTrigger value="recommendation">整改建议</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="baseline" className="space-y-4">
-          <AdminPanel
-            title="历史基线"
-            actions={
-              <>
-                <Button variant="outline" size="sm" onClick={() => generate.mutate("best_period")} disabled={generate.isPending}>
-                  <Download className="mr-2 h-4 w-4" />
-                  最优基线生成
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => generate.mutate("p25")} disabled={generate.isPending}>
-                  P25 生成
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => generate.mutate("average")} disabled={generate.isPending}>
-                  均值生成
-                </Button>
-              </>
-            }
-            contentClassName="p-0"
-          >
-            <AdminDataTable className="rounded-none border-0">
-              <BaselineTable rows={baseline} />
-            </AdminDataTable>
-          </AdminPanel>
-        </TabsContent>
-
-        <TabsContent value="library" className="space-y-4">
-          <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
-            <AdminPanel
-              title="标杆方案"
+        <AdminPageScaffold
+          tabs={
+            <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5">
+              <TabsTrigger value="baseline">历史基线</TabsTrigger>
+              <TabsTrigger value="library">行业标杆库</TabsTrigger>
+              <TabsTrigger value="comparison">设备/工序对标</TabsTrigger>
+              <TabsTrigger value="conclusion">对标结论</TabsTrigger>
+              <TabsTrigger value="recommendation">整改建议</TabsTrigger>
+            </TabsList>
+          }
+          filters={
+            <ContextBar
               actions={
-                <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Plus className="mr-2 h-4 w-4" />
-                      新增
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>新增标杆方案</DialogTitle>
-                    </DialogHeader>
-                    <ProfileForm value={profileForm} onChange={setProfileForm} />
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setProfileOpen(false)}>
-                        取消
-                      </Button>
-                      <Button onClick={() => createProfile.mutate()} disabled={!profileForm.name.trim() || createProfile.isPending}>
-                        保存
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <Button variant="outline" onClick={refreshAll}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  刷新
+                </Button>
               }
-              contentClassName="space-y-3"
             >
-              {profiles.map((profile) => (
-                <button
-                  key={profile.id}
-                  type="button"
-                  className={`w-full rounded-md border p-3 text-left transition-colors ${selectedProfileId === profile.id ? "border-primary bg-primary/5" : "border-border/60 hover:bg-accent/40"}`}
-                  onClick={() => setFilters((state) => ({ ...state, profileId: String(profile.id) }))}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="font-medium">{profile.name}</div>
-                    <Badge variant={profile.is_enabled ? "secondary" : "outline"}>{profile.is_enabled ? "启用" : "停用"}</Badge>
-                  </div>
-                  <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
-                    <span>{profile.industry_name || "行业未标注"}</span>
-                    <span>{profile.source_name || "来源未标注"}</span>
-                  </div>
-                </button>
-              ))}
-              {profiles.length === 0 && <EmptyText text="暂无标杆方案" />}
-            </AdminPanel>
-
+              <Input type="date" value={filters.periodStart} onChange={(event) => setFilters((state) => ({ ...state, periodStart: event.target.value }))} />
+              <Input type="date" value={filters.periodEnd} onChange={(event) => setFilters((state) => ({ ...state, periodEnd: event.target.value }))} />
+              <Select value={filters.profileId} onValueChange={(value) => setFilters((state) => ({ ...state, profileId: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">最新启用方案</SelectItem>
+                  {profiles.map((profile) => (
+                    <SelectItem key={profile.id} value={String(profile.id)}>
+                      {profile.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filters.targetType} onValueChange={(value) => setFilters((state) => ({ ...state, targetType: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {targetTypes.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filters.metricCode} onValueChange={(value) => setFilters((state) => ({ ...state, metricCode: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {metrics.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </ContextBar>
+          }
+          metrics={
+            <MetricStrip className="md:grid-cols-4 xl:grid-cols-4">
+              <StatCard label="对标对象" value={conclusions?.summary.total ?? comparisons.length} />
+              <StatCard label="重点偏差" value={conclusions?.summary.status_counts?.severe ?? 0} />
+              <StatCard label="预警对象" value={conclusions?.summary.status_counts?.warning ?? 0} />
+              <StatCard label="节能潜力" value={formatNumber(conclusions?.summary.saving_potential)} suffix={conclusions?.summary.unit} />
+            </MetricStrip>
+          }
+        >
+          <TabsContent value="baseline" className="space-y-4">
             <AdminPanel
-              title="标杆项"
+              title="历史基线"
               actions={
                 <>
-                  <Dialog open={csvOpen} onOpenChange={setCsvOpen}>
+                  <Button variant="outline" size="sm" onClick={() => generate.mutate("best_period")} disabled={generate.isPending}>
+                    <Download className="mr-2 h-4 w-4" />
+                    最优基线生成
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => generate.mutate("p25")} disabled={generate.isPending}>
+                    P25 生成
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => generate.mutate("average")} disabled={generate.isPending}>
+                    均值生成
+                  </Button>
+                </>
+              }
+              contentClassName="p-0"
+            >
+              <AdminDataTable className="rounded-none border-0">
+                <BaselineTable rows={baseline} />
+              </AdminDataTable>
+            </AdminPanel>
+          </TabsContent>
+
+          <TabsContent value="library" className="space-y-4">
+            <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+              <AdminPanel
+                title="标杆方案"
+                actions={
+                  <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" disabled={!selectedProfileId}>
-                        <Upload className="mr-2 h-4 w-4" />
-                        CSV 导入
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>CSV 导入</DialogTitle>
-                      </DialogHeader>
-                      <Textarea
-                        value={csvText}
-                        onChange={(event) => setCsvText(event.target.value)}
-                        className="min-h-52 font-mono text-xs"
-                        placeholder="target_type,target_code,target_name,metric_code,benchmark_value,unit,source_name,confidence_level"
-                      />
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setCsvOpen(false)}>
-                          取消
-                        </Button>
-                        <Button onClick={() => importCsv.mutate()} disabled={!csvText.trim() || importCsv.isPending || !selectedProfileId}>
-                          导入
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                  <Dialog open={itemOpen} onOpenChange={setItemOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" disabled={!selectedProfileId}>
+                      <Button size="sm">
                         <Plus className="mr-2 h-4 w-4" />
                         新增
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>新增标杆项</DialogTitle>
+                        <DialogTitle>新增标杆方案</DialogTitle>
                       </DialogHeader>
-                      <ItemForm value={itemForm} onChange={setItemForm} />
+                      <ProfileForm value={profileForm} onChange={setProfileForm} />
                       <DialogFooter>
-                        <Button variant="outline" onClick={() => setItemOpen(false)}>
+                        <Button variant="outline" onClick={() => setProfileOpen(false)}>
                           取消
                         </Button>
-                        <Button
-                          onClick={() => createItem.mutate({ ...itemForm, profile_id: selectedProfileId })}
-                          disabled={!selectedProfileId || !itemForm.benchmark_value || createItem.isPending}
-                        >
+                        <Button onClick={() => createProfile.mutate()} disabled={!profileForm.name.trim() || createProfile.isPending}>
                           保存
                         </Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
+                }
+                contentClassName="space-y-3"
+              >
+                {profiles.map((profile) => (
+                  <button
+                    key={profile.id}
+                    type="button"
+                    className={`w-full rounded-md border p-3 text-left transition-colors ${selectedProfileId === profile.id ? "border-primary bg-primary/5" : "border-border/60 hover:bg-accent/40"}`}
+                    onClick={() => setFilters((state) => ({ ...state, profileId: String(profile.id) }))}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="font-medium">{profile.name}</div>
+                      <Badge variant={profile.is_enabled ? "secondary" : "outline"}>{profile.is_enabled ? "启用" : "停用"}</Badge>
+                    </div>
+                    <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
+                      <span>{profile.industry_name || "行业未标注"}</span>
+                      <span>{profile.source_name || "来源未标注"}</span>
+                    </div>
+                  </button>
+                ))}
+                {profiles.length === 0 && <EmptyText text="暂无标杆方案" />}
+              </AdminPanel>
+
+              <AdminPanel
+                title="标杆项"
+                actions={
+                  <>
+                    <Dialog open={csvOpen} onOpenChange={setCsvOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" disabled={!selectedProfileId}>
+                          <Upload className="mr-2 h-4 w-4" />
+                          CSV 导入
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>CSV 导入</DialogTitle>
+                        </DialogHeader>
+                        <Textarea
+                          value={csvText}
+                          onChange={(event) => setCsvText(event.target.value)}
+                          className="min-h-52 font-mono text-xs"
+                          placeholder="target_type,target_code,target_name,metric_code,benchmark_value,unit,source_name,confidence_level"
+                        />
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setCsvOpen(false)}>
+                            取消
+                          </Button>
+                          <Button onClick={() => importCsv.mutate()} disabled={!csvText.trim() || importCsv.isPending || !selectedProfileId}>
+                            导入
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                    <Dialog open={itemOpen} onOpenChange={setItemOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" disabled={!selectedProfileId}>
+                          <Plus className="mr-2 h-4 w-4" />
+                          新增
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>新增标杆项</DialogTitle>
+                        </DialogHeader>
+                        <ItemForm value={itemForm} onChange={setItemForm} />
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setItemOpen(false)}>
+                            取消
+                          </Button>
+                          <Button
+                            onClick={() => createItem.mutate({ ...itemForm, profile_id: selectedProfileId })}
+                            disabled={!selectedProfileId || !itemForm.benchmark_value || createItem.isPending}
+                          >
+                            保存
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </>
+                }
+                contentClassName="p-0"
+              >
+                <AdminDataTable className="rounded-none border-0">
+                  <BenchmarkItemsTable rows={itemsQuery.data?.items ?? []} onDelete={(itemId) => deleteItem.mutate(itemId)} />
+                </AdminDataTable>
+              </AdminPanel>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="comparison">
+            <AdminPanel
+              title="设备/工序对标"
+              actions={
+                <>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to="/energy/analysis">能源分析</Link>
+                  </Button>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to="/energy/consumption">能耗查询</Link>
+                  </Button>
                 </>
               }
               contentClassName="p-0"
             >
               <AdminDataTable className="rounded-none border-0">
-                <BenchmarkItemsTable rows={itemsQuery.data?.items ?? []} onDelete={(itemId) => deleteItem.mutate(itemId)} />
+                <ComparisonTable rows={comparisons} />
               </AdminDataTable>
             </AdminPanel>
-          </div>
-        </TabsContent>
+          </TabsContent>
 
-        <TabsContent value="comparison">
-          <AdminPanel
-            title="设备/工序对标"
-            actions={
-              <>
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/energy/analysis">能源分析</Link>
-                </Button>
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/energy/consumption">能耗查询</Link>
-                </Button>
-              </>
-            }
-            contentClassName="p-0"
-          >
-            <AdminDataTable className="rounded-none border-0">
-              <ComparisonTable rows={comparisons} />
-            </AdminDataTable>
-          </AdminPanel>
-        </TabsContent>
-
-        <TabsContent value="conclusion">
-          <div className="grid gap-4 xl:grid-cols-2">
-            <AdminPanel title="偏差排行" contentClassName="p-0">
-              <AdminDataTable className="rounded-none border-0">
-                <ComparisonTable rows={conclusions?.top_deviations ?? []} compact />
-              </AdminDataTable>
-            </AdminPanel>
-            <AdminPanel title="覆盖缺口" contentClassName="p-0">
-              <AdminDataTable className="rounded-none border-0">
-                <ComparisonTable rows={conclusions?.missing_benchmarks ?? []} compact />
-              </AdminDataTable>
-            </AdminPanel>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="recommendation">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="space-y-3">
-              {recommendations.map((item) => (
-                <AdminPanel key={item.code}>
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="font-medium">{item.title}</div>
-                      <div className="mt-1 text-sm text-muted-foreground">{item.target}</div>
-                    </div>
-                    <Badge variant={item.priority === "high" ? "destructive" : "secondary"}>{item.priority === "high" ? "高优先级" : "中优先级"}</Badge>
-                  </div>
-                  <div className="mt-4 grid gap-2 text-sm">
-                    {item.steps.map((step) => (
-                      <div key={step} className="rounded-md bg-muted/60 px-3 py-2">
-                        {step}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-3 text-sm text-muted-foreground">{item.expected_effect}</div>
-                </AdminPanel>
-              ))}
-              {recommendations.length === 0 && <EmptyText text="当前筛选条件下暂无整改建议" />}
+          <TabsContent value="conclusion">
+            <div className="grid gap-4 xl:grid-cols-2">
+              <AdminPanel title="偏差排行" contentClassName="p-0">
+                <AdminDataTable className="rounded-none border-0">
+                  <ComparisonTable rows={conclusions?.top_deviations ?? []} compact />
+                </AdminDataTable>
+              </AdminPanel>
+              <AdminPanel title="覆盖缺口" contentClassName="p-0">
+                <AdminDataTable className="rounded-none border-0">
+                  <ComparisonTable rows={conclusions?.missing_benchmarks ?? []} compact />
+                </AdminDataTable>
+              </AdminPanel>
             </div>
-            <AdminPanel title="关联入口" contentClassName="grid gap-2">
-              <Button variant="outline" asChild>
-                <Link to="/energy/intensity">能源强度</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link to="/data/terminals">设备台账</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link to="/energy/balance">能效平衡</Link>
-              </Button>
-            </AdminPanel>
-          </div>
-        </TabsContent>
+          </TabsContent>
+
+          <TabsContent value="recommendation">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+              <div className="space-y-3">
+                {recommendations.map((item) => (
+                  <AdminPanel key={item.code}>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium">{item.title}</div>
+                        <div className="mt-1 text-sm text-muted-foreground">{item.target}</div>
+                      </div>
+                      <Badge variant={item.priority === "high" ? "destructive" : "secondary"}>{item.priority === "high" ? "高优先级" : "中优先级"}</Badge>
+                    </div>
+                    <div className="mt-4 grid gap-2 text-sm">
+                      {item.steps.map((step) => (
+                        <div key={step} className="rounded-md bg-muted/60 px-3 py-2">
+                          {step}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 text-sm text-muted-foreground">{item.expected_effect}</div>
+                  </AdminPanel>
+                ))}
+                {recommendations.length === 0 && <EmptyText text="当前筛选条件下暂无整改建议" />}
+              </div>
+              <AdminPanel title="关联入口" contentClassName="grid gap-2">
+                <Button variant="outline" asChild>
+                  <Link to="/energy/intensity">能源强度</Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/data/terminals">设备台账</Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/energy/balance">能效平衡</Link>
+                </Button>
+              </AdminPanel>
+            </div>
+          </TabsContent>
+        </AdminPageScaffold>
       </Tabs>
     </PageSection>
   )

@@ -71,6 +71,7 @@ The first pilot is not accepted as final visual quality. Current correction stat
 - Done: shared Admin UI and carbon utility components removed unused explanatory `description` slots from `AdminPanel`, `AdminSectionHeader`, `QuickLinkGrid`, `InsightCallout`, and `SectionHeader`, making compact title/action/data composition the default.
 - Done: MFA and master-data dialogs now keep operation guidance screen-reader only instead of rendering visible subtitle copy under modal titles; the mobile sidebar default description is localized.
 - Done: shared `AdminPanel`, `AdminPageHeader`, `MetricTile`, `ChartPanel`, and `admin-chart-theme` now enforce compact title bars, industrial panel surfaces, title-bar chart metadata, and a muted cross-chart palette/axis/tooltip grammar for authenticated admin pages.
+- Done: added `AdminFilterBar` and `AdminPageScaffold`; `ContextBar` and `AdminTableToolbar` can now enforce a standard filter row with the first 4 fields visible and `显示全部` expansion. Budget, benchmark, commute, and event ledger pages started using the fixed tabs/filter/metrics/content ordering.
 - Remaining: re-screenshot Scope / CRUD pages once a local authenticated server is available.
 - Remaining: continue replacing naked `Card` table shells with `AdminPanel` / `AdminDataTable`.
 

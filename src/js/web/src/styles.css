@@ -406,6 +406,64 @@
     padding: 0.75rem;
     box-shadow: 0 1px 2px hsl(215 20% 20% / 0.03);
   }
+  .admin-filter-bar {
+    display: flex;
+    min-height: 3.25rem;
+    align-items: flex-start;
+    gap: 0.75rem;
+    border: 1px solid hsl(var(--admin-border) / 0.82);
+    border-radius: var(--radius);
+    background: hsl(var(--admin-bg-panel));
+    padding: 0.5rem;
+    box-shadow: 0 1px 2px hsl(215 20% 20% / 0.03);
+  }
+  .admin-filter-fields {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+  .admin-filter-field {
+    min-width: 0;
+  }
+  .admin-filter-field :where(input, button[role="combobox"], button[data-slot="select-trigger"]) {
+    min-height: 2.25rem;
+  }
+  .admin-filter-actions {
+    display: flex;
+    min-height: 2.25rem;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+  .admin-filter-toggle {
+    gap: 0.25rem;
+    color: hsl(var(--admin-text-secondary));
+  }
+  .admin-page-scaffold {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .admin-page-scaffold-tabs,
+  .admin-page-scaffold-filters,
+  .admin-page-scaffold-metrics,
+  .admin-page-scaffold-content {
+    min-width: 0;
+  }
+  @media (min-width: 768px) {
+    .admin-filter-fields {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1280px) {
+    .admin-filter-fields {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
   .admin-table-density-compact tbody tr {
     height: var(--admin-table-row-compact);
   }

@@ -4,7 +4,7 @@ import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
-import { AdminDataTable, AdminEmptyState, AdminPanel, AdminTableStateRow, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
+import { AdminDataTable, AdminEmptyState, AdminPageScaffold, AdminPanel, AdminTableStateRow, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
@@ -318,160 +318,165 @@ export function EnergyBudgetPanel() {
 
   return (
     <PageSection className="space-y-4">
-      <ContextBar
-        className="[&>div:first-child]:md:grid-cols-[140px_minmax(180px,1fr)] [&>div:first-child]:xl:grid-cols-[140px_minmax(180px,1fr)]"
-        actions={
-          <>
-            <Button variant="outline" onClick={refreshAll}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              刷新
-            </Button>
-            <Dialog open={planOpen} onOpenChange={setPlanOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  新增目标
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>新增预算目标</DialogTitle>
-                </DialogHeader>
-                <BudgetPlanForm value={planForm} onChange={setPlanForm} />
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setPlanOpen(false)}>
-                    取消
-                  </Button>
-                  <Button onClick={() => createPlan.mutate()} disabled={!planForm.name.trim() || createPlan.isPending}>
-                    保存
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </>
-        }
-      >
-        <Input value={year} onChange={(event) => setYear(event.target.value)} placeholder="年度" />
-        <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
-          <SelectTrigger>
-            <SelectValue placeholder="预算方案" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="auto">最新预算方案</SelectItem>
-            {plans.map((item) => (
-              <SelectItem key={item.id} value={String(item.id)}>
-                {item.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </ContextBar>
-
-      {plan ? (
-        <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
-          <BudgetStat label="能耗预算" value={totals?.budget_tce} unit="tce" status={totals?.energy_status} />
-          <BudgetStat label="实际能耗" value={totals?.actual_tce} unit="tce" rate={totals?.energy_execution_rate_pct} />
-          <BudgetStat label="碳预算" value={totals?.budget_co2e} unit="tCO2e" status={totals?.carbon_status} />
-          <BudgetStat label="实际排放" value={totals?.actual_co2e} unit="tCO2e" rate={totals?.carbon_execution_rate_pct} />
-        </MetricStrip>
-      ) : (
-        <AdminEmptyState title="暂无预算方案" />
-      )}
-
       <Tabs defaultValue="target" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5">
-          <TabsTrigger value="target">年度目标</TabsTrigger>
-          <TabsTrigger value="allocation">月度预算</TabsTrigger>
-          <TabsTrigger value="variance">执行偏差</TabsTrigger>
-          <TabsTrigger value="forecast">预测超限</TabsTrigger>
-          <TabsTrigger value="adjustment">调整审批</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="target">
-          <AdminPanel title={plan?.name ?? "年度目标"} actions={plan ? statusBadge(plan.status) : null}>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <InfoCell label="预算年度" value={plan?.budget_year} />
-              <InfoCell label="适用范围" value={targetScopeLabel(plan?.target_scope)} />
-              <InfoCell label="对象" value={plan?.target_name || plan?.target_code || "全企业"} />
-              <InfoCell label="来源" value={plan?.source_name || "-"} />
-              <InfoCell label="能耗目标" value={`${formatNumber(plan?.energy_budget_tce)} tce`} />
-              <InfoCell label="碳排目标" value={`${formatNumber(plan?.carbon_budget_co2e)} tCO2e`} />
-              <InfoCell label="分母计划" value={`${formatNumber(plan?.denominator_plan)} ${plan?.denominator_unit || ""}`} />
-              <InfoCell label="置信度" value={plan?.confidence_level || "-"} />
-            </div>
-          </AdminPanel>
-        </TabsContent>
-
-        <TabsContent value="allocation" className="space-y-4">
-          <div className="flex justify-end">
-            <Button variant="outline" onClick={() => generateAllocations.mutate()} disabled={!selectedPlan?.id || generateAllocations.isPending}>
-              <Wand2 className="mr-2 h-4 w-4" />
-              生成月度预算
-            </Button>
-          </div>
-          <MonthlyBudgetTable rows={rows} />
-        </TabsContent>
-
-        <TabsContent value="variance">
-          <VarianceTable rows={rows} />
-        </TabsContent>
-
-        <TabsContent value="forecast">
-          <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-            <AdminPanel title="预测结果" contentClassName="space-y-4">
-              <InfoCell label="已发生月份" value={`${forecast?.elapsed_months ?? 0} / ${forecast?.total_months ?? 0}`} />
-              <InfoCell label="预测能耗" value={`${formatNumber(forecast?.forecast_tce)} tce`} />
-              <InfoCell label="预测排放" value={`${formatNumber(forecast?.forecast_co2e)} tCO2e`} />
-              <div className="flex flex-wrap gap-2">
-                {statusBadge(forecast?.energy_status)}
-                {statusBadge(forecast?.carbon_status)}
+        <AdminPageScaffold
+          tabs={
+            <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5">
+              <TabsTrigger value="target">年度目标</TabsTrigger>
+              <TabsTrigger value="allocation">月度预算</TabsTrigger>
+              <TabsTrigger value="variance">执行偏差</TabsTrigger>
+              <TabsTrigger value="forecast">预测超限</TabsTrigger>
+              <TabsTrigger value="adjustment">调整审批</TabsTrigger>
+            </TabsList>
+          }
+          filters={
+            <ContextBar
+              actions={
+                <>
+                  <Button variant="outline" onClick={refreshAll}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    刷新
+                  </Button>
+                  <Dialog open={planOpen} onOpenChange={setPlanOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        新增目标
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>新增预算目标</DialogTitle>
+                      </DialogHeader>
+                      <BudgetPlanForm value={planForm} onChange={setPlanForm} />
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setPlanOpen(false)}>
+                          取消
+                        </Button>
+                        <Button onClick={() => createPlan.mutate()} disabled={!planForm.name.trim() || createPlan.isPending}>
+                          保存
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              }
+            >
+              <Input value={year} onChange={(event) => setYear(event.target.value)} placeholder="年度" />
+              <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="预算方案" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">最新预算方案</SelectItem>
+                  {plans.map((item) => (
+                    <SelectItem key={item.id} value={String(item.id)}>
+                      {item.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </ContextBar>
+          }
+          metrics={
+            plan ? (
+              <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
+                <BudgetStat label="能耗预算" value={totals?.budget_tce} unit="tce" status={totals?.energy_status} />
+                <BudgetStat label="实际能耗" value={totals?.actual_tce} unit="tce" rate={totals?.energy_execution_rate_pct} />
+                <BudgetStat label="碳预算" value={totals?.budget_co2e} unit="tCO2e" status={totals?.carbon_status} />
+                <BudgetStat label="实际排放" value={totals?.actual_co2e} unit="tCO2e" rate={totals?.carbon_execution_rate_pct} />
+              </MetricStrip>
+            ) : (
+              <AdminEmptyState title="暂无预算方案" />
+            )
+          }
+        >
+          <TabsContent value="target">
+            <AdminPanel title={plan?.name ?? "年度目标"} actions={plan ? statusBadge(plan.status) : null}>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <InfoCell label="预算年度" value={plan?.budget_year} />
+                <InfoCell label="适用范围" value={targetScopeLabel(plan?.target_scope)} />
+                <InfoCell label="对象" value={plan?.target_name || plan?.target_code || "全企业"} />
+                <InfoCell label="来源" value={plan?.source_name || "-"} />
+                <InfoCell label="能耗目标" value={`${formatNumber(plan?.energy_budget_tce)} tce`} />
+                <InfoCell label="碳排目标" value={`${formatNumber(plan?.carbon_budget_co2e)} tCO2e`} />
+                <InfoCell label="分母计划" value={`${formatNumber(plan?.denominator_plan)} ${plan?.denominator_unit || ""}`} />
+                <InfoCell label="置信度" value={plan?.confidence_level || "-"} />
               </div>
             </AdminPanel>
-            <AdminPanel title="规则建议" contentClassName="space-y-3">
-              {recommendations.map((item) => (
-                <div key={`${item.code}-${item.target}`} className="rounded-md border border-border/60 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-medium">{item.title}</div>
-                      <div className="mt-1 text-sm text-muted-foreground">{item.target}</div>
-                    </div>
-                    <Badge variant={item.priority === "high" ? "destructive" : "secondary"}>{item.priority === "high" ? "高" : "中"}</Badge>
-                  </div>
-                  <div className="mt-3 text-sm">{item.action}</div>
-                </div>
-              ))}
-              {recommendations.length === 0 && <EmptyText text="暂无建议" />}
-            </AdminPanel>
-          </div>
-        </TabsContent>
+          </TabsContent>
 
-        <TabsContent value="adjustment" className="space-y-4">
-          <div className="flex justify-end">
-            <Dialog open={adjustmentOpen} onOpenChange={setAdjustmentOpen}>
-              <DialogTrigger asChild>
-                <Button disabled={!selectedPlan?.id}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  新增调整
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>新增预算调整</DialogTitle>
-                </DialogHeader>
-                <AdjustmentForm rows={rows} value={adjustmentForm} onChange={setAdjustmentForm} />
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setAdjustmentOpen(false)}>
-                    取消
+          <TabsContent value="allocation" className="space-y-4">
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={() => generateAllocations.mutate()} disabled={!selectedPlan?.id || generateAllocations.isPending}>
+                <Wand2 className="mr-2 h-4 w-4" />
+                生成月度预算
+              </Button>
+            </div>
+            <MonthlyBudgetTable rows={rows} />
+          </TabsContent>
+
+          <TabsContent value="variance">
+            <VarianceTable rows={rows} />
+          </TabsContent>
+
+          <TabsContent value="forecast">
+            <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+              <AdminPanel title="预测结果" contentClassName="space-y-4">
+                <InfoCell label="已发生月份" value={`${forecast?.elapsed_months ?? 0} / ${forecast?.total_months ?? 0}`} />
+                <InfoCell label="预测能耗" value={`${formatNumber(forecast?.forecast_tce)} tce`} />
+                <InfoCell label="预测排放" value={`${formatNumber(forecast?.forecast_co2e)} tCO2e`} />
+                <div className="flex flex-wrap gap-2">
+                  {statusBadge(forecast?.energy_status)}
+                  {statusBadge(forecast?.carbon_status)}
+                </div>
+              </AdminPanel>
+              <AdminPanel title="规则建议" contentClassName="space-y-3">
+                {recommendations.map((item) => (
+                  <div key={`${item.code}-${item.target}`} className="rounded-md border border-border/60 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium">{item.title}</div>
+                        <div className="mt-1 text-sm text-muted-foreground">{item.target}</div>
+                      </div>
+                      <Badge variant={item.priority === "high" ? "destructive" : "secondary"}>{item.priority === "high" ? "高" : "中"}</Badge>
+                    </div>
+                    <div className="mt-3 text-sm">{item.action}</div>
+                  </div>
+                ))}
+                {recommendations.length === 0 && <EmptyText text="暂无建议" />}
+              </AdminPanel>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="adjustment" className="space-y-4">
+            <div className="flex justify-end">
+              <Dialog open={adjustmentOpen} onOpenChange={setAdjustmentOpen}>
+                <DialogTrigger asChild>
+                  <Button disabled={!selectedPlan?.id}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    新增调整
                   </Button>
-                  <Button onClick={() => createAdjustment.mutate()} disabled={!adjustmentForm.allocation_id || createAdjustment.isPending}>
-                    保存
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-          <AdjustmentTable rows={adjustments} />
-        </TabsContent>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>新增预算调整</DialogTitle>
+                  </DialogHeader>
+                  <AdjustmentForm rows={rows} value={adjustmentForm} onChange={setAdjustmentForm} />
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setAdjustmentOpen(false)}>
+                      取消
+                    </Button>
+                    <Button onClick={() => createAdjustment.mutate()} disabled={!adjustmentForm.allocation_id || createAdjustment.isPending}>
+                      保存
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+            <AdjustmentTable rows={adjustments} />
+          </TabsContent>
+        </AdminPageScaffold>
       </Tabs>
 
       {alerts.length ? <VarianceTable rows={alerts} compact title="当前预警" /> : null}

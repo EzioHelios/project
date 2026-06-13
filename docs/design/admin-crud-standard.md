@@ -48,7 +48,7 @@ DetailDrawer
 
 对象说明仅在法律提示、权限限制、数据过期、当前对象锁定等必须提示的场景出现；常规上下文应放入 `ContextBar`、状态 badge、表格列或审计字段。主操作只允许一个，其他操作进入次级按钮或更多菜单。
 
-### 2.3 ContextBar / FilterBar
+### 2.3 AdminFilterBar / ContextBar
 
 主筛选应优先出现：
 
@@ -70,6 +70,25 @@ DetailDrawer
 - 是否缺证据
 - 是否异常
 - 标签 / 业务分类
+
+显示规则：
+
+- 新增页面使用 `AdminFilterBar`，旧 `ContextBar` 作为兼容包装并遵守同样行为。
+- 默认只显示前 4 个主筛选项；超过 4 个时显示 `显示全部`，展开后显示剩余字段并切换为 `收起`。
+- 搜索框算一个筛选项，通常放第一位。
+- 查询、重置、刷新、新增、导入导出和批量操作放在右侧 `actions` 区，不混入筛选字段。
+- 筛选控件高度由共享组件控制，页面不得随意硬编码 `w-[160px]` 等局部宽度；确有特殊字段宽度时必须有业务理由。
+- 桌面端折叠态应维持一行标准高度；展开态可以换行。
+
+页面顺序：
+
+```text
+AdminPageHeader
+Primary TabsList（如有）
+AdminFilterBar / ContextBar
+MetricStrip（如有）
+ContentArea
+```
 
 ### 2.4 TableToolbar
 
