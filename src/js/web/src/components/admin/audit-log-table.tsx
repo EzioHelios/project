@@ -50,8 +50,8 @@ export function AuditLogTable() {
           { key: "action", node: <Input placeholder="动作" value={action} onChange={(event) => setAction(event.target.value)} /> },
           { key: "actorId", node: <Input placeholder="操作者 ID" value={actorId} onChange={(event) => setActorId(event.target.value)} /> },
           { key: "targetType", node: <Input placeholder="目标类型" value={targetType} onChange={(event) => setTargetType(event.target.value)} /> },
-          { key: "startDate", node: <Input placeholder="创建于之后（ISO）" value={startDate} onChange={(event) => setStartDate(event.target.value)} /> },
-          { key: "endDate", node: <Input placeholder="创建于之前（ISO）" value={endDate} onChange={(event) => setEndDate(event.target.value)} /> },
+          { key: "startDate", node: <Input type="date" placeholder="开始日期" value={startDate} onChange={(event) => setStartDate(event.target.value)} /> },
+          { key: "endDate", node: <Input type="date" placeholder="结束日期" value={endDate} onChange={(event) => setEndDate(event.target.value)} /> },
         ]}
         className="rounded-md border border-border/70 bg-muted/20"
       />

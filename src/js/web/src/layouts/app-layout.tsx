@@ -99,6 +99,7 @@ export function AppLayout() {
     }
     if (pathname.startsWith("/carbon")) {
       if (pathname === "/carbon/accounting") return { eyebrow: "碳核算", title: "碳排放核算" }
+      if (pathname === "/carbon/ledger") return { eyebrow: "碳核算", title: "碳排放台账" }
       if (pathname === "/carbon/product-footprint") return { eyebrow: "碳核算", title: "产品碳足迹核算" }
       if (pathname === "/carbon/supply-chain") return { eyebrow: "碳核算", title: "供应链碳管理" }
       if (pathname === "/carbon/verification") return { eyebrow: "碳核算", title: "碳核查支撑" }

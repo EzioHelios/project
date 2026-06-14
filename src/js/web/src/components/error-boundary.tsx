@@ -1,14 +1,28 @@
 import type { ErrorComponentProps } from "@tanstack/react-router"
 import { useRouter } from "@tanstack/react-router"
 import { AlertCircle, Home, RefreshCw } from "lucide-react"
+import { useEffect } from "react"
 import { AdminPanel } from "@/components/admin-ui"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+
+const moduleLoadErrorPatterns = ["Importing a module script failed", "Failed to fetch dynamically imported module", "error loading dynamically imported module"]
 
 export function ErrorBoundary({ error, reset }: ErrorComponentProps) {
   const router = useRouter()
 
   const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred"
+  const isModuleLoadError = moduleLoadErrorPatterns.some((pattern) => errorMessage.includes(pattern))
+
+  useEffect(() => {
+    if (!isModuleLoadError) return
+
+    const retryKey = `module-load-retry:${window.location.pathname}`
+    if (window.sessionStorage.getItem(retryKey) === "1") return
+
+    window.sessionStorage.setItem(retryKey, "1")
+    window.location.reload()
+  }, [isModuleLoadError])
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center px-4 py-12">
