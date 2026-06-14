@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouterState } from "@tanstack/react-router"
-import { BellRing, Building2, ClipboardList, Cpu, Database, Home, MonitorPlay, Settings, ShieldCheck, Zap } from "lucide-react"
+import { BellRing, Building2, ClipboardList, Cpu, Database, FileInput, Home, MonitorPlay, Settings, ShieldCheck, Zap } from "lucide-react"
 import type * as React from "react"
 import { useCallback, useEffect, useMemo } from "react"
 import { NavMain } from "@/components/nav-main"
@@ -41,6 +41,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }, [isError, isLoading, setTeams, storeIds, teamIds, teamsData])
 
   const navMain = useMemo(() => {
+    const isCarbonModuleRoute = pathname === "/carbon" || pathname.startsWith("/carbon/")
+    const isCarbonMgmtRoute = pathname.startsWith("/carbon-mgmt")
     const items: React.ComponentProps<typeof NavMain>["items"] = [
       {
         title: "工作台",
@@ -88,10 +90,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "碳核算",
         to: "/carbon/accounting",
         icon: ShieldCheck,
-        isActive:
-          pathname.startsWith("/carbon") || pathname.startsWith("/carbon-mgmt/scope") || pathname.startsWith("/carbon-mgmt/pending") || pathname.startsWith("/carbon-mgmt/audit"),
+        isActive: isCarbonModuleRoute,
         items: [
           { title: "碳排放核算", to: "/carbon/accounting" },
+          { title: "碳排放台账", to: "/carbon/ledger" },
           { title: "产品碳足迹", to: "/carbon/product-footprint" },
           { title: "供应链碳", to: "/carbon/supply-chain" },
           { title: "核查支撑", to: "/carbon/verification" },
@@ -140,6 +142,29 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           { title: "产品价格", to: "/data/product-prices" },
           { title: "产品批次产量", to: "/data/production-output" },
           { title: "产品产线关联", to: "/data/product-resource-bindings" },
+        ],
+      },
+      {
+        title: "碳数据填报",
+        to: "/carbon-mgmt/scope2-bill",
+        icon: FileInput,
+        isActive: isCarbonMgmtRoute,
+        items: [
+          { title: "Scope 1", kind: "section" },
+          { title: "固定源燃烧", to: "/carbon-mgmt/scope1-stationary" },
+          { title: "移动源燃烧", to: "/carbon-mgmt/scope1-mobile" },
+          { title: "制冷剂逸散", to: "/carbon-mgmt/scope1-refrigerant" },
+          { title: "Scope 2", kind: "section" },
+          { title: "电力账单", to: "/carbon-mgmt/scope2-bill" },
+          { title: "电表聚合", to: "/carbon-mgmt/scope2-records" },
+          { title: "外购热汽冷", to: "/carbon-mgmt/scope2-purchased-energy" },
+          { title: "Scope2 对账", to: "/carbon-mgmt/scope2-reconciliation" },
+          { title: "Scope 3", kind: "section" },
+          { title: "废弃物处理", to: "/carbon-mgmt/scope3-waste" },
+          { title: "外购运输", to: "/carbon-mgmt/scope3-transport" },
+          { title: "审核流转", kind: "section" },
+          { title: "待审核", to: "/carbon-mgmt/pending" },
+          { title: "审核日志", to: "/carbon-mgmt/audit" },
         ],
       },
       {
