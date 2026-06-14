@@ -167,3 +167,11 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 )
+
+export async function ensureAuthStoreHydrated(): Promise<void> {
+  if (useAuthStore.persist.hasHydrated()) {
+    return
+  }
+
+  await useAuthStore.persist.rehydrate()
+}

@@ -17,6 +17,7 @@ describe("auth login", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    storage.clear()
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => storage.get(key) ?? null,
       setItem: (key: string, value: string) => {
@@ -47,5 +48,31 @@ describe("auth login", () => {
     await expect(useAuthStore.getState().login("admin@example.com", "wrongpass")).rejects.toBeInstanceOf(
       HumanVerificationRequiredError,
     )
+  })
+
+  it("can restore authenticated state from the server session after a hard refresh", async () => {
+    const { accountProfile } = await import("@/lib/generated/api")
+    const { useAuthStore } = await import("@/lib/auth")
+
+    vi.mocked(accountProfile).mockResolvedValue({
+      data: {
+        id: "user-1",
+        email: "root@example.com",
+        name: "Root",
+      },
+    } as Awaited<ReturnType<typeof accountProfile>>)
+
+    useAuthStore.setState({
+      user: null,
+      currentTeam: null,
+      teams: [],
+      isAuthenticated: false,
+      isLoading: false,
+    })
+
+    await useAuthStore.getState().checkAuth()
+
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
+    expect(useAuthStore.getState().user?.email).toBe("root@example.com")
   })
 })
