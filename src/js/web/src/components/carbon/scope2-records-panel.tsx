@@ -169,7 +169,7 @@ export function Scope2RecordsPanel({ defaultSourceKind = "meter_aggregate" }: { 
               {listQuery.isLoading && <AdminTableStateRow colSpan={8}>正在加载记录...</AdminTableStateRow>}
               {listQuery.isError && (
                 <AdminTableStateRow colSpan={8} tone="danger">
-                  加载失败，请检查后端接口。
+                  数据加载失败，请稍后重试。
                 </AdminTableStateRow>
               )}
               {!listQuery.isLoading && !listQuery.isError && page.items.length === 0 && <AdminTableStateRow colSpan={8}>暂无记录</AdminTableStateRow>}

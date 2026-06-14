@@ -26,7 +26,7 @@ export function sourceLabel(value?: string | null) {
   if (value === "manual_bill") return "账单补录"
   if (value === "raw_meter_fallback") return "明细回退"
   if (value === "activity_data") return "业务录入"
-  if (value === "demo_seed") return "演示样例"
+  if (value === "demo_seed") return "系统初始化"
   if (value === "alarm") return "设备告警"
   if (value === "video") return "视频告警"
   if (value === "carbon") return "碳告警"

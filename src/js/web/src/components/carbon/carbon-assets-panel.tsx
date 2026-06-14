@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { AlertTriangle, Download, Plus, RefreshCw, TrendingUp, Upload } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Download, Plus, RefreshCw, TrendingUp, Upload } from "lucide-react"
 import type * as React from "react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
-import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
+import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, ChartPanel, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { type AdminMarketKlinePoint, createMarketKlineChartOption } from "@/lib/admin-chart-theme"
 
 type CompliancePosition = {
   period_id?: number | null
@@ -225,6 +226,31 @@ type Recommendation = {
   action: string
 }
 
+type MarketPricePoint = AdminMarketKlinePoint & {
+  instrument: "CEA" | "CCER"
+  instrument_name: string
+  market: string
+  change_pct?: number | null
+  turnover?: number | null
+  currency: string
+  unit: string
+  source_name: string
+  source_url: string
+  source_type: string
+  is_observed: boolean
+}
+
+type MarketPricesPayload = {
+  items: MarketPricePoint[]
+  latest: Partial<Record<"CEA" | "CCER", MarketPricePoint>>
+  source: {
+    name: string
+    url: string
+    source_date: string
+    notes?: string
+  }
+}
+
 type PeriodForm = {
   period_code: string
   period_name: string
@@ -414,11 +440,11 @@ const riskLabels: Record<string, string> = {
 }
 
 const sourceReadinessLabels: Record<string, string> = {
-  partial_source: "部分来源",
-  real_source_ready: "真实来源",
-  simulation_only: "模拟来源",
+  partial_source: "部分确认",
+  real_source_ready: "来源已确认",
+  simulation_only: "待补充凭证",
   source_missing: "来源缺失",
-  unverified_source: "来源未确认",
+  unverified_source: "待确认来源",
 }
 
 const carbonAssetLedgerTemplateColumns = [
@@ -567,6 +593,7 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
   const [ledgerImportOpen, setLedgerImportOpen] = useState(false)
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null)
   const [selectedScenarioId, setSelectedScenarioId] = useState<number | null>(null)
+  const [marketInstrument, setMarketInstrument] = useState<"CEA" | "CCER">("CEA")
   const [periodForm, setPeriodForm] = useState<PeriodForm>(defaultPeriodForm)
   const [accountForm, setAccountForm] = useState<AccountForm>(defaultAccountForm)
   const [allowanceForm, setAllowanceForm] = useState<AllowanceForm>(defaultAllowanceForm)
@@ -641,6 +668,10 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
     queryKey: [...QUERY_KEY, "forecast", activePeriodId, selectedScenarioId],
     queryFn: () => fetchCarbonApi<ForecastPayload>(`/api/carbon/assets/forecast${forecastQueryString({ period_id: activePeriodId, scenario_id: selectedScenarioId })}`),
   })
+  const marketPricesQuery = useQuery<ApiEnvelope<MarketPricesPayload>>({
+    queryKey: [...QUERY_KEY, "market-prices"],
+    queryFn: () => fetchCarbonApi<MarketPricesPayload>("/api/carbon/assets/market-prices?days=20"),
+  })
 
   const summary = summaryQuery.data?.data
   const sourceReadiness = sourceReadinessQuery.data?.data
@@ -655,6 +686,7 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
   const forecast = forecastQuery.data?.data
   const forecastResult = forecast?.result
   const monthlyPoints = forecast?.monthly_points ?? []
+  const marketPrices = marketPricesQuery.data?.data
 
   const activePeriodOptions = useMemo(() => periods.map((item) => ({ label: `${item.period_name} (${item.period_code})`, value: String(item.id) })), [periods])
 
@@ -963,6 +995,7 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
             <TabsTrigger value="allowances">配额台账</TabsTrigger>
             <TabsTrigger value="credits">CCER/绿证</TabsTrigger>
             <TabsTrigger value="periods">履约周期</TabsTrigger>
+            <TabsTrigger value="market">市场行情</TabsTrigger>
             <TabsTrigger value="transactions">交易模拟</TabsTrigger>
             <TabsTrigger value="forecast">滚动预测</TabsTrigger>
             <TabsTrigger value="risk">风险预警</TabsTrigger>
@@ -1231,6 +1264,24 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
               </Table>
             </SectionCard>
           </div>
+        </TabsContent>
+
+        <TabsContent value="market">
+          <MarketPricesPanel
+            payload={marketPrices}
+            instrument={marketInstrument}
+            onInstrumentChange={setMarketInstrument}
+            isLoading={marketPricesQuery.isLoading}
+            onUseLatest={(point) => {
+              setTransactionForm((state) => ({
+                ...state,
+                asset_type: point.instrument === "CEA" ? "quota" : "ccer",
+                unit_price: String(point.close),
+                counterparty: `${point.source_name}行情模拟`,
+              }))
+              setTransactionOpen(true)
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="transactions">
@@ -1542,6 +1593,97 @@ function PositionMetric({ label, value, unit }: { label: string; value?: number 
   return <MetricTile label={label} value={formatNumber(value)} unit={unit} />
 }
 
+function MarketPricesPanel({
+  payload,
+  instrument,
+  onInstrumentChange,
+  isLoading,
+  onUseLatest,
+}: {
+  payload?: MarketPricesPayload
+  instrument: "CEA" | "CCER"
+  onInstrumentChange: (value: "CEA" | "CCER") => void
+  isLoading?: boolean
+  onUseLatest: (point: MarketPricePoint) => void
+}) {
+  const points = (payload?.items ?? []).filter((item) => item.instrument === instrument)
+  const latestObserved = [...points].reverse().find((item) => item.is_observed)
+  const latest = payload?.latest[instrument] ?? latestObserved ?? points[points.length - 1]
+  const chartOption = createMarketKlineChartOption(points, { showVolume: instrument === "CCER" })
+
+  return (
+    <div className="space-y-4">
+      <ContextBar
+        actions={
+          latest ? (
+            <Button size="sm" onClick={() => onUseLatest(latest)}>
+              用最新价模拟
+            </Button>
+          ) : null
+        }
+      >
+        <Select value={instrument} onValueChange={(value) => onInstrumentChange(value as "CEA" | "CCER")}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="CEA">CEA 全国配额</SelectItem>
+            <SelectItem value="CCER">CCER 自愿减排量</SelectItem>
+          </SelectContent>
+        </Select>
+      </ContextBar>
+
+      <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
+        <PositionMetric label="最新价" value={latest?.close} unit="CNY/tCO2e" />
+        <MetricTile label="涨跌幅" value={latest?.change_pct === null || latest?.change_pct === undefined ? "-" : `${formatNumber(latest.change_pct)}%`} />
+        <PositionMetric label="成交量" value={latest?.volume} unit="吨" />
+        <PositionMetric label="成交额" value={latest?.turnover} unit="CNY" />
+      </MetricStrip>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
+        <ChartPanel
+          title={`${instrument} 价格K线`}
+          unit="元/吨"
+          source={latest?.source_name ?? payload?.source.name}
+          updatedAt={latest?.trade_date ?? payload?.source.source_date}
+          option={isLoading ? undefined : chartOption}
+          height={320}
+          emptyLabel={isLoading ? "正在加载行情…" : "暂无行情数据"}
+        />
+        <SectionCard title="行情明细" table>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>日期</TableHead>
+                <TableHead className="text-right">开盘</TableHead>
+                <TableHead className="text-right">收盘</TableHead>
+                <TableHead className="text-right">涨跌幅</TableHead>
+                <TableHead>来源</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {points
+                .slice()
+                .reverse()
+                .slice(0, 8)
+                .map((item) => (
+                  <TableRow key={`${item.instrument}-${item.trade_date}`}>
+                    <TableCell>{item.trade_date}</TableCell>
+                    <TableCell className="text-right">{formatNumber(item.open)}</TableCell>
+                    <TableCell className="text-right">{formatNumber(item.close)}</TableCell>
+                    <TableCell className="text-right">{item.change_pct === null || item.change_pct === undefined ? "-" : `${formatNumber(item.change_pct)}%`}</TableCell>
+                    <TableCell>{item.source_name || "行情序列"}</TableCell>
+                  </TableRow>
+                ))}
+              {points.length === 0 && <EmptyRow columns={5} />}
+            </TableBody>
+          </Table>
+        </SectionCard>
+      </div>
+    </div>
+  )
+}
+
 function CarbonAssetSourceReadinessPanel({ readiness }: { readiness?: CarbonAssetSourceReadiness }) {
   return (
     <AdminPanel contentClassName="grid gap-3 md:grid-cols-6" data-testid="carbon-assets-source-readiness-panel">
@@ -1556,7 +1698,7 @@ function CarbonAssetSourceReadinessPanel({ readiness }: { readiness?: CarbonAsse
         </div>
       </div>
       <PositionMetric label="可追溯台账" value={readiness?.traceable_ledger_count} />
-      <PositionMetric label="模拟种子" value={readiness?.simulation_seed_count} />
+      <PositionMetric label="待补充凭证" value={readiness?.simulation_seed_count} />
       <PositionMetric label="未追溯记录" value={readiness?.unverified_ledger_count} />
       <PositionMetric label="资产台账" value={readiness?.ledger_total_count} />
       <PositionMetric label="履约周期" value={readiness?.period_count} />

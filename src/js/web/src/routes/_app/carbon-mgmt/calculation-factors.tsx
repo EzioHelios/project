@@ -158,7 +158,7 @@ function CalculationFactorsPage() {
             ]}
           />
           {factorsQuery.isLoading && <div className="text-muted-foreground text-sm">正在加载...</div>}
-          {factorsQuery.isError && <div className="text-destructive text-sm">加载失败，请检查后端接口。</div>}
+          {factorsQuery.isError && <div className="text-destructive text-sm">数据加载失败，请稍后重试。</div>}
           {!factorsQuery.isLoading && !factorsQuery.isError && (
             <AdminDataTable>
               <Table>

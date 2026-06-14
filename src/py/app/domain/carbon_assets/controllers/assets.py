@@ -7,6 +7,7 @@ from litestar.params import Body
 from litestar.response import Response
 
 from app.domain.carbon_assets.queries.assets import CarbonAssetsQuery, CarbonAssetsQueryService
+from app.domain.carbon_assets.queries.market import CarbonMarketQueryService
 from app.domain.carbon_assets.usecases.assets import CarbonAssetLedgerImportUseCase, CarbonAssetsUseCase
 from app.domain.energy.controllers._utils import model_to_dict, ok_data
 
@@ -28,6 +29,11 @@ class CarbonAssetsController(Controller):
     @get("/api/carbon/assets/source-readiness")
     async def get_source_readiness(self, db_session: AsyncSession) -> Response[dict]:
         data = await CarbonAssetsQueryService(db_session).source_readiness()
+        return Response(content=ok_data(data))
+
+    @get("/api/carbon/assets/market-prices")
+    async def get_market_prices(self, instrument: str | None = None, days: int = 20) -> Response[dict]:
+        data = await CarbonMarketQueryService().market_prices(instrument=instrument, days=days)
         return Response(content=ok_data(data))
 
     @post("/api/carbon/assets/imports/ledger")

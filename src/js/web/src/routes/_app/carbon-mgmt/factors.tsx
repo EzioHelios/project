@@ -315,7 +315,7 @@ function FactorsPage() {
             className="rounded-md border border-border/70 bg-muted/20"
           />
           {recordsQuery.isLoading && <div className="text-muted-foreground text-sm">正在加载...</div>}
-          {recordsQuery.isError && <div className="text-destructive text-sm">加载失败，请检查后端接口。</div>}
+          {recordsQuery.isError && <div className="text-destructive text-sm">数据加载失败，请稍后重试。</div>}
           {!recordsQuery.isLoading && !recordsQuery.isError && (
             <AdminDataTable className="rounded-none border-0">
               <Table>

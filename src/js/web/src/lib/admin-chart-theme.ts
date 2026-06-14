@@ -85,6 +85,15 @@ export type AdminChartFlowLink = {
   value: number
 }
 
+export type AdminMarketKlinePoint = {
+  trade_date: string
+  open: number
+  close: number
+  low: number
+  high: number
+  volume?: number | null
+}
+
 export function getAdminChartColor(key: AdminChartColorKey | undefined, fallbackIndex = 0) {
   if (key && adminChartPalette[key]) return adminChartPalette[key]
   return adminChartSeriesColors[fallbackIndex % adminChartSeriesColors.length]
@@ -95,6 +104,14 @@ export function formatAdminChartNumber(value: number | null | undefined, digits 
   return Number(value).toLocaleString("zh-CN", {
     maximumFractionDigits: digits,
   })
+}
+
+function chartParamRecord(params: unknown) {
+  return params && typeof params === "object" ? (params as Record<string, unknown>) : {}
+}
+
+function chartParamNumber(value: unknown) {
+  return typeof value === "number" ? value : Number(value ?? 0)
 }
 
 export function createAdminChartOption(option: EChartsOption, config: AdminChartOptionConfig = {}): EChartsOption {
@@ -297,7 +314,10 @@ export function createRankingChartOption(items: AdminChartRankingItem[], config:
   return createAdminChartOption({
     tooltip: {
       trigger: "item",
-      formatter: (params: { name: string; value: number }) => `${params.name}<br/>${formatAdminChartNumber(params.value, 2)}${unit ? ` ${unit}` : ""}`,
+      formatter: (params: unknown) => {
+        const param = chartParamRecord(params)
+        return `${String(param.name ?? "")}<br/>${formatAdminChartNumber(chartParamNumber(param.value), 2)}${unit ? ` ${unit}` : ""}`
+      },
     },
     grid: {
       top: 8,
@@ -348,7 +368,7 @@ export function createRankingChartOption(items: AdminChartRankingItem[], config:
           position: "right",
           color: adminChartPalette.label,
           fontWeight: 600,
-          formatter: ({ value }: { value: number }) => `${formatAdminChartNumber(value, 2)}${unit ? ` ${unit}` : ""}`,
+          formatter: (params: unknown) => `${formatAdminChartNumber(chartParamNumber(chartParamRecord(params).value), 2)}${unit ? ` ${unit}` : ""}`,
         },
       },
     ],
@@ -361,8 +381,10 @@ export function createDistributionChartOption(items: AdminChartDistributionItem[
   return createAdminChartOption({
     tooltip: {
       trigger: "item",
-      formatter: (params: { name: string; value: number; percent: number }) =>
-        `${params.name}<br/>${formatAdminChartNumber(params.value, 2)}${unit ? ` ${unit}` : ""} (${params.percent}%)`,
+      formatter: (params: unknown) => {
+        const param = chartParamRecord(params)
+        return `${String(param.name ?? "")}<br/>${formatAdminChartNumber(chartParamNumber(param.value), 2)}${unit ? ` ${unit}` : ""} (${chartParamNumber(param.percent)}%)`
+      },
     },
     series: [
       {
@@ -439,7 +461,7 @@ export function createSankeyChartOption(
 ): EChartsOption | undefined {
   if (nodes.length === 0 || links.length === 0) return undefined
   const nameMap = new Map(nodes.map((node) => [node.id, node]))
-  const categoryColorMap = {
+  const categoryColorMap: Record<string, AdminChartColorKey> = {
     scope: "text",
     source: "energy",
     conversion: "cost",
@@ -449,7 +471,7 @@ export function createSankeyChartOption(
     result: "success",
     loss: "danger",
     ...config.categoryColorMap,
-  } satisfies Record<string, AdminChartColorKey>
+  }
   const colorForCategory = (category?: string) => getAdminChartColor(category ? categoryColorMap[category] : undefined, adminChartSeriesColors.length - 2)
   const sankeyNodes = nodes.map((node) => ({
     name: node.id,
@@ -480,14 +502,19 @@ export function createSankeyChartOption(
   return createAdminChartOption({
     tooltip: {
       trigger: "item",
-      formatter: (params: { dataType?: string; data?: { source?: string; target?: string; value?: number }; name?: string; value?: number }) => {
-        if (params.dataType === "edge" && params.data) {
-          const sourceNode = nameMap.get(params.data.source ?? "")
-          const targetNode = nameMap.get(params.data.target ?? "")
-          return `${sourceNode?.name ?? params.data.source}<br/>-> ${targetNode?.name ?? params.data.target}<br/>${formatAdminChartNumber(params.data.value ?? 0, 2)}`
+      formatter: (params: unknown) => {
+        const param = chartParamRecord(params)
+        const data = chartParamRecord(param.data)
+        if (param.dataType === "edge" && param.data) {
+          const source = String(data.source ?? "")
+          const target = String(data.target ?? "")
+          const sourceNode = nameMap.get(source)
+          const targetNode = nameMap.get(target)
+          return `${sourceNode?.name ?? source}<br/>-> ${targetNode?.name ?? target}<br/>${formatAdminChartNumber(chartParamNumber(data.value), 2)}`
         }
-        const node = nameMap.get(params.name ?? "")
-        return `${node?.name ?? params.name}<br/>${formatAdminChartNumber(params.value ?? 0, 2)}`
+        const name = String(param.name ?? "")
+        const node = nameMap.get(name)
+        return `${node?.name ?? name}<br/>${formatAdminChartNumber(chartParamNumber(param.value), 2)}`
       },
     },
     series: [
@@ -513,7 +540,8 @@ export function createSankeyChartOption(
         label: {
           color: adminChartPalette.label,
           fontSize: 12,
-          formatter: ({ name }: { name: string }) => {
+          formatter: (params: unknown) => {
+            const name = String(chartParamRecord(params).name ?? "")
             const node = nameMap.get(name)
             const amount = node?.value && node.value > 0 ? `\n${formatAdminChartNumber(node.value, 2)}` : ""
             return `${node?.name ?? name}${amount}`
@@ -521,5 +549,54 @@ export function createSankeyChartOption(
         },
       },
     ],
+  })
+}
+
+export function createMarketKlineChartOption(points: AdminMarketKlinePoint[], config: { showVolume?: boolean } = {}): EChartsOption | undefined {
+  if (points.length === 0) return undefined
+  const showVolume = config.showVolume ?? true
+  const categories = points.map((point) => point.trade_date)
+  const priceSeries: SeriesOption = {
+    type: "candlestick",
+    name: "价格",
+    data: points.map((point) => [point.open, point.close, point.low, point.high]),
+    itemStyle: {
+      color: adminChartPalette.danger,
+      color0: adminChartPalette.success,
+      borderColor: adminChartPalette.danger,
+      borderColor0: adminChartPalette.success,
+    },
+  }
+  const volumeSeries: SeriesOption | null = showVolume
+    ? {
+        type: "bar",
+        name: "成交量",
+        yAxisIndex: 1,
+        barMaxWidth: 10,
+        itemStyle: {
+          color: adminChartPalette.neutral,
+          opacity: 0.3,
+          borderRadius: [4, 4, 0, 0],
+        },
+        data: points.map((point) => point.volume ?? 0),
+      }
+    : null
+  return createAdminChartOption({
+    legend: {
+      top: 0,
+      left: 0,
+    },
+    xAxis: {
+      ...adminChartAxis.category(categories),
+      axisLabel: { color: adminChartPalette.axis, fontSize: 11, margin: 10 },
+    },
+    yAxis: [
+      adminChartAxis.value("元/吨"),
+      {
+        ...adminChartAxis.value("吨"),
+        splitLine: { show: false },
+      },
+    ],
+    series: volumeSeries ? [priceSeries, volumeSeries] : [priceSeries],
   })
 }

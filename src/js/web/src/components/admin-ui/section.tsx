@@ -2,7 +2,7 @@ import type * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-type AdminPanelProps = React.HTMLAttributes<HTMLElement> & {
+type AdminPanelProps = Omit<React.HTMLAttributes<HTMLElement>, "title"> & {
   title?: React.ReactNode
   actions?: React.ReactNode
   contentClassName?: string

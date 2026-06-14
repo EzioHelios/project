@@ -102,7 +102,7 @@ function sourceLabel(value?: string | null) {
   if (value === "manual_bill") return "账单补录"
   if (value === "raw_meter_fallback") return "电表明细回退"
   if (value === "activity_data") return "活动数据"
-  if (value === "demo_seed") return "演示样例"
+  if (value === "demo_seed") return "系统初始化"
   if (value === "empty") return "暂无来源"
   return value || "未标注"
 }

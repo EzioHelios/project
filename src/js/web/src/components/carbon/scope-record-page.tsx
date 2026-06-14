@@ -260,7 +260,7 @@ export function ScopeRecordPage<T extends ScopeRow>({
                     {listQuery.isLoading && <AdminTableStateRow colSpan={columns.length + 3}>正在加载数据…</AdminTableStateRow>}
                     {listQuery.isError && (
                       <AdminTableStateRow colSpan={columns.length + 3} tone="danger">
-                        加载失败，请检查后端接口。
+                        数据加载失败，请稍后重试。
                       </AdminTableStateRow>
                     )}
                   </TableBody>

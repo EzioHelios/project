@@ -1,12 +1,22 @@
 import { Link } from "@tanstack/react-router"
+import type { LucideIcon } from "lucide-react"
 import { ArrowRight, ClipboardCheck, Fuel, Landmark, PlugZap, Truck } from "lucide-react"
 
 import { AdminPanel, StatusBadge } from "@/components/admin-ui"
 import { CarbonAccountingResultsPanel } from "@/components/carbon/accounting-inventory-panel"
-import { ScopeRecordPage } from "@/components/carbon/scope-record-page"
-import { Scope2RecordsPanel } from "@/components/carbon/scope2-records-panel"
 import { Button } from "@/components/ui/button"
 import { PendingReviewPanel } from "@/routes/_app/carbon-mgmt/pending"
+
+type CarbonMgmtRoute =
+  | "/carbon-mgmt/scope1-stationary"
+  | "/carbon-mgmt/scope1-mobile"
+  | "/carbon-mgmt/scope1-refrigerant"
+  | "/carbon-mgmt/scope2-records"
+  | "/carbon-mgmt/scope2-bill"
+  | "/carbon-mgmt/scope2-purchased-energy"
+  | "/carbon-mgmt/scope2-reconciliation"
+  | "/carbon-mgmt/scope3-waste"
+  | "/carbon-mgmt/scope3-transport"
 
 export function AccountingOverviewPanel() {
   const entries = [
@@ -116,238 +126,84 @@ export function AccountingOverviewPanel() {
 
 export function Scope1AccountingPanel() {
   return (
-    <div className="space-y-4">
-      <Scope1MobilePanel />
-      <Scope1StationaryPanel />
-      <Scope1RefrigerantPanel />
-    </div>
+    <ScopeWorkflowPanel
+      title="Scope 1 直接排放"
+      icon={Fuel}
+      entries={[
+        { title: "固定源燃烧", category: "燃料燃烧", source: "锅炉、窑炉、备用发电机", to: "/carbon-mgmt/scope1-stationary" },
+        { title: "移动源燃烧", category: "车辆与移动设备", source: "自有车辆、叉车、非道路移动机械", to: "/carbon-mgmt/scope1-mobile" },
+        { title: "制冷剂逸散", category: "逸散排放", source: "冷库、空调、制冷机组补充记录", to: "/carbon-mgmt/scope1-refrigerant" },
+      ]}
+    />
   )
 }
 
 export function Scope2AccountingPanel() {
   return (
-    <div className="space-y-4">
-      <Scope2RecordsPanel defaultSourceKind="all" />
-      <div className="grid gap-4 md:grid-cols-3">
-        <EntryCard title="账单补录" to="/carbon-mgmt/scope2-bill" actionLabel="进入账单补录" />
-        <EntryCard title="外购热/汽/冷" to="/carbon-mgmt/scope2-purchased-energy" actionLabel="进入填报" />
-        <EntryCard title="数据对账" to="/carbon-mgmt/scope2-reconciliation" actionLabel="进入数据对账" />
-      </div>
-    </div>
+    <ScopeWorkflowPanel
+      title="Scope 2 外购能源"
+      icon={PlugZap}
+      entries={[
+        { title: "电表聚合", category: "自动采集", source: "电表读数、月度聚合、缺口估算", to: "/carbon-mgmt/scope2-records" },
+        { title: "电力账单", category: "人工补录", source: "电费账单、峰平谷电量、金额", to: "/carbon-mgmt/scope2-bill" },
+        { title: "外购热/汽/冷", category: "外购能源", source: "供应商结算单、折标与因子匹配", to: "/carbon-mgmt/scope2-purchased-energy" },
+        { title: "Scope2 对账", category: "校验闭环", source: "账单、电表、外购能源一致性", to: "/carbon-mgmt/scope2-reconciliation" },
+      ]}
+    />
   )
 }
 
 export function Scope3AccountingPanel() {
   return (
-    <div className="space-y-4">
-      <Scope3WastePanel />
-      <Scope3TransportPanel />
-    </div>
+    <ScopeWorkflowPanel
+      title="Scope 3 价值链活动"
+      icon={Truck}
+      entries={[
+        { title: "废弃物处理", category: "运营废弃物", source: "重量、处理方式、处置方", to: "/carbon-mgmt/scope3-waste" },
+        { title: "外购运输", category: "第三方物流", source: "运单、里程、载重、车型", to: "/carbon-mgmt/scope3-transport" },
+      ]}
+    />
   )
 }
 
 export { CarbonAccountingResultsPanel, PendingReviewPanel }
 
-function Scope1MobilePanel() {
-  return (
-    <ScopeRecordPage
-      embedded
-      title="[范围1] 移动源燃烧"
-      endpoint="/api/carbon/scope1-mobile-combustion"
-      queryKey={["carbon-mgmt", "scope1-mobile", "list"]}
-      searchPlaceholder="搜索：资产名称/燃料类型/单位…"
-      columns={[
-        { key: "record_date", label: "日期" },
-        { key: "asset_name", label: "资产名称" },
-        { key: "fuel_type", label: "燃料类型" },
-        { key: "amount", label: "用量", align: "right" },
-        { key: "unit", label: "单位" },
-      ]}
-      fields={[
-        { name: "record_date", label: "记录日期", type: "date", required: true },
-        { name: "asset_name", label: "资产/车辆名称", placeholder: "例如：叉车/货车" },
-        {
-          name: "fuel_type",
-          label: "燃料类型",
-          type: "select",
-          required: true,
-          options: [
-            { label: "柴油", value: "diesel" },
-            { label: "汽油", value: "gasoline" },
-            { label: "LNG", value: "lng" },
-            { label: "CNG", value: "cng" },
-          ],
-        },
-        { name: "amount", label: "用量", type: "number", required: true },
-        { name: "unit", label: "单位", required: true, placeholder: "L/kg/m3" },
-        { name: "remark", label: "备注", type: "textarea" },
-      ]}
-    />
-  )
-}
-
-function Scope1StationaryPanel() {
-  return (
-    <ScopeRecordPage
-      embedded
-      title="[范围1] 固定源燃烧"
-      endpoint="/api/carbon/scope1-stationary-combustion"
-      queryKey={["carbon-mgmt", "scope1-stationary", "list"]}
-      searchPlaceholder="搜索：设施名称/燃料类型/单位…"
-      columns={[
-        { key: "facility_name", label: "设施名称" },
-        { key: "period_start", label: "开始日期" },
-        { key: "period_end", label: "结束日期" },
-        { key: "fuel_type", label: "燃料类型" },
-        { key: "amount", label: "用量", align: "right" },
-        { key: "unit", label: "单位" },
-      ]}
-      fields={[
-        { name: "facility_name", label: "设施名称", required: true, placeholder: "例如：锅炉/发电机" },
-        { name: "period_start", label: "开始日期", type: "date", required: true },
-        { name: "period_end", label: "结束日期", type: "date", required: true },
-        {
-          name: "fuel_type",
-          label: "燃料类型",
-          type: "select",
-          required: true,
-          options: [
-            { label: "柴油", value: "diesel" },
-            { label: "汽油", value: "gasoline" },
-            { label: "LNG", value: "lng" },
-            { label: "CNG", value: "cng" },
-            { label: "天然气", value: "natural_gas" },
-          ],
-        },
-        { name: "amount", label: "用量", type: "number", required: true },
-        { name: "unit", label: "单位", required: true, placeholder: "L/kg/m3" },
-        { name: "meter_reading_start", label: "读数（开始）", type: "number" },
-        { name: "meter_reading_end", label: "读数（结束）", type: "number" },
-        { name: "remark", label: "备注", type: "textarea" },
-      ]}
-    />
-  )
-}
-
-function Scope1RefrigerantPanel() {
-  return (
-    <ScopeRecordPage
-      embedded
-      title="[范围1] 制冷剂逸散"
-      endpoint="/api/carbon/scope1-refrigerant-leak"
-      queryKey={["carbon-mgmt", "scope1-refrigerant", "list"]}
-      searchPlaceholder="搜索：设备名称/制冷剂类型/类型…"
-      columns={[
-        { key: "fill_date", label: "日期" },
-        { key: "device_name", label: "设备名称" },
-        { key: "refrigerant_type", label: "制冷剂类型" },
-        { key: "amount_kg", label: "数量(kg)", align: "right" },
-        { key: "leak_type", label: "类型" },
-      ]}
-      fields={[
-        { name: "fill_date", label: "填充/泄漏日期", type: "date", required: true },
-        { name: "device_name", label: "设备名称", placeholder: "例如：冷库机组" },
-        { name: "refrigerant_type", label: "制冷剂类型", required: true, placeholder: "例如：R410A" },
-        { name: "amount_kg", label: "数量(kg)", type: "number", required: true },
-        {
-          name: "leak_type",
-          label: "类型",
-          type: "select",
-          required: true,
-          options: [
-            { label: "填充", value: "fill" },
-            { label: "泄漏", value: "leak" },
-            { label: "维修补充", value: "repair" },
-          ],
-        },
-        { name: "remark", label: "备注", type: "textarea" },
-      ]}
-    />
-  )
-}
-
-function Scope3WastePanel() {
-  return (
-    <ScopeRecordPage
-      embedded
-      title="[范围3] 废弃物处理"
-      endpoint="/api/carbon/scope3-waste-disposal"
-      queryKey={["carbon-mgmt", "scope3-waste", "list"]}
-      searchPlaceholder="搜索：类别/处理方式/处置方…"
-      columns={[
-        { key: "date", label: "日期" },
-        { key: "category", label: "类别" },
-        { key: "weight_ton", label: "重量(吨)", align: "right" },
-        { key: "treatment_method", label: "处理方式" },
-        { key: "vendor_name", label: "处置方" },
-      ]}
-      fields={[
-        { name: "date", label: "日期", type: "date", required: true },
-        { name: "category", label: "类别", required: true, placeholder: "例如：生活垃圾/包装物" },
-        { name: "weight_ton", label: "重量(吨)", type: "number", required: true },
-        {
-          name: "treatment_method",
-          label: "处理方式",
-          type: "select",
-          required: true,
-          options: [
-            { label: "焚烧", value: "incineration" },
-            { label: "填埋", value: "landfill" },
-            { label: "回收", value: "recycle" },
-            { label: "堆肥", value: "compost" },
-          ],
-        },
-        { name: "vendor_name", label: "供应商/处置方" },
-        { name: "remark", label: "备注", type: "textarea" },
-      ]}
-    />
-  )
-}
-
-function Scope3TransportPanel() {
-  return (
-    <ScopeRecordPage
-      embedded
-      title="[范围3] 外购运输"
-      endpoint="/api/carbon/scope3-third-party-transport"
-      queryKey={["carbon-mgmt", "scope3-transport", "list"]}
-      searchPlaceholder="搜索：运单号/起点/终点/车辆类型…"
-      columns={[
-        { key: "waybill_no", label: "运单号" },
-        { key: "origin", label: "起点" },
-        { key: "destination", label: "终点" },
-        { key: "vehicle_type", label: "车辆类型" },
-        { key: "distance_km", label: "距离(km)", align: "right" },
-        { key: "load_ton", label: "载重(吨)", align: "right" },
-      ]}
-      fields={[
-        { name: "waybill_no", label: "运单号", required: true },
-        { name: "origin", label: "起点", required: true },
-        { name: "destination", label: "终点", required: true },
-        { name: "vehicle_type", label: "车辆类型", required: true },
-        { name: "distance_km", label: "距离(km)", type: "number", required: true },
-        { name: "load_ton", label: "载重(吨)", type: "number", required: true },
-        { name: "fuel_amount", label: "燃料用量", type: "number" },
-        { name: "remark", label: "备注", type: "textarea" },
-      ]}
-    />
-  )
-}
-
-function EntryCard({
+function ScopeWorkflowPanel({
   title,
-  actionLabel,
-  to,
+  icon: Icon,
+  entries,
 }: {
   title: string
-  actionLabel: string
-  to: "/carbon-mgmt/scope2-bill" | "/carbon-mgmt/scope2-purchased-energy" | "/carbon-mgmt/scope2-reconciliation"
+  icon: LucideIcon
+  entries: Array<{ title: string; category: string; source: string; to: CarbonMgmtRoute }>
 }) {
   return (
-    <AdminPanel title={title}>
-      <Button asChild>
-        <Link to={to}>{actionLabel}</Link>
-      </Button>
+    <AdminPanel
+      title={
+        <span className="flex items-center gap-2">
+          <Icon className="h-4 w-4 text-muted-foreground" />
+          <span>{title}</span>
+        </span>
+      }
+      contentClassName="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+    >
+      {entries.map((entry) => (
+        <Link
+          key={entry.to}
+          to={entry.to}
+          className="group flex min-h-32 flex-col justify-between rounded-md border border-border/70 bg-background/70 p-4 transition-colors hover:border-primary/25 hover:bg-accent/35"
+        >
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="rounded-sm bg-muted px-2 py-1 text-muted-foreground text-xs">{entry.category}</span>
+              <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+            </div>
+            <div className="mt-3 font-medium text-sm">{entry.title}</div>
+            <div className="mt-2 text-muted-foreground text-xs leading-5">{entry.source}</div>
+          </div>
+          <div className="mt-4 text-primary text-xs">进入台账</div>
+        </Link>
+      ))}
     </AdminPanel>
   )
 }

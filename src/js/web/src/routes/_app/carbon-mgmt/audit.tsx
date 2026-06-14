@@ -133,7 +133,7 @@ export function AuditLogPanel() {
         }
       />
       {isLoading && <div className="text-sm text-muted-foreground">正在加载…</div>}
-      {isError && <div className="text-sm text-destructive">加载失败，请检查后端接口。</div>}
+      {isError && <div className="text-sm text-destructive">数据加载失败，请稍后重试。</div>}
       {!isLoading && !isError && (
         <AdminDataTable>
           <Table>

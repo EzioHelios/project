@@ -1,5 +1,5 @@
 import type { EChartsOption } from "echarts"
-import { BarChart, GaugeChart, LineChart, PieChart, SankeyChart } from "echarts/charts"
+import { BarChart, CandlestickChart, GaugeChart, LineChart, PieChart, SankeyChart } from "echarts/charts"
 import { GridComponent, LegendComponent, TitleComponent, TooltipComponent } from "echarts/components"
 import * as echarts from "echarts/core"
 import { CanvasRenderer } from "echarts/renderers"
@@ -10,7 +10,7 @@ import { AdminEmptyState } from "@/components/admin-ui/empty-state"
 import { AdminPanel } from "@/components/admin-ui/section"
 import { cn } from "@/lib/utils"
 
-echarts.use([LineChart, BarChart, PieChart, GaugeChart, SankeyChart, GridComponent, LegendComponent, TitleComponent, TooltipComponent, CanvasRenderer])
+echarts.use([LineChart, BarChart, PieChart, GaugeChart, SankeyChart, CandlestickChart, GridComponent, LegendComponent, TitleComponent, TooltipComponent, CanvasRenderer])
 
 type ChartPanelProps = {
   title: React.ReactNode

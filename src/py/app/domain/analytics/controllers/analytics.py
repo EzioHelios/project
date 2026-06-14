@@ -1538,12 +1538,12 @@ class EnergyCarbonCenterController(Controller):
                     {
                         "id": f"demo:{item['record_type']}:{item['row'].id}",
                         "issue_code": "demo_seed_present",
-                        "issue_type": "演示样例",
+                        "issue_type": "初始化数据",
                         "severity": "low",
                         "module": item["scope"],
                         "object_name": item["display_name"],
                         "period": item["period"],
-                        "message": "该记录为演示样例，仅用于工作台展示闭环。",
+                        "message": "该记录需要补充业务来源或审核凭证。",
                         "record_type": item["record_type"],
                         "record_id": item["row"].id,
                     }
@@ -2752,7 +2752,7 @@ class EnergyCarbonCenterController(Controller):
             target_type="demo_seed",
             details={"query_scope": {"months": months}, "deleted": deleted, "created": created},
         )
-        return Response(content={"code": 200, "msg": "演示样例已重建", "data": {"deleted": deleted, "created": created}})
+        return Response(content={"code": 200, "msg": "初始化数据已重建", "data": {"deleted": deleted, "created": created}})
 
     @delete("/api/energy-carbon/admin/seed/demo-carbon", guards=[requires_superuser], status_code=200)
     async def admin_delete_demo_carbon(
@@ -2769,4 +2769,4 @@ class EnergyCarbonCenterController(Controller):
             target_type="demo_seed",
             details={"deleted": deleted},
         )
-        return Response(content={"code": 200, "msg": "演示样例已清理", "data": {"deleted": deleted}})
+        return Response(content={"code": 200, "msg": "初始化数据已清理", "data": {"deleted": deleted}})

@@ -2195,7 +2195,7 @@ def _source_kind_label(source_kind: str | None) -> str:
     if source_kind == SOURCE_KIND_MANUAL_BILL:
         return "账单补录"
     if source_kind == SOURCE_KIND_DEMO_SEED:
-        return "演示样例"
+        return "系统初始化"
     if source_kind == SOURCE_KIND_FALLBACK:
         return "明细回退"
     if source_kind == SOURCE_KIND_ESTIMATE:
