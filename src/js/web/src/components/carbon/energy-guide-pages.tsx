@@ -7,7 +7,6 @@ import { toast } from "sonner"
 import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, ContextBar, MetricStrip, MetricTile, PageImportPanel } from "@/components/admin-ui"
 import { type ApiEnvelope, CompositeTrendChart, DiagnosticsPanel, DistributionChart, FlowGraph, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
 import { JumpLinks } from "@/components/carbon/energy-carbon-center"
-import { EnergySourceReadinessPanel } from "@/components/carbon/energy-source-readiness"
 import { energyImportFieldMap, submitEnergyDatasetImport } from "@/components/carbon/page-import-configs"
 import { type PageResult, PaginationBar, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
@@ -969,17 +968,14 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
             <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="区域关键字" />
           </ContextBar>
         }
-        metrics={
+      >
+        <TabsContent value="summary" className="space-y-4">
           <MetricStrip className="md:grid-cols-4 xl:grid-cols-4">
             <MetricTile label="记录数" value={summary?.totals.record_count ?? 0} />
             <MetricTile label="原始消费量" value={formatNumber(summary?.totals.original_amount)} />
             <MetricTile label="折标煤" value={formatNumber(summary?.totals.tce_amount)} unit="tce" />
             <MetricTile label="CO2e" value={formatNumber(summary?.totals.co2e_amount, 2)} unit="kg" />
           </MetricStrip>
-        }
-      >
-        <EnergySourceReadinessPanel focus="energy_consumption" />
-        <TabsContent value="summary" className="space-y-4">
           <PageSection>
             <AdminPanel title="按能源品种汇总" contentClassName="p-0">
               <AdminDataTable className="rounded-none border-0">
@@ -1516,17 +1512,14 @@ export function EnergyIntensityPanel({ header }: { header?: ReactNode }) {
             </Select>
           </ContextBar>
         }
-        metrics={
+      >
+        <TabsContent value="summary" className="space-y-4">
           <MetricStrip>
             <MetricTile label="综合能耗" value={formatEnergyValue(summary?.totals.total_tce, 4)} unit="tce" />
             <MetricTile label="折标煤" value={formatEnergyValue(summary?.totals.total_kgce, 2)} unit="kgce" />
             <MetricTile label="外购电力" value={formatEnergyValue(summary?.totals.electricity_kwh, 2)} unit="kWh" />
             <MetricTile label="记录数" value={formatEnergyValue(summary?.totals.record_count, 0)} />
           </MetricStrip>
-        }
-      >
-        <EnergySourceReadinessPanel focus="energy_intensity" />
-        <TabsContent value="summary" className="space-y-4">
           <PageSection className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
             <AdminPanel title="能源品种汇总" contentClassName="p-0">
               <AdminDataTable className="rounded-none border-0">
@@ -1906,17 +1899,14 @@ export function EnergyAnalysisPanel({ header }: { header?: ReactNode }) {
             </Select>
           </ContextBar>
         }
-        metrics={
+      >
+        <TabsContent value="structure" className="space-y-4">
           <MetricStrip>
             <MetricTile label="总用电量" value={formatEnergyValue(summary?.totals.total_energy, 2)} unit="kWh" />
             <MetricTile label="用能系统" value={formatEnergyValue(summary?.totals.system_count, 0)} />
             <MetricTile label="设备数" value={formatEnergyValue(summary?.totals.equipment_count, 0)} />
             <MetricTile label="区域数" value={formatEnergyValue(summary?.totals.area_count, 0)} />
           </MetricStrip>
-        }
-      >
-        <EnergySourceReadinessPanel focus="energy_analysis" />
-        <TabsContent value="structure" className="space-y-4">
           <PageSection className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
             <RankingList
               title="用能系统排行"
@@ -2179,17 +2169,14 @@ export function EnergyFlowPanel({ header }: { header?: ReactNode }) {
             <Input value={lossThreshold} onChange={(event) => setLossThreshold(event.target.value)} placeholder="损耗阈值%" />
           </ContextBar>
         }
-        metrics={
+      >
+        <TabsContent value="graph" className="space-y-4">
           <MetricStrip>
             <EnergyFlowKpi title="输入" value={summary?.total_input} unit="kWh" />
             <EnergyFlowKpi title="有效利用" value={summary?.utilized_energy} unit="kWh" />
             <EnergyFlowKpi title="总损耗率" value={summary?.loss_rate_pct} unit="%" />
             <EnergyFlowKpi title="高损耗链路" value={summary?.high_loss_count} unit="条" />
           </MetricStrip>
-        }
-      >
-        <EnergySourceReadinessPanel focus="energy_flow" />
-        <TabsContent value="graph" className="space-y-4">
           <PageSection>
             <FlowGraph
               title={flowQuery.data?.data.title ?? "园区能流图"}
@@ -2460,8 +2447,9 @@ export function EnergyBalancePanel({ header }: { header?: ReactNode }) {
             <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="区域/设备" />
           </ContextBar>
         }
-        metrics={
-          (overviewQuery.data?.data.cards ?? []).length ? (
+      >
+        <TabsContent value="table" className="space-y-4">
+          {(overviewQuery.data?.data.cards ?? []).length ? (
             <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
               {overviewQuery.data?.data.cards.slice(0, 4).map((item) => (
                 <EnergyFlowKpi key={item.label} title={item.label} value={item.value} unit={item.unit} />
@@ -2469,11 +2457,7 @@ export function EnergyBalancePanel({ header }: { header?: ReactNode }) {
             </MetricStrip>
           ) : (
             <AdminPanel contentClassName="py-8 text-center text-muted-foreground">暂无平衡数据</AdminPanel>
-          )
-        }
-      >
-        <EnergySourceReadinessPanel focus="energy_analysis" />
-        <TabsContent value="table">
+          )}
           <PageSection>
             <AdminPanel title="能量平衡表" actions={summary ? balanceQualityBadge(summary.quality) : null} contentClassName="p-0">
               <AdminDataTable className="rounded-none border-0">

@@ -7,7 +7,6 @@ import { toast } from "sonner"
 
 import { AdminDataTable, AdminEmptyState, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { fetchCarbonApi } from "@/components/carbon/analytics-panels"
-import { EnergySourceReadinessPanel } from "@/components/carbon/energy-source-readiness"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -397,16 +396,7 @@ export function EnergyBenchmarkPanel({ header }: { header?: ReactNode }) {
             </Select>
           </ContextBar>
         }
-        metrics={
-          <MetricStrip className="md:grid-cols-4 xl:grid-cols-4">
-            <StatCard label="对标对象" value={conclusions?.summary.total ?? comparisons.length} />
-            <StatCard label="重点偏差" value={conclusions?.summary.status_counts?.severe ?? 0} />
-            <StatCard label="预警对象" value={conclusions?.summary.status_counts?.warning ?? 0} />
-            <StatCard label="节能潜力" value={formatNumber(conclusions?.summary.saving_potential)} suffix={conclusions?.summary.unit} />
-          </MetricStrip>
-        }
       >
-        <EnergySourceReadinessPanel focus="benchmarking" />
         <TabsContent value="baseline" className="space-y-4">
           <AdminPanel
             title="历史基线"
@@ -549,7 +539,13 @@ export function EnergyBenchmarkPanel({ header }: { header?: ReactNode }) {
           </div>
         </TabsContent>
 
-        <TabsContent value="comparison">
+        <TabsContent value="comparison" className="space-y-4">
+          <MetricStrip className="md:grid-cols-4 xl:grid-cols-4">
+            <StatCard label="对标对象" value={conclusions?.summary.total ?? comparisons.length} />
+            <StatCard label="重点偏差" value={conclusions?.summary.status_counts?.severe ?? 0} />
+            <StatCard label="预警对象" value={conclusions?.summary.status_counts?.warning ?? 0} />
+            <StatCard label="节能潜力" value={formatNumber(conclusions?.summary.saving_potential)} suffix={conclusions?.summary.unit} />
+          </MetricStrip>
           <AdminPanel
             title="设备/工序对标"
             actions={

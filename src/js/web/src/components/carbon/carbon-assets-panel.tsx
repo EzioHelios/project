@@ -99,22 +99,6 @@ type CarbonAssetsSummary = {
   latest_position: CompliancePosition
 }
 
-type CarbonAssetSourceReadiness = {
-  status: string
-  period_count: number
-  account_count: number
-  allowance_count: number
-  credit_count: number
-  transaction_count: number
-  surrender_count: number
-  forecast_scenario_count: number
-  ledger_total_count: number
-  traceable_ledger_count: number
-  simulation_seed_count: number
-  simulated_transaction_count: number
-  unverified_ledger_count: number
-}
-
 type CarbonAssetLedgerImportResult = {
   received_count: number
   imported_count: number
@@ -439,14 +423,6 @@ const riskLabels: Record<string, string> = {
   unlocked_inventory: "未锁定",
 }
 
-const sourceReadinessLabels: Record<string, string> = {
-  partial_source: "部分确认",
-  real_source_ready: "来源已确认",
-  simulation_only: "待补充凭证",
-  source_missing: "来源缺失",
-  unverified_source: "待确认来源",
-}
-
 const carbonAssetLedgerTemplateColumns = [
   "dataset",
   "period_code",
@@ -610,10 +586,6 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
     queryKey: [...QUERY_KEY, "summary"],
     queryFn: () => fetchCarbonApi<CarbonAssetsSummary>("/api/carbon/assets/summary"),
   })
-  const sourceReadinessQuery = useQuery<ApiEnvelope<CarbonAssetSourceReadiness>>({
-    queryKey: [...QUERY_KEY, "source-readiness"],
-    queryFn: () => fetchCarbonApi<CarbonAssetSourceReadiness>("/api/carbon/assets/source-readiness"),
-  })
   const periodsQuery = useQuery<PageResult<CompliancePeriod>>({
     queryKey: [...QUERY_KEY, "periods"],
     queryFn: () => requestPage<CompliancePeriod>("/api/carbon/assets/compliance-periods", { limit: 100 }),
@@ -674,13 +646,13 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
   })
 
   const summary = summaryQuery.data?.data
-  const sourceReadiness = sourceReadinessQuery.data?.data
   const position = positionQuery.data?.data ?? summary?.latest_position
   const allowances = allowancesQuery.data?.items ?? []
   const credits = creditsQuery.data?.items ?? []
   const transactions = transactionsQuery.data?.items ?? []
   const surrenders = surrendersQuery.data?.items ?? []
   const alerts = alertsQuery.data?.data.items ?? []
+  const periodAlerts = activePeriodId ? alerts.filter((item) => item.period_id === activePeriodId) : alerts
   const recommendations = recommendationsQuery.data?.data.items ?? []
   const forecastScenarios = forecastScenariosQuery.data?.items ?? []
   const forecast = forecastQuery.data?.data
@@ -984,6 +956,29 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
     </Dialog>
   )
 
+  const surrenderAction = (
+    <Dialog open={surrenderOpen} onOpenChange={setSurrenderOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">
+          <Plus className="mr-2 size-4" />
+          新增清缴
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>新增清缴</DialogTitle>
+          <DialogDescription className="sr-only">维护履约清缴的配额和碳信用使用量。</DialogDescription>
+        </DialogHeader>
+        <SurrenderFormView form={surrenderForm} setForm={setSurrenderForm} periods={periods} accounts={accounts} allowances={allowances} credits={credits} />
+        <DialogFooter>
+          <Button onClick={() => createSurrender.mutate()} disabled={createSurrender.isPending}>
+            保存
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+
   return (
     <Tabs defaultValue="allowances" className="space-y-4">
       <AdminPageScaffold
@@ -1001,40 +996,15 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
             <TabsTrigger value="risk">风险预警</TabsTrigger>
           </AdminTabsList>
         }
-        filters={
-          <ContextBar
-            actions={
-              <Button variant="outline" size="sm" onClick={() => invalidateAssets(qc)}>
-                <RefreshCw className="mr-2 size-4" />
-                刷新
-              </Button>
-            }
-          >
-            <Select value={activePeriodId ? String(activePeriodId) : ""} onValueChange={(value) => setSelectedPeriodId(Number(value))}>
-              <SelectTrigger>
-                <SelectValue placeholder="选择履约周期" />
-              </SelectTrigger>
-              <SelectContent>
-                {activePeriodOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </ContextBar>
-        }
-        metrics={
+      >
+        <TabsContent value="allowances" className="space-y-4">
+          <AssetPeriodFilter activePeriodId={activePeriodId} options={activePeriodOptions} onChange={setSelectedPeriodId} onRefresh={() => invalidateAssets(qc)} />
           <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
             <PositionMetric label="配额可用" value={summary?.allowance_available} unit="tCO2e" />
-            <PositionMetric label="信用可用" value={summary?.credit_available} unit="tCO2e" />
             <PositionMetric label="核定排放" value={position?.verified_emission} unit="tCO2e" />
+            <PositionMetric label="已清缴" value={position?.surrendered_amount} unit="tCO2e" />
             <PositionMetric label="缺口" value={position?.gap_amount} unit="tCO2e" />
           </MetricStrip>
-        }
-      >
-        <CarbonAssetSourceReadinessPanel readiness={sourceReadiness} />
-        <TabsContent value="allowances">
           <SectionCard
             title="配额台账"
             table
@@ -1093,7 +1063,12 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
           </SectionCard>
         </TabsContent>
 
-        <TabsContent value="credits">
+        <TabsContent value="credits" className="space-y-4">
+          <MetricStrip className="md:grid-cols-2 xl:grid-cols-3">
+            <PositionMetric label="信用可用" value={summary?.credit_available} unit="tCO2e" />
+            <PositionMetric label="信用持仓" value={credits.length} />
+            <PositionMetric label="资产账户" value={creditAccounts.length} />
+          </MetricStrip>
           <SectionCard
             title="CCER/绿证"
             table
@@ -1317,32 +1292,7 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
               </div>
             </SectionCard>
 
-            <SectionCard
-              title="模拟记录"
-              table
-              action={
-                <Dialog open={surrenderOpen} onOpenChange={setSurrenderOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" variant="outline">
-                      <Plus className="mr-2 size-4" />
-                      新增清缴
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>新增清缴</DialogTitle>
-                      <DialogDescription className="sr-only">维护履约清缴的配额和碳信用使用量。</DialogDescription>
-                    </DialogHeader>
-                    <SurrenderFormView form={surrenderForm} setForm={setSurrenderForm} periods={periods} accounts={accounts} allowances={allowances} credits={credits} />
-                    <DialogFooter>
-                      <Button onClick={() => createSurrender.mutate()} disabled={createSurrender.isPending}>
-                        保存
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              }
-            >
+            <SectionCard title="模拟记录" table>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1376,6 +1326,7 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
 
         <TabsContent value="forecast">
           <div className="space-y-4">
+            <AssetPeriodFilter activePeriodId={activePeriodId} options={activePeriodOptions} onChange={setSelectedPeriodId} onRefresh={() => invalidateAssets(qc)} />
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               <PositionMetric label="预测排放" value={forecastResult?.forecast_emission} unit="tCO2e" />
               <PositionMetric label="预测资产" value={forecastResult?.forecast_available_assets} unit="tCO2e" />
@@ -1493,7 +1444,25 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
           </div>
         </TabsContent>
 
-        <TabsContent value="risk">
+        <TabsContent value="risk" className="space-y-4">
+          <AssetPeriodFilter activePeriodId={activePeriodId} options={activePeriodOptions} onChange={setSelectedPeriodId} onRefresh={() => invalidateAssets(qc)} />
+          <AdminPanel contentClassName="grid gap-3 md:grid-cols-2">
+            <div className="rounded-md border p-3">
+              <div className="text-xs text-muted-foreground">风险等级</div>
+              <div className="mt-2">
+                <RiskBadge value={position?.risk_level ?? "empty"} />
+              </div>
+            </div>
+            <div className="rounded-md border p-3">
+              <div className="text-xs text-muted-foreground">清单口径</div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <RiskBadge value={position?.inventory_status ?? "empty"} />
+                {position?.accounting_batch_id ? <Badge variant="outline">批次 {position.accounting_batch_id}</Badge> : null}
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">{position?.inventory_message ?? "-"}</div>
+            </div>
+          </AdminPanel>
+
           <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
             <SectionCard title="风险预警" table>
               <Table>
@@ -1507,7 +1476,7 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {alerts.map((item) => (
+                  {periodAlerts.map((item) => (
                     <TableRow key={item.period_id}>
                       <TableCell>{item.period_name}</TableCell>
                       <TableCell>
@@ -1518,7 +1487,7 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
                       <TableCell>{item.message}</TableCell>
                     </TableRow>
                   ))}
-                  {alerts.length === 0 && <EmptyRow columns={5} />}
+                  {periodAlerts.length === 0 && <EmptyRow columns={5} />}
                 </TableBody>
               </Table>
             </SectionCard>
@@ -1538,7 +1507,7 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
               </div>
             </SectionCard>
 
-            <SectionCard title="清缴记录" table>
+            <SectionCard title="清缴记录" table action={surrenderAction}>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1567,25 +1536,44 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
             </SectionCard>
           </div>
         </TabsContent>
-
-        <AdminPanel contentClassName="grid gap-3 md:grid-cols-2">
-          <div className="rounded-md border p-3">
-            <div className="text-xs text-muted-foreground">风险等级</div>
-            <div className="mt-2">
-              <RiskBadge value={position?.risk_level ?? "empty"} />
-            </div>
-          </div>
-          <div className="rounded-md border p-3">
-            <div className="text-xs text-muted-foreground">清单口径</div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <RiskBadge value={position?.inventory_status ?? "empty"} />
-              {position?.accounting_batch_id ? <Badge variant="outline">批次 {position.accounting_batch_id}</Badge> : null}
-            </div>
-            <div className="mt-2 text-xs text-muted-foreground">{position?.inventory_message ?? "-"}</div>
-          </div>
-        </AdminPanel>
       </AdminPageScaffold>
     </Tabs>
+  )
+}
+
+function AssetPeriodFilter({
+  activePeriodId,
+  options,
+  onChange,
+  onRefresh,
+}: {
+  activePeriodId: number | null
+  options: { label: string; value: string }[]
+  onChange: (value: number | null) => void
+  onRefresh: () => void
+}) {
+  return (
+    <ContextBar
+      actions={
+        <Button variant="outline" size="sm" onClick={onRefresh}>
+          <RefreshCw className="mr-2 size-4" />
+          刷新
+        </Button>
+      }
+    >
+      <Select value={activePeriodId ? String(activePeriodId) : ""} onValueChange={(value) => onChange(Number(value))} disabled={!options.length}>
+        <SelectTrigger>
+          <SelectValue placeholder="选择履约周期" />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </ContextBar>
   )
 }
 
@@ -1684,28 +1672,6 @@ function MarketPricesPanel({
   )
 }
 
-function CarbonAssetSourceReadinessPanel({ readiness }: { readiness?: CarbonAssetSourceReadiness }) {
-  return (
-    <AdminPanel contentClassName="grid gap-3 md:grid-cols-6" data-testid="carbon-assets-source-readiness-panel">
-      <div className="rounded-md border p-3">
-        <div className="text-xs text-muted-foreground">资产来源</div>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <CarbonAssetSourceBadge value={readiness?.status ?? "source_missing"} />
-          <Button type="button" variant="outline" size="sm" onClick={downloadCarbonAssetLedgerTemplate} data-testid="carbon-assets-ledger-template-download">
-            <Download className="mr-2 size-4" />
-            下载台账模板
-          </Button>
-        </div>
-      </div>
-      <PositionMetric label="可追溯台账" value={readiness?.traceable_ledger_count} />
-      <PositionMetric label="待补充凭证" value={readiness?.simulation_seed_count} />
-      <PositionMetric label="未追溯记录" value={readiness?.unverified_ledger_count} />
-      <PositionMetric label="资产台账" value={readiness?.ledger_total_count} />
-      <PositionMetric label="履约周期" value={readiness?.period_count} />
-    </AdminPanel>
-  )
-}
-
 function SectionCard({ title, action, children, table }: { title: string; action?: React.ReactNode; children: React.ReactNode; table?: boolean }) {
   return (
     <AdminPanel title={title} actions={action} contentClassName={table ? "p-0" : undefined}>
@@ -1718,11 +1684,6 @@ function RiskBadge({ value }: { value: string }) {
   const variant =
     value === "red" || value === "orange" || value === "unlocked_inventory" || value === "missing_inventory_total" || value === "missing_batch" ? "destructive" : "outline"
   return <Badge variant={variant}>{riskLabels[value] ?? value}</Badge>
-}
-
-function CarbonAssetSourceBadge({ value }: { value: string }) {
-  const variant = value === "source_missing" || value === "unverified_source" ? "destructive" : "outline"
-  return <Badge variant={variant}>{sourceReadinessLabels[value] ?? value}</Badge>
 }
 
 function downloadCarbonAssetLedgerTemplate() {

@@ -4,9 +4,8 @@ import type { ReactNode } from "react"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
-import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, MetricStrip, MetricTile } from "@/components/admin-ui"
+import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, ChartPanel, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
-import { BusinessSourceReadinessPanel } from "@/components/carbon/business-source-readiness"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
@@ -18,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { createDistributionChartOption, createRankingChartOption, createSankeyChartOption } from "@/lib/admin-chart-theme"
 
 type ProductFootprintSummary = {
   study_count: number
@@ -405,6 +405,25 @@ export function ProductFootprintPanel({ header }: { header?: ReactNode }) {
   const latestResult = reportQuery.data?.data.latest_result ?? results[0] ?? activeStudy?.latest_result ?? null
   const stageSummary = reportQuery.data?.data.stage_summary ?? latestResult?.stage_payload ?? []
   const qualitySummary = reportQuery.data?.data.quality_summary ?? {}
+  const productFootprintRanking = useMemo(() => buildProductFootprintRanking(studies), [studies])
+  const stageDistribution = useMemo(
+    () => stageSummary.map((item) => ({ name: item.stage_name || item.stage_code, value: item.kg_co2e })).filter((item) => item.value > 0),
+    [stageSummary],
+  )
+  const stageDistributionOption = useMemo(() => createDistributionChartOption(stageDistribution, { unit: "kgCO2e" }), [stageDistribution])
+  const productRankingOption = useMemo(() => createRankingChartOption(productFootprintRanking, { unit: "kgCO2e", colorKey: "carbon", limit: 8 }), [productFootprintRanking])
+  const footprintFlow = useMemo(() => buildProductFootprintFlow(stageSummary, inventoryItems, latestResult?.total_co2e), [stageSummary, inventoryItems, latestResult?.total_co2e])
+  const footprintFlowOption = useMemo(
+    () =>
+      createSankeyChartOption(footprintFlow.nodes, footprintFlow.links, {
+        categoryColorMap: {
+          product_total: "carbon",
+          stage: "energy",
+          activity: "scope2",
+        },
+      }),
+    [footprintFlow],
+  )
 
   useEffect(() => {
     if (!activeStudyId) {
@@ -551,7 +570,8 @@ export function ProductFootprintPanel({ header }: { header?: ReactNode }) {
             <TabsTrigger value="report">报告生成</TabsTrigger>
           </AdminTabsList>
         }
-        metrics={
+      >
+        <TabsContent value="studies" className="space-y-4">
           <MetricGrid
             items={[
               { label: "研究数", value: String(summary?.study_count ?? 0), icon: Package },
@@ -560,87 +580,80 @@ export function ProductFootprintPanel({ header }: { header?: ReactNode }) {
               { label: "活动数据", value: String(summary?.inventory_item_count ?? 0), icon: Layers3 },
             ]}
           />
-        }
-      >
-        <BusinessSourceReadinessPanel
-          endpoint="/api/carbon/product-footprint/source-readiness"
-          queryKey={[...QUERY_KEY, "source-readiness"]}
-          testId="product-footprint-source-readiness-panel"
-          primaryLabel="活动数据"
-          primaryKey="inventory_item_count"
-        />
-        <TabsContent value="studies">
-          <AdminPanel
-            title="产品与研究"
-            actions={
-              <Dialog open={studyOpen} onOpenChange={setStudyOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm">
-                    <Plus className="size-4" />
-                    新建研究
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-3xl">
-                  <DialogHeader>
-                    <DialogTitle>新建产品碳足迹研究</DialogTitle>
-                    <DialogDescription className="sr-only">维护产品碳足迹研究的基础信息和核算边界。</DialogDescription>
-                  </DialogHeader>
-                  <StudyFormView value={studyForm} onChange={setStudyForm} />
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setStudyOpen(false)}>
-                      取消
+          <div className="grid gap-4 xl:grid-cols-2">
+            <ChartPanel title="多产品碳足迹排行" unit="kgCO2e" option={productRankingOption} height={360} emptyLabel="暂无已核算产品排行" />
+            <AdminPanel
+              title="产品与研究"
+              actions={
+                <Dialog open={studyOpen} onOpenChange={setStudyOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Plus className="size-4" />
+                      新建研究
                     </Button>
-                    <Button disabled={createStudy.isPending} onClick={() => createStudy.mutate()}>
-                      保存
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            }
-            contentClassName="p-0"
-          >
-            <AdminDataTable className="rounded-none border-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>研究编号</TableHead>
-                    <TableHead>产品</TableHead>
-                    <TableHead>边界</TableHead>
-                    <TableHead>报告期</TableHead>
-                    <TableHead>清单</TableHead>
-                    <TableHead>结果</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {studies.map((item) => (
-                    <TableRow key={item.id} data-state={item.id === activeStudyId ? "selected" : undefined}>
-                      <TableCell>
-                        <div className="font-medium">{item.study_code}</div>
-                        <div className="text-muted-foreground text-xs">{item.study_name}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div>{item.product_name || item.product_code}</div>
-                        <div className="text-muted-foreground text-xs">{item.product_spec || item.product_code}</div>
-                      </TableCell>
-                      <TableCell>{boundaryLabel(item.boundary_type)}</TableCell>
-                      <TableCell>{dateRange(item.period_start, item.period_end)}</TableCell>
-                      <TableCell>{item.inventory_count ?? 0}</TableCell>
-                      <TableCell>
-                        <ResultBadge status={item.result_status} />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button size="sm" variant="outline" onClick={() => setSelectedStudyId(item.id)}>
-                          查看
-                        </Button>
-                      </TableCell>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                      <DialogTitle>新建产品碳足迹研究</DialogTitle>
+                      <DialogDescription className="sr-only">维护产品碳足迹研究的基础信息和核算边界。</DialogDescription>
+                    </DialogHeader>
+                    <StudyFormView value={studyForm} onChange={setStudyForm} />
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setStudyOpen(false)}>
+                        取消
+                      </Button>
+                      <Button disabled={createStudy.isPending} onClick={() => createStudy.mutate()}>
+                        保存
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              }
+              contentClassName="p-0"
+            >
+              <AdminDataTable className="rounded-none border-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>研究编号</TableHead>
+                      <TableHead>产品</TableHead>
+                      <TableHead>边界</TableHead>
+                      <TableHead>报告期</TableHead>
+                      <TableHead>清单</TableHead>
+                      <TableHead>结果</TableHead>
+                      <TableHead className="text-right">操作</TableHead>
                     </TableRow>
-                  ))}
-                  {!studies.length ? <EmptyRow colSpan={7} label="暂无产品碳足迹研究" /> : null}
-                </TableBody>
-              </Table>
-            </AdminDataTable>
-          </AdminPanel>
+                  </TableHeader>
+                  <TableBody>
+                    {studies.map((item) => (
+                      <TableRow key={item.id} data-state={item.id === activeStudyId ? "selected" : undefined}>
+                        <TableCell>
+                          <div className="font-medium">{item.study_code}</div>
+                          <div className="text-muted-foreground text-xs">{item.study_name}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div>{item.product_name || item.product_code}</div>
+                          <div className="text-muted-foreground text-xs">{item.product_spec || item.product_code}</div>
+                        </TableCell>
+                        <TableCell>{boundaryLabel(item.boundary_type)}</TableCell>
+                        <TableCell>{dateRange(item.period_start, item.period_end)}</TableCell>
+                        <TableCell>{item.inventory_count ?? 0}</TableCell>
+                        <TableCell>
+                          <ResultBadge status={item.result_status} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" variant="outline" onClick={() => setSelectedStudyId(item.id)}>
+                            查看
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {!studies.length ? <EmptyRow colSpan={7} label="暂无产品碳足迹研究" /> : null}
+                  </TableBody>
+                </Table>
+              </AdminDataTable>
+            </AdminPanel>
+          </div>
         </TabsContent>
 
         <TabsContent value="boundary">
@@ -896,7 +909,7 @@ export function ProductFootprintPanel({ header }: { header?: ReactNode }) {
           </div>
         </TabsContent>
 
-        <TabsContent value="results">
+        <TabsContent value="results" className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
             <AdminPanel
               title="核算结果"
@@ -944,6 +957,10 @@ export function ProductFootprintPanel({ header }: { header?: ReactNode }) {
                 </Table>
               </AdminDataTable>
             </AdminPanel>
+          </div>
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
+            <ChartPanel title="产品碳足迹总分结构" unit="kgCO2e" option={footprintFlowOption} height={420} emptyLabel="暂无总分结构数据" />
+            <ChartPanel title="生命周期阶段构成" unit="kgCO2e" option={stageDistributionOption} height={420} emptyLabel="暂无阶段构成数据" />
           </div>
         </TabsContent>
 
@@ -1232,6 +1249,51 @@ function KeyValue({ label, value }: { label: string; value?: string | null }) {
       <span className="text-right">{value || "-"}</span>
     </div>
   )
+}
+
+function buildProductFootprintRanking(studies: ProductFootprintStudy[]) {
+  return studies
+    .map((study) => ({
+      name: study.product_name || study.study_name || study.product_code,
+      value: Number(study.latest_result?.total_co2e ?? 0),
+    }))
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value)
+}
+
+function buildProductFootprintFlow(stageSummary: StageSummary[], inventoryItems: ProductInventoryItem[], total?: number | null) {
+  const stages = stageSummary.filter((item) => item.kg_co2e > 0)
+  const totalValue = Number(total ?? stages.reduce((sum, item) => sum + item.kg_co2e, 0))
+  if (!stages.length || totalValue <= 0) return { nodes: [], links: [] }
+
+  const nodes = [{ id: "product-total", name: "产品总足迹", value: totalValue, category: "product_total" }]
+  const links: { source: string; target: string; value: number }[] = []
+
+  for (const stage of stages) {
+    const stageId = `stage-${stage.stage_code}`
+    nodes.push({ id: stageId, name: stage.stage_name || stage.stage_code, value: stage.kg_co2e, category: "stage" })
+    links.push({ source: "product-total", target: stageId, value: stage.kg_co2e })
+
+    const stageItems = inventoryItems
+      .filter((item) => item.included && item.stage_code === stage.stage_code && Number(item.computed_co2e ?? 0) > 0)
+      .map((item) => ({ id: `item-${item.id}`, name: item.item_name, value: Number(item.computed_co2e ?? 0) }))
+      .sort((a, b) => b.value - a.value)
+
+    const visibleItems = stageItems.slice(0, 4)
+    for (const item of visibleItems) {
+      nodes.push({ ...item, category: "activity" })
+      links.push({ source: stageId, target: item.id, value: item.value })
+    }
+
+    const otherValue = stageItems.slice(4).reduce((sum, item) => sum + item.value, 0)
+    if (otherValue > 0) {
+      const otherId = `${stageId}-other`
+      nodes.push({ id: otherId, name: "其他活动", value: otherValue, category: "activity" })
+      links.push({ source: stageId, target: otherId, value: otherValue })
+    }
+  }
+
+  return { nodes, links }
 }
 
 function Field({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {

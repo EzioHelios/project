@@ -6,7 +6,6 @@ import { toast } from "sonner"
 
 import { AdminDataTable, AdminEmptyState, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
-import { EnergySourceReadinessPanel } from "@/components/carbon/energy-source-readiness"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -379,33 +378,24 @@ export function EnergyBudgetPanel({ header }: { header?: ReactNode }) {
             </Select>
           </ContextBar>
         }
-        metrics={
-          plan ? (
-            <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
-              <BudgetStat label="能耗预算" value={totals?.budget_tce} unit="tce" status={totals?.energy_status} />
-              <BudgetStat label="实际能耗" value={totals?.actual_tce} unit="tce" rate={totals?.energy_execution_rate_pct} />
-              <BudgetStat label="碳预算" value={totals?.budget_co2e} unit="tCO2e" status={totals?.carbon_status} />
-              <BudgetStat label="实际排放" value={totals?.actual_co2e} unit="tCO2e" rate={totals?.carbon_execution_rate_pct} />
-            </MetricStrip>
+      >
+        <TabsContent value="target">
+          {plan ? (
+            <AdminPanel title={plan.name} actions={statusBadge(plan.status)}>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <InfoCell label="预算年度" value={plan.budget_year} />
+                <InfoCell label="适用范围" value={targetScopeLabel(plan.target_scope)} />
+                <InfoCell label="对象" value={plan.target_name || plan.target_code || "全企业"} />
+                <InfoCell label="来源" value={plan.source_name || "-"} />
+                <InfoCell label="能耗目标" value={`${formatNumber(plan.energy_budget_tce)} tce`} />
+                <InfoCell label="碳排目标" value={`${formatNumber(plan.carbon_budget_co2e)} tCO2e`} />
+                <InfoCell label="分母计划" value={`${formatNumber(plan.denominator_plan)} ${plan.denominator_unit || ""}`} />
+                <InfoCell label="置信度" value={plan.confidence_level || "-"} />
+              </div>
+            </AdminPanel>
           ) : (
             <AdminEmptyState title="暂无预算方案" />
-          )
-        }
-      >
-        <EnergySourceReadinessPanel focus="budget_planning" />
-        <TabsContent value="target">
-          <AdminPanel title={plan?.name ?? "年度目标"} actions={plan ? statusBadge(plan.status) : null}>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <InfoCell label="预算年度" value={plan?.budget_year} />
-              <InfoCell label="适用范围" value={targetScopeLabel(plan?.target_scope)} />
-              <InfoCell label="对象" value={plan?.target_name || plan?.target_code || "全企业"} />
-              <InfoCell label="来源" value={plan?.source_name || "-"} />
-              <InfoCell label="能耗目标" value={`${formatNumber(plan?.energy_budget_tce)} tce`} />
-              <InfoCell label="碳排目标" value={`${formatNumber(plan?.carbon_budget_co2e)} tCO2e`} />
-              <InfoCell label="分母计划" value={`${formatNumber(plan?.denominator_plan)} ${plan?.denominator_unit || ""}`} />
-              <InfoCell label="置信度" value={plan?.confidence_level || "-"} />
-            </div>
-          </AdminPanel>
+          )}
         </TabsContent>
 
         <TabsContent value="allocation" className="space-y-4">
@@ -418,8 +408,17 @@ export function EnergyBudgetPanel({ header }: { header?: ReactNode }) {
           <MonthlyBudgetTable rows={rows} />
         </TabsContent>
 
-        <TabsContent value="variance">
+        <TabsContent value="variance" className="space-y-4">
+          {plan ? (
+            <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
+              <BudgetStat label="实际能耗" value={totals?.actual_tce} unit="tce" rate={totals?.energy_execution_rate_pct} />
+              <BudgetStat label="能耗偏差" value={totals?.energy_variance_tce} unit="tce" status={totals?.energy_status} />
+              <BudgetStat label="实际排放" value={totals?.actual_co2e} unit="tCO2e" rate={totals?.carbon_execution_rate_pct} />
+              <BudgetStat label="碳排偏差" value={totals?.carbon_variance_co2e} unit="tCO2e" status={totals?.carbon_status} />
+            </MetricStrip>
+          ) : null}
           <VarianceTable rows={rows} />
+          {alerts.length ? <VarianceTable rows={alerts} compact title="当前预警" /> : null}
         </TabsContent>
 
         <TabsContent value="forecast">
@@ -479,7 +478,6 @@ export function EnergyBudgetPanel({ header }: { header?: ReactNode }) {
           </div>
           <AdjustmentTable rows={adjustments} />
         </TabsContent>
-        {alerts.length ? <VarianceTable rows={alerts} compact title="当前预警" /> : null}
       </AdminPageScaffold>
     </Tabs>
   )

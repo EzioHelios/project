@@ -133,14 +133,6 @@ type RevisionDiff = {
   }[]
 }
 
-type AccountingReadiness = {
-  status: string
-  counts: Record<string, number>
-  missing: string[]
-  latest_batch?: AccountingBatch | null
-  items: { key: string; label: string; count: number; status: string }[]
-}
-
 type SupplementImportResult = {
   received_count: number
   imported_count: number
@@ -171,11 +163,6 @@ export function CarbonAccountingResultsPanel() {
     queryKey: [...QUERY_KEY, "batches"],
     queryFn: () => fetchCarbonApi<PageResult<AccountingBatch>>("/api/carbon/accounting/batches?limit=50"),
   })
-  const readinessQuery = useQuery<ApiEnvelope<AccountingReadiness>>({
-    queryKey: [...QUERY_KEY, "readiness"],
-    queryFn: () => fetchCarbonApi<AccountingReadiness>("/api/carbon/accounting/readiness"),
-  })
-
   const batches = batchesQuery.data?.data.items ?? []
   const boundaries = boundariesQuery.data?.data.items ?? []
   const activeBatchId = selectedBatchId ?? batches[0]?.id ?? null
@@ -306,8 +293,6 @@ export function CarbonAccountingResultsPanel() {
 
   return (
     <div className="space-y-4">
-      <AccountingSourceReadinessPanel readiness={readinessQuery.data?.data} />
-
       <MetricGrid
         items={[
           { label: "清单总量(tCO2e)", value: formatNumber(summary?.totals.total_t_co2e ?? (activeBatch?.total_co2e ?? 0) / 1000) },
@@ -879,35 +864,6 @@ function MissingInventoryResultsPanel({ batch, items, loading }: { batch?: Accou
   )
 }
 
-function AccountingSourceReadinessPanel({ readiness }: { readiness?: AccountingReadiness }) {
-  return (
-    <AdminPanel title="来源状态" actions={<SourceStatusBadge status={readiness?.status} />} contentClassName="p-0">
-      <div className="grid divide-y text-sm md:grid-cols-5 md:divide-x md:divide-y-0">
-        {(readiness?.items ?? []).map((item) => (
-          <div key={item.key} className="flex items-center justify-between gap-3 px-4 py-3">
-            <div>
-              <div className="font-medium">{item.label}</div>
-              <div className="mt-1 text-xs text-muted-foreground">{item.count.toLocaleString("zh-CN")} 行</div>
-            </div>
-            <SourceStatusBadge status={item.status} />
-          </div>
-        ))}
-        {!readiness?.items?.length ? <div className="px-4 py-3 text-muted-foreground">暂无来源状态</div> : null}
-      </div>
-      {readiness?.latest_batch ? (
-        <div className="flex flex-wrap items-center gap-2 border-t px-4 py-3 text-sm">
-          <Badge variant="outline">{readiness.latest_batch.batch_no}</Badge>
-          <CarbonStatusBadge status={readiness.latest_batch.status} />
-          <InventoryStatusBadge status={readiness.latest_batch.inventory_status} />
-          <span className="text-muted-foreground">
-            纳入 {readiness.latest_batch.included_record_count}/{readiness.latest_batch.record_count}
-          </span>
-        </div>
-      ) : null}
-    </AdminPanel>
-  )
-}
-
 function RevisionDiffCard({ diff, loading }: { diff?: RevisionDiff; loading: boolean }) {
   return (
     <AdminPanel title="修订差异" contentClassName="space-y-4">
@@ -1057,15 +1013,6 @@ function InventoryStatusBadge({ status }: { status?: string | null }) {
   return <Badge variant="outline">{qualityLabel(status)}</Badge>
 }
 
-function SourceStatusBadge({ status }: { status?: string | null }) {
-  const label = sourceStatusLabel(status)
-  if (status === "ready") return <Badge variant="secondary">{label}</Badge>
-  if (status === "partial" || status === "boundary_missing" || status === "batch_missing" || status === "inventory_empty") {
-    return <Badge className="bg-amber-500 hover:bg-amber-500">{label}</Badge>
-  }
-  return <Badge variant="outline">{label}</Badge>
-}
-
 function EmptyRow({ colSpan, label }: { colSpan: number; label: string }) {
   return <AdminTableStateRow colSpan={colSpan}>{label}</AdminTableStateRow>
 }
@@ -1204,16 +1151,6 @@ function qualityLabel(value?: string | null) {
   if (value === "calculation_issue") return "计算问题"
   if (value === "excluded") return "边界外"
   return value || "-"
-}
-
-function sourceStatusLabel(value?: string | null) {
-  if (value === "ready") return "真实来源"
-  if (value === "partial") return "部分来源"
-  if (value === "boundary_missing") return "边界缺失"
-  if (value === "batch_missing") return "批次缺失"
-  if (value === "inventory_empty") return "清单为空"
-  if (value === "source_missing") return "来源缺失"
-  return value || "加载中"
 }
 
 function revisionDiffStatusLabel(value?: string | null, loading?: boolean) {

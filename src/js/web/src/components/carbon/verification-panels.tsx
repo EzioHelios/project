@@ -209,23 +209,6 @@ type ExportJob = {
   download_url?: string | null
 }
 
-type VerificationSourceReadiness = {
-  status: string
-  project_count: number
-  attachment_count: number
-  ready_attachment_count: number
-  finding_count: number
-  template_count: number
-  export_job_count: number
-  completed_export_job_count: number
-  material_group_count: number
-  manifest_file_count: number
-  missing_evidence_count: number
-  real_source_record_count: number
-  write_validation_record_count: number
-  generated_record_count: number
-}
-
 type VerificationProjects = {
   items: VerificationProject[]
   total: number
@@ -270,30 +253,6 @@ type VerificationProject = {
     attachment_count: number
     export_count: number
   }
-}
-
-export function VerificationSourceReadinessPanel() {
-  const sourceQuery = useQuery<ApiEnvelope<VerificationSourceReadiness>>({
-    queryKey: ["carbon-verification", "source-readiness"],
-    queryFn: () => fetchCarbonApi<VerificationSourceReadiness>("/api/carbon/verification/source-readiness"),
-  })
-  const data = sourceQuery.data?.data
-
-  return (
-    <AdminPanel contentClassName="grid gap-3 md:grid-cols-5" data-testid="verification-source-readiness-panel">
-      <MetricTile label="来源状态" value={<VerificationSourceStatusBadge status={data?.status} />} />
-      <MetricTile label="企业来源记录" value={formatNumber(data?.real_source_record_count)} />
-      <MetricTile label="就绪附件" value={formatNumber(data?.ready_attachment_count)} />
-      <MetricTile label="材料包文件" value={formatNumber(data?.manifest_file_count)} />
-      <MetricTile label="生成记录" value={formatNumber(data?.generated_record_count)} />
-      <div className="md:col-span-5 grid gap-3 md:grid-cols-4">
-        <MetricTile label="核查项目" value={formatNumber(data?.project_count)} />
-        <MetricTile label="附件台账" value={formatNumber(data?.attachment_count)} />
-        <MetricTile label="已完成导出" value={formatNumber(data?.completed_export_job_count)} />
-        <MetricTile label="缺失凭证" value={formatNumber(data?.missing_evidence_count)} />
-      </div>
-    </AdminPanel>
-  )
 }
 
 export function VerificationProjectsPanel() {
@@ -1035,12 +994,6 @@ function VerificationStatusBadge({ status }: { status?: string }) {
   if (status === "missing_result") return <Badge variant="destructive">缺结果</Badge>
   if (status === "pending_review") return <CarbonStatusBadge status="pending" />
   if (status === "rejected") return <CarbonStatusBadge status="rejected" />
-  return <Badge variant="outline">{status || "无数据"}</Badge>
-}
-
-function VerificationSourceStatusBadge({ status }: { status?: string }) {
-  if (status === "real_source_ready" || status === "real_source_with_generated_outputs") return <Badge>真实来源</Badge>
-  if (status === "source_missing") return <Badge variant="destructive">来源缺失</Badge>
   return <Badge variant="outline">{status || "无数据"}</Badge>
 }
 

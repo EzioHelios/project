@@ -6,7 +6,6 @@ import { toast } from "sonner"
 
 import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
-import { BusinessSourceReadinessPanel } from "@/components/carbon/business-source-readiness"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
@@ -464,7 +463,8 @@ export function SupplyChainCarbonPanel({ header }: { header?: ReactNode }) {
             <TabsTrigger value="analysis">供应链分析</TabsTrigger>
           </AdminTabsList>
         }
-        metrics={
+      >
+        <TabsContent value="suppliers" className="space-y-4">
           <MetricGrid
             items={[
               { label: "供应商", value: String(summary?.supplier_count ?? 0), icon: Building2 },
@@ -473,16 +473,6 @@ export function SupplyChainCarbonPanel({ header }: { header?: ReactNode }) {
               { label: "高风险", value: String(summary?.high_risk_supplier_count ?? 0), icon: BarChart3 },
             ]}
           />
-        }
-      >
-        <BusinessSourceReadinessPanel
-          endpoint="/api/carbon/supply-chain/source-readiness"
-          queryKey={[...QUERY_KEY, "source-readiness"]}
-          testId="supply-chain-source-readiness-panel"
-          primaryLabel="供应商数据"
-          primaryKey="data_count"
-        />
-        <TabsContent value="suppliers">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
             <AdminPanel
               title="供应商档案"
