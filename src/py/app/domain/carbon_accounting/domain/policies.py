@@ -23,5 +23,15 @@ def inventory_quality(computation: dict[str, Any], *, included: bool) -> str:
     return "ready"
 
 
-def inventory_status(*, missing_result_count: int) -> str:
+def inventory_status(*, included_record_count: int, missing_result_count: int) -> str:
+    if included_record_count <= 0:
+        return "empty"
     return "issues" if missing_result_count > 0 else "ready"
+
+
+def inventory_lock_block_reason(*, included_record_count: int, missing_result_count: int) -> str | None:
+    if included_record_count <= 0:
+        return "核算批次尚未生成清单"
+    if missing_result_count > 0:
+        return "核算批次存在缺失计算结果"
+    return None

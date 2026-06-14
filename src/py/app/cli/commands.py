@@ -22,6 +22,7 @@ from app.domain.carbon.energy_analysis_importer import seed_energy_analysis_data
 from app.domain.carbon.factor_importer import import_ncsc_factor_package
 from app.domain.carbon.mvp_data_importer import seed_carbon_mvp_data
 from app.domain.carbon.production_data_importer import import_wms_production_data
+from app.domain.carbon.real_company_package_importer import import_real_company_packages
 from app.domain.energy.benchmark_importer import seed_warehouse_energy_benchmark_data
 from app.lib.deps import create_service_provider, provide_services
 from app.lib.settings import get_settings
@@ -302,6 +303,34 @@ def seed_carbon_mvp_data_command() -> None:
 
     console.rule("Seed carbon-management MVP data.")
     anyio.run(_seed)
+
+
+@carbon_management_group.command(
+    name="import-real-company-package",
+    help="Import standardized real-company validation package data into tenant-scoped energy-carbon tables.",
+)
+@click.argument("package_path", type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path))
+@click.option("--dry-run", is_flag=True, default=False, help="Parse and write in a transaction, then roll back.")
+def import_real_company_package_command(package_path: Path, dry_run: bool) -> None:
+    """Import one enterprise package, or every package under an enterprises directory."""
+    console = get_console()
+
+    async def _import() -> None:
+        async with alchemy.get_session() as session:
+            results = await import_real_company_packages(session, package_path, dry_run=dry_run)
+        for result in results:
+            imported = ", ".join(f"{name}={count}" for name, count in sorted(result.imported.items()))
+            skipped = ", ".join(f"{name}={count}" for name, count in sorted(result.skipped.items())) or "none"
+            missing_pages = "、".join(result.source_missing_pages) or "none"
+            console.print(
+                "[green]Imported real company package[/green] "
+                f"dry_run={result.dry_run} enterprise={result.enterprise_code} "
+                f"tenant={result.tenant_slug} team_id={result.team_id} "
+                f"imported=({imported}) skipped=({skipped}) source_missing_pages={missing_pages}"
+            )
+
+    console.rule("Import real-company energy-carbon validation package.")
+    anyio.run(_import)
 
 
 @carbon_management_group.command(

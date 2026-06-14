@@ -481,7 +481,7 @@ async def _seed_verification(
                     '2026年1-6月外购电力账单汇总', 'Scope2ElectricityBill', null, '外购电力账单',
                     '范围2', '2026-H1', 'electricity-bills-2026-h1.pdf',
                     '/demo/carbon/materials/electricity-bills-2026-h1.pdf', 'application/pdf',
-                    524288, 'mvp-electricity-bills', 1, 'approved', '能碳管理员',
+                    524288, 'mvp-electricity-bills', 1, 'ready', '能碳管理员',
                     timestamp '2026-07-02 10:00:00', '内部核查负责人',
                     timestamp '2026-07-03 10:00:00', :source, 'ISO 14064-1', 'medium',
                     '{"pages": 6}'::json, 'MVP材料包附件。', now(), now()
@@ -492,7 +492,7 @@ async def _seed_verification(
                     null, '2026', 'inventory-working-paper.xlsx',
                     '/demo/carbon/materials/inventory-working-paper.xlsx',
                     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    393216, 'mvp-working-paper', 1, 'approved', '能碳管理员',
+                    393216, 'mvp-working-paper', 1, 'ready', '能碳管理员',
                     timestamp '2026-07-02 11:00:00', '内部核查负责人',
                     timestamp '2026-07-03 11:00:00', :source, 'ISO 14064-1', 'medium',
                     '{"sheets": 4}'::json, 'MVP材料包附件。', now(), now()

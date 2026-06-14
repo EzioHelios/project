@@ -28,6 +28,11 @@ EXPORT_BODY = Body()
 class CarbonVerificationController(Controller):
     tags = ["Carbon Verification"]
 
+    @get("/api/carbon/verification/source-readiness")
+    async def get_verification_source_readiness(self, db_session: AsyncSession) -> Response[dict]:
+        data = await CarbonVerificationQueryService(db_session).source_readiness()
+        return Response(content=ok_data(data))
+
     @get("/api/carbon/verification/summary")
     async def get_verification_summary(
         self,

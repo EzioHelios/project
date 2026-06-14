@@ -27,7 +27,14 @@ ATTACHMENT_PENDING_UPLOAD = "pending_upload"
 ATTACHMENT_READY = "ready"
 ATTACHMENT_ARCHIVED = "archived"
 ATTACHMENT_REJECTED = "rejected"
-ATTACHMENT_STATUSES = {ATTACHMENT_PENDING_UPLOAD, ATTACHMENT_READY, ATTACHMENT_ARCHIVED, ATTACHMENT_REJECTED}
+ATTACHMENT_APPROVED_LEGACY = "approved"
+ATTACHMENT_STATUSES = {
+    ATTACHMENT_PENDING_UPLOAD,
+    ATTACHMENT_READY,
+    ATTACHMENT_ARCHIVED,
+    ATTACHMENT_REJECTED,
+    ATTACHMENT_APPROVED_LEGACY,
+}
 ATTACHMENT_TYPES = {"supporting_document", "invoice", "meter_record", "calibration_certificate", "inspection_report", "other"}
 
 TEMPLATE_ACTIVE = "active"
@@ -167,7 +174,7 @@ def validate_attachment_type(attachment_type: str) -> None:
 
 def attachment_material_status(status: str, file_path: str | None) -> str:
     validate_attachment_status(status)
-    if status == ATTACHMENT_READY and file_path:
+    if status in {ATTACHMENT_READY, ATTACHMENT_APPROVED_LEGACY} and file_path:
         return READY_STATUS
     if status == ATTACHMENT_REJECTED:
         return REJECTED_STATUS

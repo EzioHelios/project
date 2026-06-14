@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 KG_PER_TONNE = Decimal(1000)
 MAX_FORECAST_MONTHS = 60
 MONTHS_PER_YEAR = 12
+NON_REAL_ASSET_SOURCE_NAMES = {"enterprise_asset_rule", "enterprise_assumption", "real-company-write-validation"}
+NON_REAL_ASSET_STANDARD_CODES = {"enterprise_assumption", "enterprise_asset_rule"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,6 +165,60 @@ class CarbonAssetsQueryService:
             "allowance_available": _float(allowance_available),
             "credit_available": _float(credit_available_value),
             "latest_position": latest_position,
+        }
+
+    async def source_readiness(self) -> dict[str, Any]:
+        period_count = await self._count(m.CarbonCompliancePeriod)
+        account_count = await self._count(m.CarbonAssetAccount)
+        allowance_count = await self._count(m.CarbonQuotaAllocation)
+        credit_count = await self._count(m.CarbonCreditHolding)
+        transaction_count = await self._count(m.CarbonAssetTransaction)
+        surrender_count = await self._count(m.CarbonSurrenderRecord)
+        forecast_scenario_count = await self._count(m.CarbonAssetForecastScenario)
+        traceable_ledger_count = sum(
+            [
+                await self._traceable_asset_count(m.CarbonQuotaAllocation),
+                await self._traceable_asset_count(m.CarbonCreditHolding),
+                await self._traceable_asset_count(m.CarbonAssetTransaction, m.CarbonAssetTransaction.status != "simulated"),
+                await self._traceable_asset_count(m.CarbonSurrenderRecord),
+            ]
+        )
+        simulation_seed_count = sum(
+            [
+                await self._simulation_seed_count(m.CarbonCompliancePeriod),
+                await self._simulation_seed_count(m.CarbonAssetAccount),
+                await self._simulation_seed_count(m.CarbonAssetForecastScenario),
+            ]
+        )
+        simulated_transaction_count = await self._count(
+            m.CarbonAssetTransaction,
+            (m.CarbonAssetTransaction.status == "simulated") | (_source_key(m.CarbonAssetTransaction.source_name).in_(NON_REAL_ASSET_SOURCE_NAMES)),
+        )
+        ledger_total_count = allowance_count + credit_count + transaction_count + surrender_count
+        unverified_ledger_count = max(0, ledger_total_count - traceable_ledger_count - simulated_transaction_count)
+        total_records = period_count + account_count + ledger_total_count + forecast_scenario_count
+        if traceable_ledger_count > 0:
+            status = "real_source_ready" if unverified_ledger_count == 0 else "partial_source"
+        elif total_records == 0:
+            status = "source_missing"
+        elif simulation_seed_count > 0 or simulated_transaction_count > 0:
+            status = "simulation_only"
+        else:
+            status = "unverified_source"
+        return {
+            "status": status,
+            "period_count": period_count,
+            "account_count": account_count,
+            "allowance_count": allowance_count,
+            "credit_count": credit_count,
+            "transaction_count": transaction_count,
+            "surrender_count": surrender_count,
+            "forecast_scenario_count": forecast_scenario_count,
+            "ledger_total_count": ledger_total_count,
+            "traceable_ledger_count": traceable_ledger_count,
+            "simulation_seed_count": simulation_seed_count,
+            "simulated_transaction_count": simulated_transaction_count,
+            "unverified_ledger_count": unverified_ledger_count,
         }
 
     async def alerts(self, query: CarbonAssetsQuery) -> dict[str, Any]:
@@ -350,6 +406,29 @@ class CarbonAssetsQueryService:
     async def _count(self, model: type[Any], *conditions: Any) -> int:
         return int((await self._session.execute(select(func.count()).select_from(model).where(*conditions))).scalar_one() or 0)
 
+    async def _traceable_asset_count(self, model: type[Any], *conditions: Any) -> int:
+        source_key = _source_key(model.source_name)
+        filters = [
+            source_key != "",
+            source_key.not_in(NON_REAL_ASSET_SOURCE_NAMES),
+            ~source_key.like("real_company_package:%"),
+            *conditions,
+        ]
+        if hasattr(model, "standard_code"):
+            filters.append(func.lower(func.coalesce(model.standard_code, "")).not_in(NON_REAL_ASSET_STANDARD_CODES))
+        return await self._count(model, *filters)
+
+    async def _simulation_seed_count(self, model: type[Any]) -> int:
+        source_key = _source_key(model.source_name)
+        conditions = [source_key.in_(NON_REAL_ASSET_SOURCE_NAMES) | source_key.like("real_company_package:%")]
+        if hasattr(model, "standard_code"):
+            conditions.append(func.lower(func.coalesce(model.standard_code, "")) == "enterprise_assumption")
+        if hasattr(model, "confidence_level"):
+            conditions.append(func.lower(func.coalesce(model.confidence_level, "")) == "assumption")
+        if hasattr(model, "market"):
+            conditions.append(func.lower(func.coalesce(model.market, "")) == "simulation")
+        return await self._count(model, *conditions)
+
     async def _period_or_latest(self, period_id: int | None) -> m.CarbonCompliancePeriod | None:
         if period_id is not None:
             return await self._session.get(m.CarbonCompliancePeriod, period_id)
@@ -447,6 +526,10 @@ def _limit(value: int) -> int:
 
 def _float(value: Decimal | float | None) -> float:
     return float(value or 0)
+
+
+def _source_key(column: Any) -> Any:
+    return func.lower(func.coalesce(column, ""))
 
 
 def _empty_position() -> dict[str, Any]:

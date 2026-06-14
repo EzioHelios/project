@@ -17,7 +17,7 @@ from dateutil.relativedelta import MO, relativedelta
 from litestar import Controller, Request, delete, get, patch, post
 from litestar.params import Body
 from litestar.response import Response
-from sqlalchemy import case, func, or_, select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -68,10 +68,7 @@ from .utils import GF_CJPL_PFYZ, YD_CPFL_PFYZ, calc_day_ygtq_cpfl
 from .validation import (
     CarbonValidationError,
     validate_amount_non_negative,
-    validate_billing_month,
     validate_consumption,
-    validate_date_not_future,
-    validate_period_start_end,
 )
 
 SOURCE_KIND_REAL = "activity_data"
@@ -1812,6 +1809,7 @@ async def _build_scope_record_computation(record: Any, session: AsyncSession, *,
     resolved_source_kind = _record_source_kind(record, source_kind)
     computation = None
     note = ""
+    missing_note = "未找到匹配的排放因子，当前记录无法形成稳定 CO2e 结果。"
     if model_type is m.Scope1MobileCombustion:
         computation = await compute_emission_result(
             session, "scope1", "fuel", record.fuel_type, record.amount, record.unit, _compute_year_from_date(record.record_date)
@@ -1857,6 +1855,8 @@ async def _build_scope_record_computation(record: Any, session: AsyncSession, *,
             session, "scope3", "waste", record.category, record.weight_ton, "t", _compute_year_from_date(record.date)
         )
         note = "按废弃物重量与处置因子计算。"
+        if str(record.treatment_method or "").startswith("unknown"):
+            missing_note = "原始资料未提供废弃物处置方式或可追溯因子，当前记录无法形成稳定 CO2e 结果。"
     elif model_type is m.Scope3ThirdPartyTransport:
         ton_km = Decimal(str(record.distance_km)) * Decimal(str(record.load_ton))
         computation = await compute_emission_result(
@@ -1876,7 +1876,7 @@ async def _build_scope_record_computation(record: Any, session: AsyncSession, *,
             "activity_amount": activity_amount,
             "activity_unit": activity_unit,
             "computed_co2e": None,
-            "computation_note": "未找到匹配的排放因子，当前记录无法形成稳定 CO2e 结果。",
+            "computation_note": missing_note,
         }
 
     return {
@@ -1957,13 +1957,22 @@ def _scope2_snapshot_ready(record: Any) -> bool:
 async def _serialize_scope_record(record: Any, session: AsyncSession, *, source_kind: str | None = None) -> dict[str, Any]:
     data = model_to_dict(record)
     if isinstance(record, m.Scope2ElectricityBill):
-        data.update(_scope2_snapshot_fields(data, source_kind=source_kind or SOURCE_KIND_MANUAL_BILL))
+        if _scope2_snapshot_ready(record):
+            data.update(_scope2_snapshot_fields(data, source_kind=source_kind or SOURCE_KIND_MANUAL_BILL))
+        else:
+            data.update(await _build_scope_record_computation(record, session, source_kind=source_kind or SOURCE_KIND_MANUAL_BILL))
         return data
     if isinstance(record, m.Scope2PurchasedEnergy):
-        data.update(_scope2_snapshot_fields(data, source_kind=source_kind or "purchased_energy"))
+        if _scope2_snapshot_ready(record):
+            data.update(_scope2_snapshot_fields(data, source_kind=source_kind or "purchased_energy"))
+        else:
+            data.update(await _build_purchased_energy_snapshot_payload(data, session))
         return data
     if isinstance(record, m.Scope2MeterAggregate):
-        data.update(_scope2_snapshot_fields(data, source_kind=source_kind or SOURCE_KIND_DERIVED))
+        if _scope2_snapshot_ready(record):
+            data.update(_scope2_snapshot_fields(data, source_kind=source_kind or SOURCE_KIND_DERIVED))
+        else:
+            data.update(await _build_scope_record_computation(record, session, source_kind=source_kind or SOURCE_KIND_DERIVED))
         return data
     data.update(await _build_scope_record_computation(record, session, source_kind=source_kind))
     return data

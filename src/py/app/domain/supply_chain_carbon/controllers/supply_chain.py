@@ -28,6 +28,11 @@ class SupplyChainCarbonController(Controller):
         data = await SupplyChainCarbonQueryService(db_session).summary()
         return Response(content=ok_data(data))
 
+    @get("/api/carbon/supply-chain/source-readiness")
+    async def get_source_readiness(self, db_session: AsyncSession) -> Response[dict]:
+        data = await SupplyChainCarbonQueryService(db_session).source_readiness()
+        return Response(content=ok_data(data))
+
     @get("/api/carbon/supply-chain/analysis")
     async def get_analysis(self, db_session: AsyncSession) -> Response[dict]:
         data = await SupplyChainCarbonQueryService(db_session).analysis()

@@ -7,7 +7,7 @@ from litestar.params import Body
 from litestar.response import Response
 
 from app.domain.carbon_assets.queries.assets import CarbonAssetsQuery, CarbonAssetsQueryService
-from app.domain.carbon_assets.usecases.assets import CarbonAssetsUseCase
+from app.domain.carbon_assets.usecases.assets import CarbonAssetLedgerImportUseCase, CarbonAssetsUseCase
 from app.domain.energy.controllers._utils import model_to_dict, ok_data
 
 if TYPE_CHECKING:
@@ -24,6 +24,28 @@ class CarbonAssetsController(Controller):
     async def get_summary(self, db_session: AsyncSession) -> Response[dict]:
         data = await CarbonAssetsQueryService(db_session).summary()
         return Response(content=ok_data(data))
+
+    @get("/api/carbon/assets/source-readiness")
+    async def get_source_readiness(self, db_session: AsyncSession) -> Response[dict]:
+        data = await CarbonAssetsQueryService(db_session).source_readiness()
+        return Response(content=ok_data(data))
+
+    @post("/api/carbon/assets/imports/ledger")
+    async def import_asset_ledger(self, db_session: AsyncSession, data: dict[str, Any] = ASSETS_BODY) -> Response[dict]:
+        result = await CarbonAssetLedgerImportUseCase(db_session).import_rows(
+            rows=list(data.get("rows") or []),
+            source_name=data.get("source_name"),
+        )
+        return Response(
+            content=ok_data(
+                {
+                    "received_count": result.received_count,
+                    "imported_count": result.imported_count,
+                    "skipped_count": result.skipped_count,
+                    "errors": result.errors,
+                }
+            )
+        )
 
     @get("/api/carbon/assets/compliance-periods")
     async def list_periods(

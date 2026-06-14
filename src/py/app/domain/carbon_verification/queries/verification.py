@@ -47,6 +47,54 @@ class CarbonVerificationQueryService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
+    async def source_readiness(self) -> dict[str, Any]:
+        project_count = await self._count(m.CarbonVerificationProject)
+        attachment_count = await self._count(m.CarbonVerificationAttachment)
+        ready_attachment_count = await self._count(m.CarbonVerificationAttachment, m.CarbonVerificationAttachment.status == "ready")
+        finding_count = await self._count(m.CarbonVerificationFinding)
+        template_count = await self._count(m.CarbonVerificationTemplateVersion)
+        export_job_count = await self._count(m.CarbonVerificationExportJob)
+        completed_export_job_count = await self._count(m.CarbonVerificationExportJob, m.CarbonVerificationExportJob.status == "completed")
+        real_source_record_count = sum(
+            [
+                await self._source_count(m.CarbonVerificationProject),
+                await self._source_count(m.CarbonVerificationAttachment),
+            ]
+        )
+        write_validation_record_count = sum(
+            [
+                await self._source_count(m.CarbonVerificationProject, "real-company-write-validation"),
+                await self._source_count(m.CarbonVerificationAttachment, "real-company-write-validation"),
+                await self._source_count(m.CarbonVerificationFinding, "real-company-write-validation"),
+                await self._source_count(m.CarbonVerificationExportJob, "real-company-write-validation"),
+            ]
+        )
+        generated_record_count = template_count + finding_count + export_job_count
+        material_package = await self.material_package(VerificationQuery(limit=500))
+        material_group_count = len(material_package.get("groups") or [])
+        manifest_file_count = len(material_package.get("manifest") or [])
+        evidence = await self.evidence_manifest(VerificationQuery(limit=500))
+        missing_evidence_count = int((evidence.get("summary") or {}).get("missing_evidence_count") or 0)
+        status = "real_source_ready" if real_source_record_count > 0 and attachment_count > 0 and project_count > 0 else "source_missing"
+        if status == "real_source_ready" and (write_validation_record_count > 0 or generated_record_count > 0):
+            status = "real_source_with_generated_outputs"
+        return {
+            "status": status,
+            "project_count": project_count,
+            "attachment_count": attachment_count,
+            "ready_attachment_count": ready_attachment_count,
+            "finding_count": finding_count,
+            "template_count": template_count,
+            "export_job_count": export_job_count,
+            "completed_export_job_count": completed_export_job_count,
+            "material_group_count": material_group_count,
+            "manifest_file_count": manifest_file_count,
+            "missing_evidence_count": missing_evidence_count,
+            "real_source_record_count": real_source_record_count,
+            "write_validation_record_count": write_validation_record_count,
+            "generated_record_count": generated_record_count,
+        }
+
     async def summary(self, query: VerificationQuery) -> dict[str, Any]:
         enterprise = await self._enterprise_profile()
         records = await self._filtered_records(query)
@@ -214,6 +262,15 @@ class CarbonVerificationQueryService:
         if query.project_id is not None:
             stmt = stmt.where(m.CarbonVerificationFinding.project_id == query.project_id)
         return int(await self._session.scalar(stmt) or 0)
+
+    async def _count(self, model: type[Any], *conditions: Any) -> int:
+        return int(await self._session.scalar(select(func.count(model.id)).where(*conditions)) or 0)
+
+    async def _source_count(self, model: type[Any], source_prefix: str = "real_company_package") -> int:
+        source_field = getattr(model, "source_name", None)
+        if source_field is None:
+            return 0
+        return await self._count(model, source_field.startswith(source_prefix))
 
     async def _attachment_rows(self, query: VerificationQuery | None = None) -> list[m.CarbonVerificationAttachment]:
         stmt = select(m.CarbonVerificationAttachment)

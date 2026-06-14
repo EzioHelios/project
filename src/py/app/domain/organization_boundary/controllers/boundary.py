@@ -126,6 +126,14 @@ class OrganizationBoundaryController(Controller):
             return _error(exc)
         return Response(content=ok_data(model_to_dict(obj)))
 
+    @post("/api/carbon/organization-boundary/boundaries/{boundary_id:int}/source-facility")
+    async def create_source_facility(self, db_session: AsyncSession, boundary_id: int) -> Response[dict]:
+        try:
+            obj = await OrganizationBoundaryUseCase(db_session).create_source_facility(boundary_id)
+        except ValueError as exc:
+            return _error(exc)
+        return Response(content=ok_data(model_to_dict(obj)))
+
     @get("/api/carbon/organization-boundary/facilities")
     async def list_facilities(
         self,

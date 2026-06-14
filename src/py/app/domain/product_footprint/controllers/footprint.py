@@ -29,6 +29,11 @@ class ProductFootprintController(Controller):
         data = await ProductFootprintQueryService(db_session).summary()
         return Response(content=ok_data(data))
 
+    @get("/api/carbon/product-footprint/source-readiness")
+    async def get_source_readiness(self, db_session: AsyncSession) -> Response[dict]:
+        data = await ProductFootprintQueryService(db_session).source_readiness()
+        return Response(content=ok_data(data))
+
     @get("/api/carbon/product-footprint/studies")
     async def list_studies(
         self,

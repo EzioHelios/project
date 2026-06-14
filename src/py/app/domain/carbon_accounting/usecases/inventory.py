@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import datetime
 from datetime import UTC, date, time
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
+from litestar.exceptions import PermissionDeniedException
 from sqlalchemy import delete, func, select
 
 from app.db import models as m
@@ -17,7 +18,13 @@ from app.domain.carbon.controllers import (
     _scope_record_period,
     _serialize_scope_record,
 )
-from app.domain.carbon_accounting.domain.policies import inventory_quality, inventory_status, validate_batch_status
+from app.domain.carbon_accounting.domain.policies import (
+    inventory_lock_block_reason,
+    inventory_quality,
+    inventory_status,
+    validate_batch_status,
+)
+from app.lib.tenancy import TENANT_ID_SESSION_KEY
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +34,7 @@ BATCH_FIELDS = {"boundary_id", "batch_no", "batch_name", "status", "standard_cod
 STATUS_APPROVED = "approved"
 REVISION_EDITABLE_STATUSES = {"draft", "rebuilt", "rejected"}
 REVISION_PENDING_STATUS = "pending_revision"
+MAX_SUPPLEMENT_ROWS = 500
 
 
 class CarbonAccountingInventoryUseCase:
@@ -91,7 +99,7 @@ class CarbonAccountingInventoryUseCase:
             items.append(m.CarbonEmissionInventoryItem(batch_id=batch.id, **payload))
         self._session.add_all(items)
         batch.status = "rebuilt"
-        batch.inventory_status = inventory_status(missing_result_count=missing_count)
+        batch.inventory_status = inventory_status(included_record_count=included_count, missing_result_count=missing_count)
         batch.record_count = len(items)
         batch.included_record_count = included_count
         batch.missing_result_count = missing_count
@@ -107,15 +115,61 @@ class CarbonAccountingInventoryUseCase:
         if batch.parent_batch_id is not None:
             msg = "修订批次需通过修订审批锁定"
             raise ValueError(msg)
-        if batch.inventory_status == "empty":
-            msg = "核算批次尚未生成清单"
-            raise ValueError(msg)
+        block_reason = inventory_lock_block_reason(
+            included_record_count=int(batch.included_record_count or 0),
+            missing_result_count=int(batch.missing_result_count or 0),
+        )
+        if block_reason is not None:
+            raise ValueError(block_reason)
         batch.status = "locked"
         batch.inventory_status = "locked"
         batch.locked_at = _utc_now_naive()
         await self._session.commit()
         await self._session.refresh(batch)
         return batch
+
+    async def supplement_missing_results(self, batch_id: int, rows: list[dict[str, Any]]) -> dict[str, Any]:
+        team_id = self._session.info.get(TENANT_ID_SESSION_KEY)
+        if team_id is None:
+            msg = "补录需要先选择一个企业租户。"
+            raise PermissionDeniedException(detail=msg)
+        batch = await self._get_or_raise(m.CarbonAccountingBatch, batch_id, "核算批次不存在")
+        if str(batch.team_id) != str(team_id):
+            msg = "核算批次不属于当前企业租户"
+            raise ValueError(msg)
+        if batch.status in {"locked", REVISION_PENDING_STATUS}:
+            msg = "已锁定或待审批批次不可直接补录缺结果"
+            raise ValueError(msg)
+
+        result: dict[str, Any] = {
+            "received_count": len(rows),
+            "imported_count": 0,
+            "skipped_count": 0,
+            "errors": [],
+        }
+        if len(rows) > MAX_SUPPLEMENT_ROWS:
+            result["errors"].append({"row_number": 0, "message": f"单次最多支持 {MAX_SUPPLEMENT_ROWS} 行。"})
+            return result
+
+        for index, raw_row in enumerate(rows, start=2):
+            try:
+                row = {str(key).strip(): value for key, value in raw_row.items()}
+                async with self._session.begin_nested():
+                    await self._supplement_inventory_item(batch=batch, row=row)
+                result["imported_count"] += 1
+            except (InvalidOperation, TypeError, ValueError) as exc:
+                result["skipped_count"] += 1
+                result["errors"].append({"row_number": index, "message": str(exc)})
+
+        if result["imported_count"]:
+            await self._refresh_batch_totals(batch)
+            await self._session.commit()
+            await self._session.refresh(batch)
+        else:
+            await self._session.rollback()
+            batch = await self._get_or_raise(m.CarbonAccountingBatch, batch_id, "核算批次不存在")
+        result["batch"] = _batch_result_payload(batch)
+        return result
 
     async def submit_revision(self, batch_id: int) -> m.CarbonAccountingBatch:
         batch = await self._revision_batch_or_raise(batch_id)
@@ -286,6 +340,95 @@ class CarbonAccountingInventoryUseCase:
             msg = "修订批次没有清单明细"
             raise ValueError(msg)
 
+    async def _supplement_inventory_item(self, *, batch: m.CarbonAccountingBatch, row: dict[str, Any]) -> None:
+        record_type = _required_text(row, "record_type")
+        record_id = _required_int(row, "record_id")
+        item = (
+            (
+                await self._session.execute(
+                    select(m.CarbonEmissionInventoryItem).where(
+                        m.CarbonEmissionInventoryItem.batch_id == batch.id,
+                        m.CarbonEmissionInventoryItem.record_type == record_type,
+                        m.CarbonEmissionInventoryItem.record_id == record_id,
+                    )
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if item is None:
+            msg = f"未找到清单记录 {record_type}/{record_id}"
+            raise ValueError(msg)
+        if not item.included:
+            msg = f"清单记录未纳入当前边界 {record_type}/{record_id}"
+            raise ValueError(msg)
+        if item.quality_status != "missing_result" and item.computed_co2e is not None:
+            msg = f"清单记录已有计算结果 {record_type}/{record_id}"
+            raise ValueError(msg)
+
+        supplement_co2e = _required_decimal(row, "supplement_co2e_kg")
+        if supplement_co2e < 0:
+            msg = "supplement_co2e_kg 不能为负数"
+            raise ValueError(msg)
+        factor_source = _required_text(row, "factor_source")
+        calculation_method = _required_text(row, "calculation_method")
+        confidence_level = _required_text(row, "confidence_level")
+
+        item.computed_co2e = supplement_co2e
+        item.factor_source = factor_source[:255]
+        factor_unit = _nullable_text(row.get("factor_unit"))
+        item.factor_unit = factor_unit[:32] if factor_unit else None
+        item.calc_status = "enterprise_supplement"
+        item.quality_status = "ready"
+        item.source_kind = "enterprise_supplement"
+        item.exclusion_reason = None
+        payload = dict(item.source_payload or {})
+        payload["enterprise_supplement"] = {
+            "supplement_co2e_kg": str(supplement_co2e),
+            "factor_value": _nullable_text(row.get("factor_value")),
+            "factor_unit": _nullable_text(row.get("factor_unit")),
+            "factor_source": factor_source,
+            "standard_code": _nullable_text(row.get("standard_code")),
+            "calculation_method": calculation_method,
+            "confidence_level": confidence_level,
+            "evidence_file": _nullable_text(row.get("evidence_file")),
+            "remark": _nullable_text(row.get("remark")),
+            "supplemented_at": _utc_now_naive().isoformat(),
+        }
+        item.source_payload = payload
+
+    async def _refresh_batch_totals(self, batch: m.CarbonAccountingBatch) -> None:
+        items = (
+            (
+                await self._session.execute(
+                    select(m.CarbonEmissionInventoryItem)
+                    .where(m.CarbonEmissionInventoryItem.batch_id == batch.id)
+                    .order_by(m.CarbonEmissionInventoryItem.id.asc())
+                )
+            )
+            .scalars()
+            .all()
+        )
+        total = Decimal(0)
+        included_count = 0
+        missing_count = 0
+        for item in items:
+            if not item.included:
+                continue
+            included_count += 1
+            if item.computed_co2e is None:
+                missing_count += 1
+            else:
+                total += Decimal(str(item.computed_co2e))
+        batch.record_count = len(items)
+        batch.included_record_count = included_count
+        batch.missing_result_count = missing_count
+        batch.total_co2e = total
+        batch.inventory_status = inventory_status(included_record_count=included_count, missing_result_count=missing_count)
+        batch.inventory_payload = _inventory_payload_summary(items, total=total)
+        batch.status = "rebuilt"
+        batch.rebuilt_at = _utc_now_naive()
+
     async def _get_or_raise(self, model: type[Any], item_id: int, message: str) -> Any:
         obj = await self._session.get(model, item_id)
         if obj is None:
@@ -312,6 +455,29 @@ def _int_or_none(value: Any) -> int | None:
     if value in (None, ""):
         return None
     return int(value)
+
+
+def _required_text(row: dict[str, Any], field_name: str) -> str:
+    value = str(row.get(field_name) or "").strip()
+    if not value:
+        msg = f"缺少必填字段 {field_name}"
+        raise ValueError(msg)
+    return value
+
+
+def _nullable_text(value: Any) -> str | None:
+    text_value = str(value or "").strip()
+    return text_value or None
+
+
+def _required_int(row: dict[str, Any], field_name: str) -> int:
+    value = _required_text(row, field_name)
+    return int(value)
+
+
+def _required_decimal(row: dict[str, Any], field_name: str) -> Decimal:
+    value = _required_text(row, field_name).replace(",", "")
+    return Decimal(value)
 
 
 def _boundary_inclusion(record: Any, area_ids: set[str]) -> tuple[bool, str | None]:
@@ -363,3 +529,16 @@ def _jsonable(value: Any) -> Any:
 
 def _utc_now_naive() -> datetime.datetime:
     return datetime.datetime.now(UTC).replace(tzinfo=None)
+
+
+def _batch_result_payload(batch: m.CarbonAccountingBatch) -> dict[str, Any]:
+    return {
+        "id": batch.id,
+        "batch_no": batch.batch_no,
+        "status": batch.status,
+        "inventory_status": batch.inventory_status,
+        "record_count": batch.record_count,
+        "included_record_count": batch.included_record_count,
+        "missing_result_count": batch.missing_result_count,
+        "total_co2e": float(batch.total_co2e or 0),
+    }

@@ -121,6 +121,47 @@ class SupplyChainCarbonQueryService:
             "high_risk_supplier_count": high_risk_count,
         }
 
+    async def source_readiness(self) -> dict[str, Any]:
+        supplier_count = await self._count(m.SupplyChainSupplier)
+        site_count = await self._count(m.SupplierSite)
+        task_count = await self._count(m.SupplierDisclosureTask)
+        data_count = await self._count(m.SupplierCarbonData)
+        evidence_count = await self._count(m.SupplierEvidence)
+        release_count = await self._count(m.SupplierDisclosureRelease)
+        real_source_record_count = sum(
+            [
+                await self._source_count(m.SupplyChainSupplier),
+                await self._source_count(m.SupplierDisclosureTask),
+                await self._marked_count(m.SupplierCarbonData, "real_company_package"),
+                await self._marked_count(m.SupplierEvidence, "real_company_package"),
+            ]
+        )
+        write_validation_record_count = sum(
+            [
+                await self._source_count(m.SupplyChainSupplier, "real-company-write-validation"),
+                await self._source_count(m.SupplierDisclosureTask, "real-company-write-validation"),
+                await self._marked_count(m.SupplierCarbonData, "real-company-write-validation"),
+                await self._marked_count(m.SupplierEvidence, "real-company-write-validation"),
+                await self._marked_count(m.SupplierDisclosureRelease, "real-company-write-validation"),
+            ]
+        )
+        total_record_count = supplier_count + site_count + task_count + data_count + evidence_count + release_count
+        status = "real_source_ready" if real_source_record_count > 0 and supplier_count > 0 and task_count > 0 and data_count > 0 else "source_missing"
+        if status == "real_source_ready" and write_validation_record_count > 0:
+            status = "real_source_with_validation_writes"
+        return {
+            "status": status,
+            "supplier_count": supplier_count,
+            "site_count": site_count,
+            "task_count": task_count,
+            "data_count": data_count,
+            "evidence_count": evidence_count,
+            "release_count": release_count,
+            "total_record_count": total_record_count,
+            "real_source_record_count": real_source_record_count,
+            "write_validation_record_count": write_validation_record_count,
+        }
+
     async def analysis(self) -> dict[str, Any]:
         supplier_rows = (
             await self._session.execute(
@@ -209,6 +250,14 @@ class SupplyChainCarbonQueryService:
 
     async def _count(self, model: type[Any], *conditions: Any) -> int:
         return int((await self._session.execute(select(func.count()).select_from(model).where(*conditions))).scalar_one() or 0)
+
+    async def _source_count(self, model: type[Any], source_prefix: str = "real_company_package") -> int:
+        source_key = func.lower(func.coalesce(model.source_name, ""))
+        return await self._count(model, source_key.like(f"{source_prefix.lower()}%"))
+
+    async def _marked_count(self, model: type[Any], marker: str) -> int:
+        remark_key = func.lower(func.coalesce(model.remark, ""))
+        return await self._count(model, remark_key.like(f"%{marker.lower()}%"))
 
 
 def _limit(value: int) -> int:

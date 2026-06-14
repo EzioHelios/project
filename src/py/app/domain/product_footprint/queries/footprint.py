@@ -178,6 +178,48 @@ class ProductFootprintQueryService:
             "latest_study": await self._study_payload(latest) if latest else None,
         }
 
+    async def source_readiness(self) -> dict[str, Any]:
+        study_count = await self._count(m.ProductFootprintStudy)
+        boundary_count = await self._count(m.ProductSystemBoundary)
+        stage_count = await self._count(m.ProductLifeCycleStage)
+        inventory_item_count = await self._count(m.ProductFootprintInventoryItem)
+        result_count = await self._count(m.ProductFootprintResult)
+        allocation_rule_count = await self._count(m.ProductFootprintAllocationRule)
+        real_source_record_count = sum(
+            [
+                await self._source_count(m.ProductFootprintStudy),
+                await self._source_count(m.ProductSystemBoundary),
+                await self._marked_count(m.ProductFootprintInventoryItem, "real_company_package"),
+                await self._marked_count(m.ProductFootprintResult, "real_company_package"),
+                await self._source_count(m.ProductFootprintAllocationRule),
+            ]
+        )
+        write_validation_record_count = sum(
+            [
+                await self._source_count(m.ProductFootprintStudy, "real-company-write-validation"),
+                await self._source_count(m.ProductSystemBoundary, "real-company-write-validation"),
+                await self._marked_count(m.ProductFootprintInventoryItem, "real-company-write-validation"),
+                await self._marked_count(m.ProductFootprintResult, "real-company-write-validation"),
+                await self._source_count(m.ProductFootprintAllocationRule, "real-company-write-validation"),
+            ]
+        )
+        total_record_count = study_count + boundary_count + stage_count + inventory_item_count + result_count + allocation_rule_count
+        status = "real_source_ready" if real_source_record_count > 0 and inventory_item_count > 0 and result_count > 0 else "source_missing"
+        if status == "real_source_ready" and write_validation_record_count > 0:
+            status = "real_source_with_validation_writes"
+        return {
+            "status": status,
+            "study_count": study_count,
+            "boundary_count": boundary_count,
+            "stage_count": stage_count,
+            "inventory_item_count": inventory_item_count,
+            "result_count": result_count,
+            "allocation_rule_count": allocation_rule_count,
+            "total_record_count": total_record_count,
+            "real_source_record_count": real_source_record_count,
+            "write_validation_record_count": write_validation_record_count,
+        }
+
     async def _page(self, stmt: Any, query: ProductFootprintQuery, *, include_rows: bool = False) -> dict[str, Any]:
         total = int((await self._session.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one() or 0)
         rows = (await self._session.execute(stmt.limit(_limit(query.limit)).offset(max(0, query.offset)))).scalars().all()
@@ -229,6 +271,14 @@ class ProductFootprintQueryService:
 
     async def _count(self, model: type[Any], *conditions: Any) -> int:
         return int((await self._session.execute(select(func.count()).select_from(model).where(*conditions))).scalar_one() or 0)
+
+    async def _source_count(self, model: type[Any], source_prefix: str = "real_company_package") -> int:
+        source_key = func.lower(func.coalesce(model.source_name, ""))
+        return await self._count(model, source_key.like(f"{source_prefix.lower()}%"))
+
+    async def _marked_count(self, model: type[Any], marker: str) -> int:
+        remark_key = func.lower(func.coalesce(model.remark, ""))
+        return await self._count(model, remark_key.like(f"%{marker.lower()}%"))
 
 
 def _limit(value: int) -> int:

@@ -182,6 +182,39 @@ class OrganizationBoundaryUseCase:
         await self._session.refresh(obj)
         return obj
 
+    async def create_source_facility(self, boundary_id: int) -> m.BoundaryFacility:
+        boundary = await self._get_or_raise(m.OrganizationBoundary, boundary_id, "组织边界不存在")
+        if boundary.status == "published":
+            msg = "已发布边界不可新增设施, 请创建新版本"
+            raise ValueError(msg)
+        existing = (
+            await self._session.execute(
+                select(m.BoundaryFacility).where(
+                    m.BoundaryFacility.boundary_id == boundary.id,
+                    m.BoundaryFacility.facility_code == boundary.boundary_no,
+                    m.BoundaryFacility.included.is_(True),
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return existing
+        facility = m.BoundaryFacility(
+            boundary_id=boundary.id,
+            facility_type="enterprise",
+            facility_code=boundary.boundary_no,
+            facility_name=boundary.boundary_name,
+            facility_role="source_boundary",
+            included=True,
+            valid_from=boundary.period.period_start if boundary.period else None,
+            valid_to=boundary.period.period_end if boundary.period else None,
+            source_name=boundary.source_name,
+            remark="由资料包边界生成的纳入设施",
+        )
+        self._session.add(facility)
+        await self._session.commit()
+        await self._session.refresh(facility)
+        return facility
+
     async def create_facility(self, data: dict[str, Any]) -> m.BoundaryFacility:
         payload = _payload(data, FACILITY_FIELDS, required={"boundary_id"})
         boundary = await self._get_or_raise(m.OrganizationBoundary, int(payload["boundary_id"]), "组织边界不存在")

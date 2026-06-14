@@ -1,20 +1,30 @@
-"""
-碳核算引擎：活动量 × 排放因子 = CO₂e 排放量（参考 xtck_deploy dataapp/services/emission_calculator.py）
+"""碳核算引擎：活动量 × 排放因子 = CO₂e 排放量（参考 xtck_deploy dataapp/services/emission_calculator.py）
 """
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any
 
-from sqlalchemy import case
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.carbon.models import EmissionFactor
 
 logger = logging.getLogger(__name__)
+
+
+FACTOR_SUB_CATEGORY_ALIASES: dict[tuple[str, str, str], tuple[str, ...]] = {
+    ("scope1", "fuel", "天然气"): ("natural_gas",),
+    ("scope1", "fuel", "燃气"): ("natural_gas",),
+    ("scope3", "waste", "废铝渣"): ("铝渣",),
+}
+
+FACTOR_UNIT_ALIASES: dict[str, tuple[str, ...]] = {
+    "m3": ("m³", "Nm³", "nm3"),
+    "m³": ("m3", "Nm³", "nm3"),
+    "nm3": ("Nm³", "m3", "m³"),
+}
 
 
 @dataclass
@@ -42,13 +52,14 @@ async def resolve_emission_factor(
     year: int | None = None,
 ) -> EmissionFactor | None:
     """Resolve a matching emission factor row for the requested activity."""
-    preferred_sub_categories = [sub_category]
+    preferred_sub_categories = _preferred_sub_categories(scope, category, sub_category)
     if scope == "scope2" and category == "electricity" and sub_category == "grid_electricity":
         preferred_sub_categories = [
             "grid_electricity_jiangsu",
             "grid_electricity_national",
             "grid_electricity",
         ]
+    preferred_units = _preferred_units(unit)
 
     sub_category_rank = case(
         *[(EmissionFactor.sub_category == candidate, index) for index, candidate in enumerate(preferred_sub_categories)],
@@ -61,7 +72,7 @@ async def resolve_emission_factor(
             EmissionFactor.scope == scope,
             EmissionFactor.category == category,
             EmissionFactor.sub_category.in_(preferred_sub_categories),
-            EmissionFactor.unit == unit,
+            EmissionFactor.unit.in_(preferred_units),
             EmissionFactor.is_active.is_(True),
         )
         .order_by(sub_category_rank.asc(), EmissionFactor.year.desc(), EmissionFactor.id.desc())
@@ -78,6 +89,16 @@ async def resolve_emission_factor(
     return result.scalars().first()
 
 
+def _preferred_sub_categories(scope: str, category: str, sub_category: str) -> list[str]:
+    aliases = FACTOR_SUB_CATEGORY_ALIASES.get((scope, category, sub_category), ())
+    return list(dict.fromkeys((sub_category, *aliases)))
+
+
+def _preferred_units(unit: str) -> list[str]:
+    aliases = FACTOR_UNIT_ALIASES.get(unit, ())
+    return list(dict.fromkeys((unit, *aliases)))
+
+
 async def calc_co2e(
     session: AsyncSession,
     scope: str,
@@ -87,8 +108,7 @@ async def calc_co2e(
     unit: str,
     year: int | None = None,
 ) -> Decimal | None:
-    """
-    查询排放因子库并计算 CO₂e 排放量。
+    """查询排放因子库并计算 CO₂e 排放量。
 
     Args:
         session: 数据库会话

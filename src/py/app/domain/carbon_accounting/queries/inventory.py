@@ -4,10 +4,11 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, select, text
 
 from app.db import models as m
 from app.domain.energy.controllers._utils import model_to_dict
+from app.lib.tenancy import TENANT_ID_SESSION_KEY
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +33,165 @@ class CarbonAccountingInventoryQueryService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
+    async def readiness(self) -> dict[str, Any]:
+        team_id = self._session.info.get(TENANT_ID_SESSION_KEY)
+        if team_id is None:
+            return _empty_readiness()
+        counts_row = (
+            await self._session.execute(
+                text(
+                    """
+                    select
+                        (
+                            select count(*)::int
+                            from carbon_reporting_organization
+                            where team_id = :team_id and status = 'active'
+                        ) as reporting_org_count,
+                        (
+                            select count(*)::int
+                            from carbon_reporting_period
+                            where team_id = :team_id
+                        ) as reporting_period_count,
+                        (
+                            select count(*)::int
+                            from carbon_organization_boundary
+                            where team_id = :team_id and status = 'published'
+                        ) as published_boundary_count,
+                        (
+                            select count(*)::int
+                            from carbon_accounting_batch
+                            where team_id = :team_id
+                        ) as batch_count,
+                        (
+                            select count(*)::int
+                            from carbon_emission_inventory_item
+                            where team_id = :team_id and included is true
+                        ) as included_inventory_item_count,
+                        (
+                            select count(*)::int
+                            from dataapp_scope1mobilecombustion
+                            where team_id = :team_id and status = 'approved'
+                        ) as scope1_mobile_count,
+                        (
+                            select count(*)::int
+                            from dataapp_scope1stationarycombustion
+                            where team_id = :team_id and status = 'approved'
+                        ) as scope1_stationary_count,
+                        (
+                            select count(*)::int
+                            from dataapp_scope1refrigerantleak
+                            where team_id = :team_id and status = 'approved'
+                        ) as scope1_refrigerant_count,
+                        (
+                            select count(*)::int
+                            from dataapp_scope2electricitybill
+                            where team_id = :team_id and status = 'approved'
+                        ) as scope2_electricity_count,
+                        (
+                            select count(*)::int
+                            from dataapp_scope2purchasedenergy
+                            where team_id = :team_id and status = 'approved'
+                        ) as scope2_purchased_energy_count,
+                        (
+                            select count(*)::int
+                            from dataapp_scope2meteraggregate
+                            where team_id = :team_id and status = 'approved'
+                        ) as scope2_meter_aggregate_count,
+                        (
+                            select count(*)::int
+                            from dataapp_scope3wastedisposal
+                            where team_id = :team_id and status = 'approved'
+                        ) as scope3_waste_count,
+                        (
+                            select count(*)::int
+                            from dataapp_scope3thirdpartytransport
+                            where team_id = :team_id and status = 'approved'
+                        ) as scope3_transport_count
+                    """
+                ),
+                {"team_id": str(team_id)},
+            )
+        ).mappings().one()
+        latest_batch = (
+            (
+                await self._session.execute(
+                    select(m.CarbonAccountingBatch)
+                    .where(m.CarbonAccountingBatch.team_id == team_id)
+                    .order_by(m.CarbonAccountingBatch.id.desc())
+                    .limit(1)
+                    .execution_options(include_all_tenants=True)
+                )
+            )
+            .scalars()
+            .first()
+        )
+        counts = {key: int(value or 0) for key, value in dict(counts_row).items()}
+        scope1_count = counts["scope1_mobile_count"] + counts["scope1_stationary_count"] + counts["scope1_refrigerant_count"]
+        scope2_count = counts["scope2_electricity_count"] + counts["scope2_purchased_energy_count"] + counts["scope2_meter_aggregate_count"]
+        scope3_count = counts["scope3_waste_count"] + counts["scope3_transport_count"]
+        source_record_count = scope1_count + scope2_count + scope3_count
+        counts.update({"scope1_record_count": scope1_count, "scope2_record_count": scope2_count, "scope3_record_count": scope3_count, "source_record_count": source_record_count})
+
+        missing: list[str] = []
+        if source_record_count == 0:
+            missing.append("scope_activity_records")
+        if counts["published_boundary_count"] == 0:
+            missing.append("published_boundary")
+        if counts["included_inventory_item_count"] == 0:
+            missing.append("included_inventory_items")
+
+        if source_record_count == 0:
+            readiness_status = "source_missing"
+        elif counts["published_boundary_count"] == 0:
+            readiness_status = "boundary_missing"
+        elif counts["batch_count"] == 0:
+            readiness_status = "batch_missing"
+        elif counts["included_inventory_item_count"] == 0:
+            readiness_status = "inventory_empty"
+        elif latest_batch and latest_batch.missing_result_count > 0:
+            readiness_status = "partial"
+        else:
+            readiness_status = "ready"
+
+        return {
+            "status": readiness_status,
+            "counts": counts,
+            "missing": missing,
+            "latest_batch": self._batch_payload(latest_batch) if latest_batch else None,
+            "items": [
+                {
+                    "key": "published_boundary",
+                    "label": "已发布组织边界",
+                    "count": counts["published_boundary_count"],
+                    "status": "ready" if counts["published_boundary_count"] > 0 else "source_missing",
+                },
+                {
+                    "key": "scope1_activity_records",
+                    "label": "Scope1 已审核记录",
+                    "count": scope1_count,
+                    "status": "ready" if scope1_count > 0 else "source_missing",
+                },
+                {
+                    "key": "scope2_activity_records",
+                    "label": "Scope2 已审核记录",
+                    "count": scope2_count,
+                    "status": "ready" if scope2_count > 0 else "source_missing",
+                },
+                {
+                    "key": "scope3_activity_records",
+                    "label": "Scope3 已审核记录",
+                    "count": scope3_count,
+                    "status": "ready" if scope3_count > 0 else "source_missing",
+                },
+                {
+                    "key": "included_inventory_items",
+                    "label": "已纳入清单记录",
+                    "count": counts["included_inventory_item_count"],
+                    "status": "ready" if counts["included_inventory_item_count"] > 0 else "source_missing",
+                },
+            ],
+        }
+
     async def batches(self, query: InventoryQuery) -> dict[str, Any]:
         conditions = []
         if query.boundary_id is not None:
@@ -51,6 +211,11 @@ class CarbonAccountingInventoryQueryService:
 
     async def inventory_items(self, query: InventoryQuery) -> dict[str, Any]:
         conditions = []
+        tenant_id = self._session.info.get(TENANT_ID_SESSION_KEY)
+        execution_options: dict[str, bool] = {}
+        if tenant_id is not None:
+            conditions.append(m.CarbonEmissionInventoryItem.team_id == tenant_id)
+            execution_options["include_all_tenants"] = True
         if query.batch_id is not None:
             conditions.append(m.CarbonEmissionInventoryItem.batch_id == query.batch_id)
         if query.scope and query.scope != "all":
@@ -58,7 +223,11 @@ class CarbonAccountingInventoryQueryService:
         if query.quality_status and query.quality_status != "all":
             conditions.append(m.CarbonEmissionInventoryItem.quality_status == query.quality_status)
         stmt = select(m.CarbonEmissionInventoryItem).where(*conditions).order_by(m.CarbonEmissionInventoryItem.scope.asc(), m.CarbonEmissionInventoryItem.id.asc())
-        return await self._page(stmt, query)
+        count_stmt = select(func.count(m.CarbonEmissionInventoryItem.id)).where(*conditions)
+        if execution_options:
+            stmt = stmt.execution_options(**execution_options)
+            count_stmt = count_stmt.execution_options(**execution_options)
+        return await self._page(stmt, query, count_stmt=count_stmt)
 
     async def inventory_summary(self, batch_id: int) -> dict[str, Any]:
         batch = await self._session.get(m.CarbonAccountingBatch, batch_id)
@@ -159,10 +328,11 @@ class CarbonAccountingInventoryQueryService:
             .all()
         )
 
-    async def _page(self, stmt: Any, query: InventoryQuery, *, include_rows: bool = False) -> dict[str, Any]:
+    async def _page(self, stmt: Any, query: InventoryQuery, *, include_rows: bool = False, count_stmt: Any | None = None) -> dict[str, Any]:
         limit = _limit(query.limit)
         offset = max(0, query.offset)
-        total = int((await self._session.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one() or 0)
+        total_statement = count_stmt if count_stmt is not None else select(func.count()).select_from(stmt.subquery())
+        total = int((await self._session.execute(total_statement)).scalar_one() or 0)
         rows = (await self._session.execute(stmt.limit(limit).offset(offset))).scalars().all()
         items = [model_to_dict(row) for row in rows]
         page = {"items": items, "data": items, "total": total, "limit": limit, "offset": offset}
@@ -192,6 +362,41 @@ def _float(value: Decimal | float | None) -> float:
     if value is None:
         return 0.0
     return float(value)
+
+
+def _empty_readiness() -> dict[str, Any]:
+    counts = {
+        "reporting_org_count": 0,
+        "reporting_period_count": 0,
+        "published_boundary_count": 0,
+        "batch_count": 0,
+        "included_inventory_item_count": 0,
+        "scope1_mobile_count": 0,
+        "scope1_stationary_count": 0,
+        "scope1_refrigerant_count": 0,
+        "scope2_electricity_count": 0,
+        "scope2_purchased_energy_count": 0,
+        "scope2_meter_aggregate_count": 0,
+        "scope3_waste_count": 0,
+        "scope3_transport_count": 0,
+        "scope1_record_count": 0,
+        "scope2_record_count": 0,
+        "scope3_record_count": 0,
+        "source_record_count": 0,
+    }
+    return {
+        "status": "source_missing",
+        "counts": counts,
+        "missing": ["scope_activity_records", "published_boundary", "included_inventory_items"],
+        "latest_batch": None,
+        "items": [
+            {"key": "published_boundary", "label": "已发布组织边界", "count": 0, "status": "source_missing"},
+            {"key": "scope1_activity_records", "label": "Scope1 已审核记录", "count": 0, "status": "source_missing"},
+            {"key": "scope2_activity_records", "label": "Scope2 已审核记录", "count": 0, "status": "source_missing"},
+            {"key": "scope3_activity_records", "label": "Scope3 已审核记录", "count": 0, "status": "source_missing"},
+            {"key": "included_inventory_items", "label": "已纳入清单记录", "count": 0, "status": "source_missing"},
+        ],
+    }
 
 
 def _revision_diff_status(

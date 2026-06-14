@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from litestar import Controller, get, patch, post
-from litestar.params import Body
+from litestar.params import Body, Parameter
 from litestar.response import File, Response
 
 from app.domain.carbon_accounting.queries.inventory import CarbonAccountingInventoryQueryService, InventoryQuery
@@ -37,6 +37,11 @@ class CarbonAccountingInventoryController(Controller):
         )
         return Response(content=ok_data(data))
 
+    @get("/api/carbon/accounting/readiness")
+    async def get_accounting_readiness(self, db_session: AsyncSession) -> Response[dict]:
+        data = await CarbonAccountingInventoryQueryService(db_session).readiness()
+        return Response(content=ok_data(data))
+
     @post("/api/carbon/accounting/batches")
     async def create_batch(self, db_session: AsyncSession, data: dict = INVENTORY_BODY) -> Response[dict]:
         try:
@@ -61,6 +66,14 @@ class CarbonAccountingInventoryController(Controller):
         except ValueError as exc:
             return _error(exc)
         return Response(content=ok_data(model_to_dict(obj)))
+
+    @post("/api/carbon/accounting/batches/{batch_id:int}/supplement-missing-results")
+    async def supplement_missing_results(self, db_session: AsyncSession, batch_id: int, data: dict = INVENTORY_BODY) -> Response[dict]:
+        try:
+            result = await CarbonAccountingInventoryUseCase(db_session).supplement_missing_results(batch_id, list(data.get("rows") or []))
+        except ValueError as exc:
+            return _error(exc)
+        return Response(content=ok_data(result))
 
     @post("/api/carbon/accounting/batches/{batch_id:int}/create-revision")
     async def create_revision(self, db_session: AsyncSession, batch_id: int, data: dict = INVENTORY_BODY) -> Response[dict]:
@@ -123,13 +136,13 @@ class CarbonAccountingInventoryController(Controller):
         self,
         db_session: AsyncSession,
         batch_id: int | None = None,
-        scope: str | None = None,
+        scope_filter: str | None = Parameter(query="scope", required=False),
         quality_status: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> Response[dict]:
         data = await CarbonAccountingInventoryQueryService(db_session).inventory_items(
-            _query(batch_id=batch_id, scope=scope, quality_status=quality_status, limit=limit, offset=offset)
+            _query(batch_id=batch_id, scope=scope_filter, quality_status=quality_status, limit=limit, offset=offset)
         )
         return Response(content=ok_data(data))
 
