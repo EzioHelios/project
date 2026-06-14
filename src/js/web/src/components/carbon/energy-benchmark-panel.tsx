@@ -7,6 +7,7 @@ import { toast } from "sonner"
 
 import { AdminDataTable, AdminEmptyState, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { fetchCarbonApi } from "@/components/carbon/analytics-panels"
+import { EnergySourceReadinessPanel } from "@/components/carbon/energy-source-readiness"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -405,6 +406,7 @@ export function EnergyBenchmarkPanel({ header }: { header?: ReactNode }) {
           </MetricStrip>
         }
       >
+        <EnergySourceReadinessPanel focus="benchmarking" />
         <TabsContent value="baseline" className="space-y-4">
           <AdminPanel
             title="历史基线"

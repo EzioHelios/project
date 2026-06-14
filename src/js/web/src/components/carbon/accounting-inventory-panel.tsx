@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Download } from "lucide-react"
+import { Download, Upload } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
@@ -133,6 +133,22 @@ type RevisionDiff = {
   }[]
 }
 
+type AccountingReadiness = {
+  status: string
+  counts: Record<string, number>
+  missing: string[]
+  latest_batch?: AccountingBatch | null
+  items: { key: string; label: string; count: number; status: string }[]
+}
+
+type SupplementImportResult = {
+  received_count: number
+  imported_count: number
+  skipped_count: number
+  errors: { row_number: number; message: string }[]
+  batch?: Pick<AccountingBatch, "id" | "batch_no" | "status" | "inventory_status" | "record_count" | "included_record_count" | "missing_result_count" | "total_co2e">
+}
+
 const QUERY_KEY = ["carbon-accounting-inventory"]
 
 export function CarbonAccountingResultsPanel() {
@@ -155,6 +171,10 @@ export function CarbonAccountingResultsPanel() {
     queryKey: [...QUERY_KEY, "batches"],
     queryFn: () => fetchCarbonApi<PageResult<AccountingBatch>>("/api/carbon/accounting/batches?limit=50"),
   })
+  const readinessQuery = useQuery<ApiEnvelope<AccountingReadiness>>({
+    queryKey: [...QUERY_KEY, "readiness"],
+    queryFn: () => fetchCarbonApi<AccountingReadiness>("/api/carbon/accounting/readiness"),
+  })
 
   const batches = batchesQuery.data?.data.items ?? []
   const boundaries = boundariesQuery.data?.data.items ?? []
@@ -170,6 +190,11 @@ export function CarbonAccountingResultsPanel() {
     queryFn: () => fetchCarbonApi<PageResult<InventoryItem>>(`/api/carbon/accounting/inventories?batch_id=${activeBatchId}&limit=200`),
     enabled: Boolean(activeBatchId),
   })
+  const missingItemsQuery = useQuery<ApiEnvelope<PageResult<InventoryItem>>>({
+    queryKey: [...QUERY_KEY, "missing-items", activeBatchId],
+    queryFn: () => fetchCarbonApi<PageResult<InventoryItem>>(`/api/carbon/accounting/inventories?batch_id=${activeBatchId}&quality_status=missing_result&limit=200`),
+    enabled: Boolean(activeBatchId),
+  })
 
   const activeBatch = useMemo(
     () => batches.find((item) => item.id === activeBatchId) ?? summaryQuery.data?.data.batch ?? null,
@@ -181,6 +206,7 @@ export function CarbonAccountingResultsPanel() {
   )
   const summary = summaryQuery.data?.data
   const items = itemsQuery.data?.data.items ?? []
+  const missingItems = missingItemsQuery.data?.data.items ?? []
   const revisionDiffQuery = useQuery<ApiEnvelope<RevisionDiff>>({
     queryKey: [...QUERY_KEY, "revision-diff", activeBatchId],
     queryFn: () => fetchCarbonApi<RevisionDiff>(`/api/carbon/accounting/batches/${activeBatchId}/revision-diff`),
@@ -280,6 +306,8 @@ export function CarbonAccountingResultsPanel() {
 
   return (
     <div className="space-y-4">
+      <AccountingSourceReadinessPanel readiness={readinessQuery.data?.data} />
+
       <MetricGrid
         items={[
           { label: "清单总量(tCO2e)", value: formatNumber(summary?.totals.total_t_co2e ?? (activeBatch?.total_co2e ?? 0) / 1000) },
@@ -555,6 +583,10 @@ export function CarbonAccountingResultsPanel() {
         </AdminPanel>
       </div>
 
+      {(summary?.totals.missing_result_count ?? activeBatch?.missing_result_count ?? 0) > 0 ? (
+        <MissingInventoryResultsPanel batch={activeBatch} items={missingItems} loading={missingItemsQuery.isLoading} />
+      ) : null}
+
       <AdminPanel title="排放清单" contentClassName="p-0">
         <AdminDataTable className="rounded-none border-0">
           <Table>
@@ -593,6 +625,286 @@ export function CarbonAccountingResultsPanel() {
         </AdminDataTable>
       </AdminPanel>
     </div>
+  )
+}
+
+function MissingInventoryResultsPanel({ batch, items, loading }: { batch?: AccountingBatch | null; items: InventoryItem[]; loading: boolean }) {
+  const qc = useQueryClient()
+  const [supplementOpen, setSupplementOpen] = useState(false)
+  const [supplementCsvText, setSupplementCsvText] = useState("")
+  const [supplementResult, setSupplementResult] = useState<SupplementImportResult | null>(null)
+
+  const importSupplement = useMutation({
+    mutationFn: async () => {
+      if (!batch?.id) throw new Error("请选择核算批次")
+      const rows = parseSupplementCsv(supplementCsvText)
+      if (!rows.length) throw new Error("CSV 至少需要表头和一行数据")
+      const response = await postCarbonApi<SupplementImportResult>(`/api/carbon/accounting/batches/${batch.id}/supplement-missing-results`, { rows })
+      return response.data
+    },
+    onSuccess: async (result) => {
+      setSupplementResult(result)
+      if (result.imported_count > 0) {
+        toast.success(`已补录 ${result.imported_count} 条`)
+        await invalidateInventory(qc)
+      } else {
+        toast.warning("未写入补录记录")
+      }
+    },
+    onError: toastError("补录缺结果失败"),
+  })
+
+  const loadSupplementFile = async (file?: File) => {
+    if (!file) return
+    setSupplementCsvText(await file.text())
+    setSupplementResult(null)
+  }
+
+  const downloadMissingItems = () => {
+    const lines = [
+      [
+        "batch_no",
+        "scope",
+        "record_type",
+        "record_id",
+        "record_label",
+        "display_name",
+        "period",
+        "activity_amount",
+        "activity_unit",
+        "quality_status",
+        "factor_source",
+        "exclusion_reason",
+      ],
+      ...items.map((item) => [
+        batch?.batch_no ?? "",
+        item.scope,
+        item.record_type,
+        String(item.record_id),
+        item.record_label,
+        item.display_name ?? "",
+        item.period ?? "",
+        formatNumber(item.activity_amount),
+        item.activity_unit ?? "",
+        item.quality_status,
+        item.factor_source ?? "",
+        item.exclusion_reason ?? "",
+      ]),
+    ]
+    const blob = new Blob([`\uFEFF${lines.map((line) => line.map(csvCell).join(",")).join("\n")}\n`], { type: "text/csv;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.download = `${batch?.batch_no ?? "carbon-accounting"}-missing-results.csv`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  const downloadSupplementTemplate = () => {
+    const lines = [
+      [
+        "batch_no",
+        "scope",
+        "record_type",
+        "record_id",
+        "record_label",
+        "display_name",
+        "period",
+        "activity_amount",
+        "activity_unit",
+        "supplement_co2e_kg",
+        "factor_value",
+        "factor_unit",
+        "factor_source",
+        "standard_code",
+        "calculation_method",
+        "confidence_level",
+        "evidence_file",
+        "remark",
+      ],
+      ...items.map((item) => [
+        batch?.batch_no ?? "",
+        item.scope,
+        item.record_type,
+        String(item.record_id),
+        item.record_label,
+        item.display_name ?? "",
+        item.period ?? "",
+        formatNumber(item.activity_amount),
+        item.activity_unit ?? "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "enterprise_supplement",
+        "",
+        item.exclusion_reason ?? "",
+      ]),
+    ]
+    const blob = new Blob([`\uFEFF${lines.map((line) => line.map(csvCell).join(",")).join("\n")}\n`], { type: "text/csv;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.download = `${batch?.batch_no ?? "carbon-accounting"}-missing-result-supplement-template.csv`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <AdminPanel
+      title="缺结果记录"
+      actions={
+        <div className="flex flex-wrap gap-2">
+          <Button data-testid="carbon-accounting-missing-results-download" size="sm" variant="outline" disabled={!items.length} onClick={downloadMissingItems}>
+            <Download className="mr-2 h-4 w-4" />
+            下载缺结果
+          </Button>
+          <Button data-testid="carbon-accounting-missing-results-template-download" size="sm" variant="outline" disabled={!items.length} onClick={downloadSupplementTemplate}>
+            <Download className="mr-2 h-4 w-4" />
+            下载补录模板
+          </Button>
+          <Dialog open={supplementOpen} onOpenChange={setSupplementOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="carbon-accounting-missing-results-supplement-import-trigger" size="sm" variant="outline" disabled={!items.length}>
+                <Upload className="mr-2 h-4 w-4" />
+                上传补录
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>导入缺结果补录</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="carbon-accounting-supplement-file">CSV 文件</Label>
+                  <input
+                    id="carbon-accounting-supplement-file"
+                    data-testid="carbon-accounting-missing-results-supplement-file"
+                    className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    accept=".csv,text/csv"
+                    type="file"
+                    onChange={(event) => void loadSupplementFile(event.target.files?.[0])}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="carbon-accounting-supplement-csv">补录 CSV</Label>
+                  <Textarea
+                    id="carbon-accounting-supplement-csv"
+                    data-testid="carbon-accounting-missing-results-supplement-csv-text"
+                    className="min-h-40 font-mono text-xs"
+                    value={supplementCsvText}
+                    onChange={(event) => {
+                      setSupplementCsvText(event.target.value)
+                      setSupplementResult(null)
+                    }}
+                  />
+                </div>
+                {supplementResult ? (
+                  <div data-testid="carbon-accounting-missing-results-supplement-result" className="rounded-md border bg-muted/30 p-3 text-sm">
+                    <div className="flex flex-wrap gap-3">
+                      <span>接收 {supplementResult.received_count}</span>
+                      <span>导入 {supplementResult.imported_count}</span>
+                      <span>跳过 {supplementResult.skipped_count}</span>
+                      {supplementResult.batch ? <span>缺结果 {supplementResult.batch.missing_result_count}</span> : null}
+                    </div>
+                    {supplementResult.errors.length ? (
+                      <ul className="mt-2 space-y-1 text-destructive">
+                        {supplementResult.errors.slice(0, 5).map((error) => (
+                          <li key={`${error.row_number}-${error.message}`}>
+                            第 {error.row_number} 行：{error.message}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+              <DialogFooter>
+                <Button
+                  data-testid="carbon-accounting-missing-results-supplement-submit"
+                  disabled={!supplementCsvText.trim() || importSupplement.isPending}
+                  onClick={() => importSupplement.mutate()}
+                >
+                  导入补录
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      }
+      contentClassName="p-0"
+    >
+      <AdminDataTable className="rounded-none border-0" data-testid="carbon-accounting-missing-results-panel">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>范围</TableHead>
+              <TableHead>记录类型</TableHead>
+              <TableHead>对象</TableHead>
+              <TableHead>期间</TableHead>
+              <TableHead>活动量</TableHead>
+              <TableHead>质量</TableHead>
+              <TableHead>缺口依据</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell>{item.scope}</TableCell>
+                <TableCell>{item.record_label}</TableCell>
+                <TableCell>{item.display_name || "-"}</TableCell>
+                <TableCell>{item.period || "-"}</TableCell>
+                <TableCell>
+                  {formatNumber(item.activity_amount)} {item.activity_unit || ""}
+                </TableCell>
+                <TableCell>
+                  <InventoryStatusBadge status={item.quality_status} />
+                </TableCell>
+                <TableCell className="max-w-[420px] truncate" title={item.factor_source || item.exclusion_reason || ""}>
+                  {item.factor_source || item.exclusion_reason || "-"}
+                </TableCell>
+              </TableRow>
+            ))}
+            {!items.length ? <EmptyRow colSpan={7} label={loading ? "正在加载缺结果记录" : "暂无缺结果记录"} /> : null}
+          </TableBody>
+        </Table>
+      </AdminDataTable>
+    </AdminPanel>
+  )
+}
+
+function AccountingSourceReadinessPanel({ readiness }: { readiness?: AccountingReadiness }) {
+  return (
+    <AdminPanel title="来源状态" actions={<SourceStatusBadge status={readiness?.status} />} contentClassName="p-0">
+      <div className="grid divide-y text-sm md:grid-cols-5 md:divide-x md:divide-y-0">
+        {(readiness?.items ?? []).map((item) => (
+          <div key={item.key} className="flex items-center justify-between gap-3 px-4 py-3">
+            <div>
+              <div className="font-medium">{item.label}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{item.count.toLocaleString("zh-CN")} 行</div>
+            </div>
+            <SourceStatusBadge status={item.status} />
+          </div>
+        ))}
+        {!readiness?.items?.length ? <div className="px-4 py-3 text-muted-foreground">暂无来源状态</div> : null}
+      </div>
+      {readiness?.latest_batch ? (
+        <div className="flex flex-wrap items-center gap-2 border-t px-4 py-3 text-sm">
+          <Badge variant="outline">{readiness.latest_batch.batch_no}</Badge>
+          <CarbonStatusBadge status={readiness.latest_batch.status} />
+          <InventoryStatusBadge status={readiness.latest_batch.inventory_status} />
+          <span className="text-muted-foreground">
+            纳入 {readiness.latest_batch.included_record_count}/{readiness.latest_batch.record_count}
+          </span>
+        </div>
+      ) : null}
+    </AdminPanel>
   )
 }
 
@@ -745,6 +1057,15 @@ function InventoryStatusBadge({ status }: { status?: string | null }) {
   return <Badge variant="outline">{qualityLabel(status)}</Badge>
 }
 
+function SourceStatusBadge({ status }: { status?: string | null }) {
+  const label = sourceStatusLabel(status)
+  if (status === "ready") return <Badge variant="secondary">{label}</Badge>
+  if (status === "partial" || status === "boundary_missing" || status === "batch_missing" || status === "inventory_empty") {
+    return <Badge className="bg-amber-500 hover:bg-amber-500">{label}</Badge>
+  }
+  return <Badge variant="outline">{label}</Badge>
+}
+
 function EmptyRow({ colSpan, label }: { colSpan: number; label: string }) {
   return <AdminTableStateRow colSpan={colSpan}>{label}</AdminTableStateRow>
 }
@@ -813,6 +1134,45 @@ function formatNumber(value?: number | null) {
   return Number(value).toLocaleString("zh-CN", { maximumFractionDigits: 3 })
 }
 
+function csvCell(value: unknown) {
+  return `"${String(value ?? "").replace(/"/g, '""')}"`
+}
+
+function parseSupplementCsv(value: string) {
+  const lines = value
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .filter((line) => line.trim())
+  if (lines.length < 2) return []
+  const parseLine = (line: string) => {
+    const cells: string[] = []
+    let current = ""
+    let quoted = false
+    for (let index = 0; index < line.length; index += 1) {
+      const char = line[index]
+      const next = line[index + 1]
+      if (char === '"' && quoted && next === '"') {
+        current += '"'
+        index += 1
+      } else if (char === '"') {
+        quoted = !quoted
+      } else if (char === "," && !quoted) {
+        cells.push(current.trim())
+        current = ""
+      } else {
+        current += char
+      }
+    }
+    cells.push(current.trim())
+    return cells
+  }
+  const headers = parseLine(lines[0]).map((item) => item.trim())
+  return lines.slice(1).map((line) => {
+    const values = parseLine(line)
+    return Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""]))
+  })
+}
+
 function formatSignedNumber(value?: number | null) {
   if (value === null || value === undefined || Number.isNaN(value)) return "-"
   const formatted = formatNumber(Math.abs(value))
@@ -844,6 +1204,16 @@ function qualityLabel(value?: string | null) {
   if (value === "calculation_issue") return "计算问题"
   if (value === "excluded") return "边界外"
   return value || "-"
+}
+
+function sourceStatusLabel(value?: string | null) {
+  if (value === "ready") return "真实来源"
+  if (value === "partial") return "部分来源"
+  if (value === "boundary_missing") return "边界缺失"
+  if (value === "batch_missing") return "批次缺失"
+  if (value === "inventory_empty") return "清单为空"
+  if (value === "source_missing") return "来源缺失"
+  return value || "加载中"
 }
 
 function revisionDiffStatusLabel(value?: string | null, loading?: boolean) {

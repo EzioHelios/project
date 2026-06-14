@@ -294,6 +294,15 @@ export function OrganizationBoundaryPanel() {
     onError: toastError("发布组织边界失败"),
   })
 
+  const createSourceFacility = useMutation({
+    mutationFn: (boundaryId: number) => postCarbonApi<BoundaryFacility>(`/api/carbon/organization-boundary/boundaries/${boundaryId}/source-facility`, {}),
+    onSuccess: async () => {
+      toast.success("来源边界设施已生成")
+      await invalidateBoundary(qc)
+    },
+    onError: toastError("生成来源边界设施失败"),
+  })
+
   const selectedOrgPeriods = periods.filter((period) => !boundaryForm.reporting_org_id || period.reporting_org_id === toNumber(boundaryForm.reporting_org_id))
   const organizationReady = organizationForm.code.trim() && organizationForm.name.trim()
   const periodReady = periodForm.reporting_org_id && periodForm.code.trim() && periodForm.name.trim() && periodForm.period_start && periodForm.period_end
@@ -502,9 +511,19 @@ export function OrganizationBoundaryPanel() {
                     <CarbonStatusBadge status={item.status || "draft"} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" disabled={item.status === "published" || publishBoundary.isPending} onClick={() => publishBoundary.mutate(item.id)}>
-                      发布
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={item.status === "published" || (item.included_facility_count ?? 0) > 0 || createSourceFacility.isPending}
+                        onClick={() => createSourceFacility.mutate(item.id)}
+                      >
+                        生成设施
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={item.status === "published" || publishBoundary.isPending} onClick={() => publishBoundary.mutate(item.id)}>
+                        发布
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

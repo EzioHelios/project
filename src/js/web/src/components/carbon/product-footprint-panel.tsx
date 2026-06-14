@@ -6,11 +6,12 @@ import { toast } from "sonner"
 
 import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
+import { BusinessSourceReadinessPanel } from "@/components/carbon/business-source-readiness"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -561,6 +562,13 @@ export function ProductFootprintPanel({ header }: { header?: ReactNode }) {
           />
         }
       >
+        <BusinessSourceReadinessPanel
+          endpoint="/api/carbon/product-footprint/source-readiness"
+          queryKey={[...QUERY_KEY, "source-readiness"]}
+          testId="product-footprint-source-readiness-panel"
+          primaryLabel="活动数据"
+          primaryKey="inventory_item_count"
+        />
         <TabsContent value="studies">
           <AdminPanel
             title="产品与研究"
@@ -575,6 +583,7 @@ export function ProductFootprintPanel({ header }: { header?: ReactNode }) {
                 <DialogContent className="max-w-3xl">
                   <DialogHeader>
                     <DialogTitle>新建产品碳足迹研究</DialogTitle>
+                    <DialogDescription className="sr-only">维护产品碳足迹研究的基础信息和核算边界。</DialogDescription>
                   </DialogHeader>
                   <StudyFormView value={studyForm} onChange={setStudyForm} />
                   <DialogFooter>
@@ -664,6 +673,7 @@ export function ProductFootprintPanel({ header }: { header?: ReactNode }) {
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>新增生命周期阶段</DialogTitle>
+                      <DialogDescription className="sr-only">维护当前产品碳足迹研究的生命周期阶段。</DialogDescription>
                     </DialogHeader>
                     <StageFormView value={stageForm} onChange={setStageForm} />
                     <DialogFooter>
@@ -721,6 +731,7 @@ export function ProductFootprintPanel({ header }: { header?: ReactNode }) {
                   <DialogContent className="max-w-5xl">
                     <DialogHeader>
                       <DialogTitle>引用供应商数据</DialogTitle>
+                      <DialogDescription className="sr-only">选择供应链填报数据并引用到产品碳足迹活动清单。</DialogDescription>
                     </DialogHeader>
                     <SupplierImportView candidates={supplierCandidates} stages={stages} value={supplierImportForm} onChange={setSupplierImportForm} />
                     <DialogFooter>
@@ -743,6 +754,7 @@ export function ProductFootprintPanel({ header }: { header?: ReactNode }) {
                   <DialogContent className="max-w-4xl">
                     <DialogHeader>
                       <DialogTitle>新增活动数据</DialogTitle>
+                      <DialogDescription className="sr-only">维护产品碳足迹研究的活动数据和排放因子。</DialogDescription>
                     </DialogHeader>
                     <InventoryFormView stages={stages} value={inventoryForm} onChange={setInventoryForm} />
                     <DialogFooter>
@@ -813,6 +825,7 @@ export function ProductFootprintPanel({ header }: { header?: ReactNode }) {
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>新增分配规则</DialogTitle>
+                      <DialogDescription className="sr-only">维护产品碳足迹研究的分配规则。</DialogDescription>
                     </DialogHeader>
                     <AllocationFormView value={allocationForm} onChange={setAllocationForm} />
                     <DialogFooter>

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useMemo, useState } from "react"
+import { type ReactNode, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import { AdminDataTable, AdminPageHeader, AdminPanel, AdminTableStateRow, AdminTableToolbar } from "@/components/admin-ui"
@@ -114,6 +114,7 @@ export function ScopeRecordPage<T extends ScopeRow>({
   columns,
   fields,
   embedded = false,
+  importPanel,
 }: {
   title: string
   endpoint: string
@@ -122,6 +123,7 @@ export function ScopeRecordPage<T extends ScopeRow>({
   columns: Column<T>[]
   fields: Field[]
   embedded?: boolean
+  importPanel?: ReactNode
 }) {
   const qc = useQueryClient()
   const [keyword, setKeyword] = useState("")
@@ -346,7 +348,7 @@ export function ScopeRecordPage<T extends ScopeRow>({
 
   return (
     <PageContainer className="flex-1 space-y-4">
-      <AdminPageHeader title={title} />
+      <AdminPageHeader title={title} actions={importPanel} />
       {content}
     </PageContainer>
   )

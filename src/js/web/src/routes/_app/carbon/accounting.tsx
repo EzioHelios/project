@@ -29,7 +29,7 @@ function CarbonAccountingPage() {
               <TabsTrigger value="scope1">Scope1 填报</TabsTrigger>
               <TabsTrigger value="scope2">Scope2 填报</TabsTrigger>
               <TabsTrigger value="scope3">Scope3 填报</TabsTrigger>
-              <TabsTrigger value="results">核算结果</TabsTrigger>
+              <TabsTrigger value="results">排放台账</TabsTrigger>
               <TabsTrigger value="pending">待审核</TabsTrigger>
             </AdminTabsList>
           }

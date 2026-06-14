@@ -6,10 +6,11 @@ import { toast } from "sonner"
 
 import { AdminDataTable, AdminEmptyState, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
+import { EnergySourceReadinessPanel } from "@/components/carbon/energy-source-readiness"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -346,6 +347,7 @@ export function EnergyBudgetPanel({ header }: { header?: ReactNode }) {
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>新增预算目标</DialogTitle>
+                      <DialogDescription className="sr-only">维护年度能源与碳排预算目标。</DialogDescription>
                     </DialogHeader>
                     <BudgetPlanForm value={planForm} onChange={setPlanForm} />
                     <DialogFooter>
@@ -390,6 +392,7 @@ export function EnergyBudgetPanel({ header }: { header?: ReactNode }) {
           )
         }
       >
+        <EnergySourceReadinessPanel focus="budget_planning" />
         <TabsContent value="target">
           <AdminPanel title={plan?.name ?? "年度目标"} actions={plan ? statusBadge(plan.status) : null}>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -460,6 +463,7 @@ export function EnergyBudgetPanel({ header }: { header?: ReactNode }) {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>新增预算调整</DialogTitle>
+                  <DialogDescription className="sr-only">维护月度预算调整申请。</DialogDescription>
                 </DialogHeader>
                 <AdjustmentForm rows={rows} value={adjustmentForm} onChange={setAdjustmentForm} />
                 <DialogFooter>

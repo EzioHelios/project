@@ -5,7 +5,8 @@ import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
-import { AdminDataTable, AdminPageHeader, AdminPanel, AdminTableStateRow, AdminTableToolbar } from "@/components/admin-ui"
+import { AdminDataTable, AdminPageHeader, AdminPanel, AdminTableStateRow, AdminTableToolbar, PageImportPanel } from "@/components/admin-ui"
+import { productionOutputImportFields, submitEnergyDatasetImport } from "@/components/carbon/page-import-configs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -266,6 +267,7 @@ export function CrudDataPage({
   rowActions,
   onCreateSuccess,
   topContent,
+  topActions,
 }: {
   title: string
   endpoint: string
@@ -276,6 +278,7 @@ export function CrudDataPage({
   rowActions?: (row: Row) => ReactNode
   onCreateSuccess?: (row: Row) => void | Promise<void>
   topContent?: ReactNode
+  topActions?: ReactNode
 }) {
   const qc = useQueryClient()
   const [keyword, setKeyword] = useState("")
@@ -335,7 +338,7 @@ export function CrudDataPage({
 
   return (
     <PageContainer className="flex-1 space-y-4">
-      <AdminPageHeader title={title} />
+      <AdminPageHeader title={title} actions={topActions} />
       {topContent}
       <PageSection>
         <AdminPanel title={`${title}列表`}>
@@ -913,12 +916,24 @@ export function ProductPricesPage() {
 }
 
 export function ProductionOutputPage() {
+  const queryClient = useQueryClient()
+  const queryKey = ["production", "output-facts"]
   return (
     <CrudDataPage
       title="产品批次产量"
       endpoint="/api/production/output-facts"
-      queryKey={["production", "output-facts"]}
+      queryKey={queryKey}
       searchPlaceholder="按工单、批次、产品、产线、设备搜索"
+      topActions={
+        <PageImportPanel
+          title="产品批次产量导入"
+          fields={productionOutputImportFields}
+          sourceNameDefault="产量页面导入"
+          testId="production-output-import"
+          onConfirm={(rows, context) => submitEnergyDatasetImport("production_output_facts", rows, context.sourceName)}
+          onCompleted={() => queryClient.invalidateQueries({ queryKey })}
+        />
+      }
       columns={[
         { key: "period_start", label: "开始日期" },
         { key: "product_code", label: "产品编码" },

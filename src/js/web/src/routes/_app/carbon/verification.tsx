@@ -7,6 +7,7 @@ import {
   VerificationMaterialPackagePanel,
   VerificationProjectsPanel,
   VerificationReportPanel,
+  VerificationSourceReadinessPanel,
 } from "@/components/carbon/verification-panels"
 import { PageContainer } from "@/components/ui/page-layout"
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
@@ -35,6 +36,7 @@ function CarbonVerificationPage() {
             </AdminTabsList>
           }
         >
+          <VerificationSourceReadinessPanel />
           <TabsContent value="projects">
             <VerificationProjectsPanel />
           </TabsContent>

@@ -6,11 +6,12 @@ import { toast } from "sonner"
 
 import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
+import { BusinessSourceReadinessPanel } from "@/components/carbon/business-source-readiness"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -474,6 +475,13 @@ export function SupplyChainCarbonPanel({ header }: { header?: ReactNode }) {
           />
         }
       >
+        <BusinessSourceReadinessPanel
+          endpoint="/api/carbon/supply-chain/source-readiness"
+          queryKey={[...QUERY_KEY, "source-readiness"]}
+          testId="supply-chain-source-readiness-panel"
+          primaryLabel="供应商数据"
+          primaryKey="data_count"
+        />
         <TabsContent value="suppliers">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
             <AdminPanel
@@ -489,6 +497,7 @@ export function SupplyChainCarbonPanel({ header }: { header?: ReactNode }) {
                   <DialogContent className="max-w-3xl">
                     <DialogHeader>
                       <DialogTitle>新建供应商</DialogTitle>
+                      <DialogDescription className="sr-only">维护供应商档案和联系信息。</DialogDescription>
                     </DialogHeader>
                     <SupplierFormView value={supplierForm} onChange={setSupplierForm} />
                     <DialogFooter>
@@ -558,6 +567,7 @@ export function SupplyChainCarbonPanel({ header }: { header?: ReactNode }) {
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>新增场站</DialogTitle>
+                      <DialogDescription className="sr-only">维护供应商场站范围和区域信息。</DialogDescription>
                     </DialogHeader>
                     <SiteFormView suppliers={suppliers} value={siteForm} onChange={setSiteForm} />
                     <DialogFooter>
@@ -615,6 +625,7 @@ export function SupplyChainCarbonPanel({ header }: { header?: ReactNode }) {
                 <DialogContent className="max-w-4xl">
                   <DialogHeader>
                     <DialogTitle>新建填报任务</DialogTitle>
+                    <DialogDescription className="sr-only">维护供应商碳数据填报任务和周期。</DialogDescription>
                   </DialogHeader>
                   <TaskFormView suppliers={suppliers} value={taskForm} onChange={setTaskForm} />
                   <DialogFooter>
@@ -695,6 +706,7 @@ export function SupplyChainCarbonPanel({ header }: { header?: ReactNode }) {
                   <DialogContent className="max-w-4xl">
                     <DialogHeader>
                       <DialogTitle>新增填报数据</DialogTitle>
+                      <DialogDescription className="sr-only">维护供应商填报任务的活动数据。</DialogDescription>
                     </DialogHeader>
                     <DataFormView value={dataForm} onChange={setDataForm} />
                     <DialogFooter>
@@ -762,6 +774,7 @@ export function SupplyChainCarbonPanel({ header }: { header?: ReactNode }) {
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>新增证据</DialogTitle>
+                      <DialogDescription className="sr-only">维护供应商填报数据的佐证材料。</DialogDescription>
                     </DialogHeader>
                     <EvidenceFormView value={evidenceForm} onChange={setEvidenceForm} />
                     <DialogFooter>
@@ -840,6 +853,7 @@ export function SupplyChainCarbonPanel({ header }: { header?: ReactNode }) {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>生成披露记录</DialogTitle>
+                    <DialogDescription className="sr-only">维护供应链碳披露记录的接收方和披露范围。</DialogDescription>
                   </DialogHeader>
                   <ReleaseFormView value={releaseForm} onChange={setReleaseForm} />
                   <DialogFooter>
