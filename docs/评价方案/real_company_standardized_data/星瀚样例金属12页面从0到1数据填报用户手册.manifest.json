@@ -1,0 +1,1061 @@
+{
+  "title": "星瀚样例金属能碳 12 页面从 0 到 1 数据填报用户手册",
+  "targetRole": "企业能碳数据填报人员、能碳管理员、核查资料准备人员",
+  "verificationMode": "browser-verified-with-chrome-screenshots",
+  "manualMode": "complete",
+  "dataScope": {
+    "enterprise": "星瀚样例金属科技（虚构）有限公司",
+    "tenantSlug": "demo-xinghan-metal-2025",
+    "packageRoot": "docs/评价方案/real_company_standardized_data/enterprises/demo-xinghan"
+  },
+  "acceptanceFrame": {
+    "enterpriseCoverage": "single-enterprise-closed-loop",
+    "goldenEnterprise": "demo-xinghan-metal-2025",
+    "unifiedEntryRequired": false,
+    "dataEntryModel": "domain-separated-with-clear-responsibility-order-boundaries",
+    "calculationTriggerPolicy": "automatic-or-one-click",
+    "notes": "第一版用户手册以星瀚样例金属一个企业完成 0 到 1 闭环为验收样本；不同领域允许分别录入，但每页必须明确数据职责、上下游边界和计算触发方式。"
+  },
+  "progressSummary": {
+    "Discovery": "completed",
+    "Scope": "completed",
+    "PageDraft": "14/14",
+    "InteractionAudit": "12/12 code-inferred",
+    "PMConfirm": "0 pending",
+    "Screenshots": "14/14 browser-verified",
+    "FinalAudit": "completed"
+  },
+  "coverageSummary": {
+    "coverageGoal": "demo-xinghan-0-to-1-main-workflow",
+    "routesCovered": 12,
+    "steps": 14,
+    "includedRoutes": [
+      "/teams",
+      "/energy/consumption",
+      "/energy/intensity",
+      "/energy/analysis",
+      "/energy/flow",
+      "/energy/balance",
+      "/energy/benchmark",
+      "/energy/budget",
+      "/carbon/accounting",
+      "/carbon/product-footprint",
+      "/carbon/supply-chain",
+      "/carbon/verification",
+      "/carbon/assets"
+    ],
+    "excludedResources": [
+      "bigscreen routes",
+      "legacy carbon-mgmt standalone scope pages",
+      "system administration routes"
+    ]
+  },
+  "phaseCheckpoints": {
+    "Discovery": {
+      "status": "completed",
+      "evidence": "routes, demo-xinghan enterprise package CSVs, existing scorecard and page matrix"
+    },
+    "Scope": {
+      "status": "completed",
+      "evidence": "Demo Xinghan package selected as golden sample; 12 energy-carbon pages plus tenant entry covered"
+    },
+    "PageDraft": {
+      "status": "completed",
+      "evidence": "Markdown manual created"
+    },
+    "InteractionAudit": {
+      "status": "completed",
+      "evidence": "Static code audit of tabs, dialogs, imports, calculation buttons and export actions"
+    },
+    "PMConfirm": {
+      "status": "completed",
+      "evidence": "No PM question needed under current scope"
+    },
+    "Screenshots": {
+      "status": "completed",
+      "evidence": "Chrome Playwright run generated 14/14 stable screenshots under tmp/manual-evidence/screenshots and wrote tmp/manual-evidence/manual-verify.results.json."
+    },
+    "FinalAudit": {
+      "status": "completed",
+      "evidence": "Complete manifest validation passed after browser screenshot evidence writeback. Demo Xinghan tenant database counts confirm non-empty records across energy, carbon accounting, PCF, supply chain, verification and carbon assets."
+    }
+  },
+  "openQuestions": [],
+  "riskItems": [
+    "发布组织边界、锁定核算批次、审核供应链数据、生成披露记录、归档核查项目和登记清缴均会改变业务状态，截图验证时应使用可回滚样例租户或先只打开弹窗不提交。",
+    "碳资产的交易测算属于业务测算能力，正式用于履约决策前应导入企业真实配额、CCER、交易和清缴台账。",
+    "核查材料包下载可能包含较大附件，截图时需等待导出记录稳定后再下载。"
+  ],
+  "sections": [
+    {
+      "sectionId": "phase-1-foundation",
+      "title": "第一阶段：基础建档",
+      "steps": [
+        {
+          "stepNumber": "1.1",
+          "action": "进入团队或租户管理页面，确认并进入星瀚样例金属租户。",
+          "expectedState": "当前工作区切换到星瀚样例金属科技（虚构）有限公司，后续数据写入当前租户。",
+          "precondition": "用户已登录并具备租户访问权限；样例文件为 00_tenant/enterprise_profiles.csv。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "route": "/teams",
+          "sourceRoute": "/teams",
+          "sourceResource": "tenant-foundation",
+          "sourceComponent": null,
+          "coverageTargetType": "workflow",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L2",
+          "interactionAuditStatus": "audited",
+          "progressStatus": "browser-verified",
+          "evidence": "Demo Xinghan tenant slug demo-xinghan-metal-2025 exists in real_company_standardized_data documents. Browser verification: http://127.0.0.1:18101/teams; matched signals: 星瀚样例金属, 团队, 租户; screenshot: docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-001.png.",
+          "screenshotPlan": {
+            "marker": "SHOT-DEMO-001",
+            "focus": "星瀚样例租户与进入工作区入口",
+            "timing": "登录后进入团队列表并确认星瀚样例租户可见",
+            "viewport": "desktop-wide",
+            "successSignal": "可见星瀚样例金属科技（虚构）有限公司租户或当前租户标识"
+          },
+          "verifiedAt": "2026-06-14T09:12:38.809Z",
+          "screenshotEvidence": {
+            "path": "docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-001.png",
+            "finalUrl": "http://127.0.0.1:18101/teams",
+            "matchedSignals": [
+              "星瀚样例金属",
+              "团队",
+              "租户"
+            ],
+            "loadingArtifacts": [],
+            "notes": "stable screenshot captured"
+          }
+        },
+        {
+          "stepNumber": "1.2",
+          "action": "在碳排放核算页面维护报告主体、报告期、组织边界和边界设施，并发布边界。",
+          "expectedState": "组织边界变为已发布，可作为核算批次和清单重建基础。",
+          "precondition": "已进入星瀚样例租户；样例文件包括 reporting_organizations.csv、reporting_periods.csv、organization_boundaries.csv。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "route": "/carbon/accounting",
+          "sourceRoute": "/carbon/accounting",
+          "sourceResource": "carbon-accounting-boundary",
+          "sourceComponent": "src/js/web/src/components/carbon/organization-boundary-panel.tsx",
+          "coverageTargetType": "workflow",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "audited",
+          "progressStatus": "browser-verified",
+          "evidence": "OrganizationBoundaryPanel exposes 新增主体、新增报告期、新增边界、维护设施 and publish action. Browser verification: http://127.0.0.1:18101/carbon/accounting; matched signals: 碳排放核算, 组织边界; screenshot: docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-002.png.",
+          "screenshotPlan": {
+            "marker": "SHOT-DEMO-002",
+            "focus": "组织边界、报告主体、报告期和发布状态",
+            "timing": "边界发布后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见组织边界列表、设施维护入口和已发布状态"
+          },
+          "verifiedAt": "2026-06-14T09:12:38.809Z",
+          "screenshotEvidence": {
+            "path": "docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-002.png",
+            "finalUrl": "http://127.0.0.1:18101/carbon/accounting",
+            "matchedSignals": [
+              "碳排放核算",
+              "组织边界"
+            ],
+            "loadingArtifacts": [],
+            "notes": "stable screenshot captured"
+          }
+        }
+      ]
+    },
+    {
+      "sectionId": "phase-2-energy",
+      "title": "第二阶段：能源与产量数据",
+      "steps": [
+        {
+          "stepNumber": "2.1",
+          "action": "在能源消费页的数据导入区导入能源事实、Scope1 固定燃烧、Scope2 电力账单、产量和产品主数据。",
+          "expectedState": "导入结果显示接收行、入库行、跳过行和错误行，能源消费数据可在页面查询。",
+          "precondition": "已准备 05_energy_management 目录下的 energy_interval_facts.csv、scope1_stationary_combustion.csv、scope2_electricity_bills.csv、production_output_facts.csv、production_products.csv。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "route": "/energy/consumption",
+          "sourceRoute": "/energy/consumption",
+          "sourceResource": "energy-consumption-import",
+          "sourceComponent": "src/js/web/src/components/carbon/energy-guide-pages.tsx",
+          "coverageTargetType": "resource-route",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "audited",
+          "progressStatus": "browser-verified",
+          "evidence": "EnergyConsumptionPanel exposes 数据导入 and PageImportPanel for energy datasets. Browser verification: http://127.0.0.1:18101/energy/consumption; matched signals: 导入; screenshot: docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-003.png.",
+          "screenshotPlan": {
+            "marker": "SHOT-DEMO-003",
+            "focus": "数据导入、导入结果和能源消费概览",
+            "timing": "导入完成并返回消费视图后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见导入结果统计、能源消费汇总或明细追溯"
+          },
+          "verifiedAt": "2026-06-14T09:12:38.809Z",
+          "screenshotEvidence": {
+            "path": "docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-003.png",
+            "finalUrl": "http://127.0.0.1:18101/energy/consumption",
+            "matchedSignals": [
+              "导入"
+            ],
+            "loadingArtifacts": [],
+            "notes": "stable screenshot captured"
+          }
+        },
+        {
+          "stepNumber": "2.2",
+          "action": "进入能源强度页，按期间和产品查询强度结果。",
+          "expectedState": "系统展示消费量汇总、产品强度、面积强度、产值强度和趋势分析。",
+          "precondition": "能源事实、产量分母和产品主数据已导入。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "route": "/energy/intensity",
+          "sourceRoute": "/energy/intensity",
+          "sourceResource": "energy-intensity-analysis",
+          "sourceComponent": "src/js/web/src/components/carbon/energy-guide-pages.tsx",
+          "coverageTargetType": "resource-route",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L2",
+          "interactionAuditStatus": "audited",
+          "progressStatus": "browser-verified",
+          "evidence": "EnergyIntensityPanel queries source data and exposes 查询/重置 plus intensity tabs. Browser verification: http://127.0.0.1:18101/energy/intensity; matched signals: 能源, 强度, 查询; screenshot: docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-004.png.",
+          "screenshotPlan": {
+            "marker": "SHOT-DEMO-004",
+            "focus": "消费量汇总或产品强度结果",
+            "timing": "点击查询后页面稳定",
+            "viewport": "desktop-wide",
+            "successSignal": "可见强度指标和趋势图表"
+          },
+          "verifiedAt": "2026-06-14T09:12:38.809Z",
+          "screenshotEvidence": {
+            "path": "docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-004.png",
+            "finalUrl": "http://127.0.0.1:18101/energy/intensity",
+            "matchedSignals": [
+              "能源",
+              "强度",
+              "查询"
+            ],
+            "loadingArtifacts": [],
+            "notes": "stable screenshot captured"
+          }
+        },
+        {
+          "stepNumber": "2.3",
+          "action": "进入用能分析页，查询结构、成本、能效、异常和策略建议。",
+          "expectedState": "系统基于能源事实生成分析图表和异常诊断。",
+          "precondition": "能源事实已导入。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "route": "/energy/analysis",
+          "sourceRoute": "/energy/analysis",
+          "sourceResource": "energy-analysis",
+          "sourceComponent": "src/js/web/src/components/carbon/energy-guide-pages.tsx",
+          "coverageTargetType": "resource-route",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L2",
+          "interactionAuditStatus": "audited",
+          "progressStatus": "browser-verified",
+          "evidence": "EnergyAnalysisPanel exposes structure/cost/performance/anomaly/strategy tabs and 查询 action. Browser verification: http://127.0.0.1:18101/energy/analysis; matched signals: 用能分析, 结构分析, 异常; screenshot: docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-005.png.",
+          "screenshotPlan": {
+            "marker": "SHOT-DEMO-005",
+            "focus": "结构分析、异常诊断或策略建议",
+            "timing": "点击查询后页面稳定",
+            "viewport": "desktop-wide",
+            "successSignal": "可见结构图表、异常记录或策略建议"
+          },
+          "verifiedAt": "2026-06-14T09:12:38.809Z",
+          "screenshotEvidence": {
+            "path": "docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-005.png",
+            "finalUrl": "http://127.0.0.1:18101/energy/analysis",
+            "matchedSignals": [
+              "用能分析",
+              "结构分析",
+              "异常"
+            ],
+            "loadingArtifacts": [],
+            "notes": "stable screenshot captured"
+          }
+        },
+        {
+          "stepNumber": "2.4",
+          "action": "进入能流分析页，查询能流图、能量平衡表、损耗诊断和分析报告。",
+          "expectedState": "系统基于能源事实生成能流节点、边和损耗诊断。",
+          "precondition": "能源事实已导入。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "route": "/energy/flow",
+          "sourceRoute": "/energy/flow",
+          "sourceResource": "energy-flow",
+          "sourceComponent": "src/js/web/src/components/carbon/energy-guide-pages.tsx",
+          "coverageTargetType": "resource-route",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L2",
+          "interactionAuditStatus": "audited",
+          "progressStatus": "browser-verified",
+          "evidence": "EnergyFlowPanel queries graph, balance, losses and report endpoints. Browser verification: http://127.0.0.1:18101/energy/flow; matched signals: 能流, 能量平衡, 损耗; screenshot: docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-006.png.",
+          "screenshotPlan": {
+            "marker": "SHOT-DEMO-006",
+            "focus": "能流图和损耗诊断",
+            "timing": "点击查询后页面稳定",
+            "viewport": "desktop-wide",
+            "successSignal": "可见能流图、能量平衡表或损耗诊断"
+          },
+          "verifiedAt": "2026-06-14T09:12:38.809Z",
+          "screenshotEvidence": {
+            "path": "docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-006.png",
+            "finalUrl": "http://127.0.0.1:18101/energy/flow",
+            "matchedSignals": [
+              "能流",
+              "能量平衡",
+              "损耗"
+            ],
+            "loadingArtifacts": [],
+            "notes": "stable screenshot captured"
+          }
+        },
+        {
+          "stepNumber": "2.5",
+          "action": "在能量平衡页执行测算并保存优化记录。",
+          "expectedState": "系统生成测算结果，保存后可在优化记录中查看。",
+          "precondition": "能源事实已导入，用户具备保存优化记录权限。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "route": "/energy/balance",
+          "sourceRoute": "/energy/balance",
+          "sourceResource": "energy-balance",
+          "sourceComponent": "src/js/web/src/components/carbon/energy-guide-pages.tsx",
+          "coverageTargetType": "resource-route",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "audited",
+          "progressStatus": "browser-verified",
+          "evidence": "EnergyBalancePanel exposes 执行测算 and 保存记录 mutations. Browser verification: http://127.0.0.1:18101/energy/balance; matched signals: 能效平衡, 优化; screenshot: docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-007.png.",
+          "screenshotPlan": {
+            "marker": "SHOT-DEMO-007",
+            "focus": "优化测算和优化记录",
+            "timing": "执行测算并保存记录后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见测算结果和优化记录"
+          },
+          "verifiedAt": "2026-06-14T09:12:38.809Z",
+          "screenshotEvidence": {
+            "path": "docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-007.png",
+            "finalUrl": "http://127.0.0.1:18101/energy/balance",
+            "matchedSignals": [
+              "能效平衡",
+              "优化"
+            ],
+            "loadingArtifacts": [],
+            "notes": "stable screenshot captured"
+          }
+        },
+        {
+          "stepNumber": "2.6",
+          "action": "在能效对标页生成历史基线和标杆项，并查看对标结论。",
+          "expectedState": "系统生成对标项、对标结论和整改建议。",
+          "precondition": "能源事实和产量分母已导入。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "route": "/energy/benchmark",
+          "sourceRoute": "/energy/benchmark",
+          "sourceResource": "energy-benchmark",
+          "sourceComponent": "src/js/web/src/components/carbon/energy-benchmark-panel.tsx",
+          "coverageTargetType": "resource-route",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "audited",
+          "progressStatus": "browser-verified",
+          "evidence": "EnergyBenchmarkPanel exposes generate-from-history, 新增标杆方案, CSV 导入 and 新增标杆项. Browser verification: http://127.0.0.1:18101/energy/benchmark; matched signals: 能效对标, 历史基线, 标杆; screenshot: docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-008.png.",
+          "screenshotPlan": {
+            "marker": "SHOT-DEMO-008",
+            "focus": "历史基线、标杆项和对标结论",
+            "timing": "生成标杆项后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见标杆项、对标结论或整改建议"
+          },
+          "verifiedAt": "2026-06-14T09:12:38.809Z",
+          "screenshotEvidence": {
+            "path": "docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-008.png",
+            "finalUrl": "http://127.0.0.1:18101/energy/benchmark",
+            "matchedSignals": [
+              "能效对标",
+              "历史基线",
+              "标杆"
+            ],
+            "loadingArtifacts": [],
+            "notes": "stable screenshot captured"
+          }
+        },
+        {
+          "stepNumber": "2.7",
+          "action": "在能源预算页新增年度目标，查看月度预算、执行偏差和调整审批。",
+          "expectedState": "系统生成月度预算并展示实际值、预算值和偏差。",
+          "precondition": "能源事实和产量分母已导入。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "route": "/energy/budget",
+          "sourceRoute": "/energy/budget",
+          "sourceResource": "energy-budget",
+          "sourceComponent": "src/js/web/src/components/carbon/energy-budget-panel.tsx",
+          "coverageTargetType": "resource-route",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "audited",
+          "progressStatus": "browser-verified",
+          "evidence": "EnergyBudgetPanel exposes 新增目标 and 新增调整 dialogs plus variance tabs. Browser verification: http://127.0.0.1:18101/energy/budget; matched signals: 预算, 年度目标, 执行偏差; screenshot: docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-009.png.",
+          "screenshotPlan": {
+            "marker": "SHOT-DEMO-009",
+            "focus": "年度目标、月度预算和执行偏差",
+            "timing": "新增目标后页面稳定",
+            "viewport": "desktop-wide",
+            "successSignal": "可见年度目标、月度预算或执行偏差"
+          },
+          "verifiedAt": "2026-06-14T09:12:38.809Z",
+          "screenshotEvidence": {
+            "path": "docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-009.png",
+            "finalUrl": "http://127.0.0.1:18101/energy/budget",
+            "matchedSignals": [
+              "预算",
+              "年度目标",
+              "执行偏差"
+            ],
+            "loadingArtifacts": [],
+            "notes": "stable screenshot captured"
+          }
+        }
+      ]
+    },
+    {
+      "sectionId": "phase-3-carbon-accounting",
+      "title": "第三阶段：组织碳核算",
+      "steps": [
+        {
+          "stepNumber": "3.1",
+          "action": "在碳排放核算页面查看 Scope 填报数据，创建核算批次，一键重建清单并提交或锁定。",
+          "expectedState": "系统生成排放台账，清单非空且无缺结果后进入提交或锁定状态。",
+          "precondition": "主体、期间、边界、Scope1、Scope2、Scope3 和因子数据已准备。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "route": "/carbon/accounting",
+          "sourceRoute": "/carbon/accounting",
+          "sourceResource": "carbon-accounting-inventory",
+          "sourceComponent": "src/js/web/src/components/carbon/accounting-inventory-panel.tsx",
+          "coverageTargetType": "resource-route",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "audited",
+          "progressStatus": "browser-verified",
+          "evidence": "CarbonAccountingResultsPanel exposes 创建批次、重建清单、提交、导出、审批 and missing-result supplement actions. Browser verification: http://127.0.0.1:18101/carbon/accounting; matched signals: 碳排放核算, Scope, 排放台账; screenshot: docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-010.png.",
+          "screenshotPlan": {
+            "marker": "SHOT-DEMO-010",
+            "focus": "Scope 填报、排放台账和重建清单结果",
+            "timing": "重建清单完成后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见排放台账、批次状态和清单计算结果"
+          },
+          "verifiedAt": "2026-06-14T09:12:38.809Z",
+          "screenshotEvidence": {
+            "path": "docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-010.png",
+            "finalUrl": "http://127.0.0.1:18101/carbon/accounting",
+            "matchedSignals": [
+              "碳排放核算",
+              "Scope",
+              "排放台账"
+            ],
+            "loadingArtifacts": [],
+            "notes": "stable screenshot captured"
+          }
+        }
+      ]
+    },
+    {
+      "sectionId": "phase-4-product-footprint",
+      "title": "第四阶段：产品碳足迹",
+      "steps": [
+        {
+          "stepNumber": "4.1",
+          "action": "在产品碳足迹页面新建研究、维护边界和活动清单，点击计算结果并导出报告。",
+          "expectedState": "系统生成产品碳足迹结果，并可导出报告文件包。",
+          "precondition": "产品、产量、边界、生命周期阶段和活动清单已准备。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "route": "/carbon/product-footprint",
+          "sourceRoute": "/carbon/product-footprint",
+          "sourceResource": "carbon-product-footprint",
+          "sourceComponent": "src/js/web/src/components/carbon/product-footprint-panel.tsx",
+          "coverageTargetType": "resource-route",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "audited",
+          "progressStatus": "browser-verified",
+          "evidence": "ProductFootprintPanel exposes 新建研究、保存边界、新增阶段、引用供应商数据、新增活动数据、计算结果 and 导出报告. Browser verification: http://127.0.0.1:18101/carbon/product-footprint; matched signals: 产品碳足迹, 核算结果, 活动数据; screenshot: docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-011.png.",
+          "screenshotPlan": {
+            "marker": "SHOT-DEMO-011",
+            "focus": "产品研究、活动清单、核算结果和报告导出",
+            "timing": "计算结果后或报告导出前",
+            "viewport": "desktop-wide",
+            "successSignal": "可见 PCF 研究、清单、结果和导出按钮"
+          },
+          "verifiedAt": "2026-06-14T09:12:38.809Z",
+          "screenshotEvidence": {
+            "path": "docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-011.png",
+            "finalUrl": "http://127.0.0.1:18101/carbon/product-footprint",
+            "matchedSignals": [
+              "产品碳足迹",
+              "核算结果",
+              "活动数据"
+            ],
+            "loadingArtifacts": [],
+            "notes": "stable screenshot captured"
+          }
+        }
+      ]
+    },
+    {
+      "sectionId": "phase-5-supply-verification",
+      "title": "第五阶段：供应链与核查",
+      "steps": [
+        {
+          "stepNumber": "5.1",
+          "action": "在供应链碳管理页面维护供应商、场站、填报任务、填报数据、证据和披露记录。",
+          "expectedState": "供应商碳数据形成可追溯链路，并可生成披露记录。",
+          "precondition": "供应商、场站、任务、碳数据和 source_files 已准备。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "route": "/carbon/supply-chain",
+          "sourceRoute": "/carbon/supply-chain",
+          "sourceResource": "carbon-supply-chain",
+          "sourceComponent": "src/js/web/src/components/carbon/supply-chain-carbon-panel.tsx",
+          "coverageTargetType": "resource-route",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "audited",
+          "progressStatus": "browser-verified",
+          "evidence": "SupplyChainCarbonPanel exposes 新建供应商、新增场站、新建任务、新增填报数据、新增证据、提交、审核 and 生成披露记录. Browser verification: http://127.0.0.1:18101/carbon/supply-chain; matched signals: 供应链, 供应商, 填报; screenshot: docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-012.png.",
+          "screenshotPlan": {
+            "marker": "SHOT-DEMO-012",
+            "focus": "供应商、任务、填报数据、证据和披露",
+            "timing": "供应商任务和数据可见后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见供应商、填报任务、数据审核或披露记录"
+          },
+          "verifiedAt": "2026-06-14T09:12:38.809Z",
+          "screenshotEvidence": {
+            "path": "docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-012.png",
+            "finalUrl": "http://127.0.0.1:18101/carbon/supply-chain",
+            "matchedSignals": [
+              "供应链",
+              "供应商",
+              "填报"
+            ],
+            "loadingArtifacts": [],
+            "notes": "stable screenshot captured"
+          }
+        },
+        {
+          "stepNumber": "5.2",
+          "action": "在碳核查支撑页面创建项目、检查凭证、登记附件、生成并下载核查材料包。",
+          "expectedState": "系统生成核查材料包导出记录，可下载材料包。",
+          "precondition": "碳核算、产品碳足迹、供应链数据和 source_files 已准备。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "route": "/carbon/verification",
+          "sourceRoute": "/carbon/verification",
+          "sourceResource": "carbon-verification",
+          "sourceComponent": "src/js/web/src/components/carbon/verification-panels.tsx",
+          "coverageTargetType": "resource-route",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "audited",
+          "progressStatus": "browser-verified",
+          "evidence": "Verification panels expose 创建项目、登记附件、生成材料包、生成报告、下载 and project status actions. Browser verification: http://127.0.0.1:18101/carbon/verification; matched signals: 核查, 凭证, 材料包; screenshot: docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-013.png.",
+          "screenshotPlan": {
+            "marker": "SHOT-DEMO-013",
+            "focus": "凭证清单、材料包和报告导出",
+            "timing": "生成材料包后导出记录可见",
+            "viewport": "desktop-wide",
+            "successSignal": "可见核查材料包、导出记录或下载按钮"
+          },
+          "verifiedAt": "2026-06-14T09:12:38.809Z",
+          "screenshotEvidence": {
+            "path": "docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-013.png",
+            "finalUrl": "http://127.0.0.1:18101/carbon/verification",
+            "matchedSignals": [
+              "核查",
+              "凭证",
+              "材料包"
+            ],
+            "loadingArtifacts": [],
+            "notes": "stable screenshot captured"
+          }
+        }
+      ]
+    },
+    {
+      "sectionId": "phase-6-carbon-assets",
+      "title": "第六阶段：碳资产",
+      "steps": [
+        {
+          "stepNumber": "6.1",
+          "action": "在碳资产页面导入或维护资产台账，查看市场行情，完成履约周期、账户、配额、持仓、交易测算、清缴和预测。",
+          "expectedState": "系统展示资产头寸、市场行情、履约预测和风险预警。",
+          "precondition": "已准备 06_carbon_assets 目录下的核算批次、清单和资产初始场景数据；如有真实资产台账，先按模板导入。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "route": "/carbon/assets",
+          "sourceRoute": "/carbon/assets",
+          "sourceResource": "carbon-assets",
+          "sourceComponent": "src/js/web/src/components/carbon/carbon-assets-panel.tsx",
+          "coverageTargetType": "resource-route",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "audited",
+          "progressStatus": "browser-verified",
+          "evidence": "CarbonAssetsPanel exposes ledger import, market prices, compliance periods, accounts, allowances, credits, transaction simulation, surrenders, forecast scenarios and risk alerts. Browser verification: http://127.0.0.1:18101/carbon/assets; matched signals: 碳资产, 市场行情, 履约; screenshot: docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-014.png.",
+          "screenshotPlan": {
+            "marker": "SHOT-DEMO-014",
+            "focus": "台账导入、市场行情、履约预测和风险预警",
+            "timing": "资产台账或周期数据可见后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见市场行情 K 线、资产头寸、预测或风险预警"
+          },
+          "verifiedAt": "2026-06-14T09:12:38.809Z",
+          "screenshotEvidence": {
+            "path": "docs/评价方案/real_company_standardized_data/screenshots/SHOT-DEMO-014.png",
+            "finalUrl": "http://127.0.0.1:18101/carbon/assets",
+            "matchedSignals": [
+              "碳资产",
+              "市场行情",
+              "履约"
+            ],
+            "loadingArtifacts": [],
+            "notes": "stable screenshot captured"
+          }
+        }
+      ]
+    }
+  ],
+  "interactionAudit": {
+    "pages": [
+      {
+        "route": "/teams",
+        "stepNumber": "1.1",
+        "pageComplexity": "L2",
+        "status": "audited",
+        "elements": [
+          {
+            "label": "进入星瀚样例租户",
+            "type": "navigation",
+            "manualTreatment": "must-document",
+            "riskLevel": "local-ui",
+            "verificationPlan": "确认可从团队列表进入星瀚样例租户，不创建新团队。",
+            "reason": "后续所有数据写入依赖当前租户上下文。"
+          }
+        ]
+      },
+      {
+        "route": "/energy/consumption",
+        "stepNumber": "2.1",
+        "pageComplexity": "L3",
+        "status": "audited",
+        "elements": [
+          {
+            "label": "数据导入",
+            "type": "upload",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "打开数据导入页签，确认数据集选择、CSV 上传/粘贴、来源名称和导入按钮。",
+            "reason": "能源底层数据从该入口进入系统。"
+          },
+          {
+            "label": "企业资料包预检",
+            "type": "modal",
+            "manualTreatment": "summarize",
+            "riskLevel": "data-write",
+            "verificationPlan": "打开预检弹窗，只执行试运行或记录建档导入入口。",
+            "reason": "实施/验收场景可整包导入，日常用户手册以页面级导入为主。"
+          }
+        ]
+      },
+      {
+        "route": "/energy/intensity",
+        "stepNumber": "2.2",
+        "pageComplexity": "L2",
+        "status": "audited",
+        "elements": [
+          {
+            "label": "查询",
+            "type": "button",
+            "manualTreatment": "must-document",
+            "riskLevel": "read-only",
+            "verificationPlan": "选择筛选条件后点击查询，确认强度结果刷新。",
+            "reason": "该页主要是自动计算结果查看。"
+          },
+          {
+            "label": "消费量汇总/面积强度/产品强度/产值强度/区域设备/趋势分析",
+            "type": "tab",
+            "manualTreatment": "summarize",
+            "riskLevel": "local-ui",
+            "verificationPlan": "切换页签确认核心结果区可见。",
+            "reason": "页签是查看不同派生结果的入口。"
+          }
+        ]
+      },
+      {
+        "route": "/energy/analysis",
+        "stepNumber": "2.3",
+        "pageComplexity": "L2",
+        "status": "audited",
+        "elements": [
+          {
+            "label": "查询",
+            "type": "button",
+            "manualTreatment": "must-document",
+            "riskLevel": "read-only",
+            "verificationPlan": "点击查询后确认分析图表刷新。",
+            "reason": "触发当前筛选条件下的分析结果读取。"
+          },
+          {
+            "label": "结构分析/成本分析/能效分析/异常诊断/策略建议",
+            "type": "tab",
+            "manualTreatment": "summarize",
+            "riskLevel": "local-ui",
+            "verificationPlan": "切换页签确认分析区域可见。",
+            "reason": "这些页签覆盖用能分析的主要阅读路径。"
+          }
+        ]
+      },
+      {
+        "route": "/energy/flow",
+        "stepNumber": "2.4",
+        "pageComplexity": "L2",
+        "status": "audited",
+        "elements": [
+          {
+            "label": "查询",
+            "type": "button",
+            "manualTreatment": "must-document",
+            "riskLevel": "read-only",
+            "verificationPlan": "点击查询后确认能流图或平衡表刷新。",
+            "reason": "该页以能源事实派生分析为主。"
+          },
+          {
+            "label": "能流图/能量平衡表/损耗诊断/分析报告",
+            "type": "tab",
+            "manualTreatment": "summarize",
+            "riskLevel": "local-ui",
+            "verificationPlan": "切换页签确认各分析视图可见。",
+            "reason": "页签承载能流分析的关键视角。"
+          }
+        ]
+      },
+      {
+        "route": "/energy/balance",
+        "stepNumber": "2.5",
+        "pageComplexity": "L3",
+        "status": "audited",
+        "elements": [
+          {
+            "label": "执行测算",
+            "type": "button",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "点击执行测算，确认测算结果出现。",
+            "reason": "这是能量平衡的一键计算入口。"
+          },
+          {
+            "label": "保存记录",
+            "type": "button",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "测算结果出现后保存，确认优化记录列表更新。",
+            "reason": "保存后形成后续跟踪记录。"
+          }
+        ]
+      },
+      {
+        "route": "/energy/benchmark",
+        "stepNumber": "2.6",
+        "pageComplexity": "L3",
+        "status": "audited",
+        "elements": [
+          {
+            "label": "按最佳期间生成/按 P25 生成/按均值生成",
+            "type": "button",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "选择一个生成方式，确认标杆项或结论更新。",
+            "reason": "这些是一键生成标杆项的主入口。"
+          },
+          {
+            "label": "新增标杆方案/新增标杆项/CSV 导入",
+            "type": "modal",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "打开对应弹窗，确认字段；截图验证时可不提交。",
+            "reason": "用于补充对标业务配置。"
+          },
+          {
+            "label": "删除标杆项",
+            "type": "table-action",
+            "manualTreatment": "risk-note",
+            "riskLevel": "destructive",
+            "verificationPlan": "不执行删除，只在手册中提示谨慎操作。",
+            "reason": "删除会移除业务配置。"
+          }
+        ]
+      },
+      {
+        "route": "/energy/budget",
+        "stepNumber": "2.7",
+        "pageComplexity": "L3",
+        "status": "audited",
+        "elements": [
+          {
+            "label": "新增目标",
+            "type": "modal",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "打开新增目标弹窗，确认年度目标字段。",
+            "reason": "预算基线由年度目标驱动。"
+          },
+          {
+            "label": "新增调整",
+            "type": "modal",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "打开新增调整弹窗，确认调整月份和原因字段。",
+            "reason": "预算调整是预算闭环的一部分。"
+          }
+        ]
+      },
+      {
+        "route": "/carbon/accounting",
+        "stepNumber": "3.1",
+        "pageComplexity": "L3",
+        "status": "audited",
+        "elements": [
+          {
+            "label": "新增主体/新增报告期/新增边界/维护设施/发布",
+            "type": "modal",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "打开组织边界相关弹窗，确认字段；发布动作在样例租户执行。",
+            "reason": "组织边界是碳核算基础。"
+          },
+          {
+            "label": "创建批次/重建清单",
+            "type": "button",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "创建或选择批次后执行重建清单，确认排放台账更新。",
+            "reason": "重建清单是一键计算主入口。"
+          },
+          {
+            "label": "提交/锁定/审批",
+            "type": "button",
+            "manualTreatment": "risk-note",
+            "riskLevel": "data-write",
+            "verificationPlan": "只在样例租户执行；正式环境需确认期间和边界。",
+            "reason": "这些动作会改变核算批次状态。"
+          }
+        ]
+      },
+      {
+        "route": "/carbon/product-footprint",
+        "stepNumber": "4.1",
+        "pageComplexity": "L3",
+        "status": "audited",
+        "elements": [
+          {
+            "label": "新建研究/保存边界/新增阶段/新增活动数据",
+            "type": "modal",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "打开各弹窗并确认字段，使用星瀚样例样例数据填报。",
+            "reason": "这些动作构成 PCF 基础数据。"
+          },
+          {
+            "label": "计算结果",
+            "type": "button",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "点击计算结果，确认 PCF 结果出现。",
+            "reason": "这是产品碳足迹的一键计算入口。"
+          },
+          {
+            "label": "导出报告",
+            "type": "export",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "点击导出报告，确认下载或导出任务生成。",
+            "reason": "报告导出是 PCF 闭环交付结果。"
+          }
+        ]
+      },
+      {
+        "route": "/carbon/supply-chain",
+        "stepNumber": "5.1",
+        "pageComplexity": "L3",
+        "status": "audited",
+        "elements": [
+          {
+            "label": "新建供应商/新增场站/新建任务/新增填报数据/新增证据",
+            "type": "modal",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "打开相关弹窗并确认字段，按星瀚样例样例供应商链路填报。",
+            "reason": "供应链碳数据从这些入口形成链路。"
+          },
+          {
+            "label": "提交/审核",
+            "type": "button",
+            "manualTreatment": "risk-note",
+            "riskLevel": "data-write",
+            "verificationPlan": "在样例租户执行，正式环境需确认审核责任人。",
+            "reason": "提交和审核会改变任务状态。"
+          },
+          {
+            "label": "生成披露记录",
+            "type": "button",
+            "manualTreatment": "risk-note",
+            "riskLevel": "external-communication",
+            "verificationPlan": "截图验证时可打开弹窗，不向外部分发。",
+            "reason": "披露动作可能用于对外协同。"
+          }
+        ]
+      },
+      {
+        "route": "/carbon/verification",
+        "stepNumber": "5.2",
+        "pageComplexity": "L3",
+        "status": "audited",
+        "elements": [
+          {
+            "label": "创建项目/刷新/状态流转",
+            "type": "button",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "在核查项目页确认按钮和状态变化。",
+            "reason": "核查项目承载材料包生成范围。"
+          },
+          {
+            "label": "登记附件",
+            "type": "button",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "在缺失凭证处打开登记附件动作，确认字段。",
+            "reason": "凭证补齐是核查资料准备的关键动作。"
+          },
+          {
+            "label": "生成材料包/下载",
+            "type": "export",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "生成导出任务并确认下载入口可见。",
+            "reason": "材料包是辅助核查页面的最终输出。"
+          },
+          {
+            "label": "归档项目/禁用模板",
+            "type": "button",
+            "manualTreatment": "risk-note",
+            "riskLevel": "data-write",
+            "verificationPlan": "不在截图验证中执行，仅在手册中提示。",
+            "reason": "状态变更会影响后续核查流程。"
+          }
+        ]
+      },
+      {
+        "route": "/carbon/assets",
+        "stepNumber": "6.1",
+        "pageComplexity": "L3",
+        "status": "audited",
+        "elements": [
+          {
+            "label": "真实资产台账导入",
+            "type": "upload",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "打开台账导入弹窗，确认模板下载、文件上传、粘贴 CSV 和导入按钮。",
+            "reason": "资产台账批量进入系统的主入口。"
+          },
+          {
+            "label": "新增周期/新增账户/新增配额/新增持仓",
+            "type": "modal",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "打开相关弹窗并确认字段。",
+            "reason": "这些动作形成资产基础台账。"
+          },
+          {
+            "label": "新增模拟/新增清缴/新增预测情景",
+            "type": "modal",
+            "manualTreatment": "must-document",
+            "riskLevel": "data-write",
+            "verificationPlan": "按样例周期执行或仅打开弹窗确认字段。",
+            "reason": "这些动作形成履约测算和预测闭环。"
+          },
+          {
+            "label": "市场行情",
+            "type": "tab",
+            "manualTreatment": "must-document",
+            "riskLevel": "read-only",
+            "verificationPlan": "切换市场行情页签，确认 K 线或价格列表可见。",
+            "reason": "市场价格是资产决策参考。"
+          }
+        ]
+      }
+    ]
+  },
+  "browserVerification": {
+    "baseUrl": "http://127.0.0.1:18101",
+    "authMode": "username_password",
+    "teamId": "564728a0-8ecd-4a8b-a5de-1e2bf6c8073e",
+    "teamSlug": "demo-xinghan-metal-2025",
+    "generatedAt": "2026-06-14T09:12:38.809Z",
+    "totalScreenshots": 14,
+    "verifiedScreenshots": 14,
+    "resultsPath": "tmp/manual-evidence/manual-verify.results.json",
+    "screenshotDirectory": "tmp/manual-evidence/screenshots",
+    "dataMutation": "none"
+  },
+  "dataVerification": {
+    "mode": "read-only-database-counts",
+    "teamId": "564728a0-8ecd-4a8b-a5de-1e2bf6c8073e",
+    "teamSlug": "demo-xinghan-metal-2025",
+    "checkedAt": "2026-06-14T09:16:16.951Z",
+    "dataMutation": "none",
+    "counts": {
+      "energyIntervalFacts": 281,
+      "scope1StationaryCombustion": 65,
+      "scope2ElectricityBills": 20,
+      "scope3WasteDisposal": 3,
+      "productionOutputFacts": 32,
+      "reportingOrganizations": 1,
+      "reportingPeriods": 1,
+      "organizationBoundaries": 1,
+      "carbonAccountingBatches": 14,
+      "carbonInventoryItems": 1122,
+      "pcfStudies": 8,
+      "pcfInventoryItems": 16,
+      "pcfResults": 7,
+      "suppliers": 8,
+      "supplierDisclosureTasks": 8,
+      "supplierCarbonData": 7,
+      "supplierEvidence": 28,
+      "verificationProjects": 8,
+      "verificationExports": 13,
+      "compliancePeriods": 9,
+      "assetAccounts": 17,
+      "quotaAllocations": 8,
+      "creditHoldings": 8,
+      "assetTransactions": 8,
+      "surrenderRecords": 8,
+      "forecastScenarios": 8
+    }
+  },
+  "screenshotDirectory": "docs/评价方案/real_company_standardized_data/screenshots"
+}

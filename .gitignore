@@ -61,6 +61,12 @@ error_body.txt
 outputs/
 .exports/
 
+# Local real-company validation workspace and generated evidence
+tmp/real_company_validation/
+docs/评价方案/real_company_standardized_data/evidence_archive/
+docs/评价方案/real_company_standardized_data/runtime_validation/**/
+docs/评价方案/real_company_standardized_data/runtime_validation/*_[0-9]*.csv
+
 # OS/editor noise
 .DS_Store
 .idea/
