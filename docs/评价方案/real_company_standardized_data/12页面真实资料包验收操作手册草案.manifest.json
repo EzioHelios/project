@@ -1,0 +1,333 @@
+{
+  "title": "四租户 12 页面真实资料包验收操作手册草案",
+  "targetRole": "能碳平台主管、企业端数据填报人员、验收测试人员",
+  "verificationMode": "real-company-tenant-package-validation",
+  "manualMode": "minimal",
+  "dataIsolationRules": [
+    "每次验收必须先选定一个企业租户。",
+    "页面上传、录入、导入、导出和下载验证必须使用 enterprises/<enterprise_code>/ 下对应功能目录的数据。",
+    "_aggregate/ 合并 CSV 只用于导入器开发和汇总统计，不作为页面录入源。",
+    "总清单按企业/租户/页面组合统计完整度和流畅度，不跨企业补数据。"
+  ],
+  "progressSummary": {
+    "status": "ready-for-manual",
+    "tenantPackageScope": "4 enterprises x 12 pages",
+    "realCompleteScore": "35/48",
+    "flowScore": "write_flow_passed 32/48; source_import_covered 12/48; partial_source_import_covered 4/48; blocked/source_missing 0/48"
+  },
+  "coverageSummary": {
+    "routeCount": 12,
+    "tenantPageCombinations": 48,
+    "sourcePackageLayout": "enterprises/<enterprise_code>/<functional_directory>/",
+    "summaryMatrix": "overall_page_test_matrix.csv",
+    "packageImportDryRunEvidence": "runtime_validation/real_company_package_import_playwright_validation.md",
+    "productFootprintReportEvidence": "runtime_validation/product_footprint_report_export_validation.md"
+  },
+  "openQuestions": [],
+  "riskItems": [
+    "删除、发布、披露、锁定、清缴、生成材料包等动作只在验证租户或可回滚数据上执行。",
+    "source_missing、partial、simulation_only 和 blocked 不能计入真实完整录入。"
+  ],
+  "sections": [
+    {
+      "sectionId": "energy-pages",
+      "title": "能源管理页面",
+      "steps": [
+        {
+          "stepNumber": "M-001",
+          "route": "/energy/consumption",
+          "action": "打开能源消费页面，先检查来源状态，再通过数据导入 Tab 上传或粘贴能源事实、Scope1 固定燃烧、Scope2 电力账单 CSV。",
+          "expectedState": "页面显示真实来源、部分来源或来源缺失；成功导入后返回接收行、入库行、跳过行，错误行可下载。",
+          "precondition": "已登录并切换企业租户；使用该企业 05_energy_management 目录下的 energy_interval_facts、scope1_stationary_combustion、scope2_electricity_bills。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "sourceRoute": "/energy/consumption",
+          "sourceResource": "enterprises/<enterprise_code>/05_energy_management/",
+          "coverageTargetType": "tenant-page-data-import",
+          "progressStatus": "ready-for-manual",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "pending",
+          "screenshotPlan": {
+            "marker": "SHOT-M-001-A",
+            "focus": "来源状态面板、数据导入 Tab 和导入结果统计",
+            "timing": "切换企业租户并完成一次标准 CSV 导入后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见 loading 已消失、来源状态、接收行、入库行、跳过行和错误下载入口"
+          }
+        },
+        {
+          "stepNumber": "M-002",
+          "route": "/energy/intensity",
+          "action": "打开能源强度页面，检查能源事实、产量分母和产品主数据的来源状态，再核对单位产品能耗或能源强度结果。",
+          "expectedState": "本田、鸿通、迈柏可展示真实来源驱动的强度结果；马陆因缺产量分母显示部分来源。",
+          "precondition": "已导入或确认该企业 05_energy_management 目录下的 energy_interval_facts、production_output_facts、production_products。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "sourceRoute": "/energy/intensity",
+          "sourceResource": "enterprises/<enterprise_code>/05_energy_management/",
+          "coverageTargetType": "tenant-page-derived-analysis",
+          "progressStatus": "ready-for-manual",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L2",
+          "interactionAuditStatus": "pending",
+          "screenshotPlan": {
+            "marker": "SHOT-M-002-A",
+            "focus": "来源状态、产品强度或能源强度结果区",
+            "timing": "页面加载完成并按期间/产品筛选后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见 loading 已消失、当前租户来源状态和强度结果或缺失数据集提示"
+          }
+        },
+        {
+          "stepNumber": "M-003",
+          "route": "/energy/analysis",
+          "action": "打开能源分析页面，检查来源状态，再查看月度趋势、能源结构、区域或设备维度分析是否由真实能源事实驱动。",
+          "expectedState": "有 energy_interval_facts 的租户可生成分析结果；缺源租户记录 source_missing。",
+          "precondition": "已切换企业租户并确认该企业 05_energy_management 目录下是否存在 energy_interval_facts。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "sourceRoute": "/energy/analysis",
+          "sourceResource": "enterprises/<enterprise_code>/05_energy_management/",
+          "coverageTargetType": "tenant-page-derived-analysis",
+          "progressStatus": "ready-for-manual",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L2",
+          "interactionAuditStatus": "pending",
+          "screenshotPlan": {
+            "marker": "SHOT-M-003-A",
+            "focus": "来源状态、能源趋势和结构分析区域",
+            "timing": "页面加载完成并执行查询后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见 loading 已消失、来源状态和趋势/结构图表或来源缺失空态"
+          }
+        },
+        {
+          "stepNumber": "M-004",
+          "route": "/energy/benchmark",
+          "action": "打开能效对标页面，检查来源状态，创建或复用对标档案和对标项，确认页面回显验证记录。",
+          "expectedState": "来源完整时对标数据可与能源和产量对应；源缺失时仅作为页面流程验证。",
+          "precondition": "已确认 energy_interval_facts、production_output_facts 是否存在；不得用演示写入替代真实对标结论。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "sourceRoute": "/energy/benchmark",
+          "sourceResource": "enterprises/<enterprise_code>/05_energy_management/",
+          "coverageTargetType": "tenant-page-write-flow",
+          "progressStatus": "ready-for-manual",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "pending",
+          "screenshotPlan": {
+            "marker": "SHOT-M-004-A",
+            "focus": "来源状态、对标档案/对标项列表和新增入口",
+            "timing": "创建或复用对标档案和对标项后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见 loading 已消失、对标记录回显，并保留真实来源或来源缺失状态"
+          }
+        },
+        {
+          "stepNumber": "M-005",
+          "route": "/energy/flow",
+          "action": "打开能流图页面，检查来源状态，确认节点、边和流量是否由当前租户能源事实生成。",
+          "expectedState": "能源事实存在时可生成能流；缺能源事实时记录 source_missing 或降级显示。",
+          "precondition": "已确认该企业 05_energy_management 目录下是否存在 energy_interval_facts。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "sourceRoute": "/energy/flow",
+          "sourceResource": "enterprises/<enterprise_code>/05_energy_management/",
+          "coverageTargetType": "tenant-page-derived-analysis",
+          "progressStatus": "ready-for-manual",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L2",
+          "interactionAuditStatus": "pending",
+          "screenshotPlan": {
+            "marker": "SHOT-M-005-A",
+            "focus": "来源状态、能流节点/边或来源缺失空态",
+            "timing": "页面加载完成并执行查询后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见 loading 已消失、当前租户能流图或明确 source_missing 状态"
+          }
+        },
+        {
+          "stepNumber": "M-006",
+          "route": "/energy/balance",
+          "action": "打开能量平衡页面，检查来源状态，创建或复用平衡模拟和平衡记录，核对输入、转换、输出和损失项。",
+          "expectedState": "真实能源事实存在时结果可追溯；无真实能源事实租户的写入只能作为模拟流程验证。",
+          "precondition": "已切换企业租户并确认 energy_interval_facts 来源状态。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "sourceRoute": "/energy/balance",
+          "sourceResource": "enterprises/<enterprise_code>/05_energy_management/",
+          "coverageTargetType": "tenant-page-write-flow",
+          "progressStatus": "ready-for-manual",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "pending",
+          "screenshotPlan": {
+            "marker": "SHOT-M-006-A",
+            "focus": "来源状态、平衡测算结果和优化记录",
+            "timing": "保存或复用一条平衡优化记录后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见 loading 已消失、平衡结果/优化记录回显，并区分真实来源和模拟流程"
+          }
+        },
+        {
+          "stepNumber": "M-007",
+          "route": "/energy/budget",
+          "action": "打开能源预算页面，检查来源状态，创建预算计划、分配或调整记录，核对预算、实际值和偏差。",
+          "expectedState": "历史能源和产量来源完整时可形成预算基线；源缺失时保留来源缺失或部分来源标记。",
+          "precondition": "已确认 energy_interval_facts 和 production_output_facts 是否存在。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "sourceRoute": "/energy/budget",
+          "sourceResource": "enterprises/<enterprise_code>/05_energy_management/",
+          "coverageTargetType": "tenant-page-write-flow",
+          "progressStatus": "ready-for-manual",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "pending",
+          "screenshotPlan": {
+            "marker": "SHOT-M-007-A",
+            "focus": "来源状态、年度目标、月度预算和调整审批入口",
+            "timing": "创建或复用预算计划、分配和调整记录后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见 loading 已消失、预算记录回显，且来源状态未被写入流程覆盖"
+          }
+        }
+      ]
+    },
+    {
+      "sectionId": "carbon-accounting-pages",
+      "title": "组织碳核算页面",
+      "steps": [
+        {
+          "stepNumber": "M-008",
+          "route": "/carbon/accounting",
+          "action": "打开碳核算页面，先在组织边界生成或复用纳入设施并发布边界，再到核算结果查看来源状态、重建清单、检查缺结果、下载缺结果模板、上传补录 CSV 并尝试锁定。",
+          "expectedState": "四租户均可发布边界、重建清单并锁定；本田可计入完整组织碳核算闭环，鸿通、马陆、迈柏因组织层 Scope 来源不完整记为部分来源；迈柏已有 Scope2 电力来源并生成 12 条纳入清单，不再是空清单阻断。",
+          "precondition": "已导入 01_carbon_accounting 目录下的主体、期间、边界、批次、清单和 Scope 活动数据；不得把产品 PCF 默认当作完整组织 GHG 盘查。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "sourceRoute": "/carbon/accounting",
+          "sourceResource": "enterprises/<enterprise_code>/01_carbon_accounting/",
+          "coverageTargetType": "tenant-page-business-closure",
+          "progressStatus": "ready-for-manual",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "pending",
+          "screenshotPlan": {
+            "marker": "SHOT-M-008-A",
+            "focus": "组织边界发布、核算来源状态、清单重建、缺结果补录校验和锁定/阻断结果",
+            "timing": "发布边界并重建清单后，锁定前、补录校验后或锁定阻断后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见 loading 已消失、来源状态、纳入清单数、缺结果数、补录行级错误，以及锁定成功或业务阻断提示"
+          }
+        }
+      ]
+    },
+    {
+      "sectionId": "carbon-business-pages",
+      "title": "产品、供应链与核查页面",
+      "steps": [
+        {
+          "stepNumber": "M-009",
+          "route": "/carbon/product-footprint",
+          "action": "打开产品碳足迹页面，检查来源状态，再核对产品研究、系统边界、生命周期阶段、活动清单、结果和公共模板报告导出链路。",
+          "expectedState": "四租户均显示真实来源，企业资料包来源记录和 real-company-write-validation 验证写入记录分开统计；真实 PCF 研究可导出包含 DOCX、上下文 JSON、清单 CSV 和 manifest 的 ZIP。",
+          "precondition": "已导入 02_carbon_product_footprint 目录下的 PCF 研究、边界、阶段、清单和结果。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "sourceRoute": "/carbon/product-footprint",
+          "sourceResource": "enterprises/<enterprise_code>/02_carbon_product_footprint/",
+          "coverageTargetType": "tenant-page-business-closure",
+          "progressStatus": "ready-for-manual",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "pending",
+          "screenshotPlan": {
+            "marker": "SHOT-M-009-A",
+            "focus": "来源状态、产品研究、生命周期清单、结果和报告导出入口",
+            "timing": "产品研究/结果加载完成并打开结果或报告区域后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见 loading 已消失、真实来源记录、PCF 结果和报告导出链路"
+          }
+        },
+        {
+          "stepNumber": "M-010",
+          "route": "/carbon/supply-chain",
+          "action": "打开供应链碳管理页面，检查来源状态，再核对供应商、场站、填报任务、碳数据、证据、审核和披露记录。",
+          "expectedState": "四租户均显示真实来源，供应商 PCF 数据和证据链可追溯，且不会自动混入组织 Scope3。",
+          "precondition": "已导入 03_carbon_supply_chain 目录下的供应商、场站、任务、碳数据和证据索引。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "sourceRoute": "/carbon/supply-chain",
+          "sourceResource": "enterprises/<enterprise_code>/03_carbon_supply_chain/",
+          "coverageTargetType": "tenant-page-business-closure",
+          "progressStatus": "ready-for-manual",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "pending",
+          "screenshotPlan": {
+            "marker": "SHOT-M-010-A",
+            "focus": "来源状态、供应商档案、填报任务、碳数据和证据链",
+            "timing": "供应商、任务和证据记录加载完成后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见 loading 已消失、真实来源、供应商 PCF 数据和证据记录"
+          }
+        },
+        {
+          "stepNumber": "M-011",
+          "route": "/carbon/verification",
+          "action": "打开辅助核查页面，检查来源状态、凭证清单、材料包目录和导出清单，再生成核查材料包并下载 ZIP。",
+          "expectedState": "四租户均显示真实来源；材料包 ZIP 包含 manifest、evidence manifest、报告文件、审计 CSV 和原始证据文件。",
+          "precondition": "已导入 04_carbon_verification 目录下的核查项目、核算清单、产品碳足迹清单和 source_files；原始证据已归档到 evidence_archive。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "sourceRoute": "/carbon/verification",
+          "sourceResource": "enterprises/<enterprise_code>/04_carbon_verification/",
+          "coverageTargetType": "tenant-page-export-flow",
+          "progressStatus": "ready-for-manual",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "pending",
+          "screenshotPlan": {
+            "marker": "SHOT-M-011-A",
+            "focus": "来源状态、凭证清单、材料包 manifest 和报告导出下载记录",
+            "timing": "生成核查材料包并出现可下载导出记录后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见 loading 已消失、真实来源、就绪附件、材料包文件和下载入口"
+          }
+        }
+      ]
+    },
+    {
+      "sectionId": "carbon-asset-pages",
+      "title": "碳资产页面",
+      "steps": [
+        {
+          "stepNumber": "M-012",
+          "route": "/carbon/assets",
+          "action": "打开碳资产页面，检查资产来源，创建或复用履约周期、账户、配额、信用、交易模拟、清缴和预测情景。",
+          "expectedState": "四租户均显示模拟来源；可追溯资产台账为 0，模拟种子存在，页面可操作但不计入真实碳资产台账完成。",
+          "precondition": "当前企业包只有 06_carbon_assets 下的模拟假设和核算批次；未提供真实配额、CCER、交易或清缴台账。",
+          "screenshot": "[Image]",
+          "verificationStatus": "browser-verified",
+          "sourceRoute": "/carbon/assets",
+          "sourceResource": "enterprises/<enterprise_code>/06_carbon_assets/",
+          "coverageTargetType": "tenant-page-simulation-flow",
+          "progressStatus": "ready-for-manual",
+          "pmConfirmationStatus": "not-needed",
+          "pageComplexity": "L3",
+          "interactionAuditStatus": "pending",
+          "screenshotPlan": {
+            "marker": "SHOT-M-012-A",
+            "focus": "资产来源、可追溯资产台账数、模拟种子和交易/清缴模拟入口",
+            "timing": "创建或复用资产模拟数据后",
+            "viewport": "desktop-wide",
+            "successSignal": "可见 loading 已消失、模拟来源、可追溯资产台账为 0 和模拟记录"
+          }
+        }
+      ]
+    }
+  ]
+}

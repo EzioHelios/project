@@ -1,0 +1,5 @@
+﻿enterprise_code,enterprise_name,tenant_slug,source_package,package_root,reporting_year,data_role,standardization_status,platform_tables
+maibo,宁波迈柏科技股份有限公司,nb-maibo-2025,V2打包上传,/Users/eziohelios/Downloads/V2打包上传,2025,supplier_product_carbon_package,standard_csv_generated,team plus carbon/energy domain tables listed in platform_table_mapping.csv
+hongtong,鸿通科技（厦门）有限公司,xm-hongtong-2025,LVG-GHG-LX-R2604013-2-鸿通科技（厦门）有限公司-Phoenix前排屏,/Users/eziohelios/Downloads/LVG-GHG-LX-R2604013-2-鸿通科技（厦门）有限公司-Phoenix前排屏,2025,supplier_product_carbon_package,standard_csv_generated,team plus carbon/energy domain tables listed in platform_table_mapping.csv
+malu,上海马陆日用友捷汽车电气有限公司,sh-malu-youjie-2025,上海马陆日用友捷汽车电气有限公司,/Users/eziohelios/Downloads/上海马陆日用友捷汽车电气有限公司,2025,supplier_product_carbon_package,standard_csv_generated,team plus carbon/energy domain tables listed in platform_table_mapping.csv
+honda,本田金属技术(佛山)有限公司,fs-honda-metal-2025,本田金属技术(佛山)有限公司-佐证材料,/Users/eziohelios/Downloads/本田金属技术(佛山)有限公司-佐证材料,2025,supplier_product_carbon_package,standard_csv_generated,team plus carbon/energy domain tables listed in platform_table_mapping.csv

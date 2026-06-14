@@ -1,0 +1,62 @@
+{
+  "generated_for": "real enterprise verification package standardization",
+  "generated_datasets": {
+    "enterprise_profiles": 4,
+    "source_files": 233,
+    "reporting_organizations": 4,
+    "reporting_periods": 4,
+    "organization_boundaries": 4,
+    "production_products": 4,
+    "production_output_facts": 26,
+    "product_footprint_studies": 4,
+    "product_system_boundaries": 4,
+    "product_lifecycle_stages": 24,
+    "product_footprint_inventory_items": 175,
+    "product_footprint_results": 4,
+    "emission_factors": 3,
+    "supply_chain_suppliers": 4,
+    "supplier_sites": 4,
+    "supplier_disclosure_tasks": 4,
+    "supplier_carbon_data": 4,
+    "energy_interval_facts": 313,
+    "scope1_stationary_combustion": 60,
+    "scope2_electricity_bills": 39,
+    "scope3_waste_disposal": 3,
+    "carbon_verification_projects": 4,
+    "carbon_accounting_batches": 4,
+    "carbon_emission_inventory_items": 24,
+    "carbon_assets_assumptions": 4,
+    "standardization_coverage": 100,
+    "platform_table_mapping": 25
+  },
+  "enterprise_package_root": "/Users/eziohelios/Dev/litestar-fullstack/docs/评价方案/real_company_standardized_data/enterprises",
+  "aggregate_dataset_root": "/Users/eziohelios/Dev/litestar-fullstack/docs/评价方案/real_company_standardized_data/_aggregate",
+  "overall_page_test_matrix_rows": 48,
+  "companies": [
+    {
+      "code": "maibo",
+      "name": "宁波迈柏科技股份有限公司",
+      "tenant_slug": "nb-maibo-2025",
+      "raw_root": "/Users/eziohelios/Downloads/V2打包上传"
+    },
+    {
+      "code": "hongtong",
+      "name": "鸿通科技（厦门）有限公司",
+      "tenant_slug": "xm-hongtong-2025",
+      "raw_root": "/Users/eziohelios/Downloads/LVG-GHG-LX-R2604013-2-鸿通科技（厦门）有限公司-Phoenix前排屏"
+    },
+    {
+      "code": "malu",
+      "name": "上海马陆日用友捷汽车电气有限公司",
+      "tenant_slug": "sh-malu-youjie-2025",
+      "raw_root": "/Users/eziohelios/Downloads/上海马陆日用友捷汽车电气有限公司"
+    },
+    {
+      "code": "honda",
+      "name": "本田金属技术(佛山)有限公司",
+      "tenant_slug": "fs-honda-metal-2025",
+      "raw_root": "/Users/eziohelios/Downloads/本田金属技术(佛山)有限公司-佐证材料"
+    }
+  ],
+  "completion_standard": "Each enterprise has an independent tenant validation package under enterprises/<enterprise_code>; _aggregate is only for all-enterprise staging summaries; overall_page_test_matrix.csv tracks page completeness and smoothness."
+}

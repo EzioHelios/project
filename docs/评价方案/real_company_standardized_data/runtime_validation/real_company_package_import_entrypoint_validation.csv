@@ -1,0 +1,12 @@
+﻿checked_at,scope,item,status,detail
+2026-06-14T00:04:41.246408+00:00,backend_route,/api/carbon/real-company-packages,ok,registered
+2026-06-14T00:04:41.246408+00:00,backend_route,/api/carbon/real-company-packages/{enterprise_code:str}/import,ok,registered
+2026-06-14T00:04:41.246408+00:00,package_summary,package_count,ok,"actual=honda,hongtong,maibo,malu; expected=honda,hongtong,maibo,malu"
+2026-06-14T00:04:41.246408+00:00,package_summary,honda,ok,tenant=fs-honda-metal-2025; ready=11; partial=0; simulation=1; missing=-
+2026-06-14T00:04:41.246408+00:00,package_summary,hongtong,ok,tenant=xm-hongtong-2025; ready=9; partial=2; simulation=1; missing=scope1_stationary_combustion
+2026-06-14T00:04:41.246408+00:00,package_summary,maibo,ok,tenant=nb-maibo-2025; ready=9; partial=2; simulation=1; missing=scope1_stationary_combustion
+2026-06-14T00:04:41.246408+00:00,package_summary,malu,ok,tenant=sh-malu-youjie-2025; ready=6; partial=5; simulation=1; missing=production_output_facts;scope1_stationary_combustion
+2026-06-14T00:04:41.246408+00:00,frontend_entrypoint,real-company-package-dry-run,ok,src/js/web/src/components/carbon/energy-guide-pages.tsx
+2026-06-14T00:04:41.246408+00:00,frontend_entrypoint,real-company-package-import,ok,src/js/web/src/components/carbon/energy-guide-pages.tsx
+2026-06-14T00:04:41.246408+00:00,frontend_entrypoint,real-company-package-import-result,ok,src/js/web/src/components/carbon/energy-guide-pages.tsx
+2026-06-14T00:04:41.246408+00:00,frontend_entrypoint,real-company-package-select,ok,src/js/web/src/components/carbon/energy-guide-pages.tsx

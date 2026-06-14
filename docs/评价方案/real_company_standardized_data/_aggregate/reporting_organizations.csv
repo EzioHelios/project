@@ -1,0 +1,5 @@
+﻿enterprise_code,code,name,organization_type,control_method,standard_code,source_name,target_table
+maibo,ORG-MAIBO,宁波迈柏科技股份有限公司,enterprise,operational_control,ISO 14067 / ISO 14064-3,V2打包上传,carbon_reporting_organization
+hongtong,ORG-HONGTONG,鸿通科技（厦门）有限公司,enterprise,operational_control,ISO 14067 / ISO 14064-3,LVG-GHG-LX-R2604013-2-鸿通科技（厦门）有限公司-Phoenix前排屏,carbon_reporting_organization
+malu,ORG-MALU,上海马陆日用友捷汽车电气有限公司,enterprise,operational_control,ISO 14067 / ISO 14064-3,上海马陆日用友捷汽车电气有限公司,carbon_reporting_organization
+honda,ORG-HONDA,本田金属技术(佛山)有限公司,enterprise,operational_control,ISO 14067 / ISO 14064-3,本田金属技术(佛山)有限公司-佐证材料,carbon_reporting_organization

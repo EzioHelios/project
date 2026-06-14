@@ -1,0 +1,2 @@
+﻿enterprise_code,supplier_code,site_code,site_name,country_region,address,facility_scope,status,remark,target_table
+hongtong,SUP-HONGTONG,SITE-HONGTONG-MAIN,鸿通科技（厦门）有限公司 主体场所,China,,“T1核算单元”,active,Address should be enriched from business license/enterprise profile OCR if needed.,carbon_supplier_site

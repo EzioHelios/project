@@ -1,0 +1,5 @@
+﻿enterprise_code,period_code,reporting_org_code,name,period_type,period_start,period_end,status,source_name,target_table
+maibo,RP-MAIBO-2025,ORG-MAIBO,宁波迈柏科技股份有限公司 2025年度,annual,2025-01-01,2025-12-31,draft,V2打包上传,carbon_reporting_period
+hongtong,RP-HONGTONG-2025,ORG-HONGTONG,鸿通科技（厦门）有限公司 2025年度,annual,2025-01-01,2025-12-31,draft,LVG-GHG-LX-R2604013-2-鸿通科技（厦门）有限公司-Phoenix前排屏,carbon_reporting_period
+malu,RP-MALU-2025,ORG-MALU,上海马陆日用友捷汽车电气有限公司 2025年度,annual,2025-01-01,2025-12-31,draft,上海马陆日用友捷汽车电气有限公司,carbon_reporting_period
+honda,RP-HONDA-2025,ORG-HONDA,本田金属技术(佛山)有限公司 2025年度,annual,2025-01-01,2025-12-31,draft,本田金属技术(佛山)有限公司-佐证材料,carbon_reporting_period

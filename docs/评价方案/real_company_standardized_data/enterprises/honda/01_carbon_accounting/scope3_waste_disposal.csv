@@ -1,0 +1,4 @@
+﻿enterprise_code,date,category,weight_ton,treatment_method,vendor_name,attachment,remark,target_table
+honda,2025-12-31,干铝屑,2338.885,recycle,,/Users/eziohelios/Downloads/本田金属技术(佛山)有限公司-佐证材料/碳排放资料/理想关联固废2025年产量.xlsx,Annual total derived from monthly kg source workbook; treatment/factor cross-checked with Honda carbon checklist waste factor sheet.,dataapp_scope3wastedisposal
+honda,2025-12-31,铝皮,61.5175,recycle,,/Users/eziohelios/Downloads/本田金属技术(佛山)有限公司-佐证材料/碳排放资料/理想关联固废2025年产量.xlsx,Annual total derived from monthly kg source workbook; treatment/factor cross-checked with Honda carbon checklist waste factor sheet.,dataapp_scope3wastedisposal
+honda,2025-12-31,废铝渣,422.895,energy_recovery,,/Users/eziohelios/Downloads/本田金属技术(佛山)有限公司-佐证材料/碳排放资料/理想关联固废2025年产量.xlsx,Annual total derived from monthly kg source workbook; treatment/factor cross-checked with Honda carbon checklist waste factor sheet.,dataapp_scope3wastedisposal

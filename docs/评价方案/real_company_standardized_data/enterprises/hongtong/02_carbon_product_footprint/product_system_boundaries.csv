@@ -1,0 +1,2 @@
+﻿enterprise_code,study_code,boundary_type,included_stages,excluded_stages,geography,technology_scope,temporal_scope,standard_code,source_name,target_table
+hongtong,PCF-HONGTONG-2025,cradle_to_gate_t1,"[""1.场外运输"", ""2.生产"", ""3.场内运输"", ""4.存储"", ""5.包材"", ""6.废料处理""]",[],China,Supplier product T1 production unit,2025,ISO 14067,鸿通科技（厦门）有限公司-碳排放清册.xlsx,carbon_product_system_boundary

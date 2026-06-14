@@ -1,0 +1,27 @@
+﻿enterprise_code,source_record_id,product_code,product_name,period_start,period_end,good_qty,unit,source_system,record_status,remark,target_table
+maibo,maibo:production:li-auto-total-output:2025,X02-20040025,带支架分配阀,2025-01-01,2025-12-31,16311.034877072612,个,verification_package,confirmed,Source: 证据资料.zip::佐证资料/CL-QT-001.zip::理想分配阀产出统计表单-20260527.xlsx; label=2025年总产出数量; delivery quantity cross-check from 2025年交付数量-20260515.xlsx=15440 个,dataapp_productionoutputfact
+hongtong,hongtong:output:LAJ-70030020:annual,LAJ-70030020,Phoenix前排屏,2025-01-01,2025-12-31,366478,件,verification_package,confirmed,Annual total output from 企标收资表0518.xlsx / 表7-3 厂内存储 / 总产出成品,dataapp_productionoutputfact
+honda,honda:output:X01:01,X01,理想后转向节总成(X01),2025-01-01,2025-01-31,34342,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:X01:02,X01,理想后转向节总成(X01),2025-02-01,2025-02-28,12401,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:X01:03,X01,理想后转向节总成(X01),2025-03-01,2025-03-31,43654,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:X01:04,X01,理想后转向节总成(X01),2025-04-01,2025-04-30,33543,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:X01:05,X01,理想后转向节总成(X01),2025-05-01,2025-05-31,30375,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:X01:06,X01,理想后转向节总成(X01),2025-06-01,2025-06-30,32195,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:X01:07,X01,理想后转向节总成(X01),2025-07-01,2025-07-31,19195,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:X01:08,X01,理想后转向节总成(X01),2025-08-01,2025-08-31,8804,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:X01:09,X01,理想后转向节总成(X01),2025-09-01,2025-09-30,5872,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:X01:10,X01,理想后转向节总成(X01),2025-10-01,2025-10-31,8797,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:X01:11,X01,理想后转向节总成(X01),2025-11-01,2025-11-30,19324,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:X01:12,X01,理想后转向节总成(X01),2025-12-01,2025-12-31,16282,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:LAN:01,LAN,理想后转向节总成(LAN),2025-01-01,2025-01-31,0,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:LAN:02,LAN,理想后转向节总成(LAN),2025-02-01,2025-02-28,0,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:LAN:03,LAN,理想后转向节总成(LAN),2025-03-01,2025-03-31,0,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:LAN:04,LAN,理想后转向节总成(LAN),2025-04-01,2025-04-30,0,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:LAN:05,LAN,理想后转向节总成(LAN),2025-05-01,2025-05-31,16059,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:LAN:06,LAN,理想后转向节总成(LAN),2025-06-01,2025-06-30,16010,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:LAN:07,LAN,理想后转向节总成(LAN),2025-07-01,2025-07-31,10152,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:LAN:08,LAN,理想后转向节总成(LAN),2025-08-01,2025-08-31,2943,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:LAN:09,LAN,理想后转向节总成(LAN),2025-09-01,2025-09-30,1488,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:LAN:10,LAN,理想后转向节总成(LAN),2025-10-01,2025-10-31,2916,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:LAN:11,LAN,理想后转向节总成(LAN),2025-11-01,2025-11-30,5831,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact
+honda,honda:output:LAN:12,LAN,理想后转向节总成(LAN),2025-12-01,2025-12-31,2916,件,verification_package,confirmed,Source: 理想产品2025年产量.xlsx,dataapp_productionoutputfact

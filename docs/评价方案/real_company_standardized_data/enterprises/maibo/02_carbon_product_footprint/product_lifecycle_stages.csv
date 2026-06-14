@@ -1,0 +1,7 @@
+﻿enterprise_code,study_code,stage_code,stage_name,sequence,included,description,stage_co2e,stage_share,target_table
+maibo,PCF-MAIBO-2025,STG-B08FBF3010,场内运输,1,true,Normalized from PCF calculation summary sheet.,0,,carbon_product_lifecycle_stage
+maibo,PCF-MAIBO-2025,STG-223D5AF15A,场外运输,2,true,Normalized from PCF calculation summary sheet.,13913.741655814000,,carbon_product_lifecycle_stage
+maibo,PCF-MAIBO-2025,STG-E7F0DE10EF,废料处理,3,true,Normalized from PCF calculation summary sheet.,608.605444000,,carbon_product_lifecycle_stage
+maibo,PCF-MAIBO-2025,STG-8C60516839,循环包装,4,true,Normalized from PCF calculation summary sheet.,7207.1855412000,,carbon_product_lifecycle_stage
+maibo,PCF-MAIBO-2025,STG-7430383E09,电力消耗,5,true,Normalized from PCF calculation summary sheet.,48857.6935000,,carbon_product_lifecycle_stage
+maibo,PCF-MAIBO-2025,STG-FDDF32C83C,逸散排放,6,true,Normalized from PCF calculation summary sheet.,0.9000,,carbon_product_lifecycle_stage

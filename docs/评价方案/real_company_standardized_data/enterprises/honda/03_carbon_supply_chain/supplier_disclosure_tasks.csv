@@ -1,0 +1,2 @@
+﻿enterprise_code,task_no,task_name,supplier_code,task_type,product_code,product_name,period_start,period_end,status,standard_code,source_name,confidence_level,remark,target_table
+honda,SCT-HONDA-2025,本田金属技术(佛山)有限公司 后转向总成LAN-20030074/75 2025产品碳资料填报,SUP-HONDA,product_footprint,LAN-20030074-75,后转向总成LAN-20030074/75,2025-01-01,2025-12-31,approved,ISO 14067,本田金属技术(佛山)有限公司-佐证材料,source_reported,Pre-normalized from external verification package.,carbon_supplier_disclosure_task

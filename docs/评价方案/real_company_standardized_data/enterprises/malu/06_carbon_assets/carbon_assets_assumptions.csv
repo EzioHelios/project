@@ -1,0 +1,2 @@
+﻿enterprise_code,assumption_no,assumption_type,source_data,derived_value,unit,target_table,implementation_note
+malu,CAS-MALU-2025,pcf_to_compliance_simulation_seed,PCF result 3.57687642287556 kgCO2e per declared unit,3.57687642287556,kgCO2e,carbon_compliance_period / carbon_asset_forecast_scenario,"No quota/CCER/trade records in source package; only useful as a scenario seed, not real carbon asset ledger data."

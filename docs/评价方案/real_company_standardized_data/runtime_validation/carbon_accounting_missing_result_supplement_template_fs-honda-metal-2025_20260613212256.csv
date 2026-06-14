@@ -1,0 +1,4 @@
+﻿"batch_no","scope","record_type","record_id","record_label","display_name","period","activity_amount","activity_unit","supplement_co2e_kg","factor_value","factor_unit","factor_source","standard_code","calculation_method","confidence_level","evidence_file","remark"
+"RV-CALC-HONDA-20260613200055","范围3","Scope3WasteDisposal","76","[范围3] 废弃物处理","干铝屑","2025-12","2,338.885","t","","","","","","","enterprise_supplement","",""
+"RV-CALC-HONDA-20260613200055","范围3","Scope3WasteDisposal","77","[范围3] 废弃物处理","铝皮","2025-12","61.518","t","","","","","","","enterprise_supplement","",""
+"RV-CALC-HONDA-20260613200055","范围3","Scope3WasteDisposal","78","[范围3] 废弃物处理","废铝渣","2025-12","422.895","t","","","","","","","enterprise_supplement","",""

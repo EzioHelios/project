@@ -1,0 +1,5 @@
+﻿enterprise_code,supplier_code,site_code,site_name,country_region,address,facility_scope,status,remark,target_table
+maibo,SUP-MAIBO,SITE-MAIBO-MAIN,宁波迈柏科技股份有限公司 主体场所,China,,供应链产品碳排放盘查/T1核算单元,active,Address should be enriched from business license/enterprise profile OCR if needed.,carbon_supplier_site
+hongtong,SUP-HONGTONG,SITE-HONGTONG-MAIN,鸿通科技（厦门）有限公司 主体场所,China,,“T1核算单元”,active,Address should be enriched from business license/enterprise profile OCR if needed.,carbon_supplier_site
+malu,SUP-MALU,SITE-MALU-MAIN,上海马陆日用友捷汽车电气有限公司 主体场所,China,,“T1核算单元”,active,Address should be enriched from business license/enterprise profile OCR if needed.,carbon_supplier_site
+honda,SUP-HONDA,SITE-HONDA-MAIN,本田金属技术(佛山)有限公司 主体场所,China,,“T1核算单元”,active,Address should be enriched from business license/enterprise profile OCR if needed.,carbon_supplier_site

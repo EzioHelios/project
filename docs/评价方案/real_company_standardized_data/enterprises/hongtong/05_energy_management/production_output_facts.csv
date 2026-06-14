@@ -1,0 +1,2 @@
+﻿enterprise_code,source_record_id,product_code,product_name,period_start,period_end,good_qty,unit,source_system,record_status,remark,target_table
+hongtong,hongtong:output:LAJ-70030020:annual,LAJ-70030020,Phoenix前排屏,2025-01-01,2025-12-31,366478,件,verification_package,confirmed,Annual total output from 企标收资表0518.xlsx / 表7-3 厂内存储 / 总产出成品,dataapp_productionoutputfact

@@ -1,0 +1,25 @@
+﻿enterprise_code,study_code,stage_code,stage_name,sequence,included,description,stage_co2e,stage_share,target_table
+maibo,PCF-MAIBO-2025,STG-B08FBF3010,场内运输,1,true,Normalized from PCF calculation summary sheet.,0,,carbon_product_lifecycle_stage
+maibo,PCF-MAIBO-2025,STG-223D5AF15A,场外运输,2,true,Normalized from PCF calculation summary sheet.,13913.741655814000,,carbon_product_lifecycle_stage
+maibo,PCF-MAIBO-2025,STG-E7F0DE10EF,废料处理,3,true,Normalized from PCF calculation summary sheet.,608.605444000,,carbon_product_lifecycle_stage
+maibo,PCF-MAIBO-2025,STG-8C60516839,循环包装,4,true,Normalized from PCF calculation summary sheet.,7207.1855412000,,carbon_product_lifecycle_stage
+maibo,PCF-MAIBO-2025,STG-7430383E09,电力消耗,5,true,Normalized from PCF calculation summary sheet.,48857.6935000,,carbon_product_lifecycle_stage
+maibo,PCF-MAIBO-2025,STG-FDDF32C83C,逸散排放,6,true,Normalized from PCF calculation summary sheet.,0.9000,,carbon_product_lifecycle_stage
+hongtong,PCF-HONGTONG-2025,STG-1,1.场外运输,1,true,Normalized from PCF calculation summary sheet.,2.02986825294523,0.227598459619375,carbon_product_lifecycle_stage
+hongtong,PCF-HONGTONG-2025,STG-2,2.生产,2,true,Normalized from PCF calculation summary sheet.,5.08552137780345,0.570212786110655,carbon_product_lifecycle_stage
+hongtong,PCF-HONGTONG-2025,STG-3,3.场内运输,3,true,Normalized from PCF calculation summary sheet.,0,0,carbon_product_lifecycle_stage
+hongtong,PCF-HONGTONG-2025,STG-4,4.存储,4,true,Normalized from PCF calculation summary sheet.,0.416865249169435,0.0467409096339861,carbon_product_lifecycle_stage
+hongtong,PCF-HONGTONG-2025,STG-5,5.包材,5,true,Normalized from PCF calculation summary sheet.,0.0340074638852507,0.00381307820574768,carbon_product_lifecycle_stage
+hongtong,PCF-HONGTONG-2025,STG-6,6.废料处理,6,true,Normalized from PCF calculation summary sheet.,1.35237557817505,0.151634766430237,carbon_product_lifecycle_stage
+malu,PCF-MALU-2025,STG-1,1.场外运输,1,true,Normalized from PCF calculation summary sheet.,1.01953597113256,0.285035279556269,carbon_product_lifecycle_stage
+malu,PCF-MALU-2025,STG-2,2.生产,2,true,Normalized from PCF calculation summary sheet.,0.69468425,0.194215334238895,carbon_product_lifecycle_stage
+malu,PCF-MALU-2025,STG-3,3.场内运输,3,true,Normalized from PCF calculation summary sheet.,0.0004914838136,0.000137405869114394,carbon_product_lifecycle_stage
+malu,PCF-MALU-2025,STG-4,4.存储,4,true,Normalized from PCF calculation summary sheet.,1.54341434354036,0.431497810119916,carbon_product_lifecycle_stage
+malu,PCF-MALU-2025,STG-5,5.包材,5,true,Normalized from PCF calculation summary sheet.,0.100231975524903,0.0280222081154046,carbon_product_lifecycle_stage
+malu,PCF-MALU-2025,STG-6,6.废料处理,6,true,Normalized from PCF calculation summary sheet.,0.218518398864134,0.0610919621004017,carbon_product_lifecycle_stage
+honda,PCF-HONDA-2025,STG-1,1.场外运输,1,true,Normalized from PCF calculation summary sheet.,0.833110210102659,0.137322317721921,carbon_product_lifecycle_stage
+honda,PCF-HONDA-2025,STG-2,2.生产,2,true,Normalized from PCF calculation summary sheet.,4.69919325655605,0.774572321390684,carbon_product_lifecycle_stage
+honda,PCF-HONDA-2025,STG-3,3.场内运输,3,true,Normalized from PCF calculation summary sheet.,0.0247663551401869,0.00408226096395528,carbon_product_lifecycle_stage
+honda,PCF-HONDA-2025,STG-4,4.存储,4,true,Normalized from PCF calculation summary sheet.,0.00443419794392523,0.00073089290169971,carbon_product_lifecycle_stage
+honda,PCF-HONDA-2025,STG-5,5.包材,5,true,Normalized from PCF calculation summary sheet.,0,0,carbon_product_lifecycle_stage
+honda,PCF-HONDA-2025,STG-6,6.废料处理,6,true,Normalized from PCF calculation summary sheet.,0.505319086095788,0.0832922070217405,carbon_product_lifecycle_stage

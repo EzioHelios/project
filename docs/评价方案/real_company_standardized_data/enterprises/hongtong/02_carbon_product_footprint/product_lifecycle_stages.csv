@@ -1,0 +1,7 @@
+﻿enterprise_code,study_code,stage_code,stage_name,sequence,included,description,stage_co2e,stage_share,target_table
+hongtong,PCF-HONGTONG-2025,STG-1,1.场外运输,1,true,Normalized from PCF calculation summary sheet.,2.02986825294523,0.227598459619375,carbon_product_lifecycle_stage
+hongtong,PCF-HONGTONG-2025,STG-2,2.生产,2,true,Normalized from PCF calculation summary sheet.,5.08552137780345,0.570212786110655,carbon_product_lifecycle_stage
+hongtong,PCF-HONGTONG-2025,STG-3,3.场内运输,3,true,Normalized from PCF calculation summary sheet.,0,0,carbon_product_lifecycle_stage
+hongtong,PCF-HONGTONG-2025,STG-4,4.存储,4,true,Normalized from PCF calculation summary sheet.,0.416865249169435,0.0467409096339861,carbon_product_lifecycle_stage
+hongtong,PCF-HONGTONG-2025,STG-5,5.包材,5,true,Normalized from PCF calculation summary sheet.,0.0340074638852507,0.00381307820574768,carbon_product_lifecycle_stage
+hongtong,PCF-HONGTONG-2025,STG-6,6.废料处理,6,true,Normalized from PCF calculation summary sheet.,1.35237557817505,0.151634766430237,carbon_product_lifecycle_stage

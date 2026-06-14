@@ -1,0 +1,2 @@
+﻿enterprise_code,source_record_id,energy_type_code,equipment_code,equipment_name,area_name,use_system_code,use_system_name,granularity,period_start,period_end,amount,unit,data_quality,source_system,remark,target_table
+malu,malu:energy:collection-electricity:3,electricity,,厂内加工-电力消耗,,production,厂内加工,year,2025-01-01,2025-12-31,441.5,kWh,collection_workbook_total,verification_package,Annual electricity total from 1534副本副本副本附件4-企标收资表20260512.xlsx / 表4 电力消耗,dataapp_energyintervalfact

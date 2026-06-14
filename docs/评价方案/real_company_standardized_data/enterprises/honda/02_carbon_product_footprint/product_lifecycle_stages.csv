@@ -1,0 +1,7 @@
+﻿enterprise_code,study_code,stage_code,stage_name,sequence,included,description,stage_co2e,stage_share,target_table
+honda,PCF-HONDA-2025,STG-1,1.场外运输,1,true,Normalized from PCF calculation summary sheet.,0.833110210102659,0.137322317721921,carbon_product_lifecycle_stage
+honda,PCF-HONDA-2025,STG-2,2.生产,2,true,Normalized from PCF calculation summary sheet.,4.69919325655605,0.774572321390684,carbon_product_lifecycle_stage
+honda,PCF-HONDA-2025,STG-3,3.场内运输,3,true,Normalized from PCF calculation summary sheet.,0.0247663551401869,0.00408226096395528,carbon_product_lifecycle_stage
+honda,PCF-HONDA-2025,STG-4,4.存储,4,true,Normalized from PCF calculation summary sheet.,0.00443419794392523,0.00073089290169971,carbon_product_lifecycle_stage
+honda,PCF-HONDA-2025,STG-5,5.包材,5,true,Normalized from PCF calculation summary sheet.,0,0,carbon_product_lifecycle_stage
+honda,PCF-HONDA-2025,STG-6,6.废料处理,6,true,Normalized from PCF calculation summary sheet.,0.505319086095788,0.0832922070217405,carbon_product_lifecycle_stage

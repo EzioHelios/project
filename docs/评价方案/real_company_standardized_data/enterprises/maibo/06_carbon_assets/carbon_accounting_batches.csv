@@ -1,0 +1,2 @@
+﻿enterprise_code,batch_no,batch_name,reporting_org_code,period_code,boundary_no,status,inventory_status,standard_code,source_name,total_co2e,record_count,included_record_count,remark,target_table
+maibo,BATCH-MAIBO-2025-PCF,宁波迈柏科技股份有限公司 2025 PCF来源清单批次,ORG-MAIBO,RP-MAIBO-2025,BND-MAIBO-2025-V1,draft,rebuilt_from_standardized_pcf,ISO 14067,迈柏碳核算Excel总表.xlsx,6.73,120,38,Derived from product/T1 PCF source. Do not present as full organization 14064 inventory until org Scope records are imported.,carbon_accounting_batch

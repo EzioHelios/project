@@ -1,0 +1,2 @@
+﻿enterprise_code,boundary_no,reporting_org_code,period_code,boundary_name,boundary_type,boundary_method,operational_boundary,status,standard_code,source_name,target_table
+malu,BND-MALU-2025-V1,ORG-MALU,RP-MALU-2025,上海马陆日用友捷汽车电气有限公司 “T1核算单元”,product_t1_unit,operational_control,"{""source_boundary"": ""“T1核算单元”"", ""scope"": ""supplier product T1 package""}",draft,ISO 14067,上海马陆日用友捷汽车电气有限公司,carbon_organization_boundary

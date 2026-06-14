@@ -1,0 +1,5 @@
+﻿enterprise_code,supplier_code,name,industry,supplier_type,country_region,status,risk_level,source_name,standard_code,remark,target_table
+maibo,SUP-MAIBO,宁波迈柏科技股份有限公司,automotive_parts,tier_supplier,China,active,medium,V2打包上传,ISO 14067,Enterprise package modeled as supplier disclosure package.,carbon_supply_chain_supplier
+hongtong,SUP-HONGTONG,鸿通科技（厦门）有限公司,automotive_parts,tier_supplier,China,active,medium,LVG-GHG-LX-R2604013-2-鸿通科技（厦门）有限公司-Phoenix前排屏,ISO 14067,Enterprise package modeled as supplier disclosure package.,carbon_supply_chain_supplier
+malu,SUP-MALU,上海马陆日用友捷汽车电气有限公司,automotive_parts,tier_supplier,China,active,medium,上海马陆日用友捷汽车电气有限公司,ISO 14067,Enterprise package modeled as supplier disclosure package.,carbon_supply_chain_supplier
+honda,SUP-HONDA,本田金属技术(佛山)有限公司,automotive_parts,tier_supplier,China,active,medium,本田金属技术(佛山)有限公司-佐证材料,ISO 14067,Enterprise package modeled as supplier disclosure package.,carbon_supply_chain_supplier

@@ -1,0 +1,2 @@
+﻿enterprise_code,enterprise_name,tenant_slug,source_package,package_root,reporting_year,data_role,standardization_status,platform_tables
+honda,本田金属技术(佛山)有限公司,fs-honda-metal-2025,本田金属技术(佛山)有限公司-佐证材料,/Users/eziohelios/Downloads/本田金属技术(佛山)有限公司-佐证材料,2025,supplier_product_carbon_package,standard_csv_generated,team plus carbon/energy domain tables listed in platform_table_mapping.csv

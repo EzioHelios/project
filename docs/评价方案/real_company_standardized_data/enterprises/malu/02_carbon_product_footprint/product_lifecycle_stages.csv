@@ -1,0 +1,7 @@
+﻿enterprise_code,study_code,stage_code,stage_name,sequence,included,description,stage_co2e,stage_share,target_table
+malu,PCF-MALU-2025,STG-1,1.场外运输,1,true,Normalized from PCF calculation summary sheet.,1.01953597113256,0.285035279556269,carbon_product_lifecycle_stage
+malu,PCF-MALU-2025,STG-2,2.生产,2,true,Normalized from PCF calculation summary sheet.,0.69468425,0.194215334238895,carbon_product_lifecycle_stage
+malu,PCF-MALU-2025,STG-3,3.场内运输,3,true,Normalized from PCF calculation summary sheet.,0.0004914838136,0.000137405869114394,carbon_product_lifecycle_stage
+malu,PCF-MALU-2025,STG-4,4.存储,4,true,Normalized from PCF calculation summary sheet.,1.54341434354036,0.431497810119916,carbon_product_lifecycle_stage
+malu,PCF-MALU-2025,STG-5,5.包材,5,true,Normalized from PCF calculation summary sheet.,0.100231975524903,0.0280222081154046,carbon_product_lifecycle_stage
+malu,PCF-MALU-2025,STG-6,6.废料处理,6,true,Normalized from PCF calculation summary sheet.,0.218518398864134,0.0610919621004017,carbon_product_lifecycle_stage

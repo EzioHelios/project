@@ -1,0 +1,2 @@
+﻿enterprise_code,supplier_code,name,industry,supplier_type,country_region,status,risk_level,source_name,standard_code,remark,target_table
+hongtong,SUP-HONGTONG,鸿通科技（厦门）有限公司,automotive_parts,tier_supplier,China,active,medium,LVG-GHG-LX-R2604013-2-鸿通科技（厦门）有限公司-Phoenix前排屏,ISO 14067,Enterprise package modeled as supplier disclosure package.,carbon_supply_chain_supplier

@@ -1,0 +1,2 @@
+﻿enterprise_code,enterprise_name,tenant_slug,source_package,package_root,reporting_year,data_role,standardization_status,platform_tables
+malu,上海马陆日用友捷汽车电气有限公司,sh-malu-youjie-2025,上海马陆日用友捷汽车电气有限公司,/Users/eziohelios/Downloads/上海马陆日用友捷汽车电气有限公司,2025,supplier_product_carbon_package,standard_csv_generated,team plus carbon/energy domain tables listed in platform_table_mapping.csv

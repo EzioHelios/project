@@ -1,0 +1,2 @@
+﻿enterprise_code,study_code,boundary_type,included_stages,excluded_stages,geography,technology_scope,temporal_scope,standard_code,source_name,target_table
+maibo,PCF-MAIBO-2025,cradle_to_gate_t1,"[""场内运输"", ""场外运输"", ""废料处理"", ""循环包装"", ""电力消耗"", ""逸散排放""]",[],China,Supplier product T1 production unit,2025,ISO 14067,迈柏碳核算Excel总表.xlsx,carbon_product_system_boundary

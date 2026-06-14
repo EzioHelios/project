@@ -1,0 +1,2 @@
+﻿enterprise_code,boundary_no,reporting_org_code,period_code,boundary_name,boundary_type,boundary_method,operational_boundary,status,standard_code,source_name,target_table
+hongtong,BND-HONGTONG-2025-V1,ORG-HONGTONG,RP-HONGTONG-2025,鸿通科技（厦门）有限公司 “T1核算单元”,product_t1_unit,operational_control,"{""source_boundary"": ""“T1核算单元”"", ""scope"": ""supplier product T1 package""}",draft,ISO 14067,LVG-GHG-LX-R2604013-2-鸿通科技（厦门）有限公司-Phoenix前排屏,carbon_organization_boundary

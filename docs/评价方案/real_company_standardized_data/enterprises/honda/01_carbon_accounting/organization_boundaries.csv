@@ -1,0 +1,2 @@
+﻿enterprise_code,boundary_no,reporting_org_code,period_code,boundary_name,boundary_type,boundary_method,operational_boundary,status,standard_code,source_name,target_table
+honda,BND-HONDA-2025-V1,ORG-HONDA,RP-HONDA-2025,本田金属技术(佛山)有限公司 “T1核算单元”,product_t1_unit,operational_control,"{""source_boundary"": ""“T1核算单元”"", ""scope"": ""supplier product T1 package""}",draft,ISO 14067,本田金属技术(佛山)有限公司-佐证材料,carbon_organization_boundary

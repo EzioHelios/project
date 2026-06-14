@@ -1,0 +1,2 @@
+﻿enterprise_code,study_code,study_name,product_code,product_name,product_spec,standard_code,standard_name,functional_unit,declared_unit,period_start,period_end,boundary_type,status,source_name,confidence_level,remark,target_table
+maibo,PCF-MAIBO-2025,带支架分配阀 产品碳足迹研究,X02-20040025,带支架分配阀,X02-20040025,ISO 14067,理想供应链产品碳排放盘查报告,带支架分配阀,件,2025-01-01,2025-12-31,cradle_to_gate_t1,calculated_from_source,迈柏碳核算Excel总表.xlsx,source_reported,PDF sample PCF=6.73,carbon_product_footprint_study
