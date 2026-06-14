@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_app/energy/budget")({
 function EnergyBudgetPage() {
   return (
     <PageContainer className="flex-1" maxWidth="4xl">
-      <EnergyBudgetPanel header={<AdminPageHeader title="用能与碳排放预算管理" />} />
+      <EnergyBudgetPanel header={<AdminPageHeader title="能碳预算" />} />
     </PageContainer>
   )
 }

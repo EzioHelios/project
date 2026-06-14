@@ -1,116 +1,224 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { AlarmClock, ArrowRight, BookOpen, Gauge, MapPinned, MonitorPlay, ShieldCheck, Zap } from "lucide-react"
+import { ArrowRight, BarChart3, ClipboardCheck, Factory, Gauge, GitBranch, Landmark, LineChart, PackageCheck, ShieldCheck, SlidersHorizontal, TrendingUp, Zap } from "lucide-react"
+import { useState } from "react"
 
-import { AdminPageHeader, AdminPanel } from "@/components/admin-ui"
+import { AdminPageHeader, ChartPanel } from "@/components/admin-ui"
 import { Button } from "@/components/ui/button"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
-import { useAuthStore } from "@/lib/auth"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { createComboTrendChartOption, createDistributionChartOption } from "@/lib/admin-chart-theme"
 
 export const Route = createFileRoute("/_app/home")({
   component: HomePage,
 })
 
-const quickActions = [
-  { title: "经营总览", to: "/energy-carbon", icon: Gauge },
-  { title: "综能监测", to: "/energy-carbon/energy", icon: Zap },
-  { title: "监测中心", to: "/energy-carbon/monitor", icon: MonitorPlay },
-  { title: "告警中心", to: "/energy-carbon/alerts", icon: AlarmClock },
-  { title: "能流分析", to: "/energy-carbon/flows", icon: MapPinned },
-  { title: "碳盘查与核算", to: "/energy-carbon/carbon", icon: ShieldCheck },
-  { title: "数据质量与追溯", to: "/energy-carbon/quality", icon: BookOpen },
-  { title: "因子数据库", to: "/energy-carbon/factors", icon: BookOpen },
+const energyFunctions = [
+  {
+    title: "能耗查询",
+    to: "/energy/consumption",
+    icon: Zap,
+    promise: "查清每一类能源的消耗、单耗和账期。",
+    action: "查看明细",
+  },
+  {
+    title: "能耗强度",
+    to: "/energy/intensity",
+    icon: Gauge,
+    promise: "把产量、产值和能耗放在同一个强度口径里。",
+    action: "计算强度",
+  },
+  {
+    title: "用能分析",
+    to: "/energy/analysis",
+    icon: LineChart,
+    promise: "定位趋势、峰谷和异常，让问题落到区域与设备。",
+    action: "打开分析",
+  },
+  {
+    title: "能效对标",
+    to: "/energy/benchmark",
+    icon: BarChart3,
+    promise: "用基准线识别低效环节，保留改进证据。",
+    action: "查看对标",
+  },
+  {
+    title: "能流分析",
+    to: "/energy/flow",
+    icon: GitBranch,
+    promise: "追踪能源从输入、转换到使用的流向。",
+    action: "追踪能流",
+  },
+  {
+    title: "能效平衡",
+    to: "/energy/balance",
+    icon: SlidersHorizontal,
+    promise: "核对供入、有效利用和损失，找出平衡缺口。",
+    action: "核对平衡",
+  },
 ] as const
 
+const carbonFunctions = [
+  {
+    title: "碳排放核算",
+    to: "/carbon/accounting",
+    icon: ShieldCheck,
+    promise: "从活动数据、因子匹配到计算结果形成可审核碳账。",
+    action: "发起核算",
+  },
+  {
+    title: "产品碳足迹",
+    to: "/carbon/product-footprint",
+    icon: PackageCheck,
+    promise: "按生命周期阶段归集活动数据和分配规则。",
+    action: "维护研究",
+  },
+  {
+    title: "供应链碳",
+    to: "/carbon/supply-chain",
+    icon: Factory,
+    promise: "把供应商填报、披露范围和高碳品类连成闭环。",
+    action: "查看任务",
+  },
+  {
+    title: "核查支撑",
+    to: "/carbon/verification",
+    icon: ClipboardCheck,
+    promise: "集中处理证据、异常、审核意见和核查记录。",
+    action: "进入核查",
+  },
+  {
+    title: "碳资产管理",
+    to: "/carbon/assets",
+    icon: Landmark,
+    promise: "管理配额、碳信用、履约清缴和缺口预测。",
+    action: "查看资产",
+  },
+  {
+    title: "能碳预算",
+    to: "/energy/budget",
+    icon: TrendingUp,
+    promise: "按年度目标跟踪能耗、碳排、偏差和调整记录。",
+    action: "管理预算",
+  },
+] as const
+
+const trendPoints = [
+  { period: "01月", energy: 10820, carbon: 5260 },
+  { period: "02月", energy: 11260, carbon: 5410 },
+  { period: "03月", energy: 11940, carbon: 5820 },
+  { period: "04月", energy: 11780, carbon: 5690 },
+  { period: "05月", energy: 12460, carbon: 6110 },
+  { period: "06月", energy: 12840, carbon: 6420 },
+] as const
+
+const distributionData = {
+  energy: [
+    { name: "压铸车间 / 电力", value: 36 },
+    { name: "热处理区 / 天然气", value: 24 },
+    { name: "机加工区 / 电力", value: 21 },
+    { name: "公辅系统 / 蒸汽", value: 19 },
+  ],
+  carbon: [
+    { name: "压铸车间 / Scope 2", value: 34 },
+    { name: "热处理区 / Scope 1", value: 27 },
+    { name: "物流仓储 / Scope 3", value: 22 },
+    { name: "公辅系统 / Scope 2", value: 17 },
+  ],
+}
+
 function HomePage() {
-  const user = useAuthStore((state) => state.user)
-  const displayName = user?.name || user?.email?.split("@")[0] || "您"
+  const [distributionMode, setDistributionMode] = useState<"energy" | "carbon">("energy")
+  const trendOption = createComboTrendChartOption(trendPoints, {
+    bars: [{ key: "energy", label: "综合能耗", colorKey: "energy" }],
+    lines: [{ key: "carbon", label: "碳排放", colorKey: "carbon", yAxisIndex: 1 }],
+    leftAxisName: "MWh",
+    rightAxisName: "tCO2e",
+  })
+  const distributionOption = createDistributionChartOption(distributionData[distributionMode], { unit: "%" })
 
   return (
-    <PageContainer className="flex-1 space-y-4">
+    <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
       <AdminPageHeader
-        title={`欢迎回来，${displayName}`}
+        title="工作台"
         actions={
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             <Button asChild size="sm">
-              <Link to="/energy-carbon">
-                进入能碳中心 <ArrowRight className="ml-2 h-4 w-4" />
+              <Link to="/bigscreen/overview">
+                态势大屏
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
-            </Button>
-            <Button asChild size="sm" variant="outline">
-              <Link to="/energy-carbon/alerts">查看告警</Link>
             </Button>
           </div>
         }
       />
 
       <PageSection delay={0.05}>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {quickActions.map((item) => (
-            <Link key={item.to} to={item.to} className="group rounded-lg border border-border/70 bg-background/70 p-4 transition-colors hover:border-primary/25 hover:bg-accent/35">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
-                  <item.icon className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="font-medium text-sm">{item.title}</div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                  </div>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </PageSection>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="space-y-3">
+            <FunctionGroup title="能源运营" count="6 项" items={energyFunctions} />
+            <FunctionGroup title="碳排放管理" count="6 项" items={carbonFunctions} />
+          </div>
 
-      <PageSection delay={0.1}>
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <AdminPanel title="工作重点" contentClassName="grid gap-3 sm:grid-cols-2">
-            <Link to="/energy-carbon/energy" className="rounded-lg border border-border/60 bg-muted/20 p-4 transition-colors hover:bg-muted/40">
-              <p className="text-sm font-medium">查看能耗趋势</p>
-            </Link>
-            <Link to="/energy-carbon/alerts" className="rounded-lg border border-border/60 bg-muted/20 p-4 transition-colors hover:bg-muted/40">
-              <p className="text-sm font-medium">处理告警事件</p>
-            </Link>
-            <Link to="/energy-carbon/carbon" className="rounded-lg border border-border/60 bg-muted/20 p-4 transition-colors hover:bg-muted/40">
-              <p className="text-sm font-medium">进入核算工作台</p>
-            </Link>
-            <Link to="/admin" className="rounded-lg border border-border/60 bg-muted/20 p-4 transition-colors hover:bg-muted/40">
-              <p className="text-sm font-medium">权限中心</p>
-            </Link>
-          </AdminPanel>
-
-          <AdminPanel title="最近动作" contentClassName="space-y-1.5">
-            <Link to="/energy-carbon" className="group flex items-center gap-3 rounded-lg bg-background/60 p-3 transition-all hover:bg-background hover:shadow-sm">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-                <Gauge className="h-4 w-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm">能碳中心总览</p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
-            </Link>
-            <Link to="/energy-carbon/alerts" className="group flex items-center gap-3 rounded-lg bg-background/60 p-3 transition-all hover:bg-background hover:shadow-sm">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-                <AlarmClock className="h-4 w-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm">告警中心</p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
-            </Link>
-            <Link to="/auth/users" className="group flex items-center gap-3 rounded-lg bg-background/60 p-3 transition-all hover:bg-background hover:shadow-sm">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-                <ShieldCheck className="h-4 w-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm">权限中心</p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
-            </Link>
-          </AdminPanel>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+            <ChartPanel title="能耗与碳排趋势" option={trendOption} height={220} />
+            <ChartPanel
+              title="分区能碳构成"
+              option={distributionOption}
+              height={220}
+              actions={
+                <Tabs value={distributionMode} onValueChange={(value) => setDistributionMode(value as "energy" | "carbon")} className="gap-0">
+                  <TabsList className="h-8">
+                    <TabsTrigger value="energy" className="px-2 text-xs">
+                      能耗
+                    </TabsTrigger>
+                    <TabsTrigger value="carbon" className="px-2 text-xs">
+                      碳排
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              }
+            />
+          </div>
         </div>
       </PageSection>
     </PageContainer>
+  )
+}
+
+type FunctionItem = (typeof energyFunctions)[number] | (typeof carbonFunctions)[number]
+
+function FunctionGroup({ title, count, items }: { title: string; count: string; items: readonly FunctionItem[] }) {
+  return (
+    <section className="space-y-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="font-semibold text-base leading-6">{title}</h2>
+        </div>
+        <span className="shrink-0 rounded-md border border-border/70 bg-background px-2 py-1 text-muted-foreground text-xs">{count}</span>
+      </div>
+      <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
+        {items.map((item) => (
+          <Link
+            key={item.to}
+            to={item.to}
+            className="group flex min-h-24 flex-col rounded-md border border-border/70 bg-background p-3 transition-colors hover:border-primary/25 hover:bg-accent/30"
+          >
+            <div className="flex items-start gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
+                <item.icon className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-sm leading-5">{item.title}</span>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100" />
+                </span>
+              </span>
+            </div>
+            <p className="mt-2 line-clamp-2 flex-1 text-muted-foreground text-xs leading-5">{item.promise}</p>
+            <span className="mt-2 font-medium text-primary text-xs leading-5">{item.action}</span>
+          </Link>
+        ))}
+      </div>
+    </section>
   )
 }

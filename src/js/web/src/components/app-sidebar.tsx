@@ -42,6 +42,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const navMain = useMemo(() => {
     const isCarbonModuleRoute = pathname === "/carbon" || pathname.startsWith("/carbon/")
+    const isEnergyBudgetRoute = pathname === "/energy/budget"
     const isCarbonMgmtRoute = pathname.startsWith("/carbon-mgmt")
     const items: React.ComponentProps<typeof NavMain>["items"] = [
       {
@@ -75,7 +76,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "能源运营",
         to: "/energy/consumption",
         icon: Zap,
-        isActive: pathname.startsWith("/energy"),
+        isActive: pathname.startsWith("/energy") && !isEnergyBudgetRoute,
         items: [
           { title: "能耗查询", to: "/energy/consumption" },
           { title: "能耗强度", to: "/energy/intensity" },
@@ -83,21 +84,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           { title: "能效对标", to: "/energy/benchmark" },
           { title: "能流分析", to: "/energy/flow" },
           { title: "能效平衡", to: "/energy/balance" },
-          { title: "用能预算", to: "/energy/budget" },
         ],
       },
       {
-        title: "碳核算",
+        title: "碳排放管理",
         to: "/carbon/accounting",
         icon: ShieldCheck,
-        isActive: isCarbonModuleRoute,
+        isActive: isCarbonModuleRoute || isEnergyBudgetRoute,
         items: [
           { title: "碳排放核算", to: "/carbon/accounting" },
-          { title: "碳排放台账", to: "/carbon/ledger" },
           { title: "产品碳足迹", to: "/carbon/product-footprint" },
           { title: "供应链碳", to: "/carbon/supply-chain" },
           { title: "核查支撑", to: "/carbon/verification" },
           { title: "碳资产管理", to: "/carbon/assets" },
+          { title: "能碳预算", to: "/energy/budget" },
         ],
       },
       {
