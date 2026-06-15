@@ -1,8 +1,5 @@
-import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 
-import { PageImportPanel } from "@/components/admin-ui"
-import { scope2BillImportFields, submitEnergyDatasetImport } from "@/components/carbon/page-import-configs"
 import { ScopeRecordPage } from "@/components/carbon/scope-record-page"
 
 type Scope2Bill = {
@@ -20,7 +17,6 @@ export const Route = createFileRoute("/_app/carbon-mgmt/scope2-bill")({
 })
 
 function Scope2BillPage() {
-  const queryClient = useQueryClient()
   const queryKey = ["carbon-mgmt", "scope2-bill", "list"]
   return (
     <ScopeRecordPage<Scope2Bill>
@@ -28,16 +24,6 @@ function Scope2BillPage() {
       endpoint="/api/carbon/scope2-electricity-bill"
       queryKey={queryKey}
       searchPlaceholder="搜索：户号/账期…"
-      importPanel={
-        <PageImportPanel
-          title="Scope2 电力账单导入"
-          fields={scope2BillImportFields}
-          sourceNameDefault="电力账单页面导入"
-          testId="scope2-bill-import"
-          onConfirm={(rows, context) => submitEnergyDatasetImport("scope2_electricity_bills", rows, context.sourceName)}
-          onCompleted={() => queryClient.invalidateQueries({ queryKey })}
-        />
-      }
       columns={[
         { key: "account_number", label: "户号" },
         { key: "billing_month", label: "账期" },

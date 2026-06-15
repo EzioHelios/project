@@ -5,8 +5,7 @@ import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
-import { AdminDataTable, AdminPageHeader, AdminPanel, AdminTableStateRow, AdminTableToolbar, PageImportPanel } from "@/components/admin-ui"
-import { productionOutputImportFields, submitEnergyDatasetImport } from "@/components/carbon/page-import-configs"
+import { AdminDataTable, AdminPageHeader, AdminPanel, AdminTableStateRow, AdminTableToolbar } from "@/components/admin-ui"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -916,7 +915,6 @@ export function ProductPricesPage() {
 }
 
 export function ProductionOutputPage() {
-  const queryClient = useQueryClient()
   const queryKey = ["production", "output-facts"]
   return (
     <CrudDataPage
@@ -924,16 +922,6 @@ export function ProductionOutputPage() {
       endpoint="/api/production/output-facts"
       queryKey={queryKey}
       searchPlaceholder="按工单、批次、产品、产线、设备搜索"
-      topActions={
-        <PageImportPanel
-          title="产品批次产量导入"
-          fields={productionOutputImportFields}
-          sourceNameDefault="产量页面导入"
-          testId="production-output-import"
-          onConfirm={(rows, context) => submitEnergyDatasetImport("production_output_facts", rows, context.sourceName)}
-          onCompleted={() => queryClient.invalidateQueries({ queryKey })}
-        />
-      }
       columns={[
         { key: "period_start", label: "开始日期" },
         { key: "product_code", label: "产品编码" },

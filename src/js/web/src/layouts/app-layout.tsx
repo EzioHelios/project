@@ -89,6 +89,7 @@ export function AppLayout() {
     }
     if (pathname === "/energy" || pathname.startsWith("/energy/")) {
       if (pathname === "/energy/consumption") return { eyebrow: "能源运营", title: "能耗查询" }
+      if (pathname === "/energy/import") return { eyebrow: "能源运营", title: "采集包导入" }
       if (pathname === "/energy/intensity") return { eyebrow: "能源运营", title: "能耗强度" }
       if (pathname === "/energy/analysis") return { eyebrow: "能源运营", title: "用能分析" }
       if (pathname === "/energy/benchmark") return { eyebrow: "能源运营", title: "能效对标" }

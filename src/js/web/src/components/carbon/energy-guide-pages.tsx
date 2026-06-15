@@ -1,19 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { ChevronDown, ChevronRight, Database, Upload } from "lucide-react"
+import { Link } from "@tanstack/react-router"
+import { ChevronDown, ChevronRight, FileSpreadsheet } from "lucide-react"
 import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
-import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, ContextBar, MetricStrip, MetricTile, PageImportPanel } from "@/components/admin-ui"
+import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, CompositeTrendChart, DiagnosticsPanel, DistributionChart, FlowGraph, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
 import { JumpLinks } from "@/components/carbon/energy-carbon-center"
-import { energyImportFieldMap, submitEnergyDatasetImport } from "@/components/carbon/page-import-configs"
 import { type PageResult, PaginationBar, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -544,58 +542,9 @@ type EnergyHierarchyRow = {
   hasChildren?: boolean
 }
 
-type RealCompanyPackageSummary = {
-  enterprise_code: string
-  enterprise_name: string
-  tenant_slug: string
-  package_path: string
-  dataset_rows: Record<string, number>
-  page_status_counts: Record<string, number>
-  missing_datasets: string[]
-}
-
-type RealCompanyPackageImportResult = RealCompanyPackageSummary & {
-  team_id: string
-  dry_run: boolean
-  imported: Record<string, number>
-  skipped: Record<string, number>
-  source_missing_pages: string[]
-}
-
-const energyImportDatasets = [
-  {
-    value: "energy_interval_facts",
-    label: "能源计量事实",
-    columns:
-      "source_record_id,energy_type_code,period_start,period_end,amount,unit,equipment_code,equipment_name,area_id,area_name,use_system_code,use_system_name,granularity,cost_cny,data_quality,remark",
-  },
-  {
-    value: "scope1_stationary_combustion",
-    label: "Scope1 固定燃烧",
-    columns: "source_record_id,facility_name,period_start,period_end,fuel_type,amount,unit,meter_reading_start,meter_reading_end,attachment,remark",
-  },
-  {
-    value: "scope2_electricity_bills",
-    label: "Scope2 电力账单",
-    columns: "source_record_id,account_number,billing_month,total_kwh,peak_kwh,flat_kwh,valley_kwh,amount_cny,attachment,remark",
-  },
-  {
-    value: "production_output_facts",
-    label: "产量分母事实",
-    columns:
-      "source_record_id,product_code,product_name,product_spec,period_start,period_end,good_qty,scrap_qty,rework_qty,unit,standard_qty,standard_unit,work_center_code,line_code,area_id,area_name,equipment_code,equipment_name,remark",
-  },
-]
-
 function initialEnergyImportTab() {
   if (typeof window === "undefined") return "summary"
   return new URLSearchParams(window.location.search).get("tab") === "export" ? "export" : "summary"
-}
-
-function initialEnergyImportDataset() {
-  if (typeof window === "undefined") return "scope2_electricity_bills"
-  const dataset = new URLSearchParams(window.location.search).get("dataset")
-  return energyImportDatasets.some((item) => item.value === dataset) ? dataset : "scope2_electricity_bills"
 }
 
 function _useEnergySummary() {
@@ -618,7 +567,6 @@ const formatEnergyValue = (value: number | null | undefined, digits = 4) =>
 const formatKgcePerM2 = (value: number | null | undefined, digits = 4) => formatEnergyValue(value === null || value === undefined ? null : value * 1000, digits)
 
 export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
-  const queryClient = useQueryClient()
   const [periodStart, setPeriodStart] = useState("")
   const [periodEnd, setPeriodEnd] = useState("")
   const [scope, setScope] = useState("all")
@@ -637,10 +585,6 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
     areaKeyword: "",
     sourceRecordType: "all",
   })
-  const [importDataset, setImportDataset] = useState(initialEnergyImportDataset)
-  const [selectedPackageCode, setSelectedPackageCode] = useState("")
-  const [packageImportResult, setPackageImportResult] = useState<RealCompanyPackageImportResult | null>(null)
-  const [packageDialogOpen, setPackageDialogOpen] = useState(false)
 
   const queryParams = useMemo(() => {
     const qs = new URLSearchParams()
@@ -676,39 +620,12 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
     queryKey: ["energy", "unit-conversions"],
     queryFn: () => fetchCarbonApi<{ items: EnergyUnitConversionRow[] }>("/api/energy/unit-conversions"),
   })
-  const packageQuery = useQuery<ApiEnvelope<{ items: RealCompanyPackageSummary[]; total: number }>>({
-    queryKey: ["real-company-packages"],
-    queryFn: () => fetchCarbonApi<{ items: RealCompanyPackageSummary[]; total: number }>("/api/carbon/real-company-packages"),
-    retry: false,
-  })
 
   const energyTypes = energyTypesQuery.data?.data.items ?? []
   const unitConversions = unitConversionsQuery.data?.data.items ?? []
-  const realCompanyPackages = packageQuery.data?.data.items ?? []
-  const selectedPackage = realCompanyPackages.find((item) => item.enterprise_code === selectedPackageCode) ?? realCompanyPackages[0] ?? null
   const summary = summaryQuery.data?.data
   const facts = factsQuery.data?.items ?? []
   const exportUrl = `/api/energy/consumption/export?${queryParams.toString()}`
-  const selectedImportDataset = energyImportDatasets.find((item) => item.value === importDataset) ?? energyImportDatasets[0]
-  const selectedImportFields = energyImportFieldMap[importDataset] ?? energyImportFieldMap.energy_interval_facts
-  const packageImportMutation = useMutation({
-    mutationFn: async (dryRun: boolean) => {
-      if (!selectedPackage) throw new Error("请选择企业资料包")
-      const response = await request<RealCompanyPackageImportResult>(`/api/carbon/real-company-packages/${selectedPackage.enterprise_code}/import`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ dry_run: dryRun }),
-      })
-      return response.data
-    },
-    onSuccess: (result) => {
-      setPackageImportResult(result)
-      queryClient.invalidateQueries({ queryKey: ["energy"] })
-      queryClient.invalidateQueries({ queryKey: ["real-company-packages"] })
-      toast.success(result.dry_run ? "试运行完成" : "资料包导入完成", { description: `${result.enterprise_name} / ${result.tenant_slug}` })
-    },
-    onError: (error) => toast.error("资料包导入失败", { description: error instanceof Error ? error.message : "请检查资料包和权限" }),
-  })
 
   function applyFilters() {
     setAppliedFilters({ periodStart, periodEnd, scope, energyTypeCode, status, areaKeyword, sourceRecordType })
@@ -737,14 +654,6 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
 
   const formatNumber = (value: number | null | undefined, digits = 4) =>
     value === null || value === undefined ? "-" : Number(value).toLocaleString("zh-CN", { maximumFractionDigits: digits })
-  const formatCountMap = (value: Record<string, number> | null | undefined) => {
-    const entries = Object.entries(value ?? {}).filter(([, count]) => Number(count) > 0)
-    if (!entries.length) return "-"
-    return entries
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, count]) => `${key} ${count}`)
-      .join(" / ")
-  }
   const sourceRoute: Record<string, string> = {
     Scope1MobileCombustion: "/carbon-mgmt/scope1-mobile",
     Scope1StationaryCombustion: "/carbon-mgmt/scope1-stationary",
@@ -752,136 +661,6 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
     Scope2MeterAggregate: "/carbon-mgmt/scope2-records",
     Scope2PurchasedEnergy: "/carbon-mgmt/scope2-purchased-energy",
   }
-  const importAction = (
-    <PageImportPanel
-      title="页面级 CSV 导入"
-      fields={selectedImportFields}
-      sourceNameDefault={`${selectedImportDataset.label}页面导入`}
-      testId="energy-import"
-      controls={
-        <div className="space-y-2">
-          <Label>数据集</Label>
-          <Select value={importDataset} onValueChange={setImportDataset}>
-            <SelectTrigger data-testid="energy-import-dataset-trigger">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {energyImportDatasets.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      }
-      onConfirm={(rows, context) => submitEnergyDatasetImport(importDataset, rows, context.sourceName)}
-      onCompleted={() => queryClient.invalidateQueries({ queryKey: ["energy"] })}
-    />
-  )
-  const packageAction = (
-    <Dialog open={packageDialogOpen} onOpenChange={setPackageDialogOpen}>
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm" data-testid="real-company-package-trigger">
-          <Database className="mr-2 h-4 w-4" />
-          资料包预检
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>企业资料包预检</DialogTitle>
-          <DialogDescription className="sr-only">选择企业资料包，执行预检或建档导入。</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="grid gap-2 md:grid-cols-3">
-            <ImportStateCard index={1} title="选择资料包" active={!selectedPackage} done={Boolean(selectedPackage)} />
-            <ImportStateCard index={2} title="完整度预检" active={Boolean(selectedPackage) && !packageImportResult} done={Boolean(packageImportResult?.dry_run)} />
-            <ImportStateCard
-              index={3}
-              title="确认建档"
-              active={Boolean(packageImportResult)}
-              muted={!selectedPackage}
-              done={Boolean(packageImportResult && !packageImportResult.dry_run)}
-            />
-          </div>
-          <div className="grid gap-3 md:grid-cols-[280px_minmax(0,1fr)]">
-            <div className="space-y-2">
-              <Label>企业资料包</Label>
-              <Select value={selectedPackage?.enterprise_code ?? ""} onValueChange={setSelectedPackageCode} disabled={packageQuery.isLoading || realCompanyPackages.length === 0}>
-                <SelectTrigger data-testid="real-company-package-select">
-                  <SelectValue placeholder={packageQuery.isError ? "需要实施权限" : "选择企业"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {realCompanyPackages.map((item) => (
-                    <SelectItem key={item.enterprise_code} value={item.enterprise_code}>
-                      {item.enterprise_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2 rounded-md border bg-muted/20 p-3 text-sm">
-              {selectedPackage ? (
-                <>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{selectedPackage.enterprise_name}</span>
-                    <Badge variant="secondary">{selectedPackage.tenant_slug}</Badge>
-                  </div>
-                  <div className="text-muted-foreground">{selectedPackage.package_path}</div>
-                  <div className="grid gap-1 text-muted-foreground">
-                    <span>数据行：{formatCountMap(selectedPackage.dataset_rows)}</span>
-                    <span>页面状态：{formatCountMap(selectedPackage.page_status_counts)}</span>
-                    <span>缺失数据集：{selectedPackage.missing_datasets.length ? selectedPackage.missing_datasets.join(" / ") : "无"}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="text-muted-foreground">{packageQuery.isError ? "当前账号不能执行资料包预检。" : "暂无可预检资料包"}</div>
-              )}
-            </div>
-          </div>
-          <div className="rounded-md border bg-muted/20 p-3" data-testid="real-company-package-import-result">
-            <div className="mb-2 text-sm font-medium">预检结果</div>
-            {packageImportResult ? (
-              <div className="grid gap-1 text-sm text-muted-foreground">
-                <span>
-                  {packageImportResult.dry_run ? "试运行" : "已写入"}：{packageImportResult.enterprise_name} / {packageImportResult.tenant_slug}
-                </span>
-                <span>入库：{formatCountMap(packageImportResult.imported)}</span>
-                <span>跳过：{formatCountMap(packageImportResult.skipped)}</span>
-                <span>来源缺口页面：{packageImportResult.source_missing_pages.length ? packageImportResult.source_missing_pages.join(" / ") : "无"}</span>
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">未执行</div>
-            )}
-          </div>
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => setPackageDialogOpen(false)}>
-            关闭
-          </Button>
-          <Button
-            data-testid="real-company-package-dry-run"
-            type="button"
-            variant="outline"
-            disabled={!selectedPackage || packageImportMutation.isPending}
-            onClick={() => packageImportMutation.mutate(true)}
-          >
-            <Database className="mr-2 h-4 w-4" />
-            预检
-          </Button>
-          <Button
-            data-testid="real-company-package-import"
-            type="button"
-            disabled={!selectedPackage || packageImportMutation.isPending}
-            onClick={() => packageImportMutation.mutate(false)}
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            确认建档
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
 
   return (
     <Tabs defaultValue={initialEnergyImportTab()} className="space-y-4">
@@ -889,10 +668,12 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
         header={header}
         title={header ? undefined : "能耗查询"}
         topActions={
-          <>
-            {importAction}
-            {packageAction}
-          </>
+          <Button asChild type="button" variant="outline" size="sm">
+            <Link to="/energy/import">
+              <FileSpreadsheet className="mr-2 size-4" />
+              采集包导入
+            </Link>
+          </Button>
         }
         tabs={
           <AdminTabsList>
@@ -1166,17 +947,6 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
         </TabsContent>
       </AdminPageScaffold>
     </Tabs>
-  )
-}
-
-function ImportStateCard({ index, title, active, done, muted }: { index: number; title: string; active?: boolean; done?: boolean; muted?: boolean }) {
-  const tone = active ? "border-primary bg-primary/5" : muted ? "opacity-60" : ""
-  const badgeTone = done ? "border-primary bg-primary text-primary-foreground" : ""
-  return (
-    <div className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm ${tone}`}>
-      <span className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs tabular-nums ${badgeTone}`}>{index}</span>
-      <span className="font-medium">{title}</span>
-    </div>
   )
 }
 

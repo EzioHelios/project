@@ -1,8 +1,5 @@
-import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 
-import { PageImportPanel } from "@/components/admin-ui"
-import { scope3WasteImportFields, submitRowsIndividually } from "@/components/carbon/page-import-configs"
 import { ScopeRecordPage } from "@/components/carbon/scope-record-page"
 
 type Scope3Waste = {
@@ -20,7 +17,6 @@ export const Route = createFileRoute("/_app/carbon-mgmt/scope3-waste")({
 })
 
 function Scope3WastePage() {
-  const queryClient = useQueryClient()
   const queryKey = ["carbon-mgmt", "scope3-waste", "list"]
   return (
     <ScopeRecordPage<Scope3Waste>
@@ -28,16 +24,6 @@ function Scope3WastePage() {
       endpoint="/api/carbon/scope3-waste-disposal"
       queryKey={queryKey}
       searchPlaceholder="搜索：类别/处理方式/处置方…"
-      importPanel={
-        <PageImportPanel
-          title="Scope3 废弃物导入"
-          fields={scope3WasteImportFields}
-          sourceNameDefault="废弃物处理页面导入"
-          testId="scope3-waste-import"
-          onConfirm={(rows, context) => submitRowsIndividually("/api/carbon/scope3-waste-disposal", rows, context.sourceName)}
-          onCompleted={() => queryClient.invalidateQueries({ queryKey })}
-        />
-      }
       columns={[
         { key: "date", label: "日期" },
         { key: "category", label: "类别" },

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { Download, Plus, RefreshCw, Trash2, Upload } from "lucide-react"
+import { Download, Plus, RefreshCw, Trash2 } from "lucide-react"
 import type { ReactNode } from "react"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -180,7 +180,6 @@ export function EnergyBenchmarkPanel({ header }: { header?: ReactNode }) {
   const [filters, setFilters] = useState<BenchmarkFilters>(defaultFilters)
   const [profileOpen, setProfileOpen] = useState(false)
   const [itemOpen, setItemOpen] = useState(false)
-  const [csvOpen, setCsvOpen] = useState(false)
   const [profileForm, setProfileForm] = useState({ name: "", industry_name: "", scenario: "", source_name: "", valid_from: "", valid_to: "", remark: "" })
   const [itemForm, setItemForm] = useState({
     target_type: "device",
@@ -192,7 +191,6 @@ export function EnergyBenchmarkPanel({ header }: { header?: ReactNode }) {
     source_name: "",
     confidence_level: "medium",
   })
-  const [csvText, setCsvText] = useState("")
 
   const profilesQuery = useQuery<PageResult<BenchmarkProfile>>({
     queryKey: ["energy-benchmark", "profiles"],
@@ -295,37 +293,6 @@ export function EnergyBenchmarkPanel({ header }: { header?: ReactNode }) {
       refreshAll()
     },
     onError: (error) => toast.error("生成失败", { description: error instanceof Error ? error.message : "请检查历史数据" }),
-  })
-
-  const importCsv = useMutation({
-    mutationFn: async () => {
-      const rows = parseCsv(csvText)
-      for (const row of rows) {
-        await request<BenchmarkItem>("/api/energy/benchmark/items", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            profile_id: selectedProfileId,
-            target_type: row.target_type || filters.targetType,
-            target_code: row.target_code,
-            target_name: row.target_name,
-            metric_code: row.metric_code || filters.metricCode,
-            benchmark_value: row.benchmark_value,
-            unit: row.unit || metrics.find((item) => item.value === (row.metric_code || filters.metricCode))?.unit,
-            source_name: row.source_name,
-            confidence_level: row.confidence_level || "medium",
-          }),
-        })
-      }
-      return rows.length
-    },
-    onSuccess: (count) => {
-      toast.success(`已导入 ${count} 条标杆项`)
-      setCsvOpen(false)
-      setCsvText("")
-      refreshAll()
-    },
-    onError: (error) => toast.error("导入失败", { description: error instanceof Error ? error.message : "请检查 CSV 内容" }),
   })
 
   const comparisons = comparisonsQuery.data?.data.items ?? []
@@ -475,60 +442,31 @@ export function EnergyBenchmarkPanel({ header }: { header?: ReactNode }) {
             <AdminPanel
               title="标杆项"
               actions={
-                <>
-                  <Dialog open={csvOpen} onOpenChange={setCsvOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" disabled={!selectedProfileId}>
-                        <Upload className="mr-2 h-4 w-4" />
-                        CSV 导入
+                <Dialog open={itemOpen} onOpenChange={setItemOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" disabled={!selectedProfileId}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      新增
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>新增标杆项</DialogTitle>
+                    </DialogHeader>
+                    <ItemForm value={itemForm} onChange={setItemForm} />
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setItemOpen(false)}>
+                        取消
                       </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>CSV 导入</DialogTitle>
-                      </DialogHeader>
-                      <Textarea
-                        value={csvText}
-                        onChange={(event) => setCsvText(event.target.value)}
-                        className="min-h-52 font-mono text-xs"
-                        placeholder="target_type,target_code,target_name,metric_code,benchmark_value,unit,source_name,confidence_level"
-                      />
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setCsvOpen(false)}>
-                          取消
-                        </Button>
-                        <Button onClick={() => importCsv.mutate()} disabled={!csvText.trim() || importCsv.isPending || !selectedProfileId}>
-                          导入
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                  <Dialog open={itemOpen} onOpenChange={setItemOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" disabled={!selectedProfileId}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        新增
+                      <Button
+                        onClick={() => createItem.mutate({ ...itemForm, profile_id: selectedProfileId })}
+                        disabled={!selectedProfileId || !itemForm.benchmark_value || createItem.isPending}
+                      >
+                        保存
                       </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>新增标杆项</DialogTitle>
-                      </DialogHeader>
-                      <ItemForm value={itemForm} onChange={setItemForm} />
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setItemOpen(false)}>
-                          取消
-                        </Button>
-                        <Button
-                          onClick={() => createItem.mutate({ ...itemForm, profile_id: selectedProfileId })}
-                          disabled={!selectedProfileId || !itemForm.benchmark_value || createItem.isPending}
-                        >
-                          保存
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               }
               contentClassName="p-0"
             >
@@ -874,17 +812,4 @@ function EmptyRow({ colSpan }: { colSpan: number }) {
 
 function EmptyText({ text }: { text: string }) {
   return <AdminEmptyState title={text} />
-}
-
-function parseCsv(value: string) {
-  const [headerLine, ...lines] = value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-  if (!headerLine) return []
-  const headers = headerLine.split(",").map((item) => item.trim())
-  return lines.map((line) => {
-    const cells = line.split(",").map((item) => item.trim())
-    return Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ""]))
-  })
 }

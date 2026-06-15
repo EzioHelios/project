@@ -1,8 +1,5 @@
-import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 
-import { PageImportPanel } from "@/components/admin-ui"
-import { scope1MobileImportFields, submitRowsIndividually } from "@/components/carbon/page-import-configs"
 import { ScopeRecordPage } from "@/components/carbon/scope-record-page"
 
 type Scope1Mobile = {
@@ -21,7 +18,6 @@ export const Route = createFileRoute("/_app/carbon-mgmt/scope1-mobile")({
 })
 
 function Scope1MobilePage() {
-  const queryClient = useQueryClient()
   const queryKey = ["carbon-mgmt", "scope1-mobile", "list"]
   return (
     <ScopeRecordPage<Scope1Mobile>
@@ -29,16 +25,6 @@ function Scope1MobilePage() {
       endpoint="/api/carbon/scope1-mobile-combustion"
       queryKey={queryKey}
       searchPlaceholder="搜索：资产名称/燃料类型/单位…"
-      importPanel={
-        <PageImportPanel
-          title="Scope1 移动源导入"
-          fields={scope1MobileImportFields}
-          sourceNameDefault="移动源燃烧页面导入"
-          testId="scope1-mobile-import"
-          onConfirm={(rows, context) => submitRowsIndividually("/api/carbon/scope1-mobile-combustion", rows, context.sourceName)}
-          onCompleted={() => queryClient.invalidateQueries({ queryKey })}
-        />
-      }
       columns={[
         { key: "record_date", label: "日期" },
         { key: "asset_name", label: "资产名称" },

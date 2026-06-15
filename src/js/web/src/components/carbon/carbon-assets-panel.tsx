@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { AlertTriangle, CheckCircle2, Download, Plus, RefreshCw, TrendingUp, Upload } from "lucide-react"
+import { AlertTriangle, Plus, RefreshCw, TrendingUp } from "lucide-react"
 import type * as React from "react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -16,7 +16,6 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
 import { type AdminMarketKlinePoint, createMarketKlineChartOption } from "@/lib/admin-chart-theme"
 
 type CompliancePosition = {
@@ -97,13 +96,6 @@ type CarbonAssetsSummary = {
   allowance_available: number
   credit_available: number
   latest_position: CompliancePosition
-}
-
-type CarbonAssetLedgerImportResult = {
-  received_count: number
-  imported_count: number
-  skipped_count: number
-  errors: Array<{ row_number: number; message: string }>
 }
 
 type CompliancePeriod = {
@@ -423,140 +415,6 @@ const riskLabels: Record<string, string> = {
   unlocked_inventory: "未锁定",
 }
 
-const carbonAssetLedgerTemplateColumns = [
-  "dataset",
-  "period_code",
-  "period_name",
-  "period_start",
-  "period_end",
-  "surrender_due_date",
-  "account_code",
-  "account_name",
-  "asset_type",
-  "market",
-  "registry_account_no",
-  "owner_name",
-  "currency",
-  "account_status",
-  "allocation_no",
-  "quota_type",
-  "allocated_amount",
-  "adjustment_amount",
-  "used_amount",
-  "frozen_amount",
-  "unit",
-  "holding_no",
-  "credit_type",
-  "project_code",
-  "project_name",
-  "registry",
-  "vintage_year",
-  "quantity",
-  "used_quantity",
-  "frozen_quantity",
-  "market_price",
-  "transaction_no",
-  "transaction_type",
-  "amount",
-  "unit_price",
-  "trade_date",
-  "counterparty",
-  "surrender_no",
-  "surrender_status",
-  "purpose",
-  "surrendered_at",
-  "source_name",
-  "source_file",
-  "evidence_file",
-  "remark",
-] as const
-
-const carbonAssetLedgerTemplateRows: Array<Partial<Record<(typeof carbonAssetLedgerTemplateColumns)[number], string>>> = [
-  {
-    dataset: "compliance_period",
-    period_code: "2025-CN-ETS",
-    period_name: "2025全国碳市场履约期",
-    period_start: "2025-01-01",
-    period_end: "2025-12-31",
-    surrender_due_date: "2026-06-30",
-    market: "CN-ETS",
-    source_name: "企业配额分配通知或注册登记系统截图",
-    evidence_file: "evidence/carbon_assets/period_notice.pdf",
-  },
-  {
-    dataset: "asset_account",
-    account_code: "ACC-QUOTA-001",
-    account_name: "全国碳市场配额账户",
-    asset_type: "quota",
-    market: "CN-ETS",
-    registry_account_no: "REG-ACCOUNT-NO",
-    owner_name: "企业名称",
-    currency: "CNY",
-    account_status: "active",
-    source_name: "注册登记系统账户信息",
-    evidence_file: "evidence/carbon_assets/account_registry.pdf",
-  },
-  {
-    dataset: "quota_allocation",
-    period_code: "2025-CN-ETS",
-    account_code: "ACC-QUOTA-001",
-    allocation_no: "ALLOC-2025-001",
-    quota_type: "free_allocation",
-    allocated_amount: "1000",
-    adjustment_amount: "0",
-    used_amount: "0",
-    frozen_amount: "0",
-    unit: "tCO2e",
-    source_name: "配额分配通知",
-    evidence_file: "evidence/carbon_assets/allocation_notice.pdf",
-  },
-  {
-    dataset: "credit_holding",
-    account_code: "ACC-CREDIT-001",
-    holding_no: "CCER-2025-001",
-    asset_type: "ccer",
-    credit_type: "CCER",
-    project_code: "PROJECT-CODE",
-    project_name: "项目名称",
-    registry: "CCER",
-    vintage_year: "2025",
-    quantity: "100",
-    used_quantity: "0",
-    frozen_quantity: "0",
-    market_price: "0",
-    currency: "CNY",
-    source_name: "CCER持仓或绿证登记凭证",
-    evidence_file: "evidence/carbon_assets/credit_holding.pdf",
-  },
-  {
-    dataset: "asset_transaction",
-    account_code: "ACC-QUOTA-001",
-    transaction_no: "TX-2025-001",
-    asset_type: "quota",
-    transaction_type: "buy",
-    amount: "100",
-    unit_price: "60",
-    currency: "CNY",
-    trade_date: "2025-12-01",
-    counterparty: "交易对手",
-    source_name: "交易确认单",
-    evidence_file: "evidence/carbon_assets/transaction_confirmation.pdf",
-  },
-  {
-    dataset: "surrender_record",
-    period_code: "2025-CN-ETS",
-    account_code: "ACC-QUOTA-001",
-    surrender_no: "SURRENDER-2025-001",
-    asset_type: "quota",
-    amount: "100",
-    surrender_status: "completed",
-    purpose: "annual_compliance",
-    surrendered_at: "2026-06-01",
-    source_name: "清缴履约凭证",
-    evidence_file: "evidence/carbon_assets/surrender_receipt.pdf",
-  },
-]
-
 export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
   const qc = useQueryClient()
   const [periodOpen, setPeriodOpen] = useState(false)
@@ -566,7 +424,6 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
   const [transactionOpen, setTransactionOpen] = useState(false)
   const [surrenderOpen, setSurrenderOpen] = useState(false)
   const [forecastOpen, setForecastOpen] = useState(false)
-  const [ledgerImportOpen, setLedgerImportOpen] = useState(false)
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null)
   const [selectedScenarioId, setSelectedScenarioId] = useState<number | null>(null)
   const [marketInstrument, setMarketInstrument] = useState<"CEA" | "CCER">("CEA")
@@ -578,9 +435,6 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
   const [surrenderForm, setSurrenderForm] = useState<SurrenderForm>(defaultSurrenderForm)
   const [forecastForm, setForecastForm] = useState<ForecastScenarioForm>(defaultForecastScenarioForm)
   const [simulation, setSimulation] = useState<AssetTransaction | null>(null)
-  const [ledgerImportSourceName, setLedgerImportSourceName] = useState("企业碳资产台账")
-  const [ledgerImportCsvText, setLedgerImportCsvText] = useState("")
-  const [ledgerImportResult, setLedgerImportResult] = useState<CarbonAssetLedgerImportResult | null>(null)
 
   const summaryQuery = useQuery<ApiEnvelope<CarbonAssetsSummary>>({
     queryKey: [...QUERY_KEY, "summary"],
@@ -787,175 +641,6 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
     },
     onError: toastError("创建预测情景失败"),
   })
-  const importLedger = useMutation({
-    mutationFn: async () => {
-      const rows = parseCarbonAssetCsv(ledgerImportCsvText)
-      if (rows.length === 0) throw new Error("CSV 至少需要表头和一行数据")
-      const response = await request<CarbonAssetLedgerImportResult>("/api/carbon/assets/imports/ledger", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          source_name: ledgerImportSourceName.trim() || "企业碳资产台账",
-          rows,
-        }),
-      })
-      return response.data
-    },
-    onSuccess: async (result) => {
-      setLedgerImportResult(result)
-      await invalidateAssets(qc)
-      toast.success(`已导入 ${result.imported_count} 条`)
-    },
-    onError: toastError("导入碳资产台账失败"),
-  })
-
-  async function loadLedgerImportFile(file: File | undefined) {
-    if (!file) return
-    setLedgerImportCsvText(await file.text())
-    setLedgerImportResult(null)
-  }
-
-  function downloadLedgerImportErrors() {
-    if (!ledgerImportResult?.errors.length) return
-    const csvText = buildCarbonAssetImportErrorCsv(ledgerImportResult, ledgerImportCsvText)
-    const blob = new Blob([csvText], { type: "text/csv;charset=utf-8" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = "carbon_asset_ledger_import_errors.csv"
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
-  }
-  const ledgerImportAction = (
-    <Dialog open={ledgerImportOpen} onOpenChange={setLedgerImportOpen}>
-      <DialogTrigger asChild>
-        <Button data-testid="carbon-assets-ledger-import-trigger" type="button" variant="outline" size="sm">
-          <Upload className="mr-2 size-4" />
-          导入
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-5xl">
-        <DialogHeader>
-          <DialogTitle>真实资产台账导入</DialogTitle>
-          <DialogDescription className="sr-only">下载模板、上传 CSV、校验并导入碳资产台账。</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-5">
-          <div className="grid gap-2 md:grid-cols-3">
-            <StepCard index={1} title="下载模板" active={!ledgerImportCsvText.trim()} done={Boolean(ledgerImportCsvText.trim())} />
-            <StepCard index={2} title="上传校验" active={Boolean(ledgerImportCsvText.trim()) && !ledgerImportResult} done={Boolean(ledgerImportResult)} />
-            <StepCard index={3} title="确认入库" active={Boolean(ledgerImportResult)} muted={!ledgerImportCsvText.trim()} done={Boolean(ledgerImportResult?.imported_count)} />
-          </div>
-          <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
-            <div className="space-y-3">
-              <div className="rounded-md border bg-muted/20 p-3">
-                <div className="mb-3 font-medium text-sm">模板</div>
-                <Button
-                  data-testid="carbon-assets-ledger-template-download-secondary"
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={downloadCarbonAssetLedgerTemplate}
-                >
-                  <Download className="mr-2 size-4" />
-                  下载模板
-                </Button>
-              </div>
-              <div className="rounded-md border bg-muted/20 p-3 text-sm" data-testid="carbon-assets-ledger-import-template">
-                <div className="mb-2 font-medium">模板列</div>
-                <div className="break-all text-muted-foreground text-xs leading-5">{carbonAssetLedgerTemplateColumns.join(",")}</div>
-              </div>
-              <div className="rounded-md border bg-muted/20 p-3 text-sm" data-testid="carbon-assets-ledger-import-result">
-                <div className="mb-2 font-medium">导入结果</div>
-                {ledgerImportResult ? (
-                  <div className="grid gap-1 text-muted-foreground">
-                    <span>接收 {ledgerImportResult.received_count} 行</span>
-                    <span>入库 {ledgerImportResult.imported_count} 行</span>
-                    <span>跳过 {ledgerImportResult.skipped_count} 行</span>
-                  </div>
-                ) : (
-                  <div className="text-muted-foreground">未导入</div>
-                )}
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_260px]">
-                <div className="space-y-2">
-                  <Label>来源名称</Label>
-                  <Input data-testid="carbon-assets-ledger-import-source-name" value={ledgerImportSourceName} onChange={(event) => setLedgerImportSourceName(event.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>CSV 文件</Label>
-                  <Input
-                    data-testid="carbon-assets-ledger-import-file"
-                    type="file"
-                    accept=".csv,text/csv,text/plain"
-                    onChange={(event) => loadLedgerImportFile(event.target.files?.[0])}
-                  />
-                </div>
-              </div>
-              <Textarea
-                value={ledgerImportCsvText}
-                onChange={(event) => {
-                  setLedgerImportCsvText(event.target.value)
-                  setLedgerImportResult(null)
-                }}
-                className="min-h-56 font-mono text-xs"
-                data-testid="carbon-assets-ledger-import-csv-text"
-                placeholder={carbonAssetLedgerTemplateColumns.join(",")}
-              />
-              {ledgerImportResult?.errors.length ? (
-                <div className="space-y-3 rounded-md border border-destructive/30 bg-destructive/5 p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm font-medium">错误行</div>
-                    <Button data-testid="carbon-assets-ledger-import-errors-download" type="button" variant="outline" size="sm" onClick={downloadLedgerImportErrors}>
-                      <Download className="mr-2 size-4" />
-                      下载错误行
-                    </Button>
-                  </div>
-                  <AdminDataTable className="rounded-md">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>行号</TableHead>
-                          <TableHead>错误</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {ledgerImportResult.errors.slice(0, 20).map((error) => (
-                          <TableRow key={`${error.row_number}-${error.message}`}>
-                            <TableCell>{error.row_number}</TableCell>
-                            <TableCell>{error.message}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </AdminDataTable>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => setLedgerImportOpen(false)}>
-            关闭
-          </Button>
-          <Button
-            data-testid="carbon-assets-ledger-import-submit"
-            type="button"
-            onClick={() => importLedger.mutate()}
-            disabled={!ledgerImportCsvText.trim() || importLedger.isPending}
-          >
-            <Upload className="mr-2 size-4" />
-            导入
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-
   const surrenderAction = (
     <Dialog open={surrenderOpen} onOpenChange={setSurrenderOpen}>
       <DialogTrigger asChild>
@@ -984,7 +669,6 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
       <AdminPageScaffold
         header={header}
         title={header ? undefined : "碳资产管理"}
-        topActions={ledgerImportAction}
         tabs={
           <AdminTabsList>
             <TabsTrigger value="allowances">配额台账</TabsTrigger>
@@ -1686,75 +1370,6 @@ function RiskBadge({ value }: { value: string }) {
   return <Badge variant={variant}>{riskLabels[value] ?? value}</Badge>
 }
 
-function downloadCarbonAssetLedgerTemplate() {
-  const lines = [
-    carbonAssetLedgerTemplateColumns.join(","),
-    ...carbonAssetLedgerTemplateRows.map((row) => carbonAssetLedgerTemplateColumns.map((column) => csvCell(row[column] ?? "")).join(",")),
-  ]
-  const blob = new Blob([`\ufeff${lines.join("\n")}\n`], { type: "text/csv;charset=utf-8" })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.href = url
-  link.download = "carbon_asset_real_ledger_template.csv"
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-}
-
-function parseCarbonAssetCsv(value: string) {
-  const lines = value
-    .replace(/^\uFEFF/, "")
-    .split(/\r?\n/)
-    .filter((line) => line.trim())
-  if (lines.length < 2) return []
-  const headers = parseCsvLine(lines[0]).map((item) => item.trim())
-  return lines.slice(1).map((line) => {
-    const values = parseCsvLine(line)
-    return Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""]))
-  })
-}
-
-function parseCsvLine(line: string) {
-  const cells: string[] = []
-  let current = ""
-  let quoted = false
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index]
-    const next = line[index + 1]
-    if (char === '"' && quoted && next === '"') {
-      current += '"'
-      index += 1
-    } else if (char === '"') {
-      quoted = !quoted
-    } else if (char === "," && !quoted) {
-      cells.push(current.trim())
-      current = ""
-    } else {
-      current += char
-    }
-  }
-  cells.push(current.trim())
-  return cells
-}
-
-function buildCarbonAssetImportErrorCsv(result: CarbonAssetLedgerImportResult, sourceText: string) {
-  const sourceLines = sourceText
-    .replace(/^\uFEFF/, "")
-    .split(/\r?\n/)
-    .filter((line) => line.trim())
-  const rows = [["row_number", "message", "raw_csv_line"]]
-  for (const error of result.errors) {
-    rows.push([String(error.row_number), error.message, sourceLines[error.row_number - 1] ?? ""])
-  }
-  return `\uFEFF${rows.map((row) => row.map(csvCell).join(",")).join("\n")}\n`
-}
-
-function csvCell(value: unknown) {
-  const text = value === null || value === undefined ? "" : String(value)
-  return `"${text.replace(/"/g, '""')}"`
-}
-
 function EmptyRow({ columns }: { columns: number }) {
   return <AdminTableStateRow colSpan={columns}>暂无数据</AdminTableStateRow>
 }
@@ -1965,19 +1580,6 @@ function FormInput({ label, value, onChange, type = "text" }: { label: string; v
       <span className="mb-2 block">{label}</span>
       <Input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
     </Label>
-  )
-}
-
-function StepCard({ index, title, active, done, muted }: { index: number; title: string; active?: boolean; done?: boolean; muted?: boolean }) {
-  const tone = active ? "border-primary bg-primary/5" : muted ? "opacity-60" : ""
-  const badgeTone = done ? "border-primary bg-primary text-primary-foreground" : ""
-  return (
-    <div className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm ${tone}`}>
-      <span className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs tabular-nums ${badgeTone}`}>
-        {done ? <CheckCircle2 className="size-4" /> : index}
-      </span>
-      <span className="font-medium">{title}</span>
-    </div>
   )
 }
 

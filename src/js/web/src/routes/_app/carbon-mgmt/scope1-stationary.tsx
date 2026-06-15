@@ -1,8 +1,5 @@
-import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 
-import { PageImportPanel } from "@/components/admin-ui"
-import { scope1StationaryImportFields, submitEnergyDatasetImport } from "@/components/carbon/page-import-configs"
 import { ScopeRecordPage } from "@/components/carbon/scope-record-page"
 
 type Scope1Stationary = {
@@ -21,7 +18,6 @@ export const Route = createFileRoute("/_app/carbon-mgmt/scope1-stationary")({
 })
 
 function Scope1StationaryPage() {
-  const queryClient = useQueryClient()
   const queryKey = ["carbon-mgmt", "scope1-stationary", "list"]
   return (
     <ScopeRecordPage<Scope1Stationary>
@@ -29,16 +25,6 @@ function Scope1StationaryPage() {
       endpoint="/api/carbon/scope1-stationary-combustion"
       queryKey={queryKey}
       searchPlaceholder="搜索：设施名称/燃料类型/单位…"
-      importPanel={
-        <PageImportPanel
-          title="Scope1 固定源导入"
-          fields={scope1StationaryImportFields}
-          sourceNameDefault="固定源燃烧页面导入"
-          testId="scope1-stationary-import"
-          onConfirm={(rows, context) => submitEnergyDatasetImport("scope1_stationary_combustion", rows, context.sourceName)}
-          onCompleted={() => queryClient.invalidateQueries({ queryKey })}
-        />
-      }
       columns={[
         { key: "facility_name", label: "设施名称" },
         { key: "period_start", label: "开始日期" },
