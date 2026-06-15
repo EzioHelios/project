@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from http.cookies import SimpleCookie
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 from uuid import UUID
 
@@ -23,6 +24,7 @@ TENANT_ID_SESSION_KEY = "tenant_id"
 TENANT_BYPASS_SESSION_KEY = "tenant_bypass"
 TENANT_EVENT_INSTALLED_KEY = "_app_tenant_events_installed"
 TENANT_HEADER_NAME = b"x-team-id"
+ACCESS_COOKIE_KEY = "access_token"
 DEFAULT_TENANT_ID = UUID("00000000-0000-7000-8000-000000000001")
 
 
@@ -69,6 +71,48 @@ def _extract_requested_team_id(scope: Scope) -> UUID | None:
     return _coerce_uuid(path_params.get("team_id")) or _extract_header_team_id(scope)
 
 
+def _extract_cookie_value(scope: Scope, key: str) -> str | None:
+    cookie = SimpleCookie()
+    for name, value in cast("list[tuple[bytes, bytes]]", scope.get("headers", [])):
+        if name.lower() == b"cookie":
+            cookie.load(value.decode())
+    morsel = cookie.get(key)
+    return morsel.value if morsel is not None else None
+
+
+def _token_has_superuser_access(scope: Scope) -> bool:
+    token = _decode_access_token(scope)
+    return bool(token is not None and token.extras.get("is_superuser"))
+
+
+def _token_user_id(scope: Scope) -> UUID:
+    token = _decode_access_token(scope)
+    if token is None:
+        return DEFAULT_TENANT_ID
+    return _coerce_uuid(token.extras.get("user_id")) or DEFAULT_TENANT_ID
+
+
+def _decode_access_token(scope: Scope) -> Any | None:
+    encoded_token = _extract_cookie_value(scope, ACCESS_COOKIE_KEY)
+    if not encoded_token:
+        return None
+
+    try:
+        from litestar.security.jwt import Token
+
+        from app.lib.settings import get_settings
+
+        app_settings = get_settings().app
+        token = Token.decode(
+            encoded_token=encoded_token,
+            secret=app_settings.SECRET_KEY,
+            algorithm=app_settings.JWT_ENCRYPTION_ALGORITHM,
+        )
+    except Exception:  # noqa: BLE001 - invalid or expired auth tokens should not grant tenant bypass.
+        return None
+    return token
+
+
 def _user_has_superuser_access(user: User) -> bool:
     if user.is_superuser:
         return True
@@ -90,25 +134,25 @@ def resolve_tenant_context(scope: Scope) -> TenantContext | None:
     Superusers bypass tenant filtering unless they explicitly select a team.
     """
     user = cast("User | None", scope.get("user"))
+    requested_team_id = _extract_requested_team_id(scope)
     if user is None:
+        if _token_has_superuser_access(scope) and requested_team_id is not None:
+            return TenantContext(team_id=requested_team_id, user_id=_token_user_id(scope), is_superuser=True)
         return None
 
-    requested_team_id = _extract_requested_team_id(scope)
     is_superuser = _user_has_superuser_access(user)
     if is_superuser:
-        if requested_team_id is None:
-            return None
-        return TenantContext(team_id=requested_team_id, user_id=user.id, is_superuser=True)
+        return TenantContext(team_id=requested_team_id, user_id=user.id, is_superuser=True) if requested_team_id is not None else None
 
     team_ids = _user_team_ids(user)
+    tenant_context: TenantContext | None = None
     if requested_team_id is not None:
         if requested_team_id not in team_ids:
             raise PermissionDeniedException(detail="Insufficient permissions to access team.")
-        return TenantContext(team_id=requested_team_id, user_id=user.id)
-
-    if len(team_ids) == 1:
-        return TenantContext(team_id=next(iter(team_ids)), user_id=user.id)
-    return None
+        tenant_context = TenantContext(team_id=requested_team_id, user_id=user.id)
+    elif len(team_ids) == 1:
+        tenant_context = TenantContext(team_id=next(iter(team_ids)), user_id=user.id)
+    return tenant_context
 
 
 def configure_session_tenant(session: AsyncSession, scope: Scope) -> None:
@@ -123,7 +167,9 @@ def configure_session_tenant(session: AsyncSession, scope: Scope) -> None:
     user = cast("User | None", scope.get("user"))
     if tenant_context is None:
         session.info.pop(TENANT_ID_SESSION_KEY, None)
-        if user is not None and _user_has_superuser_access(user):
+        if (user is not None and _user_has_superuser_access(user)) or (
+            user is None and _extract_requested_team_id(scope) is None and _token_has_superuser_access(scope)
+        ):
             session.info[TENANT_BYPASS_SESSION_KEY] = True
         else:
             session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
