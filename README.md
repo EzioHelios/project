@@ -71,6 +71,10 @@ root@example.com
 
 项目已经支持直接构建并推送单镜像到私有 Registry，`app / worker / migrator` 三个服务复用同一镜像。
 
+完整线上发布、数据库恢复、验收与回滚流程见：
+
+- [docs/usage/production-release-runbook.md](/Users/eziohelios/Dev/litestar-fullstack/docs/usage/production-release-runbook.md)
+
 ### 1. 本机构建并推送
 
 ```bash
