@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
@@ -12,6 +13,7 @@ from litestar.security.jwt import Token
 
 from app.domain.accounts.guards import (
     create_access_token,
+    current_user_from_token,
     has_permission,
     provide_user,
     requires_active_user,
@@ -461,3 +463,34 @@ def test_same_user_different_times_get_different_tokens() -> None:
 
     # Tokens should differ due to unique JTI and potentially different timestamps
     assert token1 != token2
+
+
+async def test_current_user_from_token_uses_standalone_service_session() -> None:
+    """Auth user lookup must not create or reuse the request-scoped business session."""
+    user = Mock()
+    user.is_active = True
+    token = Token(sub="test@example.com", exp=datetime.now(UTC) + timedelta(minutes=15), jti="test-jti")
+    service = Mock()
+    service.get_one_or_none = AsyncMock(return_value=user)
+
+    @asynccontextmanager
+    async def fake_provide_services(
+        *_providers: object,
+        session: object | None = None,
+        connection: object | None = None,
+    ):
+        assert session is None
+        assert connection is None
+        yield (service,)
+
+    from app.domain.accounts import guards as guards_module
+
+    original_provider = guards_module.provide_services
+    guards_module.provide_services = fake_provide_services
+    try:
+        result = await current_user_from_token(token, Mock())
+    finally:
+        guards_module.provide_services = original_provider
+
+    assert result is user
+    service.get_one_or_none.assert_called_once_with(email="test@example.com")

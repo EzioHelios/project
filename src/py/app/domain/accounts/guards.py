@@ -149,7 +149,7 @@ def requires_any_permission(
     return requires_permission(*permission_codes)
 
 
-async def current_user_from_token(token: Token, connection: ASGIConnection[Any, Any, Any, Any]) -> m.User | None:
+async def current_user_from_token(token: Token, _connection: ASGIConnection[Any, Any, Any, Any]) -> m.User | None:
     """Lookup current user from local JWT token.
 
     Fetches the user information from the database
@@ -161,7 +161,7 @@ async def current_user_from_token(token: Token, connection: ASGIConnection[Any, 
     Returns:
         User: User record mapped to the JWT identifier
     """
-    async with provide_services(deps.provide_users_service, connection=connection) as (service,):
+    async with provide_services(deps.provide_users_service) as (service,):
         user = await service.get_one_or_none(email=token.sub)
         return user if user and user.is_active else None
 

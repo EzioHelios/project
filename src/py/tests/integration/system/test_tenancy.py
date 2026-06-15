@@ -8,6 +8,7 @@ from litestar.exceptions import PermissionDeniedException
 from sqlalchemy import select, text
 
 from app.db import models as m
+from app.domain.accounts.guards import auth, create_access_token
 from app.lib.tenancy import DEFAULT_TENANT_ID, TENANT_BYPASS_SESSION_KEY, TENANT_ID_SESSION_KEY, resolve_tenant_context
 
 pytestmark = pytest.mark.anyio
@@ -45,6 +46,31 @@ def test_resolve_tenant_context_rejects_non_member_team_header() -> None:
 
     with pytest.raises(PermissionDeniedException):
         resolve_tenant_context(_scope_for_user(user, team_id=str(uuid4())))
+
+
+def test_resolve_tenant_context_accepts_bearer_cookie_for_superuser_team_header() -> None:
+    team_id = uuid4()
+    user_id = uuid4()
+    token = create_access_token(
+        user_id=str(user_id),
+        email="root@example.com",
+        is_superuser=True,
+        is_verified=True,
+    )
+    scope = {
+        "headers": [
+            (b"cookie", f"{auth.key}=Bearer {token}".encode()),
+            (b"x-team-id", str(team_id).encode()),
+        ],
+        "path_params": {},
+    }
+
+    context = resolve_tenant_context(scope)
+
+    assert context is not None
+    assert context.team_id == team_id
+    assert context.user_id == user_id
+    assert context.is_superuser is True
 
 
 async def test_tenant_scoped_queries_require_context(session) -> None:

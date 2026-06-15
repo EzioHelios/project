@@ -75,7 +75,12 @@ def _extract_cookie_value(scope: Scope, key: str) -> str | None:
     cookie = SimpleCookie()
     for name, value in cast("list[tuple[bytes, bytes]]", scope.get("headers", [])):
         if name.lower() == b"cookie":
-            cookie.load(value.decode())
+            raw_cookie = value.decode()
+            cookie.load(raw_cookie)
+            for part in raw_cookie.split(";"):
+                cookie_key, separator, cookie_value = part.strip().partition("=")
+                if separator and cookie_key == key and cookie_value:
+                    return cookie_value.strip('"')
     morsel = cookie.get(key)
     return morsel.value if morsel is not None else None
 
@@ -96,6 +101,7 @@ def _decode_access_token(scope: Scope) -> Any | None:
     encoded_token = _extract_cookie_value(scope, ACCESS_COOKIE_KEY)
     if not encoded_token:
         return None
+    encoded_token = encoded_token.partition(" ")[-1]
 
     try:
         from litestar.security.jwt import Token
