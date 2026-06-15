@@ -171,8 +171,8 @@ const defaultFilters: BenchmarkFilters = {
   periodStart: "",
   periodEnd: "",
   profileId: "auto",
-  targetType: "device",
-  metricCode: "kwh_per_run_hour",
+  targetType: "product",
+  metricCode: "kgce_per_unit",
 }
 
 export function EnergyBenchmarkPanel({ header }: { header?: ReactNode }) {
@@ -362,7 +362,7 @@ export function EnergyBenchmarkPanel({ header }: { header?: ReactNode }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="auto">最新启用方案</SelectItem>
+                <SelectItem value="auto">自动匹配方案</SelectItem>
                 {profiles.map((profile) => (
                   <SelectItem key={profile.id} value={String(profile.id)}>
                     {profile.name}

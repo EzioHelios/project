@@ -73,7 +73,7 @@ class EnergyBenchmarkQueryService:
     async def comparisons(self, query: EnergyBenchmarkQuery) -> dict[str, Any]:
         target_type = _target_type(query.target_type)
         metric_code = _metric_code(query.metric_code)
-        profile_id = query.profile_id or await self._default_profile_id()
+        profile_id = query.profile_id or await self._default_profile_id(target_type, metric_code)
         actual_rows = await self._actual_rows(query, target_type, metric_code)
         benchmark_rows = await self._benchmark_rows(profile_id, target_type, metric_code, query.target_code)
         wildcard = next((row for row in benchmark_rows if not row.get("target_code")), None)
@@ -197,10 +197,14 @@ class EnergyBenchmarkQueryService:
             "method": method,
         }
 
-    async def _default_profile_id(self) -> int | None:
+    async def _default_profile_id(self, target_type: str, metric_code: str) -> int | None:
         return await self._session.scalar(
             select(m.EnergyBenchmarkProfile.id)
+            .join(m.EnergyBenchmarkItem, m.EnergyBenchmarkItem.profile_id == m.EnergyBenchmarkProfile.id)
             .where(m.EnergyBenchmarkProfile.is_enabled.is_(True))
+            .where(m.EnergyBenchmarkItem.is_enabled.is_(True))
+            .where(m.EnergyBenchmarkItem.target_type == target_type)
+            .where(m.EnergyBenchmarkItem.metric_code == metric_code)
             .order_by(m.EnergyBenchmarkProfile.id.desc())
             .limit(1)
         )
