@@ -37,8 +37,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     if (isLoading || isError || teamIds === storeIds) {
       return
     }
+    const nextCurrentTeam = currentTeam && teamsData.some((team) => team.id === currentTeam.id) ? currentTeam : (teamsData[0] ?? null)
+    const shouldRefreshTenantQueries = nextCurrentTeam?.id !== currentTeam?.id
     setTeams(teamsData)
-  }, [isError, isLoading, setTeams, storeIds, teamIds, teamsData])
+    if (shouldRefreshTenantQueries) {
+      void queryClient.invalidateQueries()
+    }
+  }, [currentTeam, isError, isLoading, queryClient, setTeams, storeIds, teamIds, teamsData])
 
   const navMain = useMemo(() => {
     const isCarbonModuleRoute = pathname === "/carbon" || pathname.startsWith("/carbon/")
