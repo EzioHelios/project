@@ -43,7 +43,8 @@ const isApiRequest = (requestUrl: string) => {
 const withTenantHeader = (request: Request) => {
   const { currentTeam, user } = useAuthStore.getState()
   const teamId = currentTeam?.id
-  if (user?.isSuperuser || !teamId || !isApiRequest(request.url) || request.headers.has(tenantHeaderName)) {
+  const isMemberOfCurrentTeam = Boolean(teamId && user?.teams?.some((team) => team.teamId === teamId))
+  if (user?.isSuperuser || !isMemberOfCurrentTeam || !isApiRequest(request.url) || request.headers.has(tenantHeaderName)) {
     return request
   }
 
