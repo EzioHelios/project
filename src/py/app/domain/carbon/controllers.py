@@ -15,6 +15,7 @@ from typing import Any
 from advanced_alchemy.filters import LimitOffset, OrderBy, SearchFilter
 from dateutil.relativedelta import MO, relativedelta
 from litestar import Controller, Request, delete, get, patch, post
+from litestar.exceptions import ClientException
 from litestar.params import Body
 from litestar.response import Response
 from sqlalchemy import func, select, text
@@ -58,6 +59,13 @@ from app.domain.carbon.deps import (
     provide_video_monitor_service,
     provide_warning_rule_service,
 )
+from app.domain.carbon.real_company_package_importer import (
+    import_real_company_package,
+    list_real_company_package_summaries,
+    resolve_real_company_package_dir,
+    summarize_real_company_package,
+)
+from app.domain.energy.controllers._utils import ok_data
 
 from . import services
 
@@ -131,6 +139,126 @@ DEFAULT_DEVICE_TYPES: tuple[dict[str, Any], ...] = (
     {"id": 8, "code": "automation_equipment", "name": "自动化设备", "energy_type": "electricity"},
     {"id": 9, "code": "camera", "name": "摄像头", "default_protocol": "rtsp"},
 )
+
+
+class CarbonDataCollectionWorkbookController(Controller):
+    tags = ["Carbon"]
+
+    @get("/api/carbon/data-collection-workbooks/spec", guards=[requires_superuser])
+    async def get_data_collection_workbook_spec(self) -> Response[dict]:
+        from app.domain.carbon.data_collection_workbook import data_collection_workbook_spec
+
+        return Response(content=ok_data(data_collection_workbook_spec()))
+
+    @get("/api/carbon/data-collection-workbooks/template", guards=[requires_superuser])
+    async def download_data_collection_workbook_template(self) -> Response[bytes]:
+        from app.domain.carbon.data_collection_workbook import build_data_collection_template_bytes
+
+        return Response(
+            content=build_data_collection_template_bytes(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": 'attachment; filename="energy-carbon-data-collection-template.xlsx"'},
+        )
+
+    @get("/api/carbon/real-company-packages", guards=[requires_superuser])
+    async def list_real_company_packages(self) -> Response[dict]:
+        packages = [_summary_payload(item) for item in list_real_company_package_summaries()]
+        return Response(content=ok_data({"items": packages, "total": len(packages)}))
+
+    @post("/api/carbon/real-company-packages/{enterprise_code:str}/import", guards=[requires_superuser])
+    async def import_real_company_package_endpoint(
+        self,
+        db_session: AsyncSession,
+        enterprise_code: str,
+        data: dict | None = None,
+    ) -> Response[dict]:
+        dry_run = bool((data or {}).get("dry_run", False))
+        try:
+            package_dir = resolve_real_company_package_dir(enterprise_code)
+            package_summary = summarize_real_company_package(package_dir)
+            result = await import_real_company_package(db_session, package_dir, dry_run=dry_run)
+        except ValueError as exc:
+            raise ClientException(detail=str(exc), status_code=400) from exc
+
+        return Response(
+            content=ok_data(
+                {
+                    "enterprise_code": result.enterprise_code,
+                    "enterprise_name": package_summary.enterprise_name,
+                    "tenant_slug": result.tenant_slug,
+                    "team_id": result.team_id,
+                    "dry_run": result.dry_run,
+                    "package_path": package_summary.package_path,
+                    "imported": result.imported,
+                    "skipped": result.skipped,
+                    "source_missing_pages": result.source_missing_pages,
+                    "dataset_rows": package_summary.dataset_rows,
+                    "page_status_counts": package_summary.page_status_counts,
+                    "missing_datasets": package_summary.missing_datasets,
+                }
+            )
+        )
+
+    @post("/api/carbon/data-collection-workbooks/preview", guards=[requires_superuser], status_code=200)
+    async def preview_data_collection_workbook_endpoint(self, data: dict) -> Response[dict]:
+        workbook_base64 = str(data.get("workbook_base64") or "")
+        if not workbook_base64:
+            raise ClientException(detail="缺少 workbook_base64", status_code=400)
+        try:
+            from app.domain.carbon.data_collection_workbook import preview_data_collection_workbook_base64
+
+            preview = preview_data_collection_workbook_base64(workbook_base64)
+        except ValueError as exc:
+            raise ClientException(detail=str(exc), status_code=400) from exc
+
+        return Response(content=ok_data(preview))
+
+    @post("/api/carbon/data-collection-workbooks/import", guards=[requires_superuser])
+    async def import_data_collection_workbook_endpoint(
+        self,
+        db_session: AsyncSession,
+        data: dict,
+    ) -> Response[dict]:
+        workbook_base64 = str(data.get("workbook_base64") or "")
+        dry_run = bool(data.get("dry_run", False))
+        if not workbook_base64:
+            raise ClientException(detail="缺少 workbook_base64", status_code=400)
+        try:
+            from app.domain.carbon.data_collection_workbook import import_data_collection_workbook_base64
+
+            result = await import_data_collection_workbook_base64(
+                db_session,
+                workbook_base64,
+                dry_run=dry_run,
+            )
+        except ValueError as exc:
+            raise ClientException(detail=str(exc), status_code=400) from exc
+
+        return Response(
+            content=ok_data(
+                {
+                    "enterprise_code": result.enterprise_code,
+                    "tenant_slug": result.tenant_slug,
+                    "team_id": result.team_id,
+                    "dry_run": result.dry_run,
+                    "imported": result.imported,
+                    "skipped": result.skipped,
+                    "source_missing_pages": result.source_missing_pages,
+                }
+            )
+        )
+
+
+def _summary_payload(summary: object) -> dict:
+    return {
+        "enterprise_code": summary.enterprise_code,
+        "enterprise_name": summary.enterprise_name,
+        "tenant_slug": summary.tenant_slug,
+        "package_path": summary.package_path,
+        "dataset_rows": summary.dataset_rows,
+        "page_status_counts": summary.page_status_counts,
+        "missing_datasets": summary.missing_datasets,
+    }
 
 
 def _audit_request_details(request: Request[Any, Any, Any]) -> tuple[str | None, str | None]:

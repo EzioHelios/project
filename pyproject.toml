@@ -27,6 +27,7 @@ dependencies = [
   "httpx-oauth",
   "pyotp>=2.9.0",
   "qrcode[pil]>=7.4.0",
+  "openpyxl>=3.1.5",
 ]
 description = "Reference application for building a fullstack application with Litestar."
 keywords = ["litestar", "sqlalchemy", "alembic", "fullstack", "api", "asgi", "vite", "spa"]

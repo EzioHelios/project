@@ -37,9 +37,13 @@ DATASET_PATHS = {
     "production_products": "00_tenant/production_products.csv",
     "production_output_facts": "05_energy_management/production_output_facts.csv",
     "energy_interval_facts": "05_energy_management/energy_interval_facts.csv",
+    "scope1_mobile_combustion": "05_energy_management/scope1_mobile_combustion.csv",
     "scope1_stationary_combustion": "05_energy_management/scope1_stationary_combustion.csv",
+    "scope1_refrigerant_leak": "05_energy_management/scope1_refrigerant_leak.csv",
     "scope2_electricity_bills": "05_energy_management/scope2_electricity_bills.csv",
+    "scope2_purchased_energy": "05_energy_management/scope2_purchased_energy.csv",
     "scope3_waste_disposal": "02_carbon_product_footprint/scope3_waste_disposal.csv",
+    "scope3_third_party_transport": "02_carbon_product_footprint/scope3_third_party_transport.csv",
     "emission_factors": "01_carbon_accounting/emission_factors.csv",
     "product_footprint_studies": "02_carbon_product_footprint/product_footprint_studies.csv",
     "product_system_boundaries": "02_carbon_product_footprint/product_system_boundaries.csv",
@@ -99,6 +103,20 @@ async def import_real_company_package(
 
     root = Path(package_dir).expanduser().resolve()
     datasets = _load_package_datasets(root)
+    return await import_real_company_datasets(session, datasets, package_root=root, dry_run=dry_run)
+
+
+async def import_real_company_datasets(
+    session: AsyncSession,
+    datasets: dict[str, list[dict[str, str]]],
+    *,
+    package_root: str | Path,
+    dry_run: bool = False,
+    evidence_archive_root: str | Path | None = None,
+) -> RealCompanyPackageImportResult:
+    """Import already-normalized enterprise datasets into tenant-scoped tables."""
+
+    root = Path(package_root).expanduser().resolve()
     profile = _single_required(datasets, "enterprise_profiles")
     enterprise_code = _text(profile.get("enterprise_code"))
     tenant_slug = _text(profile.get("tenant_slug"))
@@ -110,7 +128,13 @@ async def import_real_company_package(
     source_name = f"{IMPORT_SOURCE_PREFIX}:{enterprise_code}"
     marker = f"{PACKAGE_MARKER_PREFIX}{enterprise_code}]"
     raw_package_root = Path(_or(profile.get("package_root"), root)).expanduser()
-    evidence_archive_root = root.parents[1] / "evidence_archive" / enterprise_code if len(root.parents) > 1 else root / "evidence_archive"
+    resolved_evidence_archive_root = (
+        Path(evidence_archive_root).expanduser().resolve()
+        if evidence_archive_root is not None
+        else root.parents[1] / "evidence_archive" / enterprise_code
+        if len(root.parents) > 1
+        else root / "evidence_archive"
+    )
     session.info[TENANT_BYPASS_SESSION_KEY] = True
     await session.execute(text("select set_config('app.tenant_bypass', 'true', true)"))
 
@@ -148,12 +172,22 @@ async def import_real_company_package(
         context,
         result,
         raw_package_root,
-        evidence_archive_root,
+        resolved_evidence_archive_root,
     )
     await _import_product_footprint(session, datasets, team_id, source_name, marker, context, result)
     await _import_supply_chain(session, datasets, team_id, source_name, marker, context, result)
     await _import_carbon_accounting(session, datasets, team_id, source_name, marker, context, result)
-    await _import_verification(session, datasets, team_id, source_name, marker, context, result, raw_package_root, evidence_archive_root)
+    await _import_verification(
+        session,
+        datasets,
+        team_id,
+        source_name,
+        marker,
+        context,
+        result,
+        raw_package_root,
+        resolved_evidence_archive_root,
+    )
     await _import_carbon_assets(session, datasets, team_id, source_name, marker, context, result)
     _collect_source_missing_pages(datasets, result)
 
@@ -343,15 +377,16 @@ async def _import_emission_factors(
             "review_status": _short_code(row.get("review_status"), "approved", 24),
         }
         if existing is None:
+            values["id"] = await _next_bigint_id(session, "dataapp_emissionfactor")
             await session.execute(
                 text(
                     """
                     insert into dataapp_emissionfactor (
-                        scope, category, sub_category, unit, factor_value, factor_unit, year, source, is_active,
+                        id, scope, category, sub_category, unit, factor_value, factor_unit, year, source, is_active,
                         note, source_system, source_snapshot_id, projection_status, review_status, created_at, updated_at
                     )
                     values (
-                        :scope, :category, :sub_category, :unit, :factor_value, :factor_unit, :year, :source, :is_active,
+                        :id, :scope, :category, :sub_category, :unit, :factor_value, :factor_unit, :year, :source, :is_active,
                         :note, :source_system, :source_snapshot_id, :projection_status, :review_status, now(), now()
                     )
                     """
@@ -389,9 +424,13 @@ async def _delete_reimportable_rows(session: AsyncSession, *, team_id: str, mark
     statements = [
         "delete from carbon_verification_attachment where team_id = :team_id and source_name = :source_name",
         "delete from carbon_supplier_evidence where team_id = :team_id and remark like :marker_like",
+        "delete from dataapp_scope1mobilecombustion where team_id = :team_id and remark like :marker_like",
         "delete from dataapp_scope1stationarycombustion where team_id = :team_id and remark like :marker_like",
+        "delete from dataapp_scope1refrigerantleak where team_id = :team_id and remark like :marker_like",
         "delete from dataapp_scope2electricitybill where team_id = :team_id and remark like :marker_like",
+        "delete from dataapp_scope2purchasedenergy where team_id = :team_id and remark like :marker_like",
         "delete from dataapp_scope3wastedisposal where team_id = :team_id and remark like :marker_like",
+        "delete from dataapp_scope3thirdpartytransport where team_id = :team_id and remark like :marker_like",
     ]
     params = {"team_id": team_id, "source_name": source_name, "marker_like": f"%{marker}%"}
     for statement in statements:
@@ -567,7 +606,7 @@ async def _import_production_and_energy(
     await _insert_scope_records(session, datasets, team_id, marker, result, raw_package_root, evidence_archive_root)
 
 
-async def _insert_scope_records(
+async def _insert_scope_records(  # noqa: PLR0915
     session: AsyncSession,
     datasets: dict[str, list[dict[str, str]]],
     team_id: str,
@@ -583,8 +622,53 @@ async def _insert_scope_records(
         "collection_method": "monthly",
         "confidence_level": "source",
         "data_year_type": "calendar_year",
-        "approved_at": datetime.now(UTC),
+        "approved_at": _utcnow_naive(),
     }
+
+    for row in datasets["scope1_mobile_combustion"]:
+        record_date = _date(row.get("record_date"))
+        fuel_type = _short_code(row.get("fuel_type"), "", 16)
+        amount = _decimal(row.get("amount"))
+        unit = _short_code(row.get("unit"), "", 5)
+        if not fuel_type or amount is None or not unit:
+            result.skipped["scope1_mobile_combustion"] = result.skipped.get("scope1_mobile_combustion", 0) + 1
+            continue
+        attachment = _resolve_tabular_attachment(raw_package_root, row.get("attachment"), evidence_archive_root=evidence_archive_root)
+        await session.execute(
+            text(
+                """
+                insert into dataapp_scope1mobilecombustion (
+                    id, team_id, status, data_source, collection_method, confidence_level, data_year_type, data_year,
+                    approved_at, record_date, asset_id, asset_name, fuel_type, amount, unit, mileage_km, work_hours,
+                    attachment, remark, created_at, updated_at
+                )
+                values (
+                    :id, :team_id, :status, :data_source, :collection_method, :confidence_level, :data_year_type,
+                    :data_year, :approved_at, :record_date, :asset_id, :asset_name, :fuel_type, :amount, :unit,
+                    :mileage_km, :work_hours, :attachment, :remark, now(), now()
+                )
+                """
+            ),
+            {
+                **common,
+                "id": await _next_bigint_id(session, "dataapp_scope1mobilecombustion"),
+                "data_year": record_date.year,
+                "record_date": record_date,
+                "asset_id": _short_code(row.get("asset_id"), "", 64) or None,
+                "asset_name": _short_code(row.get("asset_name"), "", 64) or None,
+                "fuel_type": fuel_type,
+                "amount": amount,
+                "unit": unit,
+                "mileage_km": _decimal(row.get("mileage_km")),
+                "work_hours": _decimal(row.get("work_hours")),
+                "attachment": attachment,
+                "remark": _mark(marker, row.get("remark")),
+            },
+        )
+    result.imported["scope1_mobile_combustion"] = len(datasets["scope1_mobile_combustion"]) - result.skipped.get(
+        "scope1_mobile_combustion", 0
+    )
+
     for row in datasets["scope1_stationary_combustion"]:
         start = _date(row.get("period_start"))
         attachment = _resolve_tabular_attachment(raw_package_root, row.get("attachment"), evidence_archive_root=evidence_archive_root)
@@ -592,12 +676,12 @@ async def _insert_scope_records(
             text(
                 """
                 insert into dataapp_scope1stationarycombustion (
-                    team_id, status, data_source, collection_method, confidence_level, data_year_type, data_year,
+                    id, team_id, status, data_source, collection_method, confidence_level, data_year_type, data_year,
                     approved_at, facility_name, period_start, period_end, fuel_type, amount, unit, attachment,
                     remark, created_at, updated_at
                 )
                 values (
-                    :team_id, :status, :data_source, :collection_method, :confidence_level, :data_year_type,
+                    :id, :team_id, :status, :data_source, :collection_method, :confidence_level, :data_year_type,
                     :data_year, :approved_at, :facility_name, :period_start, :period_end, :fuel_type, :amount,
                     :unit, :attachment, :remark, now(), now()
                 )
@@ -605,6 +689,7 @@ async def _insert_scope_records(
             ),
             {
                 **common,
+                "id": await _next_bigint_id(session, "dataapp_scope1stationarycombustion"),
                 "data_year": start.year,
                 "facility_name": row["facility_name"],
                 "period_start": start,
@@ -618,6 +703,48 @@ async def _insert_scope_records(
         )
     result.imported["scope1_stationary_combustion"] = len(datasets["scope1_stationary_combustion"])
 
+    for row in datasets["scope1_refrigerant_leak"]:
+        fill_date = _date(row.get("fill_date"))
+        refrigerant_type = _short_code(row.get("refrigerant_type"), "", 32)
+        amount_kg = _decimal(row.get("amount_kg"))
+        leak_type = _short_code(row.get("leak_type"), "", 16)
+        if not refrigerant_type or amount_kg is None or not leak_type:
+            result.skipped["scope1_refrigerant_leak"] = result.skipped.get("scope1_refrigerant_leak", 0) + 1
+            continue
+        attachment = _resolve_tabular_attachment(raw_package_root, row.get("attachment"), evidence_archive_root=evidence_archive_root)
+        await session.execute(
+            text(
+                """
+                insert into dataapp_scope1refrigerantleak (
+                    id, team_id, status, data_source, collection_method, confidence_level, data_year_type, data_year,
+                    approved_at, device_id, device_name, fill_date, refrigerant_type, amount_kg, leak_type,
+                    attachment, remark, created_at, updated_at
+                )
+                values (
+                    :id, :team_id, :status, :data_source, :collection_method, :confidence_level, :data_year_type,
+                    :data_year, :approved_at, :device_id, :device_name, :fill_date, :refrigerant_type, :amount_kg,
+                    :leak_type, :attachment, :remark, now(), now()
+                )
+                """
+            ),
+            {
+                **common,
+                "id": await _next_bigint_id(session, "dataapp_scope1refrigerantleak"),
+                "data_year": fill_date.year,
+                "device_id": _short_code(row.get("device_id"), "", 64) or None,
+                "device_name": _short_code(row.get("device_name"), "", 64) or None,
+                "fill_date": fill_date,
+                "refrigerant_type": refrigerant_type,
+                "amount_kg": amount_kg,
+                "leak_type": leak_type,
+                "attachment": attachment,
+                "remark": _mark(marker, row.get("remark")),
+            },
+        )
+    result.imported["scope1_refrigerant_leak"] = len(datasets["scope1_refrigerant_leak"]) - result.skipped.get(
+        "scope1_refrigerant_leak", 0
+    )
+
     for row in datasets["scope2_electricity_bills"]:
         billing_month = _billing_month(row.get("billing_month"))
         attachment = _resolve_tabular_attachment(raw_package_root, row.get("attachment"), evidence_archive_root=evidence_archive_root)
@@ -625,12 +752,12 @@ async def _insert_scope_records(
             text(
                 """
                 insert into dataapp_scope2electricitybill (
-                    team_id, status, data_source, collection_method, confidence_level, data_year_type, data_year,
+                    id, team_id, status, data_source, collection_method, confidence_level, data_year_type, data_year,
                     approved_at, account_number, billing_month, total_kwh, amount_cny, attachment, remark,
                     calc_status, activity_amount, activity_unit, created_at, updated_at
                 )
                 values (
-                    :team_id, :status, :data_source, :collection_method, :confidence_level, :data_year_type,
+                    :id, :team_id, :status, :data_source, :collection_method, :confidence_level, :data_year_type,
                     :data_year, :approved_at, :account_number, :billing_month, :total_kwh, :amount_cny,
                     :attachment, :remark, 'ready', :total_kwh, 'kWh', now(), now()
                 )
@@ -638,6 +765,7 @@ async def _insert_scope_records(
             ),
             {
                 **common,
+                "id": await _next_bigint_id(session, "dataapp_scope2electricitybill"),
                 "data_year": int(billing_month[:4]),
                 "account_number": row["account_number"],
                 "billing_month": billing_month,
@@ -649,6 +777,74 @@ async def _insert_scope_records(
         )
     result.imported["scope2_electricity_bills"] = len(datasets["scope2_electricity_bills"])
 
+    for row in datasets["scope2_purchased_energy"]:
+        start = _date(row.get("period_start"))
+        end = _date(row.get("period_end"))
+        energy_type_code = _short_code(row.get("energy_type_code"), "", 32)
+        if energy_type_code not in {"purchased_heat", "purchased_steam", "purchased_cooling"}:
+            result.skipped["scope2_purchased_energy"] = result.skipped.get("scope2_purchased_energy", 0) + 1
+            continue
+        amount = _decimal(row.get("amount"))
+        unit = _short_code(row.get("unit"), "", 16)
+        if amount is None or not unit:
+            result.skipped["scope2_purchased_energy"] = result.skipped.get("scope2_purchased_energy", 0) + 1
+            continue
+        attachment = _resolve_tabular_attachment(raw_package_root, row.get("attachment"), evidence_archive_root=evidence_archive_root)
+        await session.execute(
+            text(
+                """
+                insert into dataapp_scope2purchasedenergy (
+                    id, team_id, status, data_source, collection_method, confidence_level, data_year_type, data_year,
+                    approved_at, energy_type_code, energy_type_name, supplier_name, period_start, period_end,
+                    amount, unit, standard_amount, standard_unit, tce_amount, amount_cny, area_id, area_name,
+                    facility_name, attachment, remark, calc_status, factor_source, factor_year, factor_unit,
+                    activity_amount, activity_unit, computed_co2e, computation_note, standard_code,
+                    conversion_factor_source, created_at, updated_at
+                )
+                values (
+                    :id, :team_id, :status, :data_source, :collection_method, :confidence_level, :data_year_type,
+                    :data_year, :approved_at, :energy_type_code, :energy_type_name, :supplier_name,
+                    :period_start, :period_end, :amount, :unit, :standard_amount, :standard_unit, :tce_amount,
+                    :amount_cny, :area_id, :area_name, :facility_name, :attachment, :remark, :calc_status,
+                    :factor_source, :factor_year, :factor_unit, :activity_amount, :activity_unit,
+                    :computed_co2e, :computation_note, :standard_code, :conversion_factor_source, now(), now()
+                )
+                """
+            ),
+            {
+                **common,
+                "id": await _next_bigint_id(session, "dataapp_scope2purchasedenergy"),
+                "data_year": start.year,
+                "energy_type_code": energy_type_code,
+                "energy_type_name": _or(row.get("energy_type_name"), _purchased_energy_name(energy_type_code)),
+                "supplier_name": _short_code(row.get("supplier_name"), "", 128) or None,
+                "period_start": start,
+                "period_end": end,
+                "amount": amount,
+                "unit": unit,
+                "standard_amount": _decimal(row.get("standard_amount")),
+                "standard_unit": _short_code(row.get("standard_unit"), "", 16) or None,
+                "tce_amount": _decimal(row.get("tce_amount")),
+                "amount_cny": _decimal(row.get("amount_cny")),
+                "area_id": _short_code(row.get("area_id"), "", 20) or None,
+                "area_name": _short_code(row.get("area_name"), "", 50) or None,
+                "facility_name": _short_code(row.get("facility_name"), "", 128) or None,
+                "attachment": attachment,
+                "remark": _mark(marker, row.get("remark")),
+                "calc_status": _short_code(row.get("calc_status"), "ready", 24),
+                "factor_source": _short_code(row.get("factor_source"), "", 128) or None,
+                "factor_year": _int(row.get("factor_year"), 0) or None,
+                "factor_unit": _short_code(row.get("factor_unit"), "", 32) or None,
+                "activity_amount": _decimal(row.get("activity_amount")) or amount,
+                "activity_unit": _short_code(row.get("activity_unit"), unit, 16),
+                "computed_co2e": _decimal(row.get("computed_co2e")),
+                "computation_note": row.get("computation_note"),
+                "standard_code": _short_code(row.get("standard_code"), "", 64) or None,
+                "conversion_factor_source": _short_code(row.get("conversion_factor_source"), "", 255) or None,
+            },
+        )
+    result.imported["scope2_purchased_energy"] = len(datasets["scope2_purchased_energy"]) - result.skipped.get("scope2_purchased_energy", 0)
+
     for row in datasets["scope3_waste_disposal"]:
         record_date = _date(row.get("date"))
         attachment = _resolve_tabular_attachment(raw_package_root, row.get("attachment"), evidence_archive_root=evidence_archive_root)
@@ -656,12 +852,12 @@ async def _insert_scope_records(
             text(
                 """
                 insert into dataapp_scope3wastedisposal (
-                    team_id, status, data_source, collection_method, confidence_level, data_year_type, data_year,
+                    id, team_id, status, data_source, collection_method, confidence_level, data_year_type, data_year,
                     approved_at, date, category, weight_ton, treatment_method, vendor_name, attachment, remark,
                     created_at, updated_at
                 )
                 values (
-                    :team_id, :status, :data_source, :collection_method, :confidence_level, :data_year_type,
+                    :id, :team_id, :status, :data_source, :collection_method, :confidence_level, :data_year_type,
                     :data_year, :approved_at, :date, :category, :weight_ton, :treatment_method, :vendor_name,
                     :attachment, :remark, now(), now()
                 )
@@ -669,6 +865,7 @@ async def _insert_scope_records(
             ),
             {
                 **common,
+                "id": await _next_bigint_id(session, "dataapp_scope3wastedisposal"),
                 "data_year": record_date.year,
                 "date": record_date,
                 "category": row["category"],
@@ -680,6 +877,52 @@ async def _insert_scope_records(
             },
         )
     result.imported["scope3_waste_disposal"] = len(datasets["scope3_waste_disposal"])
+
+    for row in datasets["scope3_third_party_transport"]:
+        waybill_no = _short_code(row.get("waybill_no"), "", 64)
+        origin = _short_code(row.get("origin"), "", 128)
+        destination = _short_code(row.get("destination"), "", 128)
+        vehicle_type = _short_code(row.get("vehicle_type"), "", 32)
+        distance_km = _decimal(row.get("distance_km"))
+        load_ton = _decimal(row.get("load_ton"))
+        if not waybill_no or not origin or not destination or not vehicle_type or distance_km is None or load_ton is None:
+            result.skipped["scope3_third_party_transport"] = result.skipped.get("scope3_third_party_transport", 0) + 1
+            continue
+        record_date = _date(row.get("record_date"))
+        attachment = _resolve_tabular_attachment(raw_package_root, row.get("attachment"), evidence_archive_root=evidence_archive_root)
+        await session.execute(
+            text(
+                """
+                insert into dataapp_scope3thirdpartytransport (
+                    id, team_id, status, data_source, collection_method, confidence_level, data_year_type, data_year,
+                    approved_at, waybill_no, origin, destination, vehicle_type, distance_km, load_ton, fuel_amount,
+                    attachment, remark, created_at, updated_at
+                )
+                values (
+                    :id, :team_id, :status, :data_source, :collection_method, :confidence_level, :data_year_type,
+                    :data_year, :approved_at, :waybill_no, :origin, :destination, :vehicle_type, :distance_km,
+                    :load_ton, :fuel_amount, :attachment, :remark, now(), now()
+                )
+                """
+            ),
+            {
+                **common,
+                "id": await _next_bigint_id(session, "dataapp_scope3thirdpartytransport"),
+                "data_year": record_date.year,
+                "waybill_no": waybill_no,
+                "origin": origin,
+                "destination": destination,
+                "vehicle_type": vehicle_type,
+                "distance_km": distance_km,
+                "load_ton": load_ton,
+                "fuel_amount": _decimal(row.get("fuel_amount")),
+                "attachment": attachment,
+                "remark": _mark(marker, row.get("remark")),
+            },
+        )
+    result.imported["scope3_third_party_transport"] = len(datasets["scope3_third_party_transport"]) - result.skipped.get(
+        "scope3_third_party_transport", 0
+    )
 
 
 async def _import_product_footprint(
@@ -815,7 +1058,7 @@ async def _import_product_footprint(
                 "unit": _or(row.get("unit"), "kgCO2e"),
                 "footprint_per_declared_unit": _decimal(row.get("footprint_per_declared_unit")),
                 "result_status": _or(row.get("result_status"), "source_reported"),
-                "calculated_at": datetime.now(UTC),
+                "calculated_at": _utcnow_naive(),
                 "inventory_count": _int(row.get("inventory_count"), 0),
                 "missing_factor_count": _int(row.get("missing_factor_count"), 0),
                 "stage_payload": _json(row.get("stage_payload"), []),
@@ -1109,7 +1352,7 @@ async def _import_verification(
                 "sha256": row.get("sha256"),
                 "version_no": 1,
                 "status": "ready" if source_file_ready else "pending_upload",
-                "uploaded_at": datetime.now(UTC),
+                "uploaded_at": _utcnow_naive(),
                 "source_name": source_name,
                 "standard_code": "source_package",
                 "confidence_level": "source",
@@ -1229,10 +1472,12 @@ async def _upsert_id(
     values: dict[str, Any],
 ) -> int:
     clean_values = {key: _none_if_blank(value) for key, value in values.items()}
+    if "id" not in clean_values:
+        clean_values["id"] = await _next_bigint_id(session, table)
     columns = list(clean_values)
     insert_columns = [*columns, "created_at", "updated_at"]
     value_exprs = [f":{column}" for column in columns] + ["now()", "now()"]
-    update_columns = [column for column in columns if column not in conflict_columns]
+    update_columns = [column for column in columns if column not in {*conflict_columns, "id"}]
     update_expr = ", ".join([f"{column} = excluded.{column}" for column in update_columns] + ["updated_at = now()"])
     sql = f"""
         insert into {table} ({", ".join(insert_columns)})
@@ -1251,12 +1496,37 @@ async def _upsert_id(
     return int(row.scalar_one())
 
 
+async def _next_bigint_id(session: AsyncSession, table: str) -> int:
+    if not re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", table):
+        msg = f"非法表名: {table}"
+        raise ValueError(msg)
+    sequence_name = await session.scalar(text("select pg_get_serial_sequence(:table_name, 'id')"), {"table_name": table})
+    if sequence_name:
+        value = await session.scalar(text("select nextval(cast(:sequence_name as regclass))"), {"sequence_name": sequence_name})
+        return int(value)
+    await session.execute(text(f"lock table {table} in exclusive mode"))
+    value = await session.scalar(text(f"select coalesce(max(id), 0) + 1 from {table}"))
+    return int(value or 1)
+
+
 def _load_package_datasets(root: Path) -> dict[str, list[dict[str, str]]]:
     datasets: dict[str, list[dict[str, str]]] = {}
     for dataset_name, relative_path in DATASET_PATHS.items():
         path = root / relative_path
         datasets[dataset_name] = _read_csv(path) if path.exists() else []
     return datasets
+
+
+def _utcnow_naive() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
+def _purchased_energy_name(energy_type_code: str) -> str:
+    return {
+        "purchased_heat": "外购热力",
+        "purchased_steam": "外购蒸汽",
+        "purchased_cooling": "外购冷量",
+    }.get(energy_type_code, energy_type_code)
 
 
 def _read_csv(path: Path) -> list[dict[str, str]]:
