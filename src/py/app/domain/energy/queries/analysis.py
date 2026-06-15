@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import text
 
+from app.domain.energy.queries.common import ratio_or_none
+
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -149,11 +151,24 @@ class EnergyAnalysisQueryService:
             """
         )
 
-        by_system = [_jsonable_mapping(dict(row)) for row in (await self._session.execute(by_system_sql, params)).mappings().all()]
-        by_area = [_jsonable_mapping(dict(row)) for row in (await self._session.execute(by_area_sql, params)).mappings().all()]
-        by_equipment = [_jsonable_mapping(dict(row)) for row in (await self._session.execute(by_equipment_sql, params)).mappings().all()]
-        by_tariff = [_jsonable_mapping(dict(row)) for row in (await self._session.execute(by_tariff_sql, params)).mappings().all()]
-        trend = [_jsonable_mapping(dict(row)) for row in (await self._session.execute(trend_sql, params)).mappings().all()]
+        by_system = [
+            _jsonable_mapping(dict(row))
+            for row in (await self._session.execute(by_system_sql, params)).mappings().all()
+        ]
+        by_area = [
+            _jsonable_mapping(dict(row)) for row in (await self._session.execute(by_area_sql, params)).mappings().all()
+        ]
+        by_equipment = [
+            _jsonable_mapping(dict(row))
+            for row in (await self._session.execute(by_equipment_sql, params)).mappings().all()
+        ]
+        by_tariff = [
+            _jsonable_mapping(dict(row))
+            for row in (await self._session.execute(by_tariff_sql, params)).mappings().all()
+        ]
+        trend = [
+            _jsonable_mapping(dict(row)) for row in (await self._session.execute(trend_sql, params)).mappings().all()
+        ]
         workload = _jsonable_mapping(
             dict(
                 (
@@ -247,14 +262,18 @@ class EnergyAnalysisQueryService:
             """
         )
         rows = (
-            await self._session.execute(
-                anomaly_sql,
-                {
-                    **params,
-                    "limit": limit_clamped,
-                },
+            (
+                await self._session.execute(
+                    anomaly_sql,
+                    {
+                        **params,
+                        "limit": limit_clamped,
+                    },
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
         energy_alarm_sql = text(
             """
             select
@@ -276,11 +295,15 @@ class EnergyAnalysisQueryService:
             """
         )
         alarms = (
-            await self._session.execute(
-                energy_alarm_sql,
-                {"period_start": query.period_start, "period_end": query.period_end, "limit": limit_clamped},
+            (
+                await self._session.execute(
+                    energy_alarm_sql,
+                    {"period_start": query.period_start, "period_end": query.period_end, "limit": limit_clamped},
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
         return {
             "items": [_jsonable_mapping(dict(row)) for row in rows],
             "alarms": [_jsonable_mapping(dict(row)) for row in alarms],
@@ -345,7 +368,10 @@ class EnergyAnalysisQueryService:
                         priority="medium",
                         strategy_type="cost_optimization",
                         target="峰段用电",
-                        evidence={"peak_cost_share": round(peak_share, 4), "peak_cost": peak.get("total_cost") if peak else 0},
+                        evidence={
+                            "peak_cost_share": round(peak_share, 4),
+                            "peak_cost": peak.get("total_cost") if peak else 0,
+                        },
                         steps=[
                             "识别峰段运行的非连续生产设备和可平移作业。",
                             "优先将充电、备货、非紧急搬运调整到平段或谷段。",
@@ -461,7 +487,9 @@ def _build_energy_interval_filters(query: EnergyAnalysisQuery) -> tuple[str, dic
         conditions.append("tariff_segment_type = :tariff_segment_type")
         params["tariff_segment_type"] = query.tariff_segment_type
     if query.area_keyword:
-        conditions.append("(area_name ilike :area_keyword or area_id ilike :area_keyword or equipment_name ilike :area_keyword)")
+        conditions.append(
+            "(area_name ilike :area_keyword or area_id ilike :area_keyword or equipment_name ilike :area_keyword)"
+        )
         params["area_keyword"] = f"%{query.area_keyword.strip()}%"
     where_sql = f"where {' and '.join(conditions)}" if conditions else ""
     return where_sql, params
@@ -503,6 +531,4 @@ def _jsonable_mapping(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _ratio_or_none(numerator: Any, denominator: float | None, digits: int = 6) -> float | None:
-    if denominator is None:
-        return None
-    return round(float(numerator or 0) / denominator, digits)
+    return ratio_or_none(numerator, denominator, digits)

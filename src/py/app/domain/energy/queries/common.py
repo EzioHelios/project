@@ -29,6 +29,6 @@ def positive_float(value: Any) -> float | None:
 
 
 def ratio_or_none(numerator: Any, denominator: float | None, digits: int = 6) -> float | None:
-    if denominator is None:
+    if denominator in (None, 0):
         return None
     return round(float(numerator or 0) / denominator, digits)
