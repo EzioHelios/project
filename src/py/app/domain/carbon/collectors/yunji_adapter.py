@@ -1,18 +1,18 @@
-"""
-云集 (Yunji) HTTP API 适配器 (Litestar版)
+"""云集 (Yunji) HTTP API 适配器 (Litestar版)
 """
 from __future__ import annotations
+
 import logging
-from typing import Any, TYPE_CHECKING
+from datetime import datetime
+from typing import Any
 
 import httpx
-from sqlalchemy import select, func
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import models as m
 from app.domain.carbon.collectors.base import IDataCollector
 from app.lib.settings import get_settings
-
-from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -26,6 +26,7 @@ class YunjiAdapter(IDataCollector):
             base_url=settings.carbon.YUNJI_API_HOST,
             headers={"API_KEY": settings.carbon.YUNJI_API_KEY, "Content-Type": "application/json"},
             timeout=30.0,
+            trust_env=False,
         )
 
     async def connect(self) -> bool:
@@ -34,7 +35,7 @@ class YunjiAdapter(IDataCollector):
     async def fetch_data(self, **kwargs) -> Any:
         # 获取需要拉取的电表代码
         codes = kwargs.get("codes")
-        if codes is None:
+        if not codes:
             # 这里原本在 Django 中是同步 ORM，现在改为通过 kwargs 传入或在 Job 中预取
             # 为了保持适配器独立性，我们假设 Job 层会处理好 codes 发现
             return {"IsSuccess": False, "Message": "No codes provided"}
@@ -49,7 +50,7 @@ class YunjiAdapter(IDataCollector):
             "endTime": end_time,
             "valueType": "SJZ",
         }
-        
+
         try:
             r = await self.client.post("/WebApi/NH2/ElectricQuantity", json=payload)
             r.raise_for_status()
@@ -77,14 +78,14 @@ class YunjiAdapter(IDataCollector):
                 "fygdnsz": obj["FYGDNSZ"],
                 "zwgdnsz": obj["ZWGDNSZ"],
                 "fwgdnsz": obj["FWGDNSZ"],
-                "reading_time": obj["ReadingDate"],
+                "reading_time": _parse_datetime(obj.get("ReadingDate")),
                 "ammeter_id": obj["AmmeterID"],
                 "ammeter_name": obj["AmmeterName"],
                 "address": obj["Address"],
                 "area_id": obj["AreaID"],
                 "area_name": obj["AreaName"],
-                "start_time": meta.get("start_time"),
-                "end_time": meta.get("end_time"),
+                "start_time": _parse_datetime(meta.get("start_time")),
+                "end_time": _parse_datetime(meta.get("end_time")),
                 "data_source": 0,
             })
         return records
@@ -93,11 +94,56 @@ class YunjiAdapter(IDataCollector):
         if not normalized_list:
             return 0
         try:
-            # 批量插入
-            await db_session.execute(m.AmmeterIndexValue.__table__.insert(), normalized_list)
+            addresses = {row["equipment_id"] for row in normalized_list if row.get("equipment_id")}
+            equipment_rows = (
+                await db_session.scalars(
+                    select(m.MonitorEquipment).where(
+                        (m.MonitorEquipment.external_device_id.in_(addresses))
+                        | (m.MonitorEquipment.code.in_(addresses))
+                    )
+                )
+            ).all()
+            equipment_by_address = {
+                address: equipment
+                for equipment in equipment_rows
+                for address in (equipment.external_device_id, equipment.code)
+                if address
+            }
+            rows: list[dict] = []
+            for source_row in normalized_list:
+                address = source_row.get("equipment_id")
+                equipment = equipment_by_address.get(address)
+                if equipment is None:
+                    logger.warning("云集：未找到平台设备，跳过电表 address=%s", address)
+                    continue
+                row = dict(source_row)
+                row["equipment_id"] = equipment.id
+                row["team_id"] = equipment.team_id
+                rows.append(row)
+
+            if not rows:
+                return 0
+
+            equipment_ids = {row["equipment_id"] for row in rows}
+            reading_times = {row["reading_time"] for row in rows}
+            existing = (
+                await db_session.scalars(
+                    select(m.AmmeterIndexValue).where(
+                        m.AmmeterIndexValue.data_source == 0,
+                        m.AmmeterIndexValue.equipment_id.in_(equipment_ids),
+                        m.AmmeterIndexValue.reading_time.in_(reading_times),
+                    )
+                )
+            ).all()
+            existing_keys = {(row.equipment_id, row.reading_time) for row in existing}
+            rows = [row for row in rows if (row["equipment_id"], row["reading_time"]) not in existing_keys]
+            if not rows:
+                return 0
+
+            await db_session.execute(m.AmmeterIndexValue.__table__.insert(), rows)
             await db_session.commit()
-            logger.info(f"云集：成功写入 {len(normalized_list)} 条数据")
-            return len(normalized_list)
+            logger.info("云集：成功写入 %s 条数据", len(rows))
+            return len(rows)
         except Exception as e:
             logger.error(f"云集：保存数据失败: {e}")
             await db_session.rollback()
@@ -112,7 +158,7 @@ class YunjiAdapter(IDataCollector):
         )
         result = await db_session.execute(stmt)
         codes = [r[0] for r in result.fetchall()]
-        
+
         if not codes: return
 
         try:
@@ -133,3 +179,18 @@ class YunjiAdapter(IDataCollector):
                 await db_session.commit()
         except Exception as e:
             logger.error(f"云集：同步设备状态异常: {e}")
+
+
+def _parse_datetime(value: object) -> datetime | None:
+    """Normalize Yunji's minute-resolution timestamps for SQLAlchemy DateTime columns."""
+    if value is None or isinstance(value, datetime):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    for pattern in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            return datetime.strptime(text, pattern)
+        except ValueError:
+            continue
+    raise ValueError(f"云集时间格式无法识别: {value}")
