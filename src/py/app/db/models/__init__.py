@@ -101,6 +101,14 @@ from app.domain.carbon.models import (
     VideoMonitor,
     WarningRule,
 )
+from app.domain.iot_ingestion.models import (
+    MeterPointReading,
+    MqttDataSource,
+    MqttDeviceBinding,
+    MqttInboundMessage,
+    MqttPointMapping,
+    MqttSubscription,
+)
 
 __all__ = (
     "AuditLog",
@@ -201,4 +209,11 @@ __all__ = (
     "EnergyType",
     "EnergyUnitConversion",
     "Scope2PurchasedEnergy",
+    # IoT ingestion domain models
+    "MqttDataSource",
+    "MqttSubscription",
+    "MqttDeviceBinding",
+    "MqttPointMapping",
+    "MqttInboundMessage",
+    "MeterPointReading",
 )

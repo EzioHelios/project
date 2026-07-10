@@ -187,6 +187,8 @@ class SaqSettings:
     """If true, the worker admin UI is hosted on worker startup."""
     USE_SERVER_LIFESPAN: bool = field(default_factory=get_env("SAQ_USE_SERVER_LIFESPAN", True))
     """Auto start and stop `saq` processes when starting the Litestar application."""
+    MQTT_INGEST_CONCURRENCY: int = field(default_factory=get_env("MQTT_INGEST_CONCURRENCY", 1))
+    """Dedicated MQTT queue concurrency. Keep this at one for a single subscription runner."""
 
     def get_config(self) -> SAQConfig:
         """Get SAQ configuration.
@@ -196,6 +198,8 @@ class SaqSettings:
         """
         from app.domain.accounts import jobs as account_jobs
         from app.domain.carbon import jobs as carbon_jobs
+        from app.domain.iot_ingestion import infrastructure as iot_infrastructure
+        from app.domain.iot_ingestion import jobs as iot_jobs
         from app.domain.system import jobs as system_jobs
         from app.lib.worker import after_process, before_process, on_shutdown, on_startup
 
@@ -270,7 +274,28 @@ class SaqSettings:
                     shutdown=on_shutdown,
                     before_process=before_process,
                     after_process=after_process,
-                )
+                ),
+                QueueConfig(
+                    name="mqtt-ingest",
+                    dsn=self.REDIS_URL,
+                    tasks=[
+                        ("iot.ingest_mqtt_message", iot_jobs.ingest_mqtt_message),
+                        ("iot.retry_pending_mqtt_messages", iot_jobs.retry_pending_mqtt_messages),
+                    ],
+                    scheduled_tasks=[
+                        CronJob(
+                            function=iot_jobs.retry_pending_mqtt_messages,
+                            cron="*/1 * * * *",
+                            timeout=300,
+                        ),
+                    ],
+                    concurrency=self.MQTT_INGEST_CONCURRENCY,
+                    startup=[on_startup, iot_infrastructure.on_mqtt_ingest_startup],
+                    shutdown=[iot_infrastructure.on_mqtt_ingest_shutdown, on_shutdown],
+                    before_process=before_process,
+                    after_process=after_process,
+                    separate_process=True,
+                ),
             ],
         )
 
@@ -286,12 +311,6 @@ class CarbonSettings:
     HW_AUTH_CODE: str = field(default_factory=get_env("HW_AUTH_CODE", "d7770f50ad09ab821246c3da105fd4b9"))
     HW_API_HOST: str = field(default_factory=get_env("HW_API_HOST", "http://api1.tqdianbiao.com/"))
     HW_PULL_START_TIME: str = field(default_factory=get_env("HW_PULL_START_TIME", "2023-03-23 00:00:00"))
-
-    MQTT_BROKER_HOST: str = field(default_factory=get_env("MQTT_BROKER_HOST", "localhost"))
-    MQTT_BROKER_PORT: int = field(default_factory=get_env("MQTT_BROKER_PORT", 1883))
-    MQTT_CLIENT_ID: str = field(default_factory=get_env("MQTT_CLIENT_ID", "carbon_litestar_consumer"))
-    MQTT_TOPIC_ROOT: str = field(default_factory=get_env("MQTT_TOPIC_ROOT", "carbon/#"))
-
 
 @dataclass
 class EmailSettings:

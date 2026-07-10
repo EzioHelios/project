@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import os
 from functools import cache
 from typing import TYPE_CHECKING, Any, cast
 
 import structlog
-from saq import CronJob, Queue
-from saq import Status
+from saq import CronJob, Queue, Status
 from saq.utils import seconds
 
 from app.lib.settings import get_settings
@@ -37,12 +37,24 @@ def saq_worker_settings() -> dict[str, Any]:
     """Return the SAQ worker settings dict used by the standalone worker process."""
     from app.domain.accounts import jobs as account_jobs
     from app.domain.carbon import jobs as carbon_jobs
+    from app.domain.iot_ingestion import infrastructure as iot_infrastructure
+    from app.domain.iot_ingestion import jobs as iot_jobs
     from app.domain.system import jobs as system_jobs
 
-    settings = get_settings().saq.get_config().queue_configs[0]
-    return {
-        "queue": Queue.from_url(settings.dsn, name=settings.name),
-        "functions": [
+    queue_name = os.getenv("SAQ_WORKER_QUEUE", "background-tasks")
+    queue_configs = {item.name: item for item in get_settings().saq.get_config().queue_configs}
+    settings = queue_configs.get(queue_name)
+    if settings is None:
+        msg = f"Unknown SAQ_WORKER_QUEUE: {queue_name}"
+        raise ValueError(msg)
+    is_mqtt_ingest = queue_name == "mqtt-ingest"
+    functions = (
+        [
+            ("iot.ingest_mqtt_message", iot_jobs.ingest_mqtt_message),
+            ("iot.retry_pending_mqtt_messages", iot_jobs.retry_pending_mqtt_messages),
+        ]
+        if is_mqtt_ingest
+        else [
             system_jobs.cleanup_auth_tokens,
             account_jobs.refresh_oauth_tokens,
             carbon_jobs.sync_yunji_status,
@@ -51,9 +63,17 @@ def saq_worker_settings() -> dict[str, Any]:
             carbon_jobs.pull_hw_data,
             carbon_jobs.execute_day_alarm_scan,
             carbon_jobs.execute_video_alarm_scan,
-        ],
+        ]
+    )
+    return {
+        "queue": Queue.from_url(settings.dsn, name=settings.name),
+        "functions": functions,
         "concurrency": settings.concurrency,
         "cron_jobs": [
+            CronJob(iot_jobs.retry_pending_mqtt_messages, "*/1 * * * *", timeout=300),
+        ]
+        if is_mqtt_ingest
+        else [
             CronJob(system_jobs.cleanup_auth_tokens, "0 * * * *", timeout=600, ttl=1800),
             CronJob(account_jobs.refresh_oauth_tokens, "*/15 * * * *", timeout=600, ttl=1800),
             CronJob(carbon_jobs.sync_yunji_status, "0 * * * *", timeout=300),
@@ -63,8 +83,8 @@ def saq_worker_settings() -> dict[str, Any]:
             CronJob(carbon_jobs.execute_day_alarm_scan, "0 2 * * *", timeout=600),
             CronJob(carbon_jobs.execute_video_alarm_scan, "0 9-18 * * *", timeout=300),
         ],
-        "startup": [on_startup],
-        "shutdown": [on_shutdown],
+        "startup": [on_startup, iot_infrastructure.on_mqtt_ingest_startup] if is_mqtt_ingest else [on_startup],
+        "shutdown": [iot_infrastructure.on_mqtt_ingest_shutdown, on_shutdown] if is_mqtt_ingest else [on_shutdown],
         "before_process": [before_process],
         "after_process": [after_process],
         "metadata": {"app": get_settings().app.NAME},

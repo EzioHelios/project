@@ -1214,7 +1214,11 @@ class AmmeterIndexValue(TeamScopedMixin, BigIntBase):
     radio: Mapped[int | None] = mapped_column(Integer, default=1)
     start_time: Mapped[datetime | None] = mapped_column(DateTime)
     end_time: Mapped[datetime | None] = mapped_column(DateTime)
-    data_source: Mapped[int | None] = mapped_column(Integer, doc="0=云集,1=红外")
+    data_source: Mapped[int | None] = mapped_column(Integer, doc="0=云集,1=红外,2=MQTT")
+    source_message_id: Mapped[int | None] = mapped_column(
+        ForeignKey("iot_mqtt_inbound_message.id", ondelete="SET NULL"), index=True
+    )
+    mapping_version: Mapped[str | None] = mapped_column(String(32))
     add_time: Mapped[datetime | None] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -2296,6 +2300,11 @@ class IotTelemetry(TeamScopedMixin, BigIntBase):
     """IoT 设备上报时序数据（对应 Django dataapp.IotTelemetry）。"""
 
     __tablename__ = "dataapp_iottelemetry"
+    __table_args__ = (
+        UniqueConstraint(
+            "team_id", "source_message_id", "device_id", name="uq_dataapp_iottelemetry_source_device"
+        ),
+    )
 
     site_id: Mapped[str] = mapped_column(String(64), index=True)
     device_id: Mapped[str] = mapped_column(String(64), index=True)
@@ -2308,6 +2317,10 @@ class IotTelemetry(TeamScopedMixin, BigIntBase):
     total_energy: Mapped[float | None] = mapped_column(Float)
     interval: Mapped[str] = mapped_column(String(8), default="raw")
     raw_payload: Mapped[dict | None] = mapped_column(comment="原始 JSON 报文")
+    source_message_id: Mapped[int | None] = mapped_column(
+        ForeignKey("iot_mqtt_inbound_message.id", ondelete="SET NULL"), index=True
+    )
+    mapping_version: Mapped[str | None] = mapped_column(String(32))
     created_at: Mapped[datetime | None] = mapped_column(DateTime, default=datetime.utcnow)
 
 

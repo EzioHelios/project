@@ -1,0 +1,41 @@
+{
+  "guid": "gateway-fixture-001",
+  "ts": 1783661445,
+  "devs": [
+    {
+      "devName": "noname1",
+      "data": [
+        {"name": "1号电表正向有功总", "tag": "tag_010_p001", "valid": 1, "value": 20.75, "t": 0},
+        {"name": "1号电表正向有功尖", "tag": "tag_010_p002", "valid": 1, "value": 0.56, "t": 0},
+        {"name": "1号电表正向有功峰", "tag": "tag_010_p003", "valid": 1, "value": 6.47, "t": 0},
+        {"name": "1号电表正向有功平", "tag": "tag_010_p004", "valid": 1, "value": 7.20, "t": 0},
+        {"name": "1号电表正向有功谷", "tag": "tag_010_p005", "valid": 1, "value": 6.50, "t": 0},
+        {"name": "1号电表正向无功总", "tag": "tag_010_p006", "valid": 1, "value": 14.48, "t": 0},
+        {"name": "1号电表正向无功尖", "tag": "tag_010_p007", "valid": 1, "value": 0.40, "t": 0},
+        {"name": "1号电表正向无功峰", "tag": "tag_010_p008", "valid": 1, "value": 4.45, "t": 0},
+        {"name": "1号电表正向无功平", "tag": "tag_010_p009", "valid": 1, "value": 4.85, "t": 0},
+        {"name": "1号电表正向无功谷", "tag": "tag_010_p010", "valid": 1, "value": 4.77, "t": 0},
+        {"name": "1号电表反向有功总", "tag": "tag_010_p011", "valid": 1, "value": 0, "t": 0},
+        {"name": "1号电表反向有功尖", "tag": "tag_010_p012", "valid": 1, "value": 0, "t": 0},
+        {"name": "1号电表反向有功峰", "tag": "tag_010_p013", "valid": 1, "value": 0, "t": 0},
+        {"name": "1号电表反向有功平", "tag": "tag_010_p014", "valid": 1, "value": 0, "t": 0},
+        {"name": "1号电表反向有功谷", "tag": "tag_010_p015", "valid": 1, "value": 0, "t": 0},
+        {"name": "1号电表反向无功总", "tag": "tag_010_p016", "valid": 1, "value": 0, "t": 0},
+        {"name": "1号电表反向无功尖", "tag": "tag_010_p017", "valid": 1, "value": 0, "t": 0},
+        {"name": "1号电表反向无功峰", "tag": "tag_010_p018", "valid": 1, "value": 0, "t": 0},
+        {"name": "1号电表反向无功平", "tag": "tag_010_p019", "valid": 1, "value": 0, "t": 0},
+        {"name": "1号电表反向无功谷", "tag": "tag_010_p020", "valid": 1, "value": 0, "t": 0},
+
+        {"name": "2号电表正向有功总", "tag": "tag_010_p001", "valid": 0, "value": 0, "t": 1},
+        {"name": "2号电表正向无功总", "tag": "tag_010_p006", "valid": 0, "value": 0, "t": 1},
+        {"name": "2号电表反向有功总", "tag": "tag_010_p011", "valid": 0, "value": 0, "t": 1},
+        {"name": "2号电表反向无功总", "tag": "tag_010_p016", "valid": 0, "value": 0, "t": 1},
+
+        {"name": "4号电表正向有功总", "tag": "tag_010_p001", "valid": 1, "value": 2.78, "t": 0},
+        {"name": "4号电表正向无功总", "tag": "tag_010_p006", "valid": 1, "value": 2.56, "t": 0},
+        {"name": "4号电表反向有功总", "tag": "tag_010_p011", "valid": 1, "value": 0, "t": 0},
+        {"name": "4号电表反向无功总", "tag": "tag_010_p016", "valid": 1, "value": 0.01, "t": 0}
+      ]
+    }
+  ]
+}

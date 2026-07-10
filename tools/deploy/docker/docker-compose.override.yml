@@ -21,6 +21,11 @@ services:
       VITE_PORT: "18101"
       PYTHONPATH: "/workspace/app/src/py"
       SAQ_USE_SERVER_LIFESPAN: "false"
+      DATABASE_HOST: host.docker.internal
+      DATABASE_PORT: "18102"
+      DATABASE_URL: postgresql://app:app@host.docker.internal:18102/app
+      SAQ_REDIS_URL: redis://host.docker.internal:18103/0
+      ALTCHA_SENTINEL_INTERNAL_URL: http://host.docker.internal:18108
     command: granian --interface asgi --factory app.server.asgi:create_app --host 0.0.0.0 --port 8000 --reload --reload-paths /workspace/app/src/py
     restart: always
     <<: *development-volumes
@@ -35,6 +40,33 @@ services:
     restart: always
     environment:
       PYTHONPATH: "/workspace/app/src/py"
+      DATABASE_HOST: host.docker.internal
+      DATABASE_PORT: "18102"
+      DATABASE_URL: postgresql://app:app@host.docker.internal:18102/app
+      SAQ_REDIS_URL: redis://host.docker.internal:18103/0
+    <<: *development-volumes
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+
+  mqtt-ingest-worker:
+    profiles:
+      - worker
+    build:
+      context: ../../..
+      dockerfile: tools/deploy/docker/Dockerfile.dev
+    tty: true
+    restart: always
+    environment:
+      PYTHONPATH: "/workspace/app/src/py"
+      SAQ_WORKER_QUEUE: mqtt-ingest
+      MQTT_INGEST_CONCURRENCY: "1"
+      DATABASE_HOST: host.docker.internal
+      DATABASE_PORT: "18102"
+      DATABASE_URL: postgresql://app:app@host.docker.internal:18102/app
+      SAQ_REDIS_URL: redis://host.docker.internal:18103/0
     <<: *development-volumes
     depends_on:
       db:
@@ -44,6 +76,7 @@ services:
 
     env_file:
       - .env.docker
+      - .env.mqtt.local
   migrator:
     build:
       context: ../../..

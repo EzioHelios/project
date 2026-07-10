@@ -19,6 +19,7 @@ env/
 
 # Environment and local secrets
 .env
+tools/deploy/docker/.env.mqtt.local
 .env.local
 .env.*.local
 src/py/.env
