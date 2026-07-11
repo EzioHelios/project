@@ -53,6 +53,7 @@ export function AppLayout() {
       if (pathname === "/data/production-output") return { eyebrow: "业务活动台账", title: "产品批次产量" }
       if (pathname === "/data/product-resource-bindings") return { eyebrow: "业务活动台账", title: "产品产线关联" }
       if (pathname === "/data/terminals") return { eyebrow: "采集设备与测点", title: "监控终端" }
+      if (pathname === "/data/point-monitoring") return { eyebrow: "采集设备与测点", title: "点位监测" }
       if (pathname === "/data/meter") return { eyebrow: "采集设备与测点", title: "电表电量" }
       if (pathname === "/data/video") return { eyebrow: "采集设备与测点", title: "视频监控" }
       if (pathname === "/data/alarm-rules") return { eyebrow: "监测告警运维", title: "预警规则" }
@@ -77,7 +78,6 @@ export function AppLayout() {
       if (pathname === "/carbon-mgmt/scope3-transport") return { eyebrow: "碳排放管理", title: "[范围3] 外购运输" }
       if (pathname === "/carbon-mgmt/factors") return { eyebrow: "碳排放因子库", title: "排放因子库" }
       if (pathname === "/carbon-mgmt/calculation-factors") return { eyebrow: "碳排放因子库", title: "计算因子库" }
-      if (pathname === "/carbon-mgmt/iot") return { eyebrow: "采集设备与测点", title: "IoT时序数据" }
       if (pathname === "/carbon-mgmt/audit") return { eyebrow: "碳排放管理", title: "审核操作日志" }
       return { eyebrow: "碳排放管理", title: "碳排放管理" }
     }

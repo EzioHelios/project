@@ -180,18 +180,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           pathname.startsWith("/data/terminals") ||
           pathname.startsWith("/data/device-types") ||
           pathname.startsWith("/data/device-points") ||
+          pathname.startsWith("/data/point-monitoring") ||
           pathname.startsWith("/data/meter") ||
           pathname.startsWith("/data/energy-consumption") ||
-          pathname.startsWith("/data/video") ||
-          pathname.startsWith("/carbon-mgmt/iot"),
+          pathname.startsWith("/data/video"),
         items: [
           { title: "监控终端", to: "/data/terminals" },
           { title: "设备类型", to: "/data/device-types" },
           { title: "设备测点", to: "/data/device-points" },
+          { title: "点位监测", to: "/data/point-monitoring" },
           { title: "电表电量", to: "/data/meter" },
           { title: "能源消费明细", to: "/data/energy-consumption" },
           { title: "视频监控", to: "/data/video" },
-          { title: "IoT时序数据", to: "/carbon-mgmt/iot" },
         ],
       },
       {
