@@ -200,36 +200,43 @@ function resolveSeriesColor(series: AdminChartSeriesConfig, index: number) {
   return series.color ?? getAdminChartColor(series.colorKey, index)
 }
 
-function buildLineSeries<T extends AdminChartDatum>(points: T[], lines: AdminChartSeriesConfig<Extract<keyof T, string>>[]): SeriesOption[] {
-  return lines
-    .filter((line) => points.some((point) => readChartNumber(point, line.key) > 0))
-    .map((line, index) => {
-      const color = resolveSeriesColor(line, index)
-      return {
-        type: "line",
-        name: line.label,
-        smooth: true,
-        showSymbol: false,
-        symbol: "circle",
-        symbolSize: 6,
-        lineStyle: {
-          width: 2.25,
-          color,
-        },
-        itemStyle: {
-          color,
-        },
-        areaStyle: { color: `${color}12` },
-        emphasis: { focus: "series" },
-        data: points.map((point) => readChartNumber(point, line.key)),
-      }
+function buildLineSeries<T extends AdminChartDatum>(
+  points: T[],
+  lines: AdminChartSeriesConfig<Extract<keyof T, string>>[],
+  config: { includeZeroSeries?: boolean } = {},
+): SeriesOption[] {
+  const hasSeriesData = (line: AdminChartSeriesConfig<Extract<keyof T, string>>) =>
+    points.some((point) => {
+      const value = readChartNumber(point, line.key)
+      return Number.isFinite(value) && (config.includeZeroSeries || value > 0)
     })
+  return lines.filter(hasSeriesData).map((line, index) => {
+    const color = resolveSeriesColor(line, index)
+    return {
+      type: "line",
+      name: line.label,
+      smooth: true,
+      showSymbol: false,
+      symbol: "circle",
+      symbolSize: 6,
+      lineStyle: {
+        width: 2.25,
+        color,
+      },
+      itemStyle: {
+        color,
+      },
+      areaStyle: { color: `${color}12` },
+      emphasis: { focus: "series" },
+      data: points.map((point) => readChartNumber(point, line.key)),
+    }
+  })
 }
 
 export function createTrendChartOption<T extends AdminChartDatum>(
   points: T[],
   lines: AdminChartSeriesConfig<Extract<keyof T, string>>[],
-  config: { periodKey?: Extract<keyof T, string> } = {},
+  config: { periodKey?: Extract<keyof T, string>; includeZeroSeries?: boolean } = {},
 ): EChartsOption | undefined {
   if (points.length === 0) return undefined
   const periodKey = config.periodKey ?? ("period" as Extract<keyof T, string>)
@@ -239,7 +246,7 @@ export function createTrendChartOption<T extends AdminChartDatum>(
       boundaryGap: false,
     },
     yAxis: adminChartAxis.value(),
-    series: buildLineSeries(points, lines),
+    series: buildLineSeries(points, lines, { includeZeroSeries: config.includeZeroSeries }),
   })
 }
 

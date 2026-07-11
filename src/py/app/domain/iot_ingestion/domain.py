@@ -24,9 +24,6 @@ ERR_POINT_ENTRY = "data entries must be objects"
 ERR_NO_POINTS = "payload contains no points"
 ERR_TIMESTAMP = "ts must be a Unix timestamp"
 ERR_TIMESTAMP_RANGE = "ts is outside the supported timestamp range"
-ERR_LEGACY_TOPIC = "topic must match carbon/site/{site_id}/device/{device_id}/telemetry"
-ERR_VALUES_REQUIRED = "values must be an object"
-LEGACY_TELEMETRY_TOPIC_SEGMENT_COUNT = 6
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,21 +48,6 @@ class ParsedSzscadaPayload:
     gateway_key: str
     published_at: datetime
     points: tuple[ParsedPoint, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class ParsedCarbonTelemetry:
-    """Normalized envelope for the existing single-device telemetry contract."""
-
-    site_id: str
-    device_id: str
-    published_at: datetime
-    ts: int
-    active_power: Decimal | None
-    reactive_power: Decimal | None
-    voltage_a: Decimal | None
-    current_a: Decimal | None
-    total_energy: Decimal | None
 
 
 def payload_hash(payload: dict[str, Any]) -> str:
@@ -119,27 +101,6 @@ def parse_szscada_scada_v1(payload: dict[str, Any]) -> ParsedSzscadaPayload:
     return ParsedSzscadaPayload(gateway_key=gateway_key, published_at=published_at, points=tuple(points))
 
 
-def parse_carbon_telemetry_v1(topic: str, payload: dict[str, Any]) -> ParsedCarbonTelemetry:
-    """Parse the pre-existing `carbon/site/.../device/.../telemetry` MQTT contract."""
-    site_id, device_id = _legacy_topic_identity(topic)
-    published_at = _timestamp(payload.get("ts"))
-    values = payload.get("values")
-    if not isinstance(values, dict):
-        raise PayloadValidationError(ERR_VALUES_REQUIRED)
-    normalized_timestamp = _timestamp_seconds(payload.get("ts"))
-    return ParsedCarbonTelemetry(
-        site_id=site_id,
-        device_id=device_id,
-        published_at=published_at,
-        ts=normalized_timestamp,
-        active_power=_decimal(values.get("active_power")),
-        reactive_power=_decimal(values.get("reactive_power")),
-        voltage_a=_decimal(values.get("voltage_a")),
-        current_a=_decimal(values.get("current_a")),
-        total_energy=_decimal(values.get("total_energy")),
-    )
-
-
 def temporary_external_device_id(gateway_key: str, meter_number: int) -> str:
     """Build the temporary external identifier used before a DL/T 645 address is known."""
     return f"szxc:{gateway_key}:m{meter_number:03d}"
@@ -170,24 +131,6 @@ def _timestamp_as_int(value: object) -> int:
         return int(str(value))
     except (TypeError, ValueError) as exc:
         raise PayloadValidationError(ERR_TIMESTAMP) from exc
-
-
-def _timestamp_seconds(value: object) -> int:
-    raw = _timestamp_as_int(value)
-    return raw // 1000 if raw >= MILLISECONDS_TIMESTAMP_THRESHOLD else raw
-
-
-def _legacy_topic_identity(topic: str) -> tuple[str, str]:
-    parts = topic.split("/")
-    if (
-        len(parts) != LEGACY_TELEMETRY_TOPIC_SEGMENT_COUNT
-        or parts[0] != "carbon"
-        or parts[1] != "site"
-        or parts[3] != "device"
-        or parts[5] != "telemetry"
-    ):
-        raise PayloadValidationError(ERR_LEGACY_TOPIC)
-    return _required_text(parts[2], "topic site_id"), _required_text(parts[4], "topic device_id")
 
 
 def _required_text(value: object, field_name: str) -> str:

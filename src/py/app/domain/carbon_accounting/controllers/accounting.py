@@ -1937,37 +1937,52 @@ class CarbonAccountingController(Controller):
             await db_session.execute(m.Scope2MeterAggregate.__table__.delete().where(m.Scope2MeterAggregate.billing_month == billing_month))
 
         stmt = (
-            select(m.AmmeterIndexValue)
-            .where(
-                m.AmmeterIndexValue.reading_time >= month_start,
-                m.AmmeterIndexValue.reading_time < month_end,
-                m.AmmeterIndexValue.reading_time.is_not(None),
-                m.AmmeterIndexValue.ammeter_id.is_not(None),
+            select(
+                m.MeterReadingFact,
+                m.MonitorEquipment.code.label("ammeter_id"),
+                m.MonitorEquipment.name.label("ammeter_name"),
+                m.MonitorSector.id.label("area_id"),
+                m.MonitorSector.name.label("area_name"),
             )
-            .order_by(m.AmmeterIndexValue.ammeter_id.asc(), m.AmmeterIndexValue.reading_time.asc(), m.AmmeterIndexValue.id.asc())
+            .join(m.MonitorEquipment, m.MonitorEquipment.id == m.MeterReadingFact.equipment_id)
+            .outerjoin(m.MonitorSector, m.MonitorSector.id == m.MonitorEquipment.sector_id)
+            .where(
+                m.MeterReadingFact.reading_time >= month_start,
+                m.MeterReadingFact.reading_time < month_end,
+                m.MeterReadingFact.reading_time.is_not(None),
+                m.MeterReadingFact.point_code == "forward_active_total",
+                m.MeterReadingFact.value_kind == "register_index",
+                m.MeterReadingFact.normalized_value.is_not(None),
+            )
+            .order_by(
+                m.MonitorEquipment.code.asc(),
+                m.MeterReadingFact.reading_time.asc(),
+                m.MeterReadingFact.id.asc(),
+            )
         )
         if area_id:
-            stmt = stmt.where(m.AmmeterIndexValue.area_id == area_id)
-        rows = (await db_session.execute(stmt)).scalars().all()
+            stmt = stmt.where(m.MonitorSector.id == int(area_id))
+        rows = (await db_session.execute(stmt)).mappings().all()
 
-        grouped: dict[str, list[m.AmmeterIndexValue]] = {}
+        grouped: dict[str, list[dict[str, Any]]] = {}
         for row in rows:
-            if row.ammeter_id:
-                grouped.setdefault(row.ammeter_id, []).append(row)
+            meter_id = row["ammeter_id"]
+            if meter_id:
+                grouped.setdefault(meter_id, []).append(dict(row))
 
         created: list[m.Scope2MeterAggregate] = []
         for ammeter_id, samples in grouped.items():
             first = samples[0]
-            usable = [sample for sample in samples if sample.zygdn is not None]
+            usable = [sample for sample in samples if sample["MeterReadingFact"].normalized_value is not None]
             note = None
             status = "ready"
             start_total = end_total = total_kwh = None
             last = first
-            if len(usable) >= 2:
+            if len(samples) >= 2:
                 first_usable = usable[0]
                 last_usable = usable[-1]
-                start_total = Decimal(str(first_usable.zygdn))
-                end_total = Decimal(str(last_usable.zygdn))
+                start_total = Decimal(str(first_usable["MeterReadingFact"].normalized_value))
+                end_total = Decimal(str(last_usable["MeterReadingFact"].normalized_value))
                 total_kwh = end_total - start_total
                 last = last_usable
                 if total_kwh < 0:
@@ -1981,12 +1996,12 @@ class CarbonAccountingController(Controller):
             payload = {
                 "source_kind": "meter_aggregate",
                 "ammeter_id": ammeter_id,
-                "ammeter_name": first.ammeter_name,
-                "area_id": first.area_id,
-                "area_name": first.area_name,
+                "ammeter_name": first["ammeter_name"],
+                "area_id": str(first["area_id"]) if first["area_id"] is not None else None,
+                "area_name": first["area_name"],
                 "billing_month": billing_month,
-                "first_reading_time": first.reading_time,
-                "last_reading_time": last.reading_time,
+                "first_reading_time": first["MeterReadingFact"].reading_time,
+                "last_reading_time": last["MeterReadingFact"].reading_time,
                 "start_total_energy": start_total,
                 "end_total_energy": end_total,
                 "total_kwh": total_kwh,

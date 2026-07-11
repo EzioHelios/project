@@ -217,17 +217,27 @@ async def _rebuild_energy_interval_facts(session: AsyncSession) -> None:
             """
             with readings as (
                 select
-                    v.team_id,
-                    v.equipment_id,
-                    v.ammeter_id,
-                    v.ammeter_name,
-                    v.area_id,
-                    v.area_name,
-                    v.reading_time,
-                    v.zygdnsz,
-                    lag(v.zygdnsz) over (partition by v.team_id, v.equipment_id order by v.reading_time) as prev_value
-                from dataapp_ammeterindexvalue v
-                where v.reading_time is not null and v.zygdnsz is not null and v.equipment_id is not null
+                    fact.team_id,
+                    fact.equipment_id,
+                    equipment.code as ammeter_id,
+                    equipment.name as ammeter_name,
+                    sector.id::text as area_id,
+                    sector.name as area_name,
+                    fact.reading_time,
+                    fact.normalized_value as meter_value,
+                    lag(fact.normalized_value) over (
+                        partition by fact.team_id, fact.equipment_id
+                        order by fact.reading_time, fact.id
+                    ) as prev_value
+                from metering_meter_reading_fact fact
+                join dataapp_monitorequipment equipment on equipment.id = fact.equipment_id
+                left join dataapp_monitorsector sector on sector.id = equipment.sector_id
+                where
+                    fact.reading_time is not null
+                    and fact.normalized_value is not null
+                    and fact.equipment_id is not null
+                    and fact.point_code = 'forward_active_total'
+                    and fact.value_kind = 'register_index'
             ),
             deltas as (
                 select
@@ -238,9 +248,9 @@ async def _rebuild_energy_interval_facts(session: AsyncSession) -> None:
                     area_id,
                     area_name,
                     reading_time,
-                    zygdnsz - prev_value as delta_kwh
+                    meter_value - prev_value as delta_kwh
                 from readings
-                where prev_value is not null and zygdnsz - prev_value > 0 and zygdnsz - prev_value < 100000
+                where prev_value is not null and meter_value - prev_value > 0 and meter_value - prev_value < 100000
             ),
             hourly as (
                 select

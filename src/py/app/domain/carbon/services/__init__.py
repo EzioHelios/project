@@ -173,16 +173,6 @@ class DevicePointService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositor
     repository_type = Repo
 
 
-class AmmeterIndexValueService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.AmmeterIndexValue]):
-    """Handles database operations for AmmeterIndexValue."""
-
-    class Repo(repository.SQLAlchemyAsyncRepository[m.AmmeterIndexValue]):
-        """AmmeterIndexValue SQLAlchemy Repository."""
-        model_type = m.AmmeterIndexValue
-
-    repository_type = Repo
-
-
 class AlarmEventService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.AlarmEvent]):
     """Handles database operations for AlarmEvent."""
 
@@ -381,16 +371,6 @@ class CarbonFactorRawRecordService(CompositeServiceMixin, service.SQLAlchemyAsyn
     class Repo(repository.SQLAlchemyAsyncRepository[m.CarbonFactorRawRecord]):
         """CarbonFactorRawRecord SQLAlchemy Repository."""
         model_type = m.CarbonFactorRawRecord
-
-    repository_type = Repo
-
-
-class IotTelemetryService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryService[m.IotTelemetry]):
-    """Handles database operations for IotTelemetry."""
-
-    class Repo(repository.SQLAlchemyAsyncRepository[m.IotTelemetry]):
-        """IotTelemetry SQLAlchemy Repository."""
-        model_type = m.IotTelemetry
 
     repository_type = Repo
 

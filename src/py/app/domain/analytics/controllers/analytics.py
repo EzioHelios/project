@@ -1,4 +1,4 @@
-# ruff: noqa: B007, B008, DTZ003, DTZ011, PERF401, PLR0915, PLR2004, RUF001, SLF001
+# ruff: noqa: B007, B008, DTZ003, DTZ011, PERF401, PLR2004, RUF001, SLF001
 from __future__ import annotations
 
 import datetime
@@ -37,7 +37,6 @@ from app.domain.carbon.controllers import (
     _compute_year_from_date,
     _data_origin_for_source_kind,
     _format_decimal,
-    _handle_db_view_error,
     _historical_fit_kwh,
     _log_security_audit,
     _month_span,
@@ -70,6 +69,13 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
+def _handle_db_view_error(_request: Any, exc: Exception) -> Response[dict[str, Any]]:
+    return Response(
+        content={"code": 500, "msg": f"数据查询失败: {exc!s}", "data": None},
+        status_code=200,
+    )
+
+
 class CarbonAnalyticsController(Controller):
     """统一能碳分析与追溯接口。"""
 
@@ -85,7 +91,7 @@ class CarbonAnalyticsController(Controller):
         bill_month = await db_session.scalar(select(func.max(m.Scope2ElectricityBill.billing_month)))
         if bill_month:
             return str(bill_month)
-        raw_last = await db_session.scalar(select(func.max(m.AmmeterIndexValue.reading_time)).where(m.AmmeterIndexValue.reading_time.is_not(None)))
+        raw_last = await db_session.scalar(select(func.max(m.MeterReadingFact.reading_time)).where(m.MeterReadingFact.reading_time.is_not(None)))
         return _month_string(raw_last)
 
     @staticmethod
@@ -102,8 +108,8 @@ class CarbonAnalyticsController(Controller):
 
     @staticmethod
     async def _raw_history_month_range(db_session: AsyncSession) -> tuple[str | None, str | None]:
-        first_time = await db_session.scalar(select(func.min(m.AmmeterIndexValue.reading_time)).where(m.AmmeterIndexValue.reading_time.is_not(None)))
-        last_time = await db_session.scalar(select(func.max(m.AmmeterIndexValue.reading_time)).where(m.AmmeterIndexValue.reading_time.is_not(None)))
+        first_time = await db_session.scalar(select(func.min(m.MeterReadingFact.reading_time)).where(m.MeterReadingFact.reading_time.is_not(None)))
+        last_time = await db_session.scalar(select(func.max(m.MeterReadingFact.reading_time)).where(m.MeterReadingFact.reading_time.is_not(None)))
         return (_month_string(first_time), _month_string(last_time))
 
     @staticmethod
@@ -234,25 +240,29 @@ class CarbonAnalyticsController(Controller):
         sql = text(
             """
             select
-                to_char(date_trunc('month', reading_time), 'YYYY-MM') as billing_month,
-                ammeter_id,
-                max(ammeter_name) as ammeter_name,
-                coalesce(max(area_id), '') as area_id,
-                coalesce(max(area_name), '未分区') as area_name,
-                min(reading_time) as first_reading_time,
-                max(reading_time) as last_reading_time,
-                min(zygdn) as start_total_energy,
-                max(zygdn) as end_total_energy,
-                greatest(max(zygdn) - min(zygdn), 0) as total_kwh,
+                to_char(date_trunc('month', fact.reading_time), 'YYYY-MM') as billing_month,
+                equipment.code as ammeter_id,
+                max(equipment.name) as ammeter_name,
+                coalesce(max(sector.id::text), '') as area_id,
+                coalesce(max(sector.name), '未分区') as area_name,
+                min(fact.reading_time) as first_reading_time,
+                max(fact.reading_time) as last_reading_time,
+                min(fact.normalized_value) as start_total_energy,
+                max(fact.normalized_value) as end_total_energy,
+                greatest(max(fact.normalized_value) - min(fact.normalized_value), 0) as total_kwh,
                 count(*) as sample_count
-            from dataapp_ammeterindexvalue
+            from metering_meter_reading_fact fact
+            join dataapp_monitorequipment equipment on equipment.id = fact.equipment_id
+            left join dataapp_monitorsector sector on sector.id = equipment.sector_id
             where
-                reading_time >= :month_start
-                and reading_time < :month_end
-                and reading_time is not null
-                and ammeter_id is not null
-                and zygdn is not null
-            group by 1, ammeter_id
+                fact.reading_time >= :month_start
+                and fact.reading_time < :month_end
+                and fact.reading_time is not null
+                and equipment.code is not null
+                and fact.point_code = 'forward_active_total'
+                and fact.value_kind = 'register_index'
+                and fact.normalized_value is not null
+            group by 1, equipment.code
             order by total_kwh desc nulls last, ammeter_id asc
             """
         )
@@ -950,27 +960,11 @@ class EnergyCarbonCenterController(Controller):
         return deleted
 
     async def _clear_imputed_meter_rows(self, db_session: AsyncSession, month_keys: list[str]) -> int:
-        if not month_keys:
-            return 0
-        month_start, _ = _month_window(month_keys[0])
-        _, month_end = _month_window(month_keys[-1])
-        stmt = m.AmmeterIndexValue.__table__.delete().where(
-            m.AmmeterIndexValue.data_source == 99,
-            m.AmmeterIndexValue.reading_time >= month_start,
-            m.AmmeterIndexValue.reading_time < month_end,
-        )
-        result = await db_session.execute(stmt)
-        return int(result.rowcount or 0)
+        _ = (db_session, month_keys)
+        return 0
 
     async def _sync_ammeter_index_sequence(self, db_session: AsyncSession) -> None:
-        sequence_name = await db_session.scalar(
-            text("SELECT pg_get_serial_sequence('dataapp_ammeterindexvalue', 'id')")
-        )
-        if not sequence_name:
-            return
-        max_id = int(await db_session.scalar(text("SELECT COALESCE(MAX(id), 0) FROM dataapp_ammeterindexvalue")) or 0)
-        quoted_sequence = str(sequence_name).replace("'", "''")
-        await db_session.execute(text(f"SELECT setval('{quoted_sequence}', :max_id, true)"), {"max_id": max_id})
+        _ = db_session
 
     async def _impute_raw_scope2_history(
         self,
@@ -1000,92 +994,6 @@ class EnergyCarbonCenterController(Controller):
 
         inserted_imputed_rows = 0
         estimate_details: list[dict[str, Any]] = []
-        for billing_month in month_keys:
-            current_rows = (
-                await db_session.execute(select(m.Scope2MeterAggregate).where(m.Scope2MeterAggregate.billing_month == billing_month))
-            ).scalars().all()
-            estimate_rows = await CarbonAnalyticsController._historical_scope2_estimates_for_month(db_session, billing_month, current_rows)
-            if not estimate_rows:
-                continue
-
-            month_start, month_end = _month_window(billing_month)
-            raw_rows = (
-                await db_session.execute(
-                    select(m.AmmeterIndexValue)
-                    .where(
-                        m.AmmeterIndexValue.reading_time >= month_start,
-                        m.AmmeterIndexValue.reading_time < month_end,
-                        m.AmmeterIndexValue.ammeter_id.is_not(None),
-                    )
-                    .order_by(m.AmmeterIndexValue.ammeter_id.asc(), m.AmmeterIndexValue.reading_time.asc(), m.AmmeterIndexValue.id.asc())
-                )
-            ).scalars().all()
-            samples_by_meter: dict[str, list[m.AmmeterIndexValue]] = defaultdict(list)
-            for row in raw_rows:
-                if row.ammeter_id:
-                    samples_by_meter[str(row.ammeter_id)].append(row)
-
-            created_for_month = 0
-            for row in estimate_rows:
-                ammeter_id = str(row.get("ammeter_id") or "")
-                if not ammeter_id:
-                    continue
-                samples = samples_by_meter.get(ammeter_id, [])
-                usable = [sample for sample in samples if sample.zygdn is not None]
-                if not usable:
-                    continue
-                first = usable[0]
-                last_sample = samples[-1]
-                target_time = min(
-                    (last_sample.reading_time or month_start) + datetime.timedelta(minutes=1),
-                    month_end - datetime.timedelta(seconds=1),
-                )
-                if last_sample.reading_time and target_time <= last_sample.reading_time:
-                    target_time = last_sample.reading_time + datetime.timedelta(seconds=1)
-                if target_time >= month_end:
-                    continue
-
-                first_value = float(first.zygdn or 0.0)
-                last_value = float(usable[-1].zygdn or 0.0)
-                estimate_kwh = float(row.get("total_kwh") or 0.0)
-                synthetic_total = max(last_value, first_value + estimate_kwh)
-
-                imputed = m.AmmeterIndexValue(
-                    equipment_id=last_sample.equipment_id or first.equipment_id,
-                    zygdn=synthetic_total,
-                    fygdn=last_sample.fygdn,
-                    zwgdn=last_sample.zwgdn,
-                    fwgdn=last_sample.fwgdn,
-                    zygdnsz=last_sample.zygdnsz,
-                    fygdnsz=last_sample.fygdnsz,
-                    zwgdnsz=last_sample.zwgdnsz,
-                    fwgdnsz=last_sample.fwgdnsz,
-                    reading_time=target_time,
-                    ammeter_id=last_sample.ammeter_id or first.ammeter_id,
-                    ammeter_name=last_sample.ammeter_name or first.ammeter_name,
-                    address=last_sample.address or first.address,
-                    area_id=last_sample.area_id or first.area_id,
-                    area_name=last_sample.area_name or first.area_name,
-                    radio=last_sample.radio,
-                    start_time=last_sample.start_time,
-                    end_time=last_sample.end_time,
-                    data_source=99,
-                    add_time=datetime.datetime.utcnow(),
-                )
-                db_session.add(imputed)
-                created_for_month += 1
-                inserted_imputed_rows += 1
-
-            if created_for_month:
-                estimate_details.append(
-                    {
-                        "billing_month": billing_month,
-                        "estimated_rows": created_for_month,
-                    }
-                )
-                await self._sync_ammeter_index_sequence(db_session)
-
-        await db_session.flush()
 
         rebuilt_count = 0
         ready_count = 0
@@ -2259,7 +2167,12 @@ class EnergyCarbonCenterController(Controller):
         if not device:
             return Response(content={"code": 404, "msg": "设备不存在"}, status_code=404)
         meter_samples = (
-            await db_session.execute(select(m.AmmeterIndexValue).where(m.AmmeterIndexValue.equipment_id == device_id).order_by(m.AmmeterIndexValue.reading_time.desc().nullslast()).limit(12))
+            await db_session.execute(
+                select(m.MeterReadingFact)
+                .where(m.MeterReadingFact.equipment_id == device_id)
+                .order_by(m.MeterReadingFact.reading_time.desc().nullslast(), m.MeterReadingFact.id.desc())
+                .limit(12)
+            )
         ).scalars().all()
         alarms = (
             await db_session.execute(select(m.AlarmEvent).where(m.AlarmEvent.equipment_id == device_id).order_by(m.AlarmEvent.event_time.desc().nullslast()).limit(10))
@@ -2291,13 +2204,20 @@ class EnergyCarbonCenterController(Controller):
     async def get_monitor_device_timeseries(self, db_session: AsyncSession, device_id: int) -> Response[dict]:
         samples = (
             await db_session.execute(
-                select(m.AmmeterIndexValue).where(m.AmmeterIndexValue.equipment_id == device_id).order_by(m.AmmeterIndexValue.reading_time.asc().nullslast()).limit(48)
+                select(m.MeterReadingFact)
+                .where(
+                    m.MeterReadingFact.equipment_id == device_id,
+                    m.MeterReadingFact.point_code == "forward_active_total",
+                    m.MeterReadingFact.value_kind == "register_index",
+                )
+                .order_by(m.MeterReadingFact.reading_time.asc().nullslast(), m.MeterReadingFact.id.asc())
+                .limit(48)
             )
         ).scalars().all()
         points = [
             {
                 "period": item.reading_time.strftime("%m-%d %H:%M") if item.reading_time else f"样本{index + 1}",
-                "energy_kwh": float(item.zygdn or item.zygdnsz or 0.0),
+                "energy_kwh": float(item.normalized_value or 0.0),
                 "carbon_co2e": 0.0,
             }
             for index, item in enumerate(samples)

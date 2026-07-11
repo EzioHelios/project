@@ -73,7 +73,6 @@ async def run(count: int, clear: bool) -> None:
             for model in [
                 m.Scope1MobileCombustion, m.Scope1StationaryCombustion, m.Scope1RefrigerantLeak,
                 m.Scope2ElectricityBill, m.Scope3WasteDisposal, m.Scope3ThirdPartyTransport,
-                m.IotTelemetry,
             ]:
                 await session.execute(delete(model))
                 print(f"   已清空 {model.__tablename__}")
@@ -197,33 +196,7 @@ async def run(count: int, clear: bool) -> None:
         await session.commit()
         print(f"   Scope3 外购运输: +{count} 条")
 
-        # IoT 时序（可选，少量）
-        iot_count = min(count * 5, 50)
-        sites = ["taixing_01", "taixing_02"]
-        devices = ["meter_001", "meter_002", "meter_003"]
-        base_e = 48000.0
-        now = datetime.datetime.now(datetime.timezone.utc)
-        for i in range(iot_count):
-            rt = now - datetime.timedelta(minutes=15 * i)
-            ts = int(rt.timestamp() * 1000)
-            base_e += round(random.uniform(0, 8), 2)
-            session.add(m.IotTelemetry(
-                site_id=random.choice(sites),
-                device_id=random.choice(devices),
-                ts=ts,
-                reading_time=rt,
-                active_power=round(random.uniform(50, 300), 1),
-                reactive_power=round(random.uniform(5, 30), 1),
-                voltage_a=round(random.uniform(218, 222), 1),
-                current_a=round(random.uniform(2, 15), 2),
-                total_energy=round(base_e, 2),
-                interval="raw",
-                raw_payload={"ts": ts, "values": {"total_energy": round(base_e, 2)}},
-            ))
-        await session.commit()
-        print(f"   IoT 时序数据: +{iot_count} 条")
-
-    print(f"\n完成：每类 {count} 条，IoT {iot_count} 条\n")
+    print(f"\n完成：每类 {count} 条\n")
 
 
 def main() -> None:

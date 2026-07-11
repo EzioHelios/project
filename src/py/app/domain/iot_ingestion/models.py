@@ -69,7 +69,7 @@ class MqttDeviceBinding(TeamScopedMixin, BigIntAuditBase):
 
 
 class MqttPointMapping(TeamScopedMixin, BigIntAuditBase):
-    """Maps a source tag within a bound device to a platform point and optional legacy meter field."""
+    """Maps a source tag within a bound device to a normalized platform point."""
 
     __tablename__ = "iot_mqtt_point_mapping"
     __table_args__ = (
@@ -80,7 +80,7 @@ class MqttPointMapping(TeamScopedMixin, BigIntAuditBase):
     source_tag: Mapped[str] = mapped_column(String(64))
     source_name_suffix: Mapped[str | None] = mapped_column(String(128))
     point_code: Mapped[str] = mapped_column(String(64))
-    target_field: Mapped[str | None] = mapped_column(String(64))
+    point_name: Mapped[str | None] = mapped_column(String(128))
     unit: Mapped[str | None] = mapped_column(String(20))
     multiplier: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(1))
     mapping_version: Mapped[str] = mapped_column(String(32), default="v1")
@@ -115,25 +115,41 @@ class MqttInboundMessage(TeamScopedMixin, BigIntAuditBase):
     processed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
-class MeterPointReading(TeamScopedMixin, BigIntBase):
-    """Generic meter point reading for all mapped points, including peak/flat/valley values."""
+class MeterReadingFact(TeamScopedMixin, BigIntBase):
+    """Canonical meter reading fact shared by MQTT, API, and infrared ingestion."""
 
-    __tablename__ = "iot_meter_point_reading"
+    __tablename__ = "metering_meter_reading_fact"
     __table_args__ = (
         UniqueConstraint(
-            "source_message_id", "binding_id", "source_tag", name="uq_iot_meter_reading_message_binding_tag"
+            "team_id",
+            "source_system",
+            "source_record_id",
+            "equipment_id",
+            "point_code",
+            "value_kind",
+            name="uq_metering_fact_source_record_point",
         ),
-        Index("ix_iot_meter_reading_equipment_time", "team_id", "equipment_id", "reading_time"),
+        Index("ix_metering_fact_equipment_time", "team_id", "equipment_id", "reading_time"),
+        Index("ix_metering_fact_point_time", "team_id", "point_code", "reading_time"),
     )
 
-    source_message_id: Mapped[int] = mapped_column(
-        ForeignKey("iot_mqtt_inbound_message.id", ondelete="CASCADE"), index=True
+    source_system: Mapped[str] = mapped_column(String(32), index=True)
+    source_record_id: Mapped[str] = mapped_column(String(160), index=True)
+    source_message_id: Mapped[int | None] = mapped_column(
+        ForeignKey("iot_mqtt_inbound_message.id", ondelete="SET NULL"), index=True
     )
-    binding_id: Mapped[int] = mapped_column(ForeignKey("iot_mqtt_device_binding.id", ondelete="CASCADE"), index=True)
+    binding_id: Mapped[int | None] = mapped_column(
+        ForeignKey("iot_mqtt_device_binding.id", ondelete="SET NULL"), index=True
+    )
     equipment_id: Mapped[int] = mapped_column(ForeignKey("dataapp_monitorequipment.id", ondelete="CASCADE"), index=True)
-    source_tag: Mapped[str] = mapped_column(String(64))
-    source_name: Mapped[str] = mapped_column(String(128))
+    source_point_code: Mapped[str] = mapped_column(String(64))
+    source_point_name: Mapped[str | None] = mapped_column(String(128))
     point_code: Mapped[str] = mapped_column(String(64))
+    point_name: Mapped[str] = mapped_column(String(128))
+    energy_direction: Mapped[str] = mapped_column(String(16))
+    energy_kind: Mapped[str] = mapped_column(String(16))
+    tou_period: Mapped[str] = mapped_column(String(16))
+    value_kind: Mapped[str] = mapped_column(String(32), index=True)
     raw_value: Mapped[str | None] = mapped_column(String(64))
     normalized_value: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     unit: Mapped[str | None] = mapped_column(String(20))

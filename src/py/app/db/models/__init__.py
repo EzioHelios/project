@@ -20,7 +20,6 @@ from app.db.models._user import User
 from app.db.models._user_role import UserRole
 from app.domain.carbon.models import (
     AlarmEvent,
-    AmmeterIndexValue,
     ApiResultKeyMapping,
     BoundaryFacility,
     CarbonAccountingBatch,
@@ -64,7 +63,6 @@ from app.domain.carbon.models import (
     EnterpriseInfo,
     EquipmentWorkloadFact,
     InMoney,
-    IotTelemetry,
     MonitorEquipment,
     MonitorSector,
     MonitorSectorPhoto,
@@ -102,7 +100,7 @@ from app.domain.carbon.models import (
     WarningRule,
 )
 from app.domain.iot_ingestion.models import (
-    MeterPointReading,
+    MeterReadingFact,
     MqttDataSource,
     MqttDeviceBinding,
     MqttInboundMessage,
@@ -168,7 +166,6 @@ __all__ = (
     "SupplierReviewDecision",
     "SupplierDisclosureRelease",
     "MonitorEquipment",
-    "AmmeterIndexValue",
     "VideoMonitor",
     "ApiResultKeyMapping",
     "WarningRule",
@@ -193,7 +190,6 @@ __all__ = (
     "CarbonSurrenderRecord",
     "CarbonVerificationAttachment",
     "EmissionFactor",
-    "IotTelemetry",
     "CarbonAuditLog",
     "CarbonFactorImportBatch",
     "CarbonFactorLibrary",
@@ -215,5 +211,5 @@ __all__ = (
     "MqttDeviceBinding",
     "MqttPointMapping",
     "MqttInboundMessage",
-    "MeterPointReading",
+    "MeterReadingFact",
 )

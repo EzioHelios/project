@@ -14,12 +14,17 @@ from app.db import models as m
 from app.domain.iot_ingestion.domain import (
     ParsedPoint,
     PayloadValidationError,
-    parse_carbon_telemetry_v1,
     parse_szscada_scada_v1,
     payload_hash,
     temporary_equipment_code,
     temporary_external_device_id,
     temporary_meter_address,
+)
+from app.domain.metering.reading_facts import (
+    SZSCADA_TAG_TO_POINT,
+    MeterReadingFactInput,
+    MeterReadingFactWriter,
+    point_spec,
 )
 from app.lib.tenancy import TENANT_ID_SESSION_KEY
 
@@ -27,13 +32,6 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
-SZSCADA_DEFAULT_MAPPINGS: dict[str, tuple[str, str | None, str | None]] = {
-    "tag_010_p001": ("forward_active_total", "zygdn", "kWh"),
-    "tag_010_p006": ("forward_reactive_total", "zwgdn", "kvarh"),
-    "tag_010_p011": ("reverse_active_total", "fygdn", "kWh"),
-    "tag_010_p016": ("reverse_reactive_total", "fwgdn", "kvarh"),
-}
-METER_TOTAL_FIELDS = {"zygdn", "fygdn", "zwgdn", "fwgdn"}
 ERR_SUBSCRIPTION_MISMATCH = "MQTT subscription does not match its data source."
 ERR_MESSAGE_MISSING = "MQTT inbound message does not exist."
 ERR_SUBSCRIPTION_MISSING = "MQTT subscription does not exist."
@@ -99,7 +97,7 @@ class MqttIngestionUseCase:
         subscription = await self._session.get(m.MqttSubscription, message.subscription_id)
         if subscription is None:
             raise ValueError(ERR_SUBSCRIPTION_MISSING)
-        if subscription.parser_code not in {"szscada_scada_v1", "carbon_telemetry_v1"}:
+        if subscription.parser_code != "szscada_scada_v1":
             message.status = "rejected"
             message.error_code = "unsupported_parser"
             message.error_detail = f"unsupported parser: {subscription.parser_code}"
@@ -108,10 +106,7 @@ class MqttIngestionUseCase:
 
         message.dispatch_attempts += 1
         try:
-            if subscription.parser_code == "szscada_scada_v1":
-                await self._process_szscada_metering(message, subscription)
-            else:
-                await self._process_carbon_telemetry(message)
+            await self._process_szscada_metering(message, subscription)
             message.status = "processed"
             message.error_code = None
             message.error_detail = None
@@ -143,35 +138,6 @@ class MqttIngestionUseCase:
                 points=points,
                 reading_time=parsed.published_at,
             )
-
-    async def _process_carbon_telemetry(self, message: m.MqttInboundMessage) -> None:
-        parsed = parse_carbon_telemetry_v1(message.topic, message.payload)
-        message.published_at = parsed.published_at
-        existing = await self._session.scalar(
-            select(m.IotTelemetry).where(
-                m.IotTelemetry.source_message_id == message.id,
-                m.IotTelemetry.device_id == parsed.device_id,
-            )
-        )
-        if existing is not None:
-            return
-        self._session.add(
-            m.IotTelemetry(
-                site_id=parsed.site_id,
-                device_id=parsed.device_id,
-                ts=parsed.ts,
-                reading_time=parsed.published_at,
-                active_power=_as_float(parsed.active_power),
-                reactive_power=_as_float(parsed.reactive_power),
-                voltage_a=_as_float(parsed.voltage_a),
-                current_a=_as_float(parsed.current_a),
-                total_energy=_as_float(parsed.total_energy),
-                interval="raw",
-                raw_payload=message.payload,
-                source_message_id=message.id,
-                mapping_version="v1",
-            )
-        )
 
     async def _resolve_binding(
         self,
@@ -244,70 +210,32 @@ class MqttIngestionUseCase:
     ) -> None:
         if binding.equipment_id is None:  # pragma: no cover - guarded by _resolve_binding.
             raise ValueError(ERR_BINDING_EQUIPMENT_MISSING)
-        totals: dict[str, Decimal] = {}
+        writer = MeterReadingFactWriter(self._session)
+        readings: list[MeterReadingFactInput] = []
         for point in points:
             mapping = await self._resolve_mapping(binding, point)
-            exists = await self._session.scalar(
-                select(m.MeterPointReading.id).where(
-                    m.MeterPointReading.source_message_id == message.id,
-                    m.MeterPointReading.binding_id == binding.id,
-                    m.MeterPointReading.source_tag == point.source_tag,
-                )
-            )
             normalized_value = point.numeric_value * mapping.multiplier if point.numeric_value is not None else None
-            if exists is None:
-                self._session.add(
-                    m.MeterPointReading(
-                        source_message_id=message.id,
-                        binding_id=binding.id,
-                        equipment_id=binding.equipment_id,
-                        source_tag=point.source_tag,
-                        source_name=point.source_name,
-                        point_code=mapping.point_code,
-                        raw_value=point.raw_value,
-                        normalized_value=normalized_value,
-                        unit=mapping.unit,
-                        quality_status="valid" if point.is_valid else "invalid",
-                        source_type=point.source_type,
-                        reading_time=reading_time,
-                        mapping_version=mapping.mapping_version,
-                    )
+            readings.append(
+                MeterReadingFactInput(
+                    source_system="mqtt_szscada",
+                    source_record_id=f"mqtt:{message.id}:{binding.id}:{point.source_tag}",
+                    source_message_id=message.id,
+                    binding_id=binding.id,
+                    equipment_id=binding.equipment_id,
+                    source_point_code=point.source_tag,
+                    source_point_name=point.source_name,
+                    point_code=mapping.point_code,
+                    point_name=mapping.point_name,
+                    raw_value=point.raw_value,
+                    normalized_value=normalized_value,
+                    unit=mapping.unit,
+                    quality_status="valid" if point.is_valid else "invalid",
+                    source_type=point.source_type,
+                    reading_time=reading_time,
+                    mapping_version=mapping.mapping_version,
                 )
-            if point.is_valid and normalized_value is not None and mapping.target_field in METER_TOTAL_FIELDS:
-                totals[mapping.target_field] = normalized_value
-
-        if not totals:
-            return
-        existing_projection = await self._session.scalar(
-            select(m.AmmeterIndexValue).where(
-                m.AmmeterIndexValue.source_message_id == message.id,
-                m.AmmeterIndexValue.equipment_id == binding.equipment_id,
             )
-        )
-        if existing_projection is not None:
-            return
-        scale = int(binding.multiplier) if binding.multiplier == binding.multiplier.to_integral_value() else 1
-        self._session.add(
-            m.AmmeterIndexValue(
-                equipment_id=binding.equipment_id,
-                zygdn=_as_float(totals.get("zygdn")),
-                fygdn=_as_float(totals.get("fygdn")),
-                zwgdn=_as_float(totals.get("zwgdn")),
-                fwgdn=_as_float(totals.get("fwgdn")),
-                zygdnsz=_as_float(totals.get("zygdn")),
-                fygdnsz=_as_float(totals.get("fygdn")),
-                zwgdnsz=_as_float(totals.get("zwgdn")),
-                fwgdnsz=_as_float(totals.get("fwgdn")),
-                reading_time=reading_time,
-                ammeter_id=temporary_equipment_code(binding.gateway_key, int(binding.meter_key[1:])),
-                ammeter_name=f"SZSCADA 临时电表 {binding.meter_key[1:]}",
-                address=binding.temporary_address,
-                radio=scale,
-                data_source=2,
-                source_message_id=message.id,
-                mapping_version="v1",
-            )
-        )
+        await writer.write_many(readings)
 
     async def _resolve_mapping(self, binding: m.MqttDeviceBinding, point: ParsedPoint) -> m.MqttPointMapping:
         mapping = await self._session.scalar(
@@ -321,14 +249,18 @@ class MqttIngestionUseCase:
         )
         if mapping is not None:
             return mapping
-        point_code, target_field, unit = SZSCADA_DEFAULT_MAPPINGS.get(point.source_tag, (point.source_tag, None, None))
+        point_code = SZSCADA_TAG_TO_POINT.get(point.source_tag)
+        if point_code is None:
+            msg = f"未配置 SZSCADA 点位映射: {point.source_tag}"
+            raise PayloadValidationError(msg)
+        spec = point_spec(point_code)
         mapping = m.MqttPointMapping(
             binding_id=binding.id,
             source_tag=point.source_tag,
             source_name_suffix=point.source_label,
             point_code=point_code,
-            target_field=target_field,
-            unit=unit,
+            point_name=spec.point_name,
+            unit=spec.unit,
             multiplier=Decimal(1),
             mapping_version="v1",
             enabled=True,
@@ -342,7 +274,3 @@ class MqttIngestionUseCase:
         if team_id is None:
             raise PermissionDeniedException(detail="MQTT 接入写入需要明确的数据源企业租户。")
         return team_id
-
-
-def _as_float(value: Decimal | None) -> float | None:
-    return float(value) if value is not None else None

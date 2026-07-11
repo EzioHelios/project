@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import models as m
 from app.domain.carbon.collectors.base import IDataCollector
+from app.domain.metering.reading_facts import LEGACY_FIELD_TO_POINT, MeterReadingFactInput, MeterReadingFactWriter
 from app.lib.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -68,16 +69,21 @@ class YunjiAdapter(IDataCollector):
         meta = raw.get("_meta", {})
         records = []
         for obj in raw.get("Data", []):
+            readings = []
+            for source_field, (point_code, value_kind) in LEGACY_FIELD_TO_POINT.items():
+                readings.append(
+                    {
+                        "source_point_code": source_field,
+                        "source_point_name": source_field,
+                        "point_code": point_code,
+                        "value_kind": value_kind,
+                        "raw_value": obj.get(source_field),
+                        "normalized_value": obj.get(source_field),
+                    }
+                )
             records.append({
                 "equipment_id": obj["Address"],
-                "zygdn": obj["ZYGDN"],
-                "fygdn": obj["FYGDN"],
-                "zwgdn": obj["ZWGDN"],
-                "fwgdn": obj["FWGDN"],
-                "zygdnsz": obj["ZYGDNSZ"],
-                "fygdnsz": obj["FYGDNSZ"],
-                "zwgdnsz": obj["ZWGDNSZ"],
-                "fwgdnsz": obj["FWGDNSZ"],
+                "readings": readings,
                 "reading_time": _parse_datetime(obj.get("ReadingDate")),
                 "ammeter_id": obj["AmmeterID"],
                 "ammeter_name": obj["AmmeterName"],
@@ -123,27 +129,38 @@ class YunjiAdapter(IDataCollector):
 
             if not rows:
                 return 0
-
-            equipment_ids = {row["equipment_id"] for row in rows}
-            reading_times = {row["reading_time"] for row in rows}
-            existing = (
-                await db_session.scalars(
-                    select(m.AmmeterIndexValue).where(
-                        m.AmmeterIndexValue.data_source == 0,
-                        m.AmmeterIndexValue.equipment_id.in_(equipment_ids),
-                        m.AmmeterIndexValue.reading_time.in_(reading_times),
+            writer = MeterReadingFactWriter(db_session)
+            facts: list[MeterReadingFactInput] = []
+            for row in rows:
+                reading_time = row.get("reading_time")
+                if reading_time is None:
+                    continue
+                for reading in row.get("readings", []):
+                    if reading.get("normalized_value") is None:
+                        continue
+                    source_record_id = (
+                        f"yunji:{row.get('address')}:{reading_time.isoformat()}:"
+                        f"{reading['point_code']}:{reading['value_kind']}"
                     )
-                )
-            ).all()
-            existing_keys = {(row.equipment_id, row.reading_time) for row in existing}
-            rows = [row for row in rows if (row["equipment_id"], row["reading_time"]) not in existing_keys]
-            if not rows:
-                return 0
-
-            await db_session.execute(m.AmmeterIndexValue.__table__.insert(), rows)
+                    facts.append(
+                        MeterReadingFactInput(
+                            source_system="yunji",
+                            source_record_id=source_record_id,
+                            equipment_id=row["equipment_id"],
+                            source_point_code=reading["source_point_code"],
+                            source_point_name=reading["source_point_name"],
+                            point_code=reading["point_code"],
+                            raw_value=reading["raw_value"],
+                            normalized_value=reading["normalized_value"],
+                            value_kind=reading["value_kind"],
+                            reading_time=reading_time,
+                            mapping_version="yunji_v1",
+                        )
+                    )
+            inserted = await writer.write_many(facts)
             await db_session.commit()
-            logger.info("云集：成功写入 %s 条数据", len(rows))
-            return len(rows)
+            logger.info("云集：成功写入 %s 条规范读数", inserted)
+            return inserted
         except Exception as e:
             logger.error(f"云集：保存数据失败: {e}")
             await db_session.rollback()

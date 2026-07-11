@@ -28,18 +28,27 @@ CARBON_ORM_ENDPOINTS: list[str] = [
     "/api/carbon/pending",
     # 排放因子库
     "/api/carbon/emission-factors",
-    # IoT 与审核日志
-    "/api/carbon/iot-telemetry",
+    # 审核日志
     "/api/carbon/audit-logs",
 ]
 
-# Endpoints that query raw SQL database views (require legacy views in DB)
-CARBON_VIEW_ENDPOINTS: list[str] = [
+# Canonical metering read APIs replacing the legacy dashboard view endpoints.
+METERING_READ_ENDPOINTS: list[str] = [
+    "/api/metering/readings/latest",
+    "/api/metering/energy/summary",
+    "/api/metering/energy/trend",
+    "/api/metering/energy/ranking",
+    "/api/metering/quality/summary",
+]
+
+LEGACY_DASHBOARD_ENDPOINTS: list[str] = [
     "/api/page1/ydfdzl/day",
     "/api/page1/yjzl/day",
     "/api/page2/spgl",
     "/api/page3/cnsy",
     "/api/page4/tpfltj",
+    "/api/map/monitorSector/list",
+    "/api/data/ammeter-values",
 ]
 
 
@@ -66,17 +75,17 @@ async def test_carbon_orm_endpoints_return_json(client: AsyncClient) -> None:
             _ = response.json()
 
 
-async def test_carbon_view_endpoints_return_json(client: AsyncClient) -> None:
-    """连通性测试: 大屏视图端点应优雅处理视图不存在的情况。
-
-    这些端点查询数据库视图(如 yj_day_sum_view), 在测试数据库中不存在。
-    当前预期行为是返回 500(因 controller 缺少错误处理), 标记为 xfail。
-    """
-    for path in CARBON_VIEW_ENDPOINTS:
+async def test_metering_read_endpoints_return_json(client: AsyncClient) -> None:
+    """连通性测试: 规范电表读接口不应依赖遗留大屏视图。"""
+    for path in METERING_READ_ENDPOINTS:
         response = await client.get(path)
-        # 这些端点查询不存在的视图会 500, 这是已知的 controller 层缺陷
-        # 当 controller 加上错误处理后, 应改为 assert < 500
         assert response.status_code < 500, f"{path} 返回 {response.status_code}"
+
+
+async def test_legacy_dashboard_endpoints_are_not_registered(client: AsyncClient) -> None:
+    for path in LEGACY_DASHBOARD_ENDPOINTS:
+        response = await client.get(path)
+        assert response.status_code == 404, f"{path} should not remain registered"
 
 
 async def test_device_types_endpoint_seeds_defaults(client: AsyncClient) -> None:
@@ -155,36 +164,6 @@ async def test_monitor_equipment_create_preserves_asset_code(
     data = response.json()["data"]
     assert data["asset_code"] == "厂(场)内苏M00001"
     assert data["external_device_id"] == "FORK-001"
-
-
-async def test_iot_telemetry_resolves_monitor_equipment_by_external_device_id(client: AsyncClient, session: AsyncSession) -> None:
-    equipment = m.MonitorEquipment(
-        code="METER-010",
-        name="十号总表",
-        external_device_id="mqtt-meter-010",
-        asset_code="ASSET-010",
-    )
-    telemetry = m.IotTelemetry(
-        site_id="site-a",
-        device_id="mqtt-meter-010",
-        ts=1710000000,
-        reading_time=datetime.datetime.now(datetime.UTC).replace(tzinfo=None),
-        active_power=12.5,
-        total_energy=345.6,
-        interval="raw",
-    )
-    session.add(equipment)
-    session.add(telemetry)
-    await session.commit()
-
-    response = await client.get("/api/carbon/iot-telemetry", params={"device_id": "mqtt-meter-010"})
-
-    assert response.status_code == 200
-    row = response.json()["data"][0]
-    assert row["equipment_code"] == "METER-010"
-    assert row["equipment_name"] == "十号总表"
-    assert row["external_device_id"] == "mqtt-meter-010"
-
 
 async def test_device_point_duplicate_code_is_rejected(
     client: AsyncClient,

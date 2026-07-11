@@ -30,7 +30,7 @@ function CompanyPage() {
   const { data, isLoading, isError } = useQuery<ApiResponse<EnterpriseInfo>>({
     queryKey: ["data", "company", "enterprise-info"],
     queryFn: async () => {
-      const res = await fetch("/api/page1/ckxxgk")
+      const res = await fetch("/api/master-data/enterprise-profile")
       return res.json()
     },
   })

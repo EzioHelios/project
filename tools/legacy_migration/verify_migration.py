@@ -26,7 +26,6 @@ async def verify():
         "dataapp_videomonitor": "dataapp_videomonitor",
         "dataapp_auditlog": "dataapp_carbonauditlog",
         "dataapp_emissionfactor": "dataapp_emissionfactor",
-        "dataapp_iottelemetry": "dataapp_iottelemetry",
         "dataapp_scope1mobilecombustion": "dataapp_scope1mobilecombustion",
         "dataapp_scope1stationarycombustion": "dataapp_scope1stationarycombustion",
         "dataapp_scope1refrigerantleak": "dataapp_scope1refrigerantleak",

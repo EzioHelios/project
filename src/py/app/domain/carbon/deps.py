@@ -20,7 +20,6 @@ provide_equipment_workload_fact_service = create_service_provider(services.Equip
 provide_monitor_equipment_service = create_service_provider(services.MonitorEquipmentService)
 provide_device_service = create_service_provider(services.DeviceService)
 provide_device_point_service = create_service_provider(services.DevicePointService)
-provide_ammeter_index_value_service = create_service_provider(services.AmmeterIndexValueService)
 provide_alarm_event_service = create_service_provider(services.AlarmEventService)
 provide_video_monitor_service = create_service_provider(services.VideoMonitorService)
 provide_warning_rule_service = create_service_provider(services.WarningRuleService)
@@ -41,7 +40,6 @@ provide_carbon_factor_import_batch_service = create_service_provider(services.Ca
 provide_carbon_factor_library_service = create_service_provider(services.CarbonFactorLibraryService)
 provide_carbon_factor_category_service = create_service_provider(services.CarbonFactorCategoryService)
 provide_carbon_factor_raw_record_service = create_service_provider(services.CarbonFactorRawRecordService)
-provide_iot_telemetry_service = create_service_provider(services.IotTelemetryService)
 provide_carbon_audit_log_service = create_service_provider(services.CarbonAuditLogService)
 provide_employee_commute_service = create_service_provider(services.EmployeeCommuteService)
 provide_in_money_service = create_service_provider(services.InMoneyService)
@@ -53,7 +51,6 @@ provide_production_resource_binding_service = create_service_provider(services.P
 
 __all__ = (
     "provide_alarm_event_service",
-    "provide_ammeter_index_value_service",
     "provide_api_result_key_mapping_service",
     "provide_area_service",
     "provide_carbon_audit_log_service",
@@ -77,7 +74,6 @@ __all__ = (
     "provide_enterprise_info_service",
     "provide_equipment_workload_fact_service",
     "provide_in_money_service",
-    "provide_iot_telemetry_service",
     "provide_monitor_equipment_service",
     "provide_monitor_sector_photo_service",
     "provide_monitor_sector_service",

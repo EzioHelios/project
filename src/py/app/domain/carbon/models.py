@@ -1188,40 +1188,6 @@ class DevicePoint(TeamScopedMixin, BigIntBase):
     )
 
 
-class AmmeterIndexValue(TeamScopedMixin, BigIntBase):
-    """电表终端数值管理（对应 Django dataapp.AmmeterIndexValue）。"""
-
-    __tablename__ = "dataapp_ammeterindexvalue"
-
-    equipment_id: Mapped[int | None] = mapped_column(
-        ForeignKey("dataapp_monitorequipment.id", ondelete="SET NULL"),
-        index=True,
-    )
-    zygdn: Mapped[float | None] = mapped_column(Float)
-    fygdn: Mapped[float | None] = mapped_column(Float)
-    zwgdn: Mapped[float | None] = mapped_column(Float)
-    fwgdn: Mapped[float | None] = mapped_column(Float)
-    zygdnsz: Mapped[float | None] = mapped_column(Float)
-    fygdnsz: Mapped[float | None] = mapped_column(Float)
-    zwgdnsz: Mapped[float | None] = mapped_column(Float)
-    fwgdnsz: Mapped[float | None] = mapped_column(Float)
-    reading_time: Mapped[datetime | None] = mapped_column(DateTime, index=True)
-    ammeter_id: Mapped[str | None] = mapped_column(String(20), index=True)
-    ammeter_name: Mapped[str | None] = mapped_column(String(30))
-    address: Mapped[str | None] = mapped_column(String(50))
-    area_id: Mapped[str | None] = mapped_column(String(20), index=True)
-    area_name: Mapped[str | None] = mapped_column(String(50))
-    radio: Mapped[int | None] = mapped_column(Integer, default=1)
-    start_time: Mapped[datetime | None] = mapped_column(DateTime)
-    end_time: Mapped[datetime | None] = mapped_column(DateTime)
-    data_source: Mapped[int | None] = mapped_column(Integer, doc="0=云集,1=红外,2=MQTT")
-    source_message_id: Mapped[int | None] = mapped_column(
-        ForeignKey("iot_mqtt_inbound_message.id", ondelete="SET NULL"), index=True
-    )
-    mapping_version: Mapped[str | None] = mapped_column(String(32))
-    add_time: Mapped[datetime | None] = mapped_column(DateTime, default=datetime.utcnow)
-
-
 class VideoMonitor(TeamScopedMixin, BigIntBase):
     """视频监控（对应 Django dataapp.VideoMonitor）。"""
 
@@ -2294,34 +2260,6 @@ class BoundaryFacility(TeamScopedMixin, BigIntAuditBase):
     remark: Mapped[str | None] = mapped_column(Text)
 
     boundary: Mapped[OrganizationBoundary] = relationship(back_populates="facilities", lazy="selectin")
-
-
-class IotTelemetry(TeamScopedMixin, BigIntBase):
-    """IoT 设备上报时序数据（对应 Django dataapp.IotTelemetry）。"""
-
-    __tablename__ = "dataapp_iottelemetry"
-    __table_args__ = (
-        UniqueConstraint(
-            "team_id", "source_message_id", "device_id", name="uq_dataapp_iottelemetry_source_device"
-        ),
-    )
-
-    site_id: Mapped[str] = mapped_column(String(64), index=True)
-    device_id: Mapped[str] = mapped_column(String(64), index=True)
-    ts: Mapped[int] = mapped_column(Integer)
-    reading_time: Mapped[datetime] = mapped_column(DateTime, index=True)
-    active_power: Mapped[float | None] = mapped_column(Float)
-    reactive_power: Mapped[float | None] = mapped_column(Float)
-    voltage_a: Mapped[float | None] = mapped_column(Float)
-    current_a: Mapped[float | None] = mapped_column(Float)
-    total_energy: Mapped[float | None] = mapped_column(Float)
-    interval: Mapped[str] = mapped_column(String(8), default="raw")
-    raw_payload: Mapped[dict | None] = mapped_column(comment="原始 JSON 报文")
-    source_message_id: Mapped[int | None] = mapped_column(
-        ForeignKey("iot_mqtt_inbound_message.id", ondelete="SET NULL"), index=True
-    )
-    mapping_version: Mapped[str | None] = mapped_column(String(32))
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class CarbonAuditLog(TeamScopedMixin, BigIntBase):

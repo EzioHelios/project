@@ -47,14 +47,35 @@ async def test_szscada_message_is_durable_idempotent_and_projects_valid_totals(s
     assert processed.status == "processed"
 
     assert await session.scalar(select(func.count()).select_from(m.MqttDeviceBinding)) == 3
-    assert await session.scalar(select(func.count()).select_from(m.MeterPointReading)) == 28
-    assert await session.scalar(select(func.count()).select_from(m.AmmeterIndexValue)) == 2
+    assert await session.scalar(select(func.count()).select_from(m.MeterReadingFact)) == 28
 
     invalid_rows = (
-        await session.scalars(select(m.MeterPointReading).where(m.MeterPointReading.quality_status == "invalid"))
+        await session.scalars(select(m.MeterReadingFact).where(m.MeterReadingFact.quality_status == "invalid"))
     ).all()
     assert len(invalid_rows) == 4
     assert all(row.normalized_value == 0 for row in invalid_rows)
+    assert {row.point_code for row in invalid_rows} <= {
+        "forward_active_total",
+        "forward_active_sharp",
+        "forward_active_peak",
+        "forward_active_flat",
+        "forward_active_valley",
+        "forward_reactive_total",
+        "forward_reactive_sharp",
+        "forward_reactive_peak",
+        "forward_reactive_flat",
+        "forward_reactive_valley",
+        "reverse_active_total",
+        "reverse_active_sharp",
+        "reverse_active_peak",
+        "reverse_active_flat",
+        "reverse_active_valley",
+        "reverse_reactive_total",
+        "reverse_reactive_sharp",
+        "reverse_reactive_peak",
+        "reverse_reactive_flat",
+        "reverse_reactive_valley",
+    }
 
     bindings = (await session.scalars(select(m.MqttDeviceBinding).order_by(m.MqttDeviceBinding.meter_key))).all()
     assert [binding.temporary_address for binding in bindings] == [
@@ -72,65 +93,4 @@ async def test_szscada_message_is_durable_idempotent_and_projects_valid_totals(s
     assert created_again is False
     assert duplicate.id == message.id
     assert await session.scalar(select(func.count()).select_from(m.MqttInboundMessage)) == 1
-    assert await session.scalar(select(func.count()).select_from(m.AmmeterIndexValue)) == 2
-
-
-async def test_existing_carbon_telemetry_is_ingested_by_the_same_mqtt_pipeline(session) -> None:
-    team = m.Team(name="Legacy MQTT Tenant", slug="legacy-mqtt-tenant")
-    session.add(team)
-    await session.flush()
-    session.info[TENANT_ID_SESSION_KEY] = team.id
-
-    source = m.MqttDataSource(
-        code="legacy-carbon-mqtt",
-        name="Legacy carbon telemetry",
-        broker_host="broker.example",
-        client_id="legacy-carbon-ingest",
-    )
-    session.add(source)
-    await session.flush()
-    subscription = m.MqttSubscription(
-        source_id=source.id,
-        topic_filter="carbon/site/+/device/+/telemetry",
-        parser_code="carbon_telemetry_v1",
-    )
-    session.add(subscription)
-    await session.commit()
-
-    payload = {
-        "ts": 1_720_000_000_123,
-        "values": {
-            "active_power": 12.5,
-            "reactive_power": 3.2,
-            "voltage_a": 220.1,
-            "current_a": 11.3,
-            "total_energy": 456.7,
-        },
-    }
-    use_case = MqttIngestionUseCase(session)
-    message, created = await use_case.receive_message(
-        source_id=source.id,
-        subscription_id=subscription.id,
-        topic="carbon/site/site-a/device/meter-001/telemetry",
-        payload=payload,
-    )
-    assert created is True
-
-    processed = await use_case.process_message(message.id)
-    assert processed.status == "processed"
-    telemetry = await session.scalar(select(m.IotTelemetry))
-    assert telemetry is not None
-    assert telemetry.site_id == "site-a"
-    assert telemetry.device_id == "meter-001"
-    assert telemetry.total_energy == 456.7
-    assert telemetry.source_message_id == message.id
-
-    duplicate, created_again = await use_case.receive_message(
-        source_id=source.id,
-        subscription_id=subscription.id,
-        topic="carbon/site/site-a/device/meter-001/telemetry",
-        payload=payload,
-    )
-    assert created_again is False
-    assert duplicate.id == message.id
-    assert await session.scalar(select(func.count()).select_from(m.IotTelemetry)) == 1
+    assert await session.scalar(select(func.count()).select_from(m.MeterReadingFact)) == 28

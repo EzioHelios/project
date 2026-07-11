@@ -63,6 +63,11 @@ class MasterDataController(Controller):
         "security_audit_service": provide_audit_log_service,
     }
 
+    @get("/api/master-data/enterprise-profile")
+    async def get_enterprise_profile(self, db_session: AsyncSession) -> Response[dict]:
+        row = await db_session.scalar(select(m.EnterpriseInfo).order_by(m.EnterpriseInfo.id.desc()).limit(1))
+        return Response(content={"code": 200, "msg": "获取成功", "data": model_to_dict(row) if row else {}})
+
     async def _log_admin_data_event(
         self,
         security_audit_service: AuditLogService,

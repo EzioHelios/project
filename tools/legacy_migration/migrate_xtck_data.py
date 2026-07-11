@@ -85,7 +85,6 @@ async def migrate_core() -> None:
         ammeter_table = metadata.tables.get("dataapp_ammeterindexvalue")
         video_table = metadata.tables.get("dataapp_videomonitor")
         emission_factor_table = metadata.tables.get("dataapp_emissionfactor")
-        iot_table = metadata.tables.get("dataapp_iottelemetry")
 
         if enterprise_table is not None:
             await _copy_table(old_sess, new_sess, enterprise_table, m.EnterpriseInfo)
@@ -101,9 +100,6 @@ async def migrate_core() -> None:
             await _copy_table(old_sess, new_sess, video_table, m.VideoMonitor)
         if emission_factor_table is not None:
             await _copy_table(old_sess, new_sess, emission_factor_table, m.EmissionFactor)
-        if iot_table is not None:
-            await _copy_table(old_sess, new_sess, iot_table, m.IotTelemetry)
-
         await new_sess.commit()
 
     await old_engine.dispose()

@@ -1,19 +1,25 @@
-"""
-红外采集 (HW) HTTP API 适配器 (Litestar版)
+"""红外采集 (HW) HTTP API 适配器 (Litestar版)
 """
 from __future__ import annotations
+
 import logging
-from typing import Any, TYPE_CHECKING
+from datetime import datetime
 from operator import itemgetter
+from typing import Any
 
 import httpx
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import models as m
 from app.domain.carbon.collectors.base import IDataCollector
+from app.domain.metering.reading_facts import (
+    VALUE_KIND_LEGACY_QUANTITY,
+    VALUE_KIND_REGISTER_INDEX,
+    MeterReadingFactInput,
+    MeterReadingFactWriter,
+)
 from app.lib.settings import get_settings
-
-from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -22,7 +28,12 @@ settings = get_settings()
 class HwAdapter(IDataCollector):
     """红外采集 HTTP 轮询适配器"""
 
-    FIELD_MAPPING = {"3": "zygdn", "4": "fygdn", "5": "zwgdn", "6": "fwgdn"}
+    FIELD_MAPPING = {
+        "3": "forward_active_total",
+        "4": "reverse_active_total",
+        "5": "forward_reactive_total",
+        "6": "reverse_reactive_total",
+    }
 
     def __init__(self):
         self.client = httpx.AsyncClient(
@@ -44,7 +55,7 @@ class HwAdapter(IDataCollector):
             "start_time": start_time,
             "end_time": end_time,
         }
-        
+
         try:
             r = await self.client.get("/Api/DataRequest", params=params)
             r.raise_for_status()
@@ -65,8 +76,7 @@ class HwAdapter(IDataCollector):
         for index, obj in enumerate(data_list):
             if index % 4 == 0:
                 row = {
-                    "zygdn": 0.0, "fygdn": 0.0, "zwgdn": 0.0, "fwgdn": 0.0,
-                    "zygdnsz": 0.0, "fygdnsz": 0.0, "zwgdnsz": 0.0, "fwgdnsz": 0.0,
+                    "readings": [],
                     "ammeter_id": obj["cid"],
                     "ammeter_name": obj["cid"],
                     "address": obj["address"],
@@ -79,23 +89,86 @@ class HwAdapter(IDataCollector):
                 rows.append(row)
             else:
                 row = rows[-1]
-            
+
             fid = str(obj["fid"])
             if fid in self.FIELD_MAPPING:
-                key = self.FIELD_MAPPING[fid]
+                point_code = self.FIELD_MAPPING[fid]
                 val = obj["data"][0] if obj["data"] else 0.0
-                row[key] = val
-                row[f"{key}sz"] = round(float(val) * float(obj["radio"]), 3)
+                scaled = round(float(val) * float(obj["radio"]), 3)
+                row["readings"].extend(
+                    [
+                        {
+                            "source_point_code": f"fid_{fid}",
+                            "source_point_name": f"红外功能号 {fid}",
+                            "point_code": point_code,
+                            "value_kind": VALUE_KIND_LEGACY_QUANTITY,
+                            "raw_value": val,
+                            "normalized_value": val,
+                        },
+                        {
+                            "source_point_code": f"fid_{fid}_scaled",
+                            "source_point_name": f"红外功能号 {fid} 倍率换算值",
+                            "point_code": point_code,
+                            "value_kind": VALUE_KIND_REGISTER_INDEX,
+                            "raw_value": val,
+                            "normalized_value": scaled,
+                        },
+                    ]
+                )
         return rows
 
     async def save(self, db_session: AsyncSession, normalized_list: list[dict]) -> int:
         if not normalized_list:
             return 0
         try:
-            await db_session.execute(m.AmmeterIndexValue.__table__.insert(), normalized_list)
+            addresses = {row["equipment_id"] for row in normalized_list if row.get("equipment_id")}
+            equipment_rows = (
+                await db_session.scalars(
+                    select(m.MonitorEquipment).where(
+                        (m.MonitorEquipment.external_device_id.in_(addresses))
+                        | (m.MonitorEquipment.code.in_(addresses))
+                    )
+                )
+            ).all()
+            equipment_by_address = {
+                address: equipment
+                for equipment in equipment_rows
+                for address in (equipment.external_device_id, equipment.code)
+                if address
+            }
+            facts: list[MeterReadingFactInput] = []
+            for row in normalized_list:
+                address = row.get("equipment_id")
+                equipment = equipment_by_address.get(address)
+                if equipment is None:
+                    logger.warning("红外：未找到平台设备，跳过电表 address=%s", address)
+                    continue
+                reading_time = _parse_datetime(row.get("end_time") or row.get("start_time"))
+                if reading_time is None:
+                    continue
+                for reading in row.get("readings", []):
+                    source_record_id = (
+                        f"hw:{address}:{reading_time.isoformat()}:{reading['point_code']}:{reading['value_kind']}"
+                    )
+                    facts.append(
+                        MeterReadingFactInput(
+                            source_system="infrared_hw",
+                            source_record_id=source_record_id,
+                            equipment_id=equipment.id,
+                            source_point_code=reading["source_point_code"],
+                            source_point_name=reading["source_point_name"],
+                            point_code=reading["point_code"],
+                            raw_value=reading["raw_value"],
+                            normalized_value=reading["normalized_value"],
+                            value_kind=reading["value_kind"],
+                            reading_time=reading_time,
+                            mapping_version="hw_v1",
+                        )
+                    )
+            inserted = await MeterReadingFactWriter(db_session).write_many(facts)
             await db_session.commit()
-            logger.info(f"红外：成功写入 {len(normalized_list)} 条数据")
-            return len(normalized_list)
+            logger.info("红外：成功写入 %s 条规范读数", inserted)
+            return inserted
         except Exception as e:
             logger.error(f"红外：保存数据失败: {e}")
             await db_session.rollback()
@@ -120,3 +193,17 @@ class HwAdapter(IDataCollector):
                 await db_session.commit()
         except Exception as e:
             logger.error(f"红外：同步设备状态异常: {e}")
+
+
+def _parse_datetime(value: object) -> datetime | None:
+    if value is None or isinstance(value, datetime):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    for pattern in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            return datetime.strptime(text, pattern)
+        except ValueError:
+            continue
+    raise ValueError(f"红外时间格式无法识别: {value}")

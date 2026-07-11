@@ -19,8 +19,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 MQTT_BODY = Body()
-SUPPORTED_PARSER_CODES = {"szscada_scada_v1", "carbon_telemetry_v1"}
-METER_TARGET_FIELDS = {"zygdn", "fygdn", "zwgdn", "fwgdn"}
+SUPPORTED_PARSER_CODES = {"szscada_scada_v1"}
 SOURCE_FIELDS = {
     "code",
     "name",
@@ -58,7 +57,7 @@ MAPPING_FIELDS = {
     "source_tag",
     "source_name_suffix",
     "point_code",
-    "target_field",
+    "point_name",
     "unit",
     "multiplier",
     "mapping_version",
@@ -320,10 +319,6 @@ def _mapping_payload(data: dict[str, Any], *, creating: bool) -> dict[str, Any]:
         _require(payload, "binding_id", "source_tag", "point_code")
     if "binding_id" in payload:
         payload["binding_id"] = _positive_int(payload["binding_id"], "binding_id")
-    if "target_field" in payload and payload["target_field"] not in METER_TARGET_FIELDS | {None, ""}:
-        raise ValueError("target_field must be one of zygdn, fygdn, zwgdn, fwgdn, or null")
-    if payload.get("target_field") == "":
-        payload["target_field"] = None
     if "multiplier" in payload:
         payload["multiplier"] = _decimal(payload["multiplier"], "multiplier")
     return payload

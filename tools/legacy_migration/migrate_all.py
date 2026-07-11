@@ -111,7 +111,6 @@ async def migrate_all() -> None:
             ("dataapp_energystoragevalue", m.EnergyStorageValue),
             ("dataapp_auditlog", m.CarbonAuditLog),
             ("dataapp_emissionfactor", m.EmissionFactor),
-            ("dataapp_iottelemetry", m.IotTelemetry),
             ("dataapp_scope1mobilecombustion", m.Scope1MobileCombustion),
             ("dataapp_scope1stationarycombustion", m.Scope1StationaryCombustion),
             ("dataapp_scope1refrigerantleak", m.Scope1RefrigerantLeak),

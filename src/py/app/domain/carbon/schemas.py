@@ -59,12 +59,6 @@ class OutMoneyDTO(SQLAlchemyDTO[m.OutMoney]):
     config = config(backend="sqlalchemy")
 
 
-class AmmeterIndexValueDTO(SQLAlchemyDTO[m.AmmeterIndexValue]):
-    """电表终端数值 DTO."""
-
-    config = config(backend="sqlalchemy")
-
-
 class VideoMonitorDTO(SQLAlchemyDTO[m.VideoMonitor]):
     """视频监控 DTO."""
 
@@ -139,12 +133,6 @@ class Scope3ThirdPartyTransportDTO(SQLAlchemyDTO[m.Scope3ThirdPartyTransport]):
 
 class EmissionFactorDTO(SQLAlchemyDTO[m.EmissionFactor]):
     """排放因子 DTO."""
-
-    config = config(backend="sqlalchemy")
-
-
-class IotTelemetryDTO(SQLAlchemyDTO[m.IotTelemetry]):
-    """IoT 遥测数据 DTO."""
 
     config = config(backend="sqlalchemy")
 

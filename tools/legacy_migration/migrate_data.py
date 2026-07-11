@@ -38,7 +38,6 @@ TABLES_MAP = {
     "dataapp_scope3wastedisposal": "dataapp_scope3wastedisposal",
     "dataapp_scope3thirdpartytransport": "dataapp_scope3thirdpartytransport",
     "dataapp_emissionfactor": "dataapp_emissionfactor",
-    "dataapp_iottelemetry": "dataapp_iottelemetry",
     "dataapp_carbonauditlog": "dataapp_carbonauditlog",
     "dataapp_employeecommute": "dataapp_employeecommute",
     "dataapp_inmoney": "dataapp_inmoney",

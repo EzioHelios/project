@@ -7,7 +7,6 @@ import pytest
 
 from app.domain.iot_ingestion.domain import (
     PayloadValidationError,
-    parse_carbon_telemetry_v1,
     parse_szscada_scada_v1,
     temporary_equipment_code,
     temporary_external_device_id,
@@ -48,30 +47,3 @@ def test_szscada_rejects_points_without_temporary_meter_selector() -> None:
 
     with pytest.raises(PayloadValidationError, match="temporary meter identity"):
         parse_szscada_scada_v1(payload)
-
-
-def test_existing_carbon_telemetry_contract_parses_to_a_single_device_reading() -> None:
-    parsed = parse_carbon_telemetry_v1(
-        "carbon/site/site-a/device/meter-001/telemetry",
-        {
-            "ts": 1_720_000_000_123,
-            "values": {
-                "active_power": 12.5,
-                "reactive_power": 3.2,
-                "voltage_a": 220.1,
-                "current_a": 11.3,
-                "total_energy": 456.7,
-            },
-        },
-    )
-
-    assert parsed.site_id == "site-a"
-    assert parsed.device_id == "meter-001"
-    assert parsed.ts == 1_720_000_000
-    assert parsed.published_at.isoformat() == "2024-07-03T09:46:40.123000"
-    assert str(parsed.total_energy) == "456.7"
-
-
-def test_existing_carbon_telemetry_rejects_an_unrelated_topic() -> None:
-    with pytest.raises(PayloadValidationError, match="topic must match"):
-        parse_carbon_telemetry_v1("szscada/xc", {"ts": 1_720_000_000, "values": {}})
