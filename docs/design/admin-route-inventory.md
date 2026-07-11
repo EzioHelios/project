@@ -22,7 +22,6 @@ Bigscreen routes are listed separately and must not inherit the normal backend a
 | `/carbon-mgmt/scope*` | Scope 1/2/3 records, bills, reconciliation, transport, waste | Ledger | Convert to ledger template with context bar, table toolbar, status badge, detail drawer, import path. |
 | `/carbon-mgmt/pending`, `/carbon-mgmt/audit`, `/carbon-mgmt/verification` | Review and verification flows | Audit | Use review queue, evidence summary, decision actions, audit trail. |
 | `/carbon-mgmt/factors`, `/carbon-mgmt/calculation-factors` | Factor libraries and calculation factors | Reference Data | Show source, standard, effective date, confidence, version, and applicability as auditable columns. |
-| `/carbon-mgmt/iot` | IoT records | Ledger | Use dense telemetry ledger with device context and quality state. |
 | `/energy/analysis` | `/energy/analysis` | Analysis | Pilot page. Use context bar, metric strip, tabbed chart panels, anomaly table, strategy evidence. |
 | `/energy/*` | consumption, flow, balance, benchmark, budget, intensity | Ledger / Analysis | Consumption is ledger; flow/balance/benchmark/budget/intensity are analysis pages. |
 | `/energy-carbon/*` | monitor, alerts, quality, factors, flows, energy, carbon | Workbench / Analysis / Ledger | Split overview from operational subpages; avoid mixed dashboard card stacks. |

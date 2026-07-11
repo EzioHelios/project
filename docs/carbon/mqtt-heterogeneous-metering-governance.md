@@ -59,11 +59,11 @@ Broker -> 原始报文留存 -> 校验/去重/隔离 -> 配置化解析 -> 领�
    每个到达的报文先写入 `MqttInboundMessage`（建议新增）。字段至少包括：`team_id`、`source_id`、`topic`、`received_at`、`published_at`、`payload`、`payload_hash`、`parse_status`、`error_code`、`error_detail`。`payload_hash` 用于幂等去重；原文不可被标准化过程覆盖。
 
 2. 配置化解析
-   根据订阅配置选择解析器。首批支持 `szscada_scada_v1`（多电表点表报文）和 `carbon_telemetry_v1`（既有 `carbon/site/{site_id}/device/{device_id}/telemetry` 单设备遥测报文）。解析器只负责结构展开、时间戳转换、产生来源测点和质量，不负责把 `tag` 写死为平台字段。
+   根据订阅配置选择解析器。当前保留 `szscada_scada_v1`（多电表点表报文）。解析器只负责结构展开、时间戳转换、产生来源测点和质量，不负责把 `tag` 写死为平台字段。
 
 3. 领域投影
    - 四类总电能投影到 `AmmeterIndexValue`，以兼容现有能源、碳核算和报表。
-   - 尖峰平谷及后续任意测点投影到建议新增的通用 `MeterPointReading`，不能丢入 `IotTelemetry` 的五个固定字段。
+   - 尖峰平谷及后续任意测点投影到通用 `MeterPointReading`，不能丢入固定字段遥测表。
    - 原始报文、通用测点读数和四类电能投影通过 `source_message_id` 关联，支持回放、重算和追溯。
 
 4. 告警投影
@@ -138,7 +138,7 @@ MQTT 数据源记录只保存用户名、密码的环境变量名，例如 `SZSC
 
 管理员通过以下接口配置和审计接入：`/api/iot-ingestion/mqtt-sources`、`/mqtt-subscriptions`、`/mqtt-device-bindings`、`/mqtt-point-mappings` 和只读的 `/mqtt-messages`。所有接口按企业租户隔离，写入和原文状态查询要求超级管理员权限；原始 `payload` 不在列表接口返回，避免将外部报文作为普通业务数据暴露。
 
-旧的 `carbon.collectors.mqtt_adapter` 常驻线程和独立脚本已移除；所有 MQTT 数据统一由 `iot_ingestion` 的数据源配置、SAQ 专用队列和版本化解析器承载。旧的 `carbon/site/{site_id}/device/{device_id}/telemetry` 报文仍通过 `carbon_telemetry_v1` 兼容接入。
+旧的 `carbon.collectors.mqtt_adapter` 常驻线程、独立脚本、`carbon_telemetry_v1` 解析器和 `dataapp_iottelemetry` 投影已移除；所有 MQTT 数据统一由 `iot_ingestion` 的数据源配置、SAQ 专用队列和版本化解析器承载。
 
 ## 实施验收顺序
 

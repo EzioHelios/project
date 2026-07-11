@@ -62,7 +62,6 @@ flowchart LR
 | 现有模型/表 | 当前位置 | 目标领域 | 目标语义 | 改造动作 |
 | --- | --- | --- | --- | --- |
 | `AmmeterIndexValue` / `dataapp_ammeterindexvalue` | `carbon.models` | `metering` | 电表原始累计读数/采集结果 | 原始数据保留不可覆盖；新增 query service 和投影服务。 |
-| `IotTelemetry` / `dataapp_iottelemetry` | `carbon.models` | `metering` | IoT 时序遥测 | 与电表读数并列为时序事实，不直接等于能源消费。 |
 | `WarningRule` / `dataapp_warningrule` | `carbon.models` | `metering` | 监测告警规则 | 若规则指向能源异常，输出事件给 energy/analytics。 |
 | `AlarmEvent` / `dataapp_alarmevent` | `carbon.models` | `metering` | 设备/能源监测告警事件 | 能源策略只读取，不拥有其生命周期。 |
 | `VedioAlarmEvent` / `dataapp_vedioalarmevent` | `carbon.models` | `metering` 或 `safety_monitoring` | 视频告警事件 | 先作为计量/监控告警子类处理。 |
