@@ -79,6 +79,11 @@ def _is_postgresql() -> bool:
 
 
 def upgrade() -> None:
+    if _is_postgresql():
+        # The source tables already force tenant RLS in production. Keep the
+        # bypass transaction-local so migration backfills can see every row.
+        op.execute(sa.text("select set_config('app.tenant_bypass', 'true', true)"))
+
     with op.batch_alter_table(MAPPING_TABLE, schema=None) as batch_op:
         batch_op.add_column(sa.Column("point_name", sa.String(length=128), nullable=True))
     _backfill_mapping_point_names()
