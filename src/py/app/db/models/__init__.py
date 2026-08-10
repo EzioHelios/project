@@ -107,6 +107,15 @@ from app.domain.iot_ingestion.models import (
     MqttPointMapping,
     MqttSubscription,
 )
+from app.domain.metering.models import (
+    DataMigrationRun,
+    EnergyProjectionRun,
+    MeasurementBoundary,
+    MeasurementBoundaryMember,
+    MeteringAcquisitionCursor,
+    MeteringQualityIssue,
+    Scope2ElectricityReconciliation,
+)
 
 __all__ = (
     "AuditLog",
@@ -212,4 +221,12 @@ __all__ = (
     "MqttPointMapping",
     "MqttInboundMessage",
     "MeterReadingFact",
+    # metering governance domain models
+    "MeasurementBoundary",
+    "MeasurementBoundaryMember",
+    "MeteringAcquisitionCursor",
+    "DataMigrationRun",
+    "EnergyProjectionRun",
+    "MeteringQualityIssue",
+    "Scope2ElectricityReconciliation",
 )

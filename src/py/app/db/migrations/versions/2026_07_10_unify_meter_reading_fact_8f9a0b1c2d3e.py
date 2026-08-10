@@ -7,6 +7,7 @@ Create Date: 2026-07-10
 
 from __future__ import annotations
 
+# ruff: noqa: S608
 import sqlalchemy as sa
 from advanced_alchemy.types import GUID
 from alembic import op
@@ -20,7 +21,6 @@ sa.GUID = GUID  # pyright: ignore[attr-defined]
 
 OLD_POINT_TABLE = "iot_meter_point_reading"
 FACT_TABLE = "metering_meter_reading_fact"
-LEGACY_TABLE = "dataapp_ammeterindexvalue"
 MAPPING_TABLE = "iot_mqtt_point_mapping"
 
 POINT_META = {
@@ -69,17 +69,6 @@ SZSCADA_TAG_MAP = {
     "tag_010_p020": "reverse_reactive_valley",
 }
 
-LEGACY_FIELDS = {
-    "zygdn": ("forward_active_total", "legacy_quantity", "ZYGDN"),
-    "fygdn": ("reverse_active_total", "legacy_quantity", "FYGDN"),
-    "zwgdn": ("forward_reactive_total", "legacy_quantity", "ZWGDN"),
-    "fwgdn": ("reverse_reactive_total", "legacy_quantity", "FWGDN"),
-    "zygdnsz": ("forward_active_total", "register_index", "ZYGDNSZ"),
-    "fygdnsz": ("reverse_active_total", "register_index", "FYGDNSZ"),
-    "zwgdnsz": ("forward_reactive_total", "register_index", "ZWGDNSZ"),
-    "fwgdnsz": ("reverse_reactive_total", "register_index", "FWGDNSZ"),
-}
-
 
 def _id_type() -> sa.TypeEngine:
     return sa.BigInteger().with_variant(sa.Integer(), "sqlite")
@@ -98,20 +87,18 @@ def upgrade() -> None:
 
     op.rename_table(OLD_POINT_TABLE, FACT_TABLE)
     if _is_postgresql():
+        op.execute(sa.text(f"alter sequence if exists {OLD_POINT_TABLE}_id_seq rename to {FACT_TABLE}_id_seq"))
         op.execute(
-            sa.text(
-                f"""
-                alter sequence if exists {OLD_POINT_TABLE}_id_seq rename to {FACT_TABLE}_id_seq;
-                alter table {FACT_TABLE}
-                    alter column id set default nextval('{FACT_TABLE}_id_seq'::regclass);
-                alter sequence {FACT_TABLE}_id_seq owned by {FACT_TABLE}.id;
-                """
-            )
+            sa.text(f"alter table {FACT_TABLE} alter column id set default nextval('{FACT_TABLE}_id_seq'::regclass)")
         )
+        op.execute(sa.text(f"alter sequence {FACT_TABLE}_id_seq owned by {FACT_TABLE}.id"))
+    _replace_fact_foreign_keys_and_indexes()
     with op.batch_alter_table(FACT_TABLE, schema=None) as batch_op:
         batch_op.drop_constraint("uq_iot_meter_reading_message_binding_tag", type_="unique")
         batch_op.alter_column("source_tag", new_column_name="source_point_code", existing_type=sa.String(length=64))
-        batch_op.alter_column("source_name", new_column_name="source_point_name", existing_type=sa.String(length=128), nullable=True)
+        batch_op.alter_column(
+            "source_name", new_column_name="source_point_name", existing_type=sa.String(length=128), nullable=True
+        )
         batch_op.alter_column("source_message_id", existing_type=_id_type(), nullable=True)
         batch_op.alter_column("binding_id", existing_type=_id_type(), nullable=True)
         batch_op.add_column(sa.Column("source_system", sa.String(length=32), nullable=True))
@@ -138,14 +125,80 @@ def upgrade() -> None:
         )
         batch_op.create_index("ix_metering_fact_equipment_time", ["team_id", "equipment_id", "reading_time"])
         batch_op.create_index("ix_metering_fact_point_time", ["team_id", "point_code", "reading_time"])
+        for column in (
+            "binding_id",
+            "equipment_id",
+            "quality_status",
+            "reading_time",
+            "source_message_id",
+            "source_record_id",
+            "source_system",
+            "team_id",
+            "value_kind",
+        ):
+            batch_op.create_index(op.f(f"ix_{FACT_TABLE}_{column}"), [column])
 
-    _migrate_legacy_rows()
-    _drop_legacy_table()
     _enable_fact_rls()
 
 
+def _replace_fact_foreign_keys_and_indexes() -> None:
+    """Normalize constraints for both Alembic-created and pre-registered production tables."""
+    inspector = sa.inspect(op.get_bind())
+    managed_fk_columns = {"source_message_id", "binding_id", "equipment_id", "team_id"}
+    for foreign_key in inspector.get_foreign_keys(FACT_TABLE):
+        columns = set(foreign_key.get("constrained_columns") or [])
+        name = foreign_key.get("name")
+        if name and columns and columns <= managed_fk_columns:
+            op.drop_constraint(name, FACT_TABLE, type_="foreignkey")
+
+    managed_index_columns = {
+        ("source_message_id",),
+        ("binding_id",),
+        ("equipment_id",),
+        ("quality_status",),
+        ("reading_time",),
+        ("team_id",),
+        ("team_id", "equipment_id", "reading_time"),
+    }
+    for index in inspector.get_indexes(FACT_TABLE):
+        columns = tuple(index.get("column_names") or [])
+        name = index.get("name")
+        if name and columns in managed_index_columns:
+            op.drop_index(name, table_name=FACT_TABLE)
+
+    with op.batch_alter_table(FACT_TABLE, schema=None) as batch_op:
+        batch_op.create_foreign_key(
+            op.f("fk_metering_meter_reading_fact_source_message_id_iot_mqtt_inbound_message"),
+            "iot_mqtt_inbound_message",
+            ["source_message_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
+        batch_op.create_foreign_key(
+            op.f("fk_metering_meter_reading_fact_binding_id_iot_mqtt_device_binding"),
+            "iot_mqtt_device_binding",
+            ["binding_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
+        batch_op.create_foreign_key(
+            op.f("fk_metering_meter_reading_fact_equipment_id_dataapp_monitorequipment"),
+            "dataapp_monitorequipment",
+            ["equipment_id"],
+            ["id"],
+            ondelete="CASCADE",
+        )
+        batch_op.create_foreign_key(
+            op.f("fk_metering_meter_reading_fact_team_id_team"),
+            "team",
+            ["team_id"],
+            ["id"],
+            ondelete="CASCADE",
+        )
+
+
 def downgrade() -> None:
-    msg = "Downgrade is not supported after destructive meter reading unification."
+    msg = "Downgrade is not supported for the canonical meter fact rename. Use the query/worker rollback switches."
     raise RuntimeError(msg)
 
 
@@ -213,100 +266,15 @@ def _backfill_existing_fact_rows() -> None:
         )
 
 
-def _migrate_legacy_rows() -> None:
-    for field_name, (point_code, value_kind, source_code) in LEGACY_FIELDS.items():
-        point_name, unit, direction, kind, period = POINT_META[point_code]
-        op.execute(
-            sa.text(
-                f"""
-                insert into {FACT_TABLE} (
-                    team_id, source_system, source_record_id, source_message_id, binding_id, equipment_id,
-                    source_point_code, source_point_name, point_code, point_name, energy_direction, energy_kind,
-                    tou_period, value_kind, raw_value, normalized_value, unit, quality_status, source_type,
-                    reading_time, mapping_version
-                )
-                select
-                    legacy.team_id,
-                    case legacy.data_source
-                        when 0 then 'yunji'
-                        when 1 then 'infrared_hw'
-                        when 2 then 'mqtt_szscada_legacy'
-                        else 'legacy_meter'
-                    end,
-                    'legacy:' || legacy.id::text || ':' || :field_name_token,
-                    null,
-                    null,
-                    legacy.equipment_id,
-                    :source_code,
-                    :source_code,
-                    :point_code,
-                    :point_name,
-                    :direction,
-                    :kind,
-                    :period,
-                    :value_kind,
-                    legacy.{field_name}::text,
-                    legacy.{field_name}::numeric,
-                    :unit,
-                    'valid',
-                    legacy.data_source,
-                    coalesce(legacy.reading_time, legacy.end_time, legacy.start_time, legacy.add_time),
-                    'legacy_migration_v1'
-                from {LEGACY_TABLE} legacy
-                where
-                    legacy.source_message_id is null
-                    and legacy.equipment_id is not null
-                    and legacy.{field_name} is not null
-                    and coalesce(legacy.reading_time, legacy.end_time, legacy.start_time, legacy.add_time) is not null
-                on conflict on constraint uq_metering_fact_source_record_point do nothing
-                """
-            ).bindparams(
-                source_code=source_code,
-                point_code=point_code,
-                point_name=point_name,
-                direction=direction,
-                kind=kind,
-                period=period,
-                value_kind=value_kind,
-                unit=unit,
-                field_name_token=field_name,
-            )
-        )
-
-
-def _drop_legacy_table() -> None:
-    if _is_postgresql():
-        op.execute(
-            sa.text(
-                """
-                do $$
-                declare view_record record;
-                begin
-                    for view_record in
-                        select schemaname, viewname
-                        from pg_views
-                        where definition ilike '%dataapp_ammeterindexvalue%'
-                           or viewname like 'yj_%'
-                           or viewname like 'hw_%'
-                    loop
-                        execute format('drop view if exists %I.%I cascade', view_record.schemaname, view_record.viewname);
-                    end loop;
-                end $$;
-                """
-            )
-        )
-    op.drop_table(LEGACY_TABLE)
-
-
 def _enable_fact_rls() -> None:
     if not _is_postgresql():
         return
     op.execute(sa.text(f"alter table {FACT_TABLE} enable row level security"))
     op.execute(sa.text(f"alter table {FACT_TABLE} force row level security"))
+    op.execute(sa.text(f"drop policy if exists rls_{FACT_TABLE}_tenant_scope on {FACT_TABLE}"))
     op.execute(
         sa.text(
             f"""
-            drop policy if exists rls_{FACT_TABLE}_tenant_scope on {FACT_TABLE};
             create policy rls_{FACT_TABLE}_tenant_scope on {FACT_TABLE}
             using (
                 current_setting('app.tenant_bypass', true) = 'true'

@@ -1,8 +1,7 @@
-# ruff: noqa: B008, PERF401, PLR2004, RUF001, RUF002, RUF003
+# ruff: noqa: B008, PERF401, RUF001, RUF002, RUF003
 from __future__ import annotations
 
 import datetime
-from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from advanced_alchemy.filters import LimitOffset, OrderBy
@@ -32,7 +31,6 @@ from app.domain.carbon.controllers import (
     _list_page,
     _list_rows,
     _log_security_audit,
-    _month_window,
     _mutable_record_data,
     _paged_payload,
     _refresh_scope2_snapshot,
@@ -61,6 +59,7 @@ from app.domain.carbon.validation import (
     validate_period_start_end,
 )
 from app.domain.carbon_accounting.usecases.record_locks import CarbonAccountingRecordLockUseCase
+from app.domain.metering.projection import ElectricityProjectionUseCase, reconcile_scope2_electricity
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -178,7 +177,9 @@ class CarbonAccountingController(Controller):
         obj = await scope1_mobile_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_mobile_service.repository.session)})
+        return Response(
+            content={"code": 200, "data": await _serialize_scope_record(obj, scope1_mobile_service.repository.session)}
+        )
 
     @post("/api/carbon/scope1-mobile-combustion")
     async def create_scope1_mobile(
@@ -194,7 +195,13 @@ class CarbonAccountingController(Controller):
         _coerce_date_fields(data, ["record_date"])
         payload = {**_carbon_defaults(), **{k: v for k, v in data.items() if v is not None}}
         obj = await scope1_mobile_service.create(payload, auto_commit=True)
-        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_mobile_service.repository.session), "msg": "创建成功"})
+        return Response(
+            content={
+                "code": 200,
+                "data": await _serialize_scope_record(obj, scope1_mobile_service.repository.session),
+                "msg": "创建成功",
+            }
+        )
 
     @patch("/api/carbon/scope1-mobile-combustion/{record_id:int}")
     async def update_scope1_mobile(
@@ -225,7 +232,13 @@ class CarbonAccountingController(Controller):
         _coerce_date_fields(data, ["record_date"])
         await scope1_mobile_service.update(item_id=record_id, data=data, auto_commit=True)
         fresh = await scope1_mobile_service.get_one(id=record_id)
-        return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope1_mobile_service.repository.session)})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "更新成功",
+                "data": await _serialize_scope_record(fresh, scope1_mobile_service.repository.session),
+            }
+        )
 
     @delete("/api/carbon/scope1-mobile-combustion/{record_id:int}", status_code=200)
     async def delete_scope1_mobile(
@@ -281,7 +294,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope1MobileCombustion", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
+            {
+                "record_type": "Scope1MobileCombustion",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_SUBMIT,
+                "comment": "提交审核",
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -317,7 +335,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope1MobileCombustion", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
+            {
+                "record_type": "Scope1MobileCombustion",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_APPROVE,
+                "comment": "审核通过",
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -352,7 +375,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope1MobileCombustion", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
+            {
+                "record_type": "Scope1MobileCombustion",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_REJECT,
+                "comment": reason,
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -413,7 +441,12 @@ class CarbonAccountingController(Controller):
         obj = await scope1_stationary_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_stationary_service.repository.session)})
+        return Response(
+            content={
+                "code": 200,
+                "data": await _serialize_scope_record(obj, scope1_stationary_service.repository.session),
+            }
+        )
 
     @post("/api/carbon/scope1-stationary-combustion")
     async def create_scope1_stationary(
@@ -429,7 +462,13 @@ class CarbonAccountingController(Controller):
         _coerce_date_fields(data, ["period_start", "period_end"])
         payload = {**_carbon_defaults(), **{k: v for k, v in data.items() if v is not None}}
         obj = await scope1_stationary_service.create(payload, auto_commit=True)
-        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_stationary_service.repository.session), "msg": "创建成功"})
+        return Response(
+            content={
+                "code": 200,
+                "data": await _serialize_scope_record(obj, scope1_stationary_service.repository.session),
+                "msg": "创建成功",
+            }
+        )
 
     @patch("/api/carbon/scope1-stationary-combustion/{record_id:int}")
     async def update_scope1_stationary(
@@ -454,13 +493,21 @@ class CarbonAccountingController(Controller):
             if "amount" in data:
                 validate_consumption(data["amount"], "消耗量")
             if "period_start" in data or "period_end" in data:
-                validate_period_start_end(data.get("period_start") or obj.period_start, data.get("period_end") or obj.period_end)
+                validate_period_start_end(
+                    data.get("period_start") or obj.period_start, data.get("period_end") or obj.period_end
+                )
         except CarbonValidationError as e:
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
         _coerce_date_fields(data, ["period_start", "period_end"])
         await scope1_stationary_service.update(item_id=record_id, data=data, auto_commit=True)
         fresh = await scope1_stationary_service.get_one(id=record_id)
-        return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope1_stationary_service.repository.session)})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "更新成功",
+                "data": await _serialize_scope_record(fresh, scope1_stationary_service.repository.session),
+            }
+        )
 
     @delete("/api/carbon/scope1-stationary-combustion/{record_id:int}", status_code=200)
     async def delete_scope1_stationary(
@@ -515,7 +562,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope1StationaryCombustion", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
+            {
+                "record_type": "Scope1StationaryCombustion",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_SUBMIT,
+                "comment": "提交审核",
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -550,7 +602,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope1StationaryCombustion", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
+            {
+                "record_type": "Scope1StationaryCombustion",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_APPROVE,
+                "comment": "审核通过",
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -585,7 +642,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope1StationaryCombustion", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
+            {
+                "record_type": "Scope1StationaryCombustion",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_REJECT,
+                "comment": reason,
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -606,7 +668,12 @@ class CarbonAccountingController(Controller):
         obj = await scope1_refrigerant_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_refrigerant_service.repository.session)})
+        return Response(
+            content={
+                "code": 200,
+                "data": await _serialize_scope_record(obj, scope1_refrigerant_service.repository.session),
+            }
+        )
 
     @post("/api/carbon/scope1-refrigerant-leak")
     async def create_scope1_refrigerant(
@@ -622,7 +689,13 @@ class CarbonAccountingController(Controller):
         _coerce_date_fields(data, ["fill_date"])
         payload = {**_carbon_defaults(), **{k: v for k, v in data.items() if v is not None}}
         obj = await scope1_refrigerant_service.create(payload, auto_commit=True)
-        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope1_refrigerant_service.repository.session), "msg": "创建成功"})
+        return Response(
+            content={
+                "code": 200,
+                "data": await _serialize_scope_record(obj, scope1_refrigerant_service.repository.session),
+                "msg": "创建成功",
+            }
+        )
 
     @patch("/api/carbon/scope1-refrigerant-leak/{record_id:int}")
     async def update_scope1_refrigerant(
@@ -653,7 +726,13 @@ class CarbonAccountingController(Controller):
         _coerce_date_fields(data, ["fill_date"])
         await scope1_refrigerant_service.update(item_id=record_id, data=data, auto_commit=True)
         fresh = await scope1_refrigerant_service.get_one(id=record_id)
-        return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope1_refrigerant_service.repository.session)})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "更新成功",
+                "data": await _serialize_scope_record(fresh, scope1_refrigerant_service.repository.session),
+            }
+        )
 
     @delete("/api/carbon/scope1-refrigerant-leak/{record_id:int}", status_code=200)
     async def delete_scope1_refrigerant(
@@ -708,7 +787,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope1RefrigerantLeak", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
+            {
+                "record_type": "Scope1RefrigerantLeak",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_SUBMIT,
+                "comment": "提交审核",
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -743,7 +827,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope1RefrigerantLeak", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
+            {
+                "record_type": "Scope1RefrigerantLeak",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_APPROVE,
+                "comment": "审核通过",
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -778,7 +867,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope1RefrigerantLeak", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
+            {
+                "record_type": "Scope1RefrigerantLeak",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_REJECT,
+                "comment": reason,
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -799,7 +893,14 @@ class CarbonAccountingController(Controller):
         obj = await scope2_bill_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope2_bill_service.repository.session, source_kind="manual_bill")})
+        return Response(
+            content={
+                "code": 200,
+                "data": await _serialize_scope_record(
+                    obj, scope2_bill_service.repository.session, source_kind="manual_bill"
+                ),
+            }
+        )
 
     @post("/api/carbon/scope2-electricity-bill")
     async def create_scope2_bill(
@@ -825,7 +926,15 @@ class CarbonAccountingController(Controller):
         except CarbonValidationError as e:
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
         obj = await scope2_bill_service.create(payload, auto_commit=True)
-        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope2_bill_service.repository.session, source_kind="manual_bill"), "msg": "创建成功"})
+        return Response(
+            content={
+                "code": 200,
+                "data": await _serialize_scope_record(
+                    obj, scope2_bill_service.repository.session, source_kind="manual_bill"
+                ),
+                "msg": "创建成功",
+            }
+        )
 
     @patch("/api/carbon/scope2-electricity-bill/{record_id:int}")
     async def update_scope2_bill(
@@ -868,7 +977,15 @@ class CarbonAccountingController(Controller):
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
         await scope2_bill_service.update(item_id=record_id, data=payload, auto_commit=True)
         fresh = await scope2_bill_service.get_one(id=record_id)
-        return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope2_bill_service.repository.session, source_kind="manual_bill")})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "更新成功",
+                "data": await _serialize_scope_record(
+                    fresh, scope2_bill_service.repository.session, source_kind="manual_bill"
+                ),
+            }
+        )
 
     @delete("/api/carbon/scope2-electricity-bill/{record_id:int}", status_code=200)
     async def delete_scope2_bill(
@@ -929,7 +1046,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope2ElectricityBill", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
+            {
+                "record_type": "Scope2ElectricityBill",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_SUBMIT,
+                "comment": "提交审核",
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -968,9 +1090,18 @@ class CarbonAccountingController(Controller):
             data={"status": STATUS_APPROVED, "approved_at": now},
             auto_commit=True,
         )
+        await reconcile_scope2_electricity(
+            scope2_bill_service.repository.session,
+            obj.billing_month,
+        )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope2ElectricityBill", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
+            {
+                "record_type": "Scope2ElectricityBill",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_APPROVE,
+                "comment": "审核通过",
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -1005,7 +1136,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope2ElectricityBill", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
+            {
+                "record_type": "Scope2ElectricityBill",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_REJECT,
+                "comment": reason,
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -1169,10 +1305,17 @@ class CarbonAccountingController(Controller):
             obj = await _refresh_scope2_snapshot(obj, scope2_purchased_energy_service, source_kind="purchased_energy")
         except CarbonValidationError as e:
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
-        await scope2_purchased_energy_service.update(item_id=record_id, data={"status": STATUS_PENDING}, auto_commit=True)
+        await scope2_purchased_energy_service.update(
+            item_id=record_id, data={"status": STATUS_PENDING}, auto_commit=True
+        )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope2PurchasedEnergy", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
+            {
+                "record_type": "Scope2PurchasedEnergy",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_SUBMIT,
+                "comment": "提交审核",
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -1210,7 +1353,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope2PurchasedEnergy", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
+            {
+                "record_type": "Scope2PurchasedEnergy",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_APPROVE,
+                "comment": "审核通过",
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -1245,7 +1393,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope2PurchasedEnergy", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
+            {
+                "record_type": "Scope2PurchasedEnergy",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_REJECT,
+                "comment": reason,
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -1266,7 +1419,9 @@ class CarbonAccountingController(Controller):
         obj = await scope3_waste_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope3_waste_service.repository.session)})
+        return Response(
+            content={"code": 200, "data": await _serialize_scope_record(obj, scope3_waste_service.repository.session)}
+        )
 
     @post("/api/carbon/scope3-waste-disposal")
     async def create_scope3_waste(
@@ -1282,7 +1437,13 @@ class CarbonAccountingController(Controller):
         _coerce_date_fields(data, ["date"])
         payload = {**_carbon_defaults(), **{k: v for k, v in data.items() if v is not None}}
         obj = await scope3_waste_service.create(payload, auto_commit=True)
-        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope3_waste_service.repository.session), "msg": "创建成功"})
+        return Response(
+            content={
+                "code": 200,
+                "data": await _serialize_scope_record(obj, scope3_waste_service.repository.session),
+                "msg": "创建成功",
+            }
+        )
 
     @patch("/api/carbon/scope3-waste-disposal/{record_id:int}")
     async def update_scope3_waste(
@@ -1313,7 +1474,13 @@ class CarbonAccountingController(Controller):
         _coerce_date_fields(data, ["date"])
         await scope3_waste_service.update(item_id=record_id, data=data, auto_commit=True)
         fresh = await scope3_waste_service.get_one(id=record_id)
-        return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope3_waste_service.repository.session)})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "更新成功",
+                "data": await _serialize_scope_record(fresh, scope3_waste_service.repository.session),
+            }
+        )
 
     @delete("/api/carbon/scope3-waste-disposal/{record_id:int}", status_code=200)
     async def delete_scope3_waste(
@@ -1368,7 +1535,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope3WasteDisposal", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
+            {
+                "record_type": "Scope3WasteDisposal",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_SUBMIT,
+                "comment": "提交审核",
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -1403,7 +1575,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope3WasteDisposal", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
+            {
+                "record_type": "Scope3WasteDisposal",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_APPROVE,
+                "comment": "审核通过",
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -1438,7 +1615,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope3WasteDisposal", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
+            {
+                "record_type": "Scope3WasteDisposal",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_REJECT,
+                "comment": reason,
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -1459,7 +1641,12 @@ class CarbonAccountingController(Controller):
         obj = await scope3_transport_service.get_one_or_none(id=record_id)
         if not obj:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope3_transport_service.repository.session)})
+        return Response(
+            content={
+                "code": 200,
+                "data": await _serialize_scope_record(obj, scope3_transport_service.repository.session),
+            }
+        )
 
     @post("/api/carbon/scope3-third-party-transport")
     async def create_scope3_transport(
@@ -1474,7 +1661,13 @@ class CarbonAccountingController(Controller):
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
         payload = {**_carbon_defaults(), **{k: v for k, v in data.items() if v is not None}}
         obj = await scope3_transport_service.create(payload, auto_commit=True)
-        return Response(content={"code": 200, "data": await _serialize_scope_record(obj, scope3_transport_service.repository.session), "msg": "创建成功"})
+        return Response(
+            content={
+                "code": 200,
+                "data": await _serialize_scope_record(obj, scope3_transport_service.repository.session),
+                "msg": "创建成功",
+            }
+        )
 
     @patch("/api/carbon/scope3-third-party-transport/{record_id:int}")
     async def update_scope3_transport(
@@ -1504,7 +1697,13 @@ class CarbonAccountingController(Controller):
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
         await scope3_transport_service.update(item_id=record_id, data=data, auto_commit=True)
         fresh = await scope3_transport_service.get_one(id=record_id)
-        return Response(content={"code": 200, "msg": "更新成功", "data": await _serialize_scope_record(fresh, scope3_transport_service.repository.session)})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "更新成功",
+                "data": await _serialize_scope_record(fresh, scope3_transport_service.repository.session),
+            }
+        )
 
     @delete("/api/carbon/scope3-third-party-transport/{record_id:int}", status_code=200)
     async def delete_scope3_transport(
@@ -1559,7 +1758,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope3ThirdPartyTransport", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
+            {
+                "record_type": "Scope3ThirdPartyTransport",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_SUBMIT,
+                "comment": "提交审核",
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -1594,7 +1798,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope3ThirdPartyTransport", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
+            {
+                "record_type": "Scope3ThirdPartyTransport",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_APPROVE,
+                "comment": "审核通过",
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -1629,7 +1838,12 @@ class CarbonAccountingController(Controller):
         )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope3ThirdPartyTransport", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
+            {
+                "record_type": "Scope3ThirdPartyTransport",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_REJECT,
+                "comment": reason,
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -1749,7 +1963,14 @@ class CarbonAccountingController(Controller):
             offset=offset,
             search=search,
             keyword=keyword,
-            search_fields=["energy_type_code", "energy_type_name", "supplier_name", "area_name", "facility_name", "remark"],
+            search_fields=[
+                "energy_type_code",
+                "energy_type_name",
+                "supplier_name",
+                "area_name",
+                "facility_name",
+                "remark",
+            ],
             sort_field=sort_field,
             sort_order=sort_order,
             conditions=conditions,
@@ -1761,7 +1982,14 @@ class CarbonAccountingController(Controller):
             offset=offset,
             search=search,
             keyword=keyword,
-            search_fields=["energy_type_code", "energy_type_name", "supplier_name", "area_name", "facility_name", "remark"],
+            search_fields=[
+                "energy_type_code",
+                "energy_type_name",
+                "supplier_name",
+                "area_name",
+                "facility_name",
+                "remark",
+            ],
             sort_field=sort_field,
             sort_order=sort_order,
             conditions=conditions,
@@ -1905,13 +2133,25 @@ class CarbonAccountingController(Controller):
             ("Scope3WasteDisposal", scope3_waste_service, m.Scope3WasteDisposal, "activity_data"),
             ("Scope3ThirdPartyTransport", scope3_transport_service, m.Scope3ThirdPartyTransport, "activity_data"),
         ]:
-            items = await svc.list(model.status == STATUS_PENDING, LimitOffset(limit + offset, 0), OrderBy(model.id, "desc"))
+            items = await svc.list(
+                model.status == STATUS_PENDING, LimitOffset(limit + offset, 0), OrderBy(model.id, "desc")
+            )
             for i in items:
-                out.append({"record_type": name, "record_id": i.id, **await _serialize_scope_record(i, svc.repository.session, source_kind=source_kind)})
+                out.append(
+                    {
+                        "record_type": name,
+                        "record_id": i.id,
+                        **await _serialize_scope_record(i, svc.repository.session, source_kind=source_kind),
+                    }
+                )
         out.sort(key=lambda row: int(row.get("record_id") or 0), reverse=True)
         limit_clamped = max(1, min(limit, 100))
         offset_clamped = max(0, offset)
-        return Response(content=_paged_payload(out[offset_clamped : offset_clamped + limit_clamped], len(out), limit_clamped, offset_clamped))
+        return Response(
+            content=_paged_payload(
+                out[offset_clamped : offset_clamped + limit_clamped], len(out), limit_clamped, offset_clamped
+            )
+        )
 
     async def _rebuild_scope2_meter_aggregates(
         self,
@@ -1920,119 +2160,18 @@ class CarbonAccountingController(Controller):
         billing_month: str,
         area_id: str | None = None,
     ) -> list[m.Scope2MeterAggregate]:
-        month_start, month_end = _month_window(billing_month)
-        existing_stmt = select(m.Scope2MeterAggregate.id).where(m.Scope2MeterAggregate.billing_month == billing_month)
-        if area_id:
-            existing_stmt = existing_stmt.where(m.Scope2MeterAggregate.area_id == area_id)
-        existing_ids = list((await db_session.execute(existing_stmt)).scalars().all())
-        await CarbonAccountingRecordLockUseCase(db_session).ensure_records_mutable("Scope2MeterAggregate", existing_ids)
-        if area_id:
-            await db_session.execute(
-                m.Scope2MeterAggregate.__table__.delete().where(
-                    m.Scope2MeterAggregate.billing_month == billing_month,
-                    m.Scope2MeterAggregate.area_id == area_id,
-                )
-            )
-        else:
-            await db_session.execute(m.Scope2MeterAggregate.__table__.delete().where(m.Scope2MeterAggregate.billing_month == billing_month))
-
-        stmt = (
-            select(
-                m.MeterReadingFact,
-                m.MonitorEquipment.code.label("ammeter_id"),
-                m.MonitorEquipment.name.label("ammeter_name"),
-                m.MonitorSector.id.label("area_id"),
-                m.MonitorSector.name.label("area_name"),
-            )
-            .join(m.MonitorEquipment, m.MonitorEquipment.id == m.MeterReadingFact.equipment_id)
-            .outerjoin(m.MonitorSector, m.MonitorSector.id == m.MonitorEquipment.sector_id)
-            .where(
-                m.MeterReadingFact.reading_time >= month_start,
-                m.MeterReadingFact.reading_time < month_end,
-                m.MeterReadingFact.reading_time.is_not(None),
-                m.MeterReadingFact.point_code == "forward_active_total",
-                m.MeterReadingFact.value_kind == "register_index",
-                m.MeterReadingFact.normalized_value.is_not(None),
-            )
-            .order_by(
-                m.MonitorEquipment.code.asc(),
-                m.MeterReadingFact.reading_time.asc(),
-                m.MeterReadingFact.id.asc(),
-            )
-        )
-        if area_id:
-            stmt = stmt.where(m.MonitorSector.id == int(area_id))
-        rows = (await db_session.execute(stmt)).mappings().all()
-
-        grouped: dict[str, list[dict[str, Any]]] = {}
-        for row in rows:
-            meter_id = row["ammeter_id"]
-            if meter_id:
-                grouped.setdefault(meter_id, []).append(dict(row))
-
-        created: list[m.Scope2MeterAggregate] = []
-        for ammeter_id, samples in grouped.items():
-            first = samples[0]
-            usable = [sample for sample in samples if sample["MeterReadingFact"].normalized_value is not None]
-            note = None
-            status = "ready"
-            start_total = end_total = total_kwh = None
-            last = first
-            if len(samples) >= 2:
-                first_usable = usable[0]
-                last_usable = usable[-1]
-                start_total = Decimal(str(first_usable["MeterReadingFact"].normalized_value))
-                end_total = Decimal(str(last_usable["MeterReadingFact"].normalized_value))
-                total_kwh = end_total - start_total
-                last = last_usable
-                if total_kwh < 0:
-                    status = "invalid_delta"
-                    note = "月度末值小于初值，无法形成有效用电量。"
-                    total_kwh = None
-            else:
-                status = "insufficient_data"
-                note = "月内采样不足，无法形成首末差值。"
-
-            payload = {
-                "source_kind": "meter_aggregate",
-                "ammeter_id": ammeter_id,
-                "ammeter_name": first["ammeter_name"],
-                "area_id": str(first["area_id"]) if first["area_id"] is not None else None,
-                "area_name": first["area_name"],
-                "billing_month": billing_month,
-                "first_reading_time": first["MeterReadingFact"].reading_time,
-                "last_reading_time": last["MeterReadingFact"].reading_time,
-                "start_total_energy": start_total,
-                "end_total_energy": end_total,
-                "total_kwh": total_kwh,
-                "status": STATUS_DRAFT,
-                "approved_at": None,
-                "reject_reason": None,
-                "calc_status": status,
-                "factor_source": None,
-                "factor_year": None,
-                "factor_unit": None,
-                "activity_amount": total_kwh,
-                "activity_unit": "kWh",
-                "computed_co2e": None,
-                "computation_note": None,
-                "aggregation_note": note,
-            }
-            if status == "ready":
-                payload.update(
-                    await _build_scope2_snapshot_payload(
-                        m.Scope2MeterAggregate,
-                        payload,
-                        scope2_meter_aggregate_service.repository.session,
-                        source_kind="meter_aggregate",
+        del scope2_meter_aggregate_service
+        result = await ElectricityProjectionUseCase(db_session).rebuild_month(billing_month, area_id=area_id)
+        return list(
+            (
+                await db_session.scalars(
+                    select(m.Scope2MeterAggregate).where(
+                        m.Scope2MeterAggregate.billing_month == billing_month,
+                        m.Scope2MeterAggregate.projection_run_id == result.run_id,
                     )
                 )
-            else:
-                payload["computation_note"] = note or "聚合结果不可核算，请先修复采样数据。"
-            created.append(await scope2_meter_aggregate_service.create(payload, auto_commit=False))
-
-        await db_session.commit()
-        return created
+            ).all()
+        )
 
     @post("/api/carbon/scope2-meter-aggregate/rebuild", guards=[requires_superuser])
     async def rebuild_scope2_meter_aggregate(
@@ -2052,7 +2191,9 @@ class CarbonAccountingController(Controller):
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
         area_id = str(data.get("area_id")).strip() if data.get("area_id") not in (None, "") else None
         try:
-            rows = await self._rebuild_scope2_meter_aggregates(db_session, scope2_meter_aggregate_service, billing_month, area_id)
+            rows = await self._rebuild_scope2_meter_aggregates(
+                db_session, scope2_meter_aggregate_service, billing_month, area_id
+            )
         except ValueError as exc:
             return Response(content={"code": 400, "msg": str(exc)}, status_code=400)
         await self._log_carbon_security_event(
@@ -2133,13 +2274,23 @@ class CarbonAccountingController(Controller):
             except CarbonValidationError as e:
                 return Response(content={"code": 400, "msg": str(e)}, status_code=400)
         if obj.calc_status != "ready":
-            return Response(content={"code": 400, "msg": obj.aggregation_note or "聚合结果不可核算，请先修复采样数据。"}, status_code=400)
+            return Response(
+                content={"code": 400, "msg": obj.aggregation_note or "聚合结果不可核算，请先修复采样数据。"},
+                status_code=400,
+            )
         if not _scope2_snapshot_ready(obj):
             return Response(content={"code": 400, "msg": "当前聚合记录尚未形成有效核算结果"}, status_code=400)
-        await scope2_meter_aggregate_service.update(item_id=record_id, data={"status": STATUS_PENDING}, auto_commit=True)
+        await scope2_meter_aggregate_service.update(
+            item_id=record_id, data={"status": STATUS_PENDING}, auto_commit=True
+        )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope2MeterAggregate", "record_id": record_id, "action": AUDIT_ACTION_SUBMIT, "comment": "提交审核"},
+            {
+                "record_type": "Scope2MeterAggregate",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_SUBMIT,
+                "comment": "提交审核",
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -2171,14 +2322,24 @@ class CarbonAccountingController(Controller):
             except CarbonValidationError as e:
                 return Response(content={"code": 400, "msg": str(e)}, status_code=400)
         if obj.calc_status != "ready":
-            return Response(content={"code": 400, "msg": obj.aggregation_note or "聚合结果不可核算，请先修复采样数据。"}, status_code=400)
+            return Response(
+                content={"code": 400, "msg": obj.aggregation_note or "聚合结果不可核算，请先修复采样数据。"},
+                status_code=400,
+            )
         if not _scope2_snapshot_ready(obj):
             return Response(content={"code": 400, "msg": "当前聚合记录尚未形成有效核算结果"}, status_code=400)
         now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
-        await scope2_meter_aggregate_service.update(item_id=record_id, data={"status": STATUS_APPROVED, "approved_at": now}, auto_commit=True)
+        await scope2_meter_aggregate_service.update(
+            item_id=record_id, data={"status": STATUS_APPROVED, "approved_at": now}, auto_commit=True
+        )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope2MeterAggregate", "record_id": record_id, "action": AUDIT_ACTION_APPROVE, "comment": "审核通过"},
+            {
+                "record_type": "Scope2MeterAggregate",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_APPROVE,
+                "comment": "审核通过",
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -2206,10 +2367,17 @@ class CarbonAccountingController(Controller):
         if obj.status != STATUS_PENDING:
             return Response(content={"code": 400, "msg": "仅待审核可驳回"}, status_code=400)
         reason = (data.get("reason") or data.get("reject_reason") or "管理员驳回，请修改后重新提交")[:500]
-        await scope2_meter_aggregate_service.update(item_id=record_id, data={"status": STATUS_REJECTED, "reject_reason": reason}, auto_commit=True)
+        await scope2_meter_aggregate_service.update(
+            item_id=record_id, data={"status": STATUS_REJECTED, "reject_reason": reason}, auto_commit=True
+        )
         await self._create_audit_log(
             audit_log_service,
-            {"record_type": "Scope2MeterAggregate", "record_id": record_id, "action": AUDIT_ACTION_REJECT, "comment": reason},
+            {
+                "record_type": "Scope2MeterAggregate",
+                "record_id": record_id,
+                "action": AUDIT_ACTION_REJECT,
+                "comment": reason,
+            },
         )
         await self._log_carbon_security_event(
             security_audit_service,
@@ -2242,11 +2410,15 @@ class CarbonAccountingController(Controller):
             manual_total = int(
                 (
                     await db_session.execute(
-                        select(func.count()).select_from(m.Scope2ElectricityBill).where(*(manual_conditions or [text("1=1")]))
+                        select(func.count())
+                        .select_from(m.Scope2ElectricityBill)
+                        .where(*(manual_conditions or [text("1=1")]))
                     )
                 ).scalar_one()
             )
-            manual_rows = await scope2_bill_service.list(*(manual_conditions or []), LimitOffset(limit + offset, 0), OrderBy(m.Scope2ElectricityBill.id, "desc"))
+            manual_rows = await scope2_bill_service.list(
+                *(manual_conditions or []), LimitOffset(limit + offset, 0), OrderBy(m.Scope2ElectricityBill.id, "desc")
+            )
         else:
             manual_rows = []
 
@@ -2260,12 +2432,16 @@ class CarbonAccountingController(Controller):
             aggregate_total = int(
                 (
                     await db_session.execute(
-                        select(func.count()).select_from(m.Scope2MeterAggregate).where(*(aggregate_conditions or [text("1=1")]))
+                        select(func.count())
+                        .select_from(m.Scope2MeterAggregate)
+                        .where(*(aggregate_conditions or [text("1=1")]))
                     )
                 ).scalar_one()
             )
             aggregate_rows = await scope2_meter_aggregate_service.list(
-                *(aggregate_conditions or []), LimitOffset(limit + offset, 0), OrderBy(m.Scope2MeterAggregate.id, "desc")
+                *(aggregate_conditions or []),
+                LimitOffset(limit + offset, 0),
+                OrderBy(m.Scope2MeterAggregate.id, "desc"),
             )
         else:
             aggregate_rows = []
@@ -2278,7 +2454,9 @@ class CarbonAccountingController(Controller):
                         "record_type": "Scope2ElectricityBill",
                         "record_id": row.id,
                         "display_name": row.account_number,
-                        **await _serialize_scope_record(row, scope2_bill_service.repository.session, source_kind="manual_bill"),
+                        **await _serialize_scope_record(
+                            row, scope2_bill_service.repository.session, source_kind="manual_bill"
+                        ),
                     }
                 )
         for row in aggregate_rows:
@@ -2287,10 +2465,14 @@ class CarbonAccountingController(Controller):
                     "record_type": "Scope2MeterAggregate",
                     "record_id": row.id,
                     "display_name": row.ammeter_name or row.ammeter_id,
-                    **await _serialize_scope_record(row, scope2_meter_aggregate_service.repository.session, source_kind="meter_aggregate"),
+                    **await _serialize_scope_record(
+                        row, scope2_meter_aggregate_service.repository.session, source_kind="meter_aggregate"
+                    ),
                 }
             )
-        records.sort(key=lambda item: (str(item.get("billing_month") or ""), int(item.get("record_id") or 0)), reverse=True)
+        records.sort(
+            key=lambda item: (str(item.get("billing_month") or ""), int(item.get("record_id") or 0)), reverse=True
+        )
         limit_clamped = max(1, min(limit, 100))
         offset_clamped = max(0, offset)
         return Response(
@@ -2314,7 +2496,9 @@ class CarbonAccountingController(Controller):
             return Response(content={"code": 400, "msg": str(e)}, status_code=400)
 
         bill_total = await db_session.scalar(
-            select(func.coalesce(func.sum(m.Scope2ElectricityBill.total_kwh), 0)).where(m.Scope2ElectricityBill.billing_month == billing_month)
+            select(func.coalesce(func.sum(m.Scope2ElectricityBill.total_kwh), 0)).where(
+                m.Scope2ElectricityBill.billing_month == billing_month
+            )
         )
         meter_total = await db_session.scalar(
             select(func.coalesce(func.sum(m.Scope2MeterAggregate.total_kwh), 0)).where(
@@ -2323,7 +2507,9 @@ class CarbonAccountingController(Controller):
             )
         )
         missing_count = await db_session.scalar(
-            select(func.count()).select_from(m.Scope2MeterAggregate).where(
+            select(func.count())
+            .select_from(m.Scope2MeterAggregate)
+            .where(
                 m.Scope2MeterAggregate.billing_month == billing_month,
                 m.Scope2MeterAggregate.calc_status != "ready",
             )

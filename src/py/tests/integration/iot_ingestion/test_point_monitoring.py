@@ -164,6 +164,8 @@ async def test_point_monitoring_filters_and_returns_series_in_ascending_order(
             "binding_id": invalid_reading.binding_id,
             "source_point_code": invalid_reading.source_point_code,
             "mapping_version": invalid_reading.mapping_version,
+            "start_time": (invalid_reading.reading_time - timedelta(minutes=1)).isoformat(),
+            "end_time": (invalid_reading.reading_time + timedelta(minutes=10)).isoformat(),
             "limit": 10,
         },
         headers=superuser_token_headers,

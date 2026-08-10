@@ -45,9 +45,12 @@ def _tenant_fk(table_name: str) -> sa.ForeignKeyConstraint:
 
 
 def _enable_tenant_rls(table_name: str) -> None:
+    if op.get_bind().dialect.name != "postgresql":
+        return
     policy_name = f"rls_{table_name}_tenant_scope"
     op.execute(sa.text(f"alter table {table_name} enable row level security"))
     op.execute(sa.text(f"alter table {table_name} force row level security"))
+    op.execute(sa.text(f"drop policy if exists {policy_name} on {table_name}"))
     op.execute(
         sa.text(
             f"""
@@ -66,12 +69,26 @@ def _enable_tenant_rls(table_name: str) -> None:
 
 
 def _disable_tenant_rls(table_name: str) -> None:
+    if op.get_bind().dialect.name != "postgresql":
+        return
     op.execute(sa.text(f"drop policy if exists rls_{table_name}_tenant_scope on {table_name}"))
     op.execute(sa.text(f"alter table {table_name} no force row level security"))
     op.execute(sa.text(f"alter table {table_name} disable row level security"))
 
 
 def upgrade() -> None:
+    existing_tables = set(sa.inspect(op.get_bind()).get_table_names())
+    existing_iot_tables = existing_tables.intersection(TENANT_TABLES)
+    if existing_iot_tables:
+        if existing_iot_tables != set(TENANT_TABLES):
+            missing = sorted(set(TENANT_TABLES) - existing_iot_tables)
+            msg = f"Partial IoT schema detected; missing tables: {', '.join(missing)}"
+            raise RuntimeError(msg)
+        _validate_existing_schema()
+        for table_name in TENANT_TABLES:
+            _enable_tenant_rls(table_name)
+        return
+
     op.create_table(
         SOURCE_TABLE,
         sa.Column("id", _id_type(), nullable=False),
@@ -306,6 +323,49 @@ def upgrade() -> None:
 
     for table_name in TENANT_TABLES:
         _enable_tenant_rls(table_name)
+
+
+def _validate_existing_schema() -> None:
+    """Validate a schema created before Alembic registration without mutating its data."""
+    inspector = sa.inspect(op.get_bind())
+    required_columns = {
+        SOURCE_TABLE: {"id", "team_id", "code", "broker_host", "enabled"},
+        SUBSCRIPTION_TABLE: {"id", "team_id", "source_id", "topic_filter", "enabled"},
+        BINDING_TABLE: {"id", "team_id", "subscription_id", "equipment_id", "gateway_key", "meter_key"},
+        MAPPING_TABLE: {"id", "team_id", "binding_id", "source_tag", "point_code", "target_field"},
+        INBOUND_TABLE: {"id", "team_id", "source_id", "subscription_id", "payload", "payload_hash", "status"},
+        READING_TABLE: {
+            "id",
+            "team_id",
+            "source_message_id",
+            "binding_id",
+            "equipment_id",
+            "source_tag",
+            "point_code",
+            "normalized_value",
+            "quality_status",
+            "reading_time",
+        },
+    }
+    problems: list[str] = []
+    for table_name, expected in required_columns.items():
+        actual = {column["name"] for column in inspector.get_columns(table_name)}
+        missing = sorted(expected - actual)
+        if missing:
+            problems.append(f"{table_name}: missing {', '.join(missing)}")
+
+    for table_name in ("dataapp_ammeterindexvalue", "dataapp_iottelemetry"):
+        if table_name not in inspector.get_table_names():
+            problems.append(f"{table_name}: table is missing")
+            continue
+        actual = {column["name"] for column in inspector.get_columns(table_name)}
+        missing = sorted({"source_message_id", "mapping_version"} - actual)
+        if missing:
+            problems.append(f"{table_name}: missing {', '.join(missing)}")
+
+    if problems:
+        msg = "Existing IoT schema does not match revision 6d7e8f9a0b1c: " + "; ".join(problems)
+        raise RuntimeError(msg)
 
 
 def downgrade() -> None:

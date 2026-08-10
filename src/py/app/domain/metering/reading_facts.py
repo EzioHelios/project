@@ -12,6 +12,7 @@ from app.db import models as m
 
 if TYPE_CHECKING:
     from datetime import datetime
+    from uuid import UUID
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -112,6 +113,7 @@ class MeterReadingFactInput:
     binding_id: int | None = None
     source_type: int | None = None
     mapping_version: str = "v1"
+    team_id: UUID | None = None
 
 
 class MeterReadingFactWriter:
@@ -149,6 +151,7 @@ class MeterReadingFactWriter:
         normalized_value = _decimal_or_none(reading.normalized_value)
         unit = reading.unit or spec.unit
         return m.MeterReadingFact(
+            team_id=reading.team_id,
             source_system=reading.source_system,
             source_record_id=reading.source_record_id,
             source_message_id=reading.source_message_id,

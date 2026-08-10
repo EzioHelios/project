@@ -17,6 +17,17 @@ def jsonable_mapping(row: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def period_param(value: str | datetime.date | datetime.datetime | None) -> datetime.date | datetime.datetime | None:
+    """Convert HTTP date/time strings into values asyncpg can bind to date/timestamp columns."""
+    if value is None or isinstance(value, (datetime.date, datetime.datetime)):
+        return value
+    normalized = value.strip()
+    if "T" in normalized or " " in normalized:
+        parsed = datetime.datetime.fromisoformat(normalized)
+        return parsed.replace(tzinfo=None) if parsed.tzinfo is not None else parsed
+    return datetime.date.fromisoformat(normalized)
+
+
 def paged_payload(items: list[dict[str, Any]], total: int, limit: int, offset: int) -> dict[str, Any]:
     return {"items": items, "total": total, "limit": limit, "offset": offset, "code": 200, "data": items}
 

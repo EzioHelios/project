@@ -12,6 +12,7 @@ import { type PageResult, PaginationBar, request, requestPage } from "@/componen
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -157,19 +158,19 @@ type FlowData = {
 
 type BalanceData = {
   billing_month?: string | null
-  table: { label: string; value: number; unit: string }[]
+  table: { label: string; value: number | null; unit: string }[]
   diagnostics: { label: string; value: string | number }[]
   summary?: EnergyFlowSummary
 }
 
 type EnergyFlowSummary = {
   total_input: number
-  transform_loss: number
-  distribution_loss: number
-  total_loss: number
-  loss_rate_pct: number
+  transform_loss: number | null
+  distribution_loss: number | null
+  total_loss: number | null
+  loss_rate_pct: number | null
   utilized_energy: number
-  high_loss_count: number
+  high_loss_count: number | null
   row_count: number
   loss_threshold_pct: number
   data_quality: string
@@ -178,13 +179,13 @@ type EnergyFlowSummary = {
 type EnergyBalanceSummary = {
   total_input: number
   effective_energy: number
-  transform_loss: number
-  distribution_loss: number
-  terminal_loss: number
-  total_loss: number
-  inventory_change: number
-  balance_difference: number
-  balance_error_pct: number
+  transform_loss: number | null
+  distribution_loss: number | null
+  terminal_loss: number | null
+  total_loss: number | null
+  inventory_change: number | null
+  balance_difference: number | null
+  balance_error_pct: number | null
   metering_coverage_pct: number
   record_count: number
   equipment_count: number
@@ -201,11 +202,11 @@ type EnergyBalanceSummary = {
 
 type EnergyBalanceOverviewData = {
   summary: EnergyBalanceSummary
-  cards: { label: string; value: number; unit: string }[]
+  cards: { label: string; value: number | null; unit: string }[]
 }
 
 type EnergyBalanceTableData = {
-  rows: { code: string; label: string; value: number; unit: string; source_type: string; source_name: string }[]
+  rows: { code: string; label: string; value: number | null; unit: string; source_type: string; source_name: string }[]
   summary: EnergyBalanceSummary
 }
 
@@ -1942,8 +1943,8 @@ export function EnergyFlowPanel({ header }: { header?: ReactNode }) {
       >
         <TabsContent value="graph" className="space-y-4">
           <MetricStrip>
-            <EnergyFlowKpi title="输入" value={summary?.total_input} unit="kWh" />
-            <EnergyFlowKpi title="有效利用" value={summary?.utilized_energy} unit="kWh" />
+            <EnergyFlowKpi title="计量用电" value={summary?.total_input} unit="kWh" />
+            <EnergyFlowKpi title="分项用电" value={summary?.utilized_energy} unit="kWh" />
             <EnergyFlowKpi title="总损耗率" value={summary?.loss_rate_pct} unit="%" />
             <EnergyFlowKpi title="高损耗链路" value={summary?.high_loss_count} unit="条" />
           </MetricStrip>
@@ -2057,7 +2058,7 @@ export function EnergyFlowPanel({ header }: { header?: ReactNode }) {
   )
 }
 
-function EnergyFlowKpi({ title, value, unit }: { title: string; value?: number; unit: string }) {
+function EnergyFlowKpi({ title, value, unit }: { title: string; value?: number | null; unit: string }) {
   return <MetricTile label={title} value={formatEnergyValue(value, 2)} unit={unit} />
 }
 
@@ -2229,7 +2230,7 @@ export function EnergyBalancePanel({ header }: { header?: ReactNode }) {
             <AdminPanel contentClassName="py-8 text-center text-muted-foreground">暂无平衡数据</AdminPanel>
           )}
           <PageSection>
-            <AdminPanel title="能量平衡表" actions={summary ? balanceQualityBadge(summary.quality) : null} contentClassName="p-0">
+            <AdminPanel title="能量平衡表" actions={summary ? balanceStatusBadge(summary.balance_status) : null} contentClassName="p-0">
               <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
@@ -2464,10 +2465,9 @@ function numericParameters(values: Record<string, string>) {
   return Object.fromEntries(Object.entries(values).map(([key, value]) => [key, Number(value || 0)]))
 }
 
-function balanceQualityBadge(value?: string) {
-  if (value === "good") return <Badge className="bg-emerald-600 hover:bg-emerald-600">良好</Badge>
-  if (value === "warning") return <Badge className="bg-amber-500 hover:bg-amber-500">需复核</Badge>
-  if (value === "low") return <Badge variant="destructive">覆盖不足</Badge>
+function balanceStatusBadge(value?: string) {
+  if (value === "balanced") return <Badge className="bg-emerald-600 hover:bg-emerald-600">已闭合</Badge>
+  if (value === "insufficient_boundary") return <Badge variant="outline">边界待完善</Badge>
   return <Badge variant="outline">暂无数据</Badge>
 }
 

@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import text
 
+from app.lib.tenancy import require_session_tenant_id
+
 if TYPE_CHECKING:
     from uuid import UUID
 
@@ -128,34 +130,44 @@ async def import_wms_production_data(
     """Generate product, price and product batch quantity samples from WMS inbound/outbound records."""
 
     result = WmsProductionDataImportResult()
-    await session.execute(text("select set_config('app.tenant_bypass', 'true', true)"))
+    team_id = require_session_tenant_id(session)
 
     outbound_rows = (
-        await session.execute(
-            text(
-                """
+        (
+            await session.execute(
+                text(
+                    """
                 select id, team_id, ckdbh, wlbm, wlms, pc, jldw, sfsl, dj, je, gzrq, ckdd, gc, lldh
                 from dataapp_outmoney
+                where team_id = :team_id
                 order by id
                 limit coalesce(:limit, 2147483647)
                 """
-            ),
-            {"limit": limit},
+                ),
+                {"team_id": str(team_id), "limit": limit},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     inbound_rows = (
-        await session.execute(
-            text(
-                """
+        (
+            await session.execute(
+                text(
+                    """
                 select id, team_id, rkdbh, wlbh, wlms, pc, jldw, shsl, shdj, shje, rkrq, ckmc
                 from dataapp_inmoney
+                where team_id = :team_id
                 order by id
                 limit coalesce(:limit, 2147483647)
                 """
-            ),
-            {"limit": limit},
+                ),
+                {"team_id": str(team_id), "limit": limit},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     product_rows = _build_product_rows(outbound_rows, inbound_rows)
     price_rows = _build_price_rows(outbound_rows)
@@ -175,7 +187,7 @@ async def import_wms_production_data(
     if product_rows:
         await _upsert_products(session, product_rows)
     if price_rows:
-        result.prices_deleted = await _replace_prices(session, price_rows)
+        result.prices_deleted = await _replace_prices(session, price_rows, team_id=team_id)
     if output_rows:
         await _upsert_output_facts(session, output_rows)
 
@@ -497,15 +509,17 @@ async def _upsert_products(session: AsyncSession, rows: list[dict[str, Any]]) ->
     )
 
 
-async def _replace_prices(session: AsyncSession, rows: list[dict[str, Any]]) -> int:
+async def _replace_prices(session: AsyncSession, rows: list[dict[str, Any]], *, team_id: UUID) -> int:
     deleted = (
         await session.execute(
             text(
                 """
                 delete from dataapp_productprice
-                where source_system in ('wms_out_standard', 'wms_out_actual_average', 'wms_out_base_period')
+                where team_id = :team_id
+                  and source_system in ('wms_out_standard', 'wms_out_actual_average', 'wms_out_base_period')
                 """
-            )
+            ),
+            {"team_id": str(team_id)},
         )
     ).rowcount
     await _execute_chunks(

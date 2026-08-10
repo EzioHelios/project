@@ -122,10 +122,7 @@ def _decode_access_token(scope: Scope) -> Any | None:
 def _user_has_superuser_access(user: User) -> bool:
     if user.is_superuser:
         return True
-    return any(
-        assigned_role.role_name == constants.SUPERUSER_ACCESS_ROLE
-        for assigned_role in user.roles
-    )
+    return any(assigned_role.role_name == constants.SUPERUSER_ACCESS_ROLE for assigned_role in user.roles)
 
 
 def _user_team_ids(user: User) -> set[UUID]:
@@ -148,7 +145,11 @@ def resolve_tenant_context(scope: Scope) -> TenantContext | None:
 
     is_superuser = _user_has_superuser_access(user)
     if is_superuser:
-        return TenantContext(team_id=requested_team_id, user_id=user.id, is_superuser=True) if requested_team_id is not None else None
+        return (
+            TenantContext(team_id=requested_team_id, user_id=user.id, is_superuser=True)
+            if requested_team_id is not None
+            else None
+        )
 
     team_ids = _user_team_ids(user)
     tenant_context: TenantContext | None = None
@@ -202,6 +203,20 @@ def _tenant_id_for_session(session: Session) -> UUID | None:
     return _coerce_uuid(session.info.get(TENANT_ID_SESSION_KEY))
 
 
+def session_tenant_id(session: Session | AsyncSession) -> UUID | None:
+    """Return the active tenant attached to a sync or async session."""
+    return _coerce_uuid(session.info.get(TENANT_ID_SESSION_KEY))
+
+
+def require_session_tenant_id(session: Session | AsyncSession) -> UUID:
+    """Return the active tenant or reject tenant-owned business access."""
+    tenant_id = session_tenant_id(session)
+    if tenant_id is None:
+        msg = "An active team is required for tenant-scoped business data."
+        raise PermissionDeniedException(detail=msg)
+    return tenant_id
+
+
 def _iter_team_scoped_model_classes() -> list[type[TeamScopedMixin]]:
     scoped_classes: list[type[TeamScopedMixin]] = []
     pending: list[type[TeamScopedMixin]] = list(TeamScopedMixin.__subclasses__())
@@ -211,6 +226,10 @@ def _iter_team_scoped_model_classes() -> list[type[TeamScopedMixin]]:
         if hasattr(model_cls, "__mapper__"):
             scoped_classes.append(model_cls)
     return scoped_classes
+
+
+def _iter_marked_model_classes(marker: str) -> list[type[TeamScopedMixin]]:
+    return [model_cls for model_cls in _iter_team_scoped_model_classes() if getattr(model_cls, marker, False)]
 
 
 def _enforce_flush_tenant(session: Session) -> None:
@@ -266,9 +285,38 @@ def install_tenant_events() -> None:
 
     @event.listens_for(Session, "do_orm_execute")
     def _add_tenant_criteria(execute_state: Any) -> None:
-        if not execute_state.is_select or execute_state.execution_options.get("include_all_tenants"):
+        if not execute_state.is_select:
             return
         session = execute_state.session
+
+        revision_scoped_models = _iter_marked_model_classes("__current_revision_scoped__")
+        if revision_scoped_models and not execute_state.execution_options.get("include_revision_history"):
+            execute_state.statement = execute_state.statement.options(
+                *[
+                    with_loader_criteria(
+                        model_cls,
+                        lambda cls: cls.is_current.is_(True),
+                        include_aliases=True,
+                    )
+                    for model_cls in revision_scoped_models
+                ]
+            )
+
+        formal_record_models = _iter_marked_model_classes("__formal_record_scoped__")
+        if formal_record_models and not execute_state.execution_options.get("include_reference_records"):
+            execute_state.statement = execute_state.statement.options(
+                *[
+                    with_loader_criteria(
+                        model_cls,
+                        lambda cls: cls.record_usage != "reference",
+                        include_aliases=True,
+                    )
+                    for model_cls in formal_record_models
+                ]
+            )
+
+        if execute_state.execution_options.get("include_all_tenants"):
+            return
         if session.info.get(TENANT_BYPASS_SESSION_KEY):
             return
 
@@ -277,6 +325,7 @@ def install_tenant_events() -> None:
         if not scoped_model_classes:
             return
         if tenant_id is None:
+
             def _deny_tenant_access(_cls: type[TeamScopedMixin]) -> Any:
                 return false()
 
@@ -292,7 +341,10 @@ def install_tenant_events() -> None:
             return cls.team_id == tenant_id
 
         execute_state.statement = execute_state.statement.options(
-            *[with_loader_criteria(model_cls, _match_tenant, include_aliases=True) for model_cls in scoped_model_classes],
+            *[
+                with_loader_criteria(model_cls, _match_tenant, include_aliases=True)
+                for model_cls in scoped_model_classes
+            ],
         )
 
     @event.listens_for(Session, "before_flush")

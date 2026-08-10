@@ -52,7 +52,9 @@ async def seed_carbon_mvp_data(session: AsyncSession) -> CarbonMvpSeedResult:
     template_id, project_id = await _seed_verification(session, org_id, period_id, boundary_id, batch.id)
     product_id, study_id = await _seed_product_footprint(session)
     supplier_task_id = await _seed_supply_chain(session, product_id)
-    period_asset_id, account_id, allowance_id, credit_id = await _seed_assets(session, boundary_id, batch.id, batch.total_co2e)
+    period_asset_id, account_id, allowance_id, credit_id = await _seed_assets(
+        session, boundary_id, batch.id, batch.total_co2e
+    )
     plan_id = await _seed_budget(session)
     await session.commit()
     return await _collect_result(
@@ -72,54 +74,58 @@ async def seed_carbon_mvp_data(session: AsyncSession) -> CarbonMvpSeedResult:
 
 async def _delete_existing_seed_data(session: AsyncSession) -> None:
     deletes = [
-        "delete from carbon_verification_export_file where job_id in "
-        "(select id from carbon_verification_export_job where job_no like 'MVP-%')",
-        "delete from carbon_verification_export_job where job_no like 'MVP-%'",
-        "delete from carbon_verification_finding where source_name = :source",
-        "delete from carbon_verification_attachment where source_name = :source",
-        "delete from carbon_verification_project where source_name = :source",
-        "delete from carbon_verification_template_version where source_name = :source",
-        "delete from carbon_asset_forecast_scenario where source_name = :source",
-        "delete from carbon_surrender_record where source_name = :source",
-        "delete from carbon_asset_transaction where source_name = :source",
-        "delete from carbon_credit_holding where source_name = :source",
-        "delete from carbon_quota_allocation where source_name = :source",
-        "delete from carbon_asset_account where source_name = :source",
-        "delete from carbon_compliance_period where source_name = :source",
-        "delete from carbon_supplier_disclosure_release where release_no like 'MVP-%'",
-        "delete from carbon_supplier_review_decision where reason like :marker_like",
-        "delete from carbon_supplier_evidence where remark like :marker_like",
-        "delete from carbon_supplier_carbon_data where remark like :marker_like",
-        "delete from carbon_supplier_disclosure_task where source_name = :source",
-        "delete from carbon_supplier_site where remark like :marker_like",
-        "delete from carbon_supply_chain_supplier where source_name = :source",
-        "delete from carbon_product_footprint_result where remark like :marker_like",
-        "delete from carbon_product_footprint_allocation_rule where source_name = :source",
-        "delete from carbon_product_footprint_inventory_item where remark like :marker_like",
-        "delete from carbon_product_lifecycle_stage where study_id in "
-        "(select id from carbon_product_footprint_study where source_name = :source)",
-        "delete from carbon_product_system_boundary where source_name = :source",
-        "delete from carbon_product_footprint_study where source_name = :source",
-        "delete from carbon_emission_inventory_item where batch_id in "
-        "(select id from carbon_accounting_batch where source_name = :source)",
-        "delete from carbon_accounting_batch where source_name = :source",
-        "delete from carbon_boundary_facility where source_name = :source",
-        "delete from carbon_organization_boundary where source_name = :source",
-        "delete from carbon_reporting_period where source_name = :source",
-        "delete from carbon_reporting_organization where source_name = :source",
-        "delete from dataapp_energycarbonbudgetadjustment where source_name = :source",
-        "delete from dataapp_energycarbonbudgetallocation where source_name = :source",
-        "delete from dataapp_energycarbonbudgetplan where source_name = :source",
-        "delete from dataapp_scope2purchasedenergy where remark like :marker_like",
-        "delete from dataapp_scope2electricitybill where remark like :marker_like",
-        "delete from dataapp_scope3thirdpartytransport where remark like :marker_like",
-        "delete from dataapp_scope3wastedisposal where remark like :marker_like",
-        "delete from dataapp_scope1refrigerantleak where remark like :marker_like",
-        "delete from dataapp_scope1stationarycombustion where remark like :marker_like",
-        "delete from dataapp_scope1mobilecombustion where remark like :marker_like",
-        "delete from dataapp_productionproduct where code = 'MVP-PROD-001'",
+        "delete from carbon_verification_export_file where team_id = :team_id and job_id in "
+        "(select id from carbon_verification_export_job where team_id = :team_id and job_no like 'MVP-%')",
+        "delete from carbon_verification_export_job where team_id = :team_id and job_no like 'MVP-%'",
+        "delete from carbon_verification_finding where team_id = :team_id and source_name = :source",
+        "delete from carbon_verification_attachment where team_id = :team_id and source_name = :source",
+        "delete from carbon_verification_project where team_id = :team_id and source_name = :source",
+        "delete from carbon_verification_template_version where team_id = :team_id and source_name = :source",
+        "delete from carbon_asset_forecast_scenario where team_id = :team_id and source_name = :source",
+        "delete from carbon_surrender_record where team_id = :team_id and source_name = :source",
+        "delete from carbon_asset_transaction where team_id = :team_id and source_name = :source",
+        "delete from carbon_credit_holding where team_id = :team_id and source_name = :source",
+        "delete from carbon_quota_allocation where team_id = :team_id and source_name = :source",
+        "delete from carbon_asset_account where team_id = :team_id and source_name = :source",
+        "delete from carbon_compliance_period where team_id = :team_id and source_name = :source",
+        "delete from carbon_supplier_disclosure_release where team_id = :team_id and release_no like 'MVP-%'",
+        "delete from carbon_supplier_review_decision where team_id = :team_id and reason like :marker_like",
+        "delete from carbon_supplier_evidence where team_id = :team_id and remark like :marker_like",
+        "delete from carbon_supplier_carbon_data where team_id = :team_id and remark like :marker_like",
+        "delete from carbon_supplier_disclosure_task where team_id = :team_id and source_name = :source",
+        "delete from carbon_supplier_site where team_id = :team_id and remark like :marker_like",
+        "delete from carbon_supply_chain_supplier where team_id = :team_id and source_name = :source",
+        "delete from carbon_product_footprint_result where team_id = :team_id and remark like :marker_like",
+        "delete from carbon_product_footprint_allocation_rule where team_id = :team_id and source_name = :source",
+        "delete from carbon_product_footprint_inventory_item where team_id = :team_id and remark like :marker_like",
+        "delete from carbon_product_lifecycle_stage where team_id = :team_id and study_id in "
+        "(select id from carbon_product_footprint_study where team_id = :team_id and source_name = :source)",
+        "delete from carbon_product_system_boundary where team_id = :team_id and source_name = :source",
+        "delete from carbon_product_footprint_study where team_id = :team_id and source_name = :source",
+        "delete from carbon_emission_inventory_item where team_id = :team_id and batch_id in "
+        "(select id from carbon_accounting_batch where team_id = :team_id and source_name = :source)",
+        "delete from carbon_accounting_batch where team_id = :team_id and source_name = :source",
+        "delete from carbon_boundary_facility where team_id = :team_id and source_name = :source",
+        "delete from carbon_organization_boundary where team_id = :team_id and source_name = :source",
+        "delete from carbon_reporting_period where team_id = :team_id and source_name = :source",
+        "delete from carbon_reporting_organization where team_id = :team_id and source_name = :source",
+        "delete from dataapp_energycarbonbudgetadjustment where team_id = :team_id and source_name = :source",
+        "delete from dataapp_energycarbonbudgetallocation where team_id = :team_id and source_name = :source",
+        "delete from dataapp_energycarbonbudgetplan where team_id = :team_id and source_name = :source",
+        "delete from dataapp_scope2purchasedenergy where team_id = :team_id and remark like :marker_like",
+        "delete from dataapp_scope2electricitybill where team_id = :team_id and remark like :marker_like",
+        "delete from dataapp_scope3thirdpartytransport where team_id = :team_id and remark like :marker_like",
+        "delete from dataapp_scope3wastedisposal where team_id = :team_id and remark like :marker_like",
+        "delete from dataapp_scope1refrigerantleak where team_id = :team_id and remark like :marker_like",
+        "delete from dataapp_scope1stationarycombustion where team_id = :team_id and remark like :marker_like",
+        "delete from dataapp_scope1mobilecombustion where team_id = :team_id and remark like :marker_like",
+        "delete from dataapp_productionproduct where team_id = :team_id and code = 'MVP-PROD-001'",
     ]
-    params = {"source": SEED_SOURCE, "marker_like": f"%{SEED_MARKER}%"}
+    params = {
+        "team_id": str(DEFAULT_TENANT_ID),
+        "source": SEED_SOURCE,
+        "marker_like": f"%{SEED_MARKER}%",
+    }
     for statement in deletes:
         await session.execute(text(statement), params)
 
@@ -661,10 +667,50 @@ async def _seed_product_footprint(session: AsyncSession) -> tuple[int, int]:
             {"study_id": study_id, "code": code, "name": name, "sequence": sequence},
         )
     items = [
-        ("MVP-PCF-IT-001", "raw_material", "supplier_pcf", "钣金壳体供应商PCF", None, None, None, None, Decimal("58.2000")),
-        ("MVP-PCF-IT-002", "raw_material", "material", "铜排与线束", Decimal("18.5"), "kg", Decimal("3.2000"), "kgCO2e/kg", None),
-        ("MVP-PCF-IT-003", "manufacturing", "energy", "装配测试用电", Decimal("86.0"), "kWh", GRID_FACTOR_KG_PER_KWH, "kgCO2e/kWh", None),
-        ("MVP-PCF-IT-004", "packaging", "material", "纸箱与托盘包装", Decimal("9.6"), "kg", Decimal("1.4500"), "kgCO2e/kg", None),
+        (
+            "MVP-PCF-IT-001",
+            "raw_material",
+            "supplier_pcf",
+            "钣金壳体供应商PCF",
+            None,
+            None,
+            None,
+            None,
+            Decimal("58.2000"),
+        ),
+        (
+            "MVP-PCF-IT-002",
+            "raw_material",
+            "material",
+            "铜排与线束",
+            Decimal("18.5"),
+            "kg",
+            Decimal("3.2000"),
+            "kgCO2e/kg",
+            None,
+        ),
+        (
+            "MVP-PCF-IT-003",
+            "manufacturing",
+            "energy",
+            "装配测试用电",
+            Decimal("86.0"),
+            "kWh",
+            GRID_FACTOR_KG_PER_KWH,
+            "kgCO2e/kWh",
+            None,
+        ),
+        (
+            "MVP-PCF-IT-004",
+            "packaging",
+            "material",
+            "纸箱与托盘包装",
+            Decimal("9.6"),
+            "kg",
+            Decimal("1.4500"),
+            "kgCO2e/kg",
+            None,
+        ),
     ]
     total = Decimal(0)
     for item_no, stage_code, activity_type, name, amount, unit, factor, factor_unit, supplier_pcf in items:
@@ -820,7 +866,14 @@ async def _seed_supply_chain(session: AsyncSession, product_id: int) -> int:
             )
             """
         ),
-        _params({"task_id": task_id, "supplier_id": supplier_id, "product_id": product_id, "remark": f"{SEED_MARKER} 供应商PCF数据。"}),
+        _params(
+            {
+                "task_id": task_id,
+                "supplier_id": supplier_id,
+                "product_id": product_id,
+                "remark": f"{SEED_MARKER} 供应商PCF数据。",
+            }
+        ),
     )
     await session.execute(
         text(
@@ -928,7 +981,12 @@ async def _seed_assets(
         )
         returning id
         """,
-        {"period_id": period_id, "account_id": account_id, "allocated": total_t + Decimal("120.0"), "used": total_t * Decimal("0.35")},
+        {
+            "period_id": period_id,
+            "account_id": account_id,
+            "allocated": total_t + Decimal("120.0"),
+            "used": total_t * Decimal("0.35"),
+        },
     )
     credit_id = await _insert_returning_id(
         session,
@@ -982,7 +1040,14 @@ async def _seed_assets(
             )
             """
         ),
-        _params({"period_id": period_id, "account_id": account_id, "allowance_id": allowance_id, "amount": total_t * Decimal("0.20")}),
+        _params(
+            {
+                "period_id": period_id,
+                "account_id": account_id,
+                "allowance_id": allowance_id,
+                "amount": total_t * Decimal("0.20"),
+            }
+        ),
     )
     await session.execute(
         text(
@@ -1027,8 +1092,20 @@ async def _seed_budget(session: AsyncSession) -> int:
         returning id
         """,
     )
-    weights = [Decimal("0.076"), Decimal("0.072"), Decimal("0.078"), Decimal("0.080"), Decimal("0.083"), Decimal("0.088"),
-               Decimal("0.092"), Decimal("0.091"), Decimal("0.086"), Decimal("0.084"), Decimal("0.082"), Decimal("0.088")]
+    weights = [
+        Decimal("0.076"),
+        Decimal("0.072"),
+        Decimal("0.078"),
+        Decimal("0.080"),
+        Decimal("0.083"),
+        Decimal("0.088"),
+        Decimal("0.092"),
+        Decimal("0.091"),
+        Decimal("0.086"),
+        Decimal("0.084"),
+        Decimal("0.082"),
+        Decimal("0.088"),
+    ]
     for index, weight in enumerate(weights, start=1):
         month = dt.date(REPORT_YEAR, index, 1)
         energy_budget = Decimal("82.0") * weight
@@ -1101,13 +1178,18 @@ async def _collect_result(session: AsyncSession, **ids: int) -> CarbonMvpSeedRes
         "dataapp_scope3thirdpartytransport",
     ):
         scope_records += int(
-            await session.scalar(text(f"select count(*) from {table_name} where remark like :marker_like"), {"marker_like": f"%{SEED_MARKER}%"})
+            await session.scalar(
+                text(f"select count(*) from {table_name} where team_id = :team_id and remark like :marker_like"),
+                {"team_id": str(DEFAULT_TENANT_ID), "marker_like": f"%{SEED_MARKER}%"},
+            )
             or 0
         )
     inventory_items = int(
         await session.scalar(
-            text("select count(*) from carbon_emission_inventory_item where batch_id = :batch_id"),
-            {"batch_id": ids["batch_id"]},
+            text(
+                "select count(*) from carbon_emission_inventory_item where team_id = :team_id and batch_id = :batch_id"
+            ),
+            {"team_id": str(DEFAULT_TENANT_ID), "batch_id": ids["batch_id"]},
         )
         or 0
     )

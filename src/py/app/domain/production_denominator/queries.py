@@ -6,10 +6,13 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import text
 
-from app.domain.energy.queries.common import jsonable_mapping
+from app.domain.energy.queries.common import jsonable_mapping, period_param
 from app.domain.production_denominator.policies import normalize_production_output_kind
+from app.lib.tenancy import require_session_tenant_id
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -55,7 +58,7 @@ class ProductionDenominatorQueryService:
         }
 
     async def product_rows(self, query: ProductionOutputQuery) -> list[dict[str, Any]]:
-        where_sql, params = production_output_where_sql(query)
+        where_sql, params = production_output_where_sql(query, team_id=require_session_tenant_id(self._session))
         return await _rows(
             self._session,
             f"""
@@ -89,7 +92,7 @@ class ProductionDenominatorQueryService:
         )
 
     async def period_rows(self, query: ProductionOutputQuery) -> list[dict[str, Any]]:
-        where_sql, params = production_output_where_sql(query)
+        where_sql, params = production_output_where_sql(query, team_id=require_session_tenant_id(self._session))
         date_part, period_format = period_sql_expr(query.granularity)
         return await _rows(
             self._session,
@@ -114,15 +117,15 @@ class ProductionDenominatorQueryService:
         )
 
 
-def production_output_where_sql(query: ProductionOutputQuery) -> tuple[str, dict[str, Any]]:
-    conditions: list[str] = []
-    params: dict[str, Any] = {}
+def production_output_where_sql(query: ProductionOutputQuery, *, team_id: UUID | str) -> tuple[str, dict[str, Any]]:
+    conditions = ["o.team_id = :team_id"]
+    params: dict[str, Any] = {"team_id": str(team_id)}
     if query.period_start:
         conditions.append("o.period_end >= :period_start")
-        params["period_start"] = query.period_start
+        params["period_start"] = period_param(query.period_start)
     if query.period_end:
         conditions.append("o.period_start <= :period_end")
-        params["period_end"] = query.period_end
+        params["period_end"] = period_param(query.period_end)
     if query.product_code and query.product_code != "all":
         conditions.append("o.product_code = :product_code")
         params["product_code"] = query.product_code
@@ -164,7 +167,9 @@ def period_sql_expr(granularity: str) -> tuple[str, str]:
     return date_part, {"day": "YYYY-MM-DD", "month": "YYYY-MM", "year": "YYYY"}[date_part]
 
 
-def price_lateral_joins(price_types: tuple[str, ...] = ("actual_average_price", "standard_price", "base_period_price")) -> str:
+def price_lateral_joins(
+    price_types: tuple[str, ...] = ("actual_average_price", "standard_price", "base_period_price"),
+) -> str:
     joins = []
     for price_type in price_types:
         alias = f"price_{price_type}"

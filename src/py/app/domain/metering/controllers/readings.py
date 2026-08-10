@@ -12,6 +12,7 @@ from app.db import models as m
 from app.domain.accounts.guards import requires_authenticated_user
 from app.domain.energy.controllers._utils import ok_data
 from app.domain.production_denominator.controllers._utils import paged_payload
+from app.lib.tenancy import require_session_tenant_id
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,12 +53,16 @@ class MeteringReadingController(Controller):
         )
         total = await db_session.scalar(select(func.count()).select_from(statement.order_by(None).subquery()))
         rows = (
-            await db_session.execute(
-                statement.order_by(m.MeterReadingFact.reading_time.desc(), m.MeterReadingFact.id.desc())
-                .limit(limited)
-                .offset(safe_offset)
+            (
+                await db_session.execute(
+                    statement.order_by(m.MeterReadingFact.reading_time.desc(), m.MeterReadingFact.id.desc())
+                    .limit(limited)
+                    .offset(safe_offset)
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
         return Response(content=paged_payload([_reading_row(row) for row in rows], total or 0, limited, safe_offset))
 
     @get("/api/metering/readings/latest", guards=[requires_authenticated_user])
@@ -85,7 +90,11 @@ class MeteringReadingController(Controller):
             value_kind=value_kind,
             quality_status=quality_status,
         ).join(latest, and_(latest.c.reading_id == reading.id, latest.c.row_number == 1))
-        rows = (await db_session.execute(statement.order_by(reading.reading_time.desc(), reading.id.desc()))).mappings().all()
+        rows = (
+            (await db_session.execute(statement.order_by(reading.reading_time.desc(), reading.id.desc())))
+            .mappings()
+            .all()
+        )
         summary = _latest_summary(rows)
         page_rows = rows[safe_offset : safe_offset + limited]
         return Response(
@@ -247,8 +256,16 @@ class MeteringReadingController(Controller):
         reading = m.MeterReadingFact
         latest = _latest_ids_subquery()
         rows = (
-            await db_session.execute(_latest_meter_rows_statement().join(latest, and_(latest.c.reading_id == reading.id, latest.c.row_number == 1)))
-        ).mappings().all()
+            (
+                await db_session.execute(
+                    _latest_meter_rows_statement().join(
+                        latest, and_(latest.c.reading_id == reading.id, latest.c.row_number == 1)
+                    )
+                )
+            )
+            .mappings()
+            .all()
+        )
         return Response(content=ok_data(_latest_summary(rows)))
 
 
@@ -331,17 +348,15 @@ def _latest_meter_rows_statement() -> Any:
 
 def _latest_ids_subquery() -> Any:
     reading = m.MeterReadingFact
-    return (
-        select(
-            reading.id.label("reading_id"),
-            func.row_number()
-            .over(
-                partition_by=(reading.equipment_id, reading.point_code, reading.value_kind),
-                order_by=(reading.reading_time.desc(), reading.id.desc()),
-            )
-            .label("row_number"),
-        ).subquery()
-    )
+    return select(
+        reading.id.label("reading_id"),
+        func.row_number()
+        .over(
+            partition_by=(reading.equipment_id, reading.point_code, reading.value_kind),
+            order_by=(reading.reading_time.desc(), reading.id.desc()),
+        )
+        .label("row_number"),
+    ).subquery()
 
 
 async def _consumption_rows(
@@ -354,7 +369,9 @@ async def _consumption_rows(
     area_id: str | None,
     equipment_id: int | None,
 ) -> list[dict[str, Any]]:
+    team_id = require_session_tenant_id(db_session)
     params: dict[str, Any] = {
+        "team_id": str(team_id),
         "start_time": start_dt,
         "end_time": end_dt,
         "point_code": point_code,
@@ -400,10 +417,13 @@ async def _consumption_rows(
                     end
                 ) as sample_count
             from metering_meter_reading_fact fact
-            join dataapp_monitorequipment equipment on equipment.id = fact.equipment_id
-            left join dataapp_monitorsector sector on sector.id = equipment.sector_id
+            join dataapp_monitorequipment equipment
+              on equipment.id = fact.equipment_id and equipment.team_id = fact.team_id
+            left join dataapp_monitorsector sector
+              on sector.id = equipment.sector_id and sector.team_id = fact.team_id
             where
-                fact.reading_time >= :start_time
+                fact.team_id = :team_id
+                and fact.reading_time >= :start_time
                 and fact.reading_time < :end_time
                 and fact.point_code = :point_code
                 and fact.value_kind = :value_kind

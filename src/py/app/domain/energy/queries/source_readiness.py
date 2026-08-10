@@ -22,24 +22,25 @@ class EnergySourceReadinessQueryService:
         if team_id is None:
             return _empty_summary()
         row = (
-            await self._session.execute(
-                text(
-                    """
+            (
+                await self._session.execute(
+                    text(
+                        """
                     select
                         (
                             select count(*)::int
                             from dataapp_energyintervalfact
-                            where team_id = :team_id
+                            where team_id = :team_id and is_current = true
                         ) as energy_interval_count,
                         (
                             select count(*)::int
                             from dataapp_scope1stationarycombustion
-                            where team_id = :team_id and status = 'approved'
+                            where team_id = :team_id and status = 'approved' and record_usage <> 'reference'
                         ) as scope1_stationary_count,
                         (
                             select count(*)::int
                             from dataapp_scope2electricitybill
-                            where team_id = :team_id and status = 'approved'
+                            where team_id = :team_id and status = 'approved' and record_usage <> 'reference'
                         ) as scope2_electricity_count,
                         (
                             select count(*)::int
@@ -47,10 +48,13 @@ class EnergySourceReadinessQueryService:
                             where team_id = :team_id and record_status = 'confirmed'
                         ) as production_output_count
                     """
-                ),
-                {"team_id": str(team_id)},
+                    ),
+                    {"team_id": str(team_id)},
+                )
             )
-        ).mappings().one()
+            .mappings()
+            .one()
+        )
         counts = jsonable_mapping(dict(row))
         energy_interval_count = int(counts["energy_interval_count"] or 0)
         scope1_stationary_count = int(counts["scope1_stationary_count"] or 0)
@@ -84,10 +88,30 @@ class EnergySourceReadinessQueryService:
                 "carbon_accounting_energy": accounting_energy_status,
             },
             "items": [
-                {"key": "energy_interval_facts", "label": "能源计量事实", "count": energy_interval_count, "status": analysis_status},
-                {"key": "scope1_stationary_combustion", "label": "Scope1 固定燃烧", "count": scope1_stationary_count, "status": "ready" if scope1_stationary_count else "source_missing"},
-                {"key": "scope2_electricity_bills", "label": "Scope2 电力账单", "count": scope2_electricity_count, "status": "ready" if scope2_electricity_count else "source_missing"},
-                {"key": "production_output_facts", "label": "产量分母事实", "count": production_output_count, "status": production_status},
+                {
+                    "key": "energy_interval_facts",
+                    "label": "能源计量事实",
+                    "count": energy_interval_count,
+                    "status": analysis_status,
+                },
+                {
+                    "key": "scope1_stationary_combustion",
+                    "label": "Scope1 固定燃烧",
+                    "count": scope1_stationary_count,
+                    "status": "ready" if scope1_stationary_count else "source_missing",
+                },
+                {
+                    "key": "scope2_electricity_bills",
+                    "label": "Scope2 电力账单",
+                    "count": scope2_electricity_count,
+                    "status": "ready" if scope2_electricity_count else "source_missing",
+                },
+                {
+                    "key": "production_output_facts",
+                    "label": "产量分母事实",
+                    "count": production_output_count,
+                    "status": production_status,
+                },
             ],
         }
 

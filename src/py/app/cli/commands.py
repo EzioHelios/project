@@ -26,6 +26,7 @@ from app.domain.carbon.real_company_package_importer import import_real_company_
 from app.domain.energy.benchmark_importer import seed_warehouse_energy_benchmark_data
 from app.lib.deps import create_service_provider, provide_services
 from app.lib.settings import get_settings
+from app.lib.tenancy import TENANT_BYPASS_SESSION_KEY, TENANT_ID_SESSION_KEY
 
 
 @click.group(name="users", invoke_without_command=False, help="Manage application users and roles.")
@@ -38,6 +39,104 @@ def user_management_group(_: dict[str, Any]) -> None:
 @click.pass_context
 def carbon_management_group(_: dict[str, Any]) -> None:
     """Manage carbon data assets."""
+
+
+@click.group(name="metering", invoke_without_command=False, help="Manage canonical meter data migrations.")
+@click.pass_context
+def metering_management_group(_: dict[str, Any]) -> None:
+    """Manage meter ingestion and migration operations."""
+
+
+@metering_management_group.command(name="migrate-legacy", help="Resume legacy meter facts into the canonical table.")
+@click.option("--team", "team_slug", type=click.STRING, required=True, help="Tenant team slug.")
+@click.option(
+    "--from",
+    "from_time",
+    type=click.DateTime(formats=["%Y-%m-%d", "%Y-%m-%d %H:%M:%S"]),
+    required=True,
+    help="Inclusive source timestamp.",
+)
+@click.option(
+    "--to",
+    "to_time",
+    type=click.DateTime(formats=["%Y-%m-%d", "%Y-%m-%d %H:%M:%S"]),
+    default=None,
+    help="Exclusive source timestamp.",
+)
+@click.option("--batch-size", type=click.IntRange(1, 50_000), default=10_000, show_default=True)
+@click.option("--dry-run", is_flag=True, default=False, help="Count the frozen source set without writing facts.")
+def migrate_legacy_meter_data(
+    team_slug: str,
+    from_time: Any,
+    to_time: Any | None,
+    batch_size: int,
+    dry_run: bool,
+) -> None:
+    """Migrate legacy source rows without deleting or modifying them."""
+    from app.domain.metering.legacy_migration import LegacyMeterReadingMigration, resolve_team_id
+
+    console = get_console()
+
+    async def _migrate() -> None:
+        async with alchemy.get_session() as session:
+            session.info[TENANT_BYPASS_SESSION_KEY] = True
+            team_id = await resolve_team_id(session, team_slug)
+            await session.commit()
+            session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
+            session.info[TENANT_ID_SESSION_KEY] = team_id
+            migration = LegacyMeterReadingMigration(
+                session,
+                team_id=team_id,
+                from_time=from_time,
+                to_time=to_time,
+                batch_size=batch_size,
+            )
+            result = await migration.execute(dry_run=dry_run)
+        console.print(
+            "[green]Legacy meter migration finished[/green] "
+            f"dry_run={result.dry_run} run={result.run_code} high_watermark={result.source_high_watermark} "
+            f"source_rows={result.source_rows} expected_facts={result.expected_facts} "
+            f"inserted_facts={result.inserted_facts} duplicate_facts={result.duplicate_facts}"
+        )
+
+    console.rule("Migrate legacy meter readings.")
+    anyio.run(_migrate)
+
+
+@metering_management_group.command(
+    name="project-electricity",
+    help="Build versioned monthly electricity and Scope 2 projections from canonical facts.",
+)
+@click.option("--team", "team_slug", type=click.STRING, required=True, help="Tenant team slug.")
+@click.option("--from-month", type=click.STRING, required=True, help="Inclusive month in YYYY-MM format.")
+@click.option("--to-month", type=click.STRING, required=True, help="Inclusive month in YYYY-MM format.")
+@click.option("--area", "area_id", type=click.STRING, default=None, help="Optional area code or numeric area id.")
+def project_meter_electricity(team_slug: str, from_month: str, to_month: str, area_id: str | None) -> None:
+    """Project canonical cumulative readings without replacing prior revisions."""
+    from app.domain.metering.legacy_migration import resolve_team_id
+    from app.domain.metering.projection import ElectricityProjectionUseCase, iter_billing_months
+
+    console = get_console()
+    months = iter_billing_months(from_month, to_month)
+
+    async def _project() -> None:
+        async with alchemy.get_session() as session:
+            session.info[TENANT_BYPASS_SESSION_KEY] = True
+            team_id = await resolve_team_id(session, team_slug)
+            await session.commit()
+            session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
+            session.info[TENANT_ID_SESSION_KEY] = team_id
+            use_case = ElectricityProjectionUseCase(session)
+            for billing_month in months:
+                result = await use_case.rebuild_month(billing_month, area_id=area_id)
+                console.print(
+                    f"month={billing_month} run={result.run_code} reused={result.reused} "
+                    f"sources={result.source_count} hourly={result.hourly_facts} daily={result.daily_facts} "
+                    f"scope2={result.scope2_aggregates} issues={result.quality_issues}"
+                )
+
+    console.rule("Project meter electricity.")
+    anyio.run(_project)
 
 
 async def load_database_fixtures() -> None:
@@ -258,14 +357,22 @@ def import_calculation_factor_checklist_command(csv_path: Path) -> None:
     name="import-wms-production-data",
     help="Generate product, product price and product batch quantity samples from WMS records.",
 )
+@click.option("--team", "team_slug", type=click.STRING, required=True, help="Tenant team slug.")
 @click.option("--limit", type=click.INT, default=None, help="Limit inbound and outbound source rows for sampling.")
 @click.option("--dry-run", is_flag=True, default=False, help="Build the data in memory and roll back without writing.")
-def import_wms_production_data_command(limit: int | None, dry_run: bool) -> None:
+def import_wms_production_data_command(team_slug: str, limit: int | None, dry_run: bool) -> None:
     """Generate product denominator samples from inbound and outbound WMS data."""
     console = get_console()
 
     async def _import() -> None:
+        from app.domain.metering.legacy_migration import resolve_team_id
+
         async with alchemy.get_session() as session:
+            session.info[TENANT_BYPASS_SESSION_KEY] = True
+            team_id = await resolve_team_id(session, team_slug)
+            await session.commit()
+            session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
+            session.info[TENANT_ID_SESSION_KEY] = team_id
             result = await import_wms_production_data(session, limit=limit, dry_run=dry_run)
         console.print(
             "[green]Generated WMS production data[/green] "
@@ -335,17 +442,25 @@ def import_real_company_package_command(package_path: Path, dry_run: bool) -> No
 
 @carbon_management_group.command(
     name="seed-energy-analysis-data",
-    help="Generate energy analysis systems, tariff, interval facts and workload samples.",
+    help="Maintain legacy energy-analysis reference dictionaries without rebuilding facts.",
 )
-def seed_energy_analysis_data_command() -> None:
-    """Generate reusable energy analysis sample data from existing meter readings."""
+@click.option("--team", "team_slug", type=click.STRING, required=True, help="Tenant team slug.")
+def seed_energy_analysis_data_command(team_slug: str) -> None:
+    """Maintain legacy energy-analysis reference dictionaries."""
     console = get_console()
 
     async def _seed() -> None:
+        from app.domain.metering.legacy_migration import resolve_team_id
+
         async with alchemy.get_session() as session:
+            session.info[TENANT_BYPASS_SESSION_KEY] = True
+            team_id = await resolve_team_id(session, team_slug)
+            await session.commit()
+            session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
+            session.info[TENANT_ID_SESSION_KEY] = team_id
             result = await seed_energy_analysis_data(session)
         console.print(
-            "[green]Seeded energy analysis data[/green] "
+            "[green]Updated energy analysis reference dictionaries[/green] "
             f"use_systems={result.use_systems} bindings={result.use_system_bindings} "
             f"tariff_plans={result.tariff_plans} tariff_segments={result.tariff_segments} "
             f"hourly_facts={result.hourly_facts} daily_facts={result.daily_facts} "
@@ -360,12 +475,20 @@ def seed_energy_analysis_data_command() -> None:
     name="seed-energy-benchmark-data",
     help="Generate a warehouse scenario industry benchmark library sample.",
 )
-def seed_energy_benchmark_data_command() -> None:
+@click.option("--team", "team_slug", type=click.STRING, required=True, help="Tenant team slug.")
+def seed_energy_benchmark_data_command(team_slug: str) -> None:
     """Generate warehouse scenario benchmark library sample data."""
     console = get_console()
 
     async def _seed() -> None:
+        from app.domain.metering.legacy_migration import resolve_team_id
+
         async with alchemy.get_session() as session:
+            session.info[TENANT_BYPASS_SESSION_KEY] = True
+            team_id = await resolve_team_id(session, team_slug)
+            await session.commit()
+            session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
+            session.info[TENANT_ID_SESSION_KEY] = team_id
             result = await seed_warehouse_energy_benchmark_data(session)
         console.print(
             "[green]Seeded energy benchmark data[/green] "

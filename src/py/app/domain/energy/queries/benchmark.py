@@ -7,8 +7,9 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import select, text
 
 from app.db import models as m
-from app.domain.energy.queries.common import jsonable_mapping, ratio_or_none
+from app.domain.energy.queries.common import jsonable_mapping, period_param, ratio_or_none
 from app.domain.energy.queries.intensity import energy_area_denominators
+from app.lib.tenancy import require_session_tenant_id
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -216,13 +217,20 @@ class EnergyBenchmarkQueryService:
         metric_code: str,
         target_code: str | None,
     ) -> list[dict[str, Any]]:
+        team_id = require_session_tenant_id(self._session)
         conditions = [
+            "i.team_id = :team_id",
+            "p.team_id = :team_id",
             "i.is_enabled is true",
             "p.is_enabled is true",
             "i.target_type = :target_type",
             "i.metric_code = :metric_code",
         ]
-        params: dict[str, Any] = {"target_type": target_type, "metric_code": metric_code}
+        params: dict[str, Any] = {
+            "team_id": str(team_id),
+            "target_type": target_type,
+            "metric_code": metric_code,
+        }
         if profile_id is not None:
             conditions.append("i.profile_id = :profile_id")
             params["profile_id"] = profile_id
@@ -230,9 +238,10 @@ class EnergyBenchmarkQueryService:
             conditions.append("(i.target_code = :target_code or i.target_code is null or i.target_code = '')")
             params["target_code"] = target_code
         rows = (
-            await self._session.execute(
-                text(
-                    f"""
+            (
+                await self._session.execute(
+                    text(
+                        f"""
                     select
                         i.id,
                         i.profile_id,
@@ -250,17 +259,23 @@ class EnergyBenchmarkQueryService:
                         i.source_name,
                         i.confidence_level
                     from dataapp_energybenchmarkitem i
-                    join dataapp_energybenchmarkprofile p on p.id = i.profile_id
+                    join dataapp_energybenchmarkprofile p
+                      on p.id = i.profile_id and p.team_id = i.team_id
                     where {" and ".join(conditions)}
                     order by i.target_code nulls last, i.id desc
                     """
-                ),
-                params,
+                    ),
+                    params,
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
         return [jsonable_mapping(dict(row)) for row in rows]
 
-    async def _actual_rows(self, query: EnergyBenchmarkQuery, target_type: str, metric_code: str) -> list[dict[str, Any]]:
+    async def _actual_rows(
+        self, query: EnergyBenchmarkQuery, target_type: str, metric_code: str
+    ) -> list[dict[str, Any]]:
         if metric_code in {"kwh_per_run_hour", "kwh_per_workload"}:
             return await self._workload_actuals(query, target_type, metric_code)
         if metric_code in {"tce_per_m2", "kwh_per_m2"}:
@@ -269,14 +284,18 @@ class EnergyBenchmarkQueryService:
             return await self._product_actuals(query, metric_code)
         return []
 
-    async def _workload_actuals(self, query: EnergyBenchmarkQuery, target_type: str, metric_code: str) -> list[dict[str, Any]]:
+    async def _workload_actuals(
+        self, query: EnergyBenchmarkQuery, target_type: str, metric_code: str
+    ) -> list[dict[str, Any]]:
         target_expr = _workload_target_expr(target_type)
         if target_expr is None:
             return []
         target_code_expr, target_name_expr, target_filter = target_expr
         workload_field = "run_hours" if metric_code == "kwh_per_run_hour" else "workload_amount"
-        where, params = _period_conditions(query, "e")
-        workload_where, workload_params = _period_conditions(query, "w")
+        team_id = require_session_tenant_id(self._session)
+        where, params = _period_conditions(query, "e", team_id=str(team_id))
+        where.append("e.is_current = true")
+        workload_where, workload_params = _period_conditions(query, "w", team_id=str(team_id))
         if query.area_id:
             where.append("e.area_id = :area_id")
             workload_where.append("w.area_id = :area_id")
@@ -290,25 +309,26 @@ class EnergyBenchmarkQueryService:
         where.append(target_filter.replace("x.", "e."))
         workload_where.append(target_filter.replace("x.", "w."))
         rows = (
-            await self._session.execute(
-                text(
-                    f"""
+            (
+                await self._session.execute(
+                    text(
+                        f"""
                     with energy as (
                         select
-                            {target_code_expr.replace('x.', 'e.')} as target_code,
-                            {target_name_expr.replace('x.', 'e.')} as target_name,
+                            {target_code_expr.replace("x.", "e.")} as target_code,
+                            {target_name_expr.replace("x.", "e.")} as target_name,
                             coalesce(sum(e.amount), 0) as energy_kwh
                         from dataapp_energyintervalfact e
                         where {" and ".join(where)}
-                        group by {target_code_expr.replace('x.', 'e.')}, {target_name_expr.replace('x.', 'e.')}
+                        group by {target_code_expr.replace("x.", "e.")}, {target_name_expr.replace("x.", "e.")}
                     ),
                     workload as (
                         select
-                            {target_code_expr.replace('x.', 'w.')} as target_code,
+                            {target_code_expr.replace("x.", "w.")} as target_code,
                             coalesce(sum(w.{workload_field}), 0) as denominator
                         from dataapp_equipmentworkloadfact w
                         where {" and ".join(workload_where)} and w.record_status = 'confirmed'
-                        group by {target_code_expr.replace('x.', 'w.')}
+                        group by {target_code_expr.replace("x.", "w.")}
                     )
                     select
                         :target_type as target_type,
@@ -325,37 +345,44 @@ class EnergyBenchmarkQueryService:
                     order by actual_value desc nulls last
                     limit :limit
                     """
-                ),
-                {
-                    **params,
-                    **workload_params,
-                    "target_type": target_type,
-                    "metric_code": metric_code,
-                    "unit": METRICS[metric_code]["unit"],
-                    "limit": max(1, min(query.limit, 200)),
-                },
+                    ),
+                    {
+                        **params,
+                        **workload_params,
+                        "target_type": target_type,
+                        "metric_code": metric_code,
+                        "unit": METRICS[metric_code]["unit"],
+                        "limit": max(1, min(query.limit, 200)),
+                    },
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
         return [jsonable_mapping(dict(row)) for row in rows]
 
     async def _area_actuals(self, query: EnergyBenchmarkQuery, metric_code: str) -> list[dict[str, Any]]:
         denominators = await energy_area_denominators(self._session)
         area = denominators.get("store_area") or denominators.get("park_area")
-        where, params = _fact_period_conditions(query)
+        where, params = _fact_period_conditions(query, team_id=str(require_session_tenant_id(self._session)))
         row = (
-            await self._session.execute(
-                text(
-                    f"""
+            (
+                await self._session.execute(
+                    text(
+                        f"""
                     select
                         coalesce(sum(tce_amount), 0) as total_tce,
                         coalesce(sum(case when energy_type_code = 'purchased_electricity' then original_amount else 0 end), 0) as electricity_kwh
                     from energy_consumption_fact_v
                     {"where " + " and ".join(where) if where else ""}
                     """
-                ),
-                params,
+                    ),
+                    params,
+                )
             )
-        ).mappings().one()
+            .mappings()
+            .one()
+        )
         total = jsonable_mapping(dict(row))
         numerator = total["total_tce"] if metric_code == "tce_per_m2" else total["electricity_kwh"]
         return [
@@ -372,20 +399,25 @@ class EnergyBenchmarkQueryService:
         ]
 
     async def _product_actuals(self, query: EnergyBenchmarkQuery, metric_code: str) -> list[dict[str, Any]]:
-        where, params = _fact_period_conditions(query)
+        team_id = require_session_tenant_id(self._session)
+        where, params = _fact_period_conditions(query, team_id=str(team_id))
         energy = (
-            await self._session.execute(
-                text(
-                    f"""
+            (
+                await self._session.execute(
+                    text(
+                        f"""
                     select coalesce(sum(standard_amount), 0) as total_kgce
                     from energy_consumption_fact_v
                     {"where " + " and ".join(where) if where else ""}
                     """
-                ),
-                params,
+                    ),
+                    params,
+                )
             )
-        ).mappings().one()
-        production_where, production_params = _production_period_conditions(query)
+            .mappings()
+            .one()
+        )
+        production_where, production_params = _production_period_conditions(query, team_id=str(team_id))
         if query.target_code:
             production_where.append("o.product_code = :target_code")
             production_params["target_code"] = query.target_code
@@ -403,9 +435,10 @@ class EnergyBenchmarkQueryService:
             ), 0)
         """
         rows = (
-            await self._session.execute(
-                text(
-                    f"""
+            (
+                await self._session.execute(
+                    text(
+                        f"""
                     select
                         'product' as target_type,
                         o.product_code as target_code,
@@ -418,15 +451,20 @@ class EnergyBenchmarkQueryService:
                     order by sum(o.standard_qty) desc
                     limit :limit
                     """
-                ),
-                {**production_params, "limit": max(1, min(query.limit, 200))},
+                    ),
+                    {**production_params, "limit": max(1, min(query.limit, 200))},
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
         total_kgce = float(energy["total_kgce"] or 0)
         result = []
         for row in rows:
             item = jsonable_mapping(dict(row))
-            denominator = item["standard_qty"] if metric_code == "kgce_per_unit" else float(item["output_value"] or 0) / 10000
+            denominator = (
+                item["standard_qty"] if metric_code == "kgce_per_unit" else float(item["output_value"] or 0) / 10000
+            )
             result.append(
                 {
                     "target_type": "product",
@@ -441,38 +479,43 @@ class EnergyBenchmarkQueryService:
             )
         return result
 
-    async def _workload_baseline(self, query: EnergyBenchmarkQuery, target_type: str, metric_code: str) -> list[dict[str, Any]]:
+    async def _workload_baseline(
+        self, query: EnergyBenchmarkQuery, target_type: str, metric_code: str
+    ) -> list[dict[str, Any]]:
         target_expr = _workload_target_expr(target_type)
         if target_expr is None:
             return []
         target_code_expr, target_name_expr, target_filter = target_expr
         workload_field = "run_hours" if metric_code == "kwh_per_run_hour" else "workload_amount"
-        where, params = _period_conditions(query, "e")
-        workload_where, workload_params = _period_conditions(query, "w")
+        team_id = require_session_tenant_id(self._session)
+        where, params = _period_conditions(query, "e", team_id=str(team_id))
+        where.append("e.is_current = true")
+        workload_where, workload_params = _period_conditions(query, "w", team_id=str(team_id))
         where.append(target_filter.replace("x.", "e."))
         workload_where.append(target_filter.replace("x.", "w."))
         rows = (
-            await self._session.execute(
-                text(
-                    f"""
+            (
+                await self._session.execute(
+                    text(
+                        f"""
                     with energy as (
                         select
-                            {target_code_expr.replace('x.', 'e.')} as target_code,
-                            {target_name_expr.replace('x.', 'e.')} as target_name,
+                            {target_code_expr.replace("x.", "e.")} as target_code,
+                            {target_name_expr.replace("x.", "e.")} as target_name,
                             date_trunc('month', e.period_start) as period,
                             coalesce(sum(e.amount), 0) as energy_kwh
                         from dataapp_energyintervalfact e
                         where {" and ".join(where)}
-                        group by {target_code_expr.replace('x.', 'e.')}, {target_name_expr.replace('x.', 'e.')}, date_trunc('month', e.period_start)
+                        group by {target_code_expr.replace("x.", "e.")}, {target_name_expr.replace("x.", "e.")}, date_trunc('month', e.period_start)
                     ),
                     workload as (
                         select
-                            {target_code_expr.replace('x.', 'w.')} as target_code,
+                            {target_code_expr.replace("x.", "w.")} as target_code,
                             date_trunc('month', w.period_start) as period,
                             coalesce(sum(w.{workload_field}), 0) as denominator
                         from dataapp_equipmentworkloadfact w
                         where {" and ".join(workload_where)} and w.record_status = 'confirmed'
-                        group by {target_code_expr.replace('x.', 'w.')}, date_trunc('month', w.period_start)
+                        group by {target_code_expr.replace("x.", "w.")}, date_trunc('month', w.period_start)
                     ),
                     ratio_rows as (
                         select
@@ -499,17 +542,20 @@ class EnergyBenchmarkQueryService:
                     order by best_value asc nulls last
                     limit :limit
                     """
-                ),
-                {
-                    **params,
-                    **workload_params,
-                    "target_type": target_type,
-                    "metric_code": metric_code,
-                    "unit": METRICS[metric_code]["unit"],
-                    "limit": max(1, min(query.limit, 200)),
-                },
+                    ),
+                    {
+                        **params,
+                        **workload_params,
+                        "target_type": target_type,
+                        "metric_code": metric_code,
+                        "unit": METRICS[metric_code]["unit"],
+                        "limit": max(1, min(query.limit, 200)),
+                    },
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
         return [jsonable_mapping(dict(row)) for row in rows]
 
     async def _area_baseline(self, query: EnergyBenchmarkQuery, metric_code: str) -> list[dict[str, Any]]:
@@ -540,7 +586,11 @@ class EnergyBenchmarkQueryService:
 
 def _workload_target_expr(target_type: str) -> tuple[str, str, str] | None:
     if target_type == "device":
-        return ("x.equipment_id::text", "coalesce(x.equipment_name, x.equipment_code, '未命名设备')", "x.equipment_id is not null")
+        return (
+            "x.equipment_id::text",
+            "coalesce(x.equipment_name, x.equipment_code, '未命名设备')",
+            "x.equipment_id is not null",
+        )
     if target_type == "use_system":
         return ("x.use_system_code", "coalesce(x.use_system_code, '未归类')", "x.use_system_code is not null")
     if target_type == "area":
@@ -548,39 +598,39 @@ def _workload_target_expr(target_type: str) -> tuple[str, str, str] | None:
     return None
 
 
-def _period_conditions(query: EnergyBenchmarkQuery, alias: str) -> tuple[list[str], dict[str, Any]]:
-    conditions = ["1=1"]
-    params: dict[str, Any] = {}
+def _period_conditions(query: EnergyBenchmarkQuery, alias: str, *, team_id: str) -> tuple[list[str], dict[str, Any]]:
+    conditions = [f"{alias}.team_id = :team_id"]
+    params: dict[str, Any] = {"team_id": team_id}
     if query.period_start:
         conditions.append(f"{alias}.period_end >= (:period_start)::timestamp")
-        params["period_start"] = query.period_start
+        params["period_start"] = period_param(query.period_start)
     if query.period_end:
         conditions.append(f"{alias}.period_start <= (:period_end)::timestamp")
-        params["period_end"] = query.period_end
+        params["period_end"] = period_param(query.period_end)
     return conditions, params
 
 
-def _fact_period_conditions(query: EnergyBenchmarkQuery) -> tuple[list[str], dict[str, Any]]:
-    conditions: list[str] = []
-    params: dict[str, Any] = {}
+def _fact_period_conditions(query: EnergyBenchmarkQuery, *, team_id: str) -> tuple[list[str], dict[str, Any]]:
+    conditions: list[str] = ["team_id = :team_id"]
+    params: dict[str, Any] = {"team_id": team_id}
     if query.period_start:
         conditions.append("period_end >= (:period_start)::timestamp")
-        params["period_start"] = query.period_start
+        params["period_start"] = period_param(query.period_start)
     if query.period_end:
         conditions.append("period_start <= (:period_end)::timestamp")
-        params["period_end"] = query.period_end
+        params["period_end"] = period_param(query.period_end)
     return conditions, params
 
 
-def _production_period_conditions(query: EnergyBenchmarkQuery) -> tuple[list[str], dict[str, Any]]:
-    conditions = ["o.record_status = 'confirmed'"]
-    params: dict[str, Any] = {}
+def _production_period_conditions(query: EnergyBenchmarkQuery, *, team_id: str) -> tuple[list[str], dict[str, Any]]:
+    conditions = ["o.team_id = :team_id", "o.record_status = 'confirmed'"]
+    params: dict[str, Any] = {"team_id": team_id}
     if query.period_start:
         conditions.append("o.period_end >= (:period_start)::date")
-        params["period_start"] = query.period_start
+        params["period_start"] = period_param(query.period_start)
     if query.period_end:
         conditions.append("o.period_start <= (:period_end)::date")
-        params["period_end"] = query.period_end
+        params["period_end"] = period_param(query.period_end)
     return conditions, params
 
 
@@ -626,7 +676,8 @@ def _comparison_row(actual: dict[str, Any] | None, benchmark: dict[str, Any] | N
         "target_code": base.get("target_code"),
         "target_name": base.get("target_name"),
         "metric_code": base.get("metric_code"),
-        "metric_name": (benchmark or {}).get("metric_name") or METRICS.get(str(base.get("metric_code")), {}).get("name"),
+        "metric_name": (benchmark or {}).get("metric_name")
+        or METRICS.get(str(base.get("metric_code")), {}).get("name"),
         "actual_value": actual_value,
         "benchmark_value": benchmark_value,
         "unit": unit,

@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
+from app.lib.tenancy import require_session_tenant_id
+
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +26,7 @@ class EnergyBenchmarkSeedResult:
 async def seed_warehouse_energy_benchmark_data(session: AsyncSession) -> EnergyBenchmarkSeedResult:
     """Seed a reusable warehouse scenario benchmark library for the energy benchmark page."""
 
-    await session.execute(text("select set_config('app.tenant_bypass', 'true', true)"))
+    require_session_tenant_id(session)
     result = EnergyBenchmarkSeedResult()
     result.profiles_deleted = await _delete_existing_warehouse_profiles(session)
     result.profiles_inserted = await _insert_warehouse_profiles(session)
@@ -34,19 +36,25 @@ async def seed_warehouse_energy_benchmark_data(session: AsyncSession) -> EnergyB
 
 
 async def _delete_existing_warehouse_profiles(session: AsyncSession) -> int:
+    team_id = require_session_tenant_id(session)
     deleted = await session.execute(
         text(
             """
             delete from dataapp_energybenchmarkprofile
-            where name = :profile_name and source_name = :source_name
+            where team_id = :team_id and name = :profile_name and source_name = :source_name
             """
         ),
-        {"profile_name": WAREHOUSE_BENCHMARK_PROFILE_NAME, "source_name": WAREHOUSE_BENCHMARK_SOURCE},
+        {
+            "team_id": str(team_id),
+            "profile_name": WAREHOUSE_BENCHMARK_PROFILE_NAME,
+            "source_name": WAREHOUSE_BENCHMARK_SOURCE,
+        },
     )
     return int(deleted.rowcount or 0)
 
 
 async def _insert_warehouse_profiles(session: AsyncSession) -> int:
+    team_id = require_session_tenant_id(session)
     inserted = await session.execute(
         text(
             """
@@ -67,14 +75,20 @@ async def _insert_warehouse_profiles(session: AsyncSession) -> int:
                 now(),
                 now()
             from team t
+            where t.id = :team_id
             """
         ),
-        {"profile_name": WAREHOUSE_BENCHMARK_PROFILE_NAME, "source_name": WAREHOUSE_BENCHMARK_SOURCE},
+        {
+            "team_id": str(team_id),
+            "profile_name": WAREHOUSE_BENCHMARK_PROFILE_NAME,
+            "source_name": WAREHOUSE_BENCHMARK_SOURCE,
+        },
     )
     return int(inserted.rowcount or 0)
 
 
 async def _insert_warehouse_items(session: AsyncSession) -> int:
+    team_id = require_session_tenant_id(session)
     inserted = await session.execute(
         text(
             """
@@ -203,9 +217,15 @@ async def _insert_warehouse_items(session: AsyncSession) -> int:
                 now()
             from dataapp_energybenchmarkprofile p
             cross join sample_items s
-            where p.name = cast(:profile_name as varchar) and p.source_name = cast(:source_name as varchar)
+            where p.team_id = :team_id
+              and p.name = cast(:profile_name as varchar)
+              and p.source_name = cast(:source_name as varchar)
             """
         ),
-        {"profile_name": WAREHOUSE_BENCHMARK_PROFILE_NAME, "source_name": WAREHOUSE_BENCHMARK_SOURCE},
+        {
+            "team_id": str(team_id),
+            "profile_name": WAREHOUSE_BENCHMARK_PROFILE_NAME,
+            "source_name": WAREHOUSE_BENCHMARK_SOURCE,
+        },
     )
     return int(inserted.rowcount or 0)

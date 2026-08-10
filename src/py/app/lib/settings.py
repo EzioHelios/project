@@ -307,10 +307,13 @@ class CarbonSettings:
     YUNJI_API_KEY: str = field(default_factory=get_env("YUNJI_API_KEY", "94A26B674E5442809FD4DD9B51F83723"))
     YUNJI_API_HOST: str = field(default_factory=get_env("YUNJI_API_HOST", "http://nhapi.yunjichaobiao.com/"))
     YUNJI_PULL_START_TIME: str = field(default_factory=get_env("YUNJI_PULL_START_TIME", "2023-03-22 00:00:00"))
+    YUNJI_PULL_OVERLAP_MINUTES: int = field(default_factory=get_env("YUNJI_PULL_OVERLAP_MINUTES", 15, int))
+    YUNJI_PULL_MAX_WINDOW_HOURS: int = field(default_factory=get_env("YUNJI_PULL_MAX_WINDOW_HOURS", 24, int))
 
     HW_AUTH_CODE: str = field(default_factory=get_env("HW_AUTH_CODE", "d7770f50ad09ab821246c3da105fd4b9"))
     HW_API_HOST: str = field(default_factory=get_env("HW_API_HOST", "http://api1.tqdianbiao.com/"))
     HW_PULL_START_TIME: str = field(default_factory=get_env("HW_PULL_START_TIME", "2023-03-23 00:00:00"))
+
 
 @dataclass
 class EmailSettings:

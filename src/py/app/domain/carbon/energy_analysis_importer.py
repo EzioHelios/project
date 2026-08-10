@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
+from app.lib.tenancy import require_session_tenant_id
+
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,19 +29,18 @@ class EnergyAnalysisSeedResult:
 
 
 async def seed_energy_analysis_data(session: AsyncSession) -> EnergyAnalysisSeedResult:
-    """Seed reusable analysis-domain data from existing equipment and meter readings."""
+    """Maintain legacy reference dictionaries without rebuilding versioned facts."""
 
-    await session.execute(text("select set_config('app.tenant_bypass', 'true', true)"))
+    require_session_tenant_id(session)
     await _upsert_use_systems(session)
     await _upsert_use_system_bindings(session)
     await _upsert_default_tariff(session)
-    await _rebuild_energy_interval_facts(session)
-    await _rebuild_equipment_workload_facts(session)
     await session.commit()
     return await _collect_result(session)
 
 
 async def _upsert_use_systems(session: AsyncSession) -> None:
+    team_id = require_session_tenant_id(session)
     await session.execute(
         text(
             """
@@ -58,6 +59,7 @@ async def _upsert_use_systems(session: AsyncSession) -> None:
                     ('office', '办公及公共系统', 'office', '办公区、公共区域和综合用能。'),
                     ('other', '其他用能系统', 'other', '暂未细分的用能对象。')
             ) as v(code, name, system_type, remark)
+            where t.id = :team_id
             on conflict (team_id, code) do update set
                 name = excluded.name,
                 system_type = excluded.system_type,
@@ -65,11 +67,13 @@ async def _upsert_use_systems(session: AsyncSession) -> None:
                 is_enabled = true,
                 updated_at = now()
             """
-        )
+        ),
+        {"team_id": str(team_id)},
     )
 
 
 async def _upsert_use_system_bindings(session: AsyncSession) -> None:
+    team_id = require_session_tenant_id(session)
     await session.execute(
         text(
             """
@@ -107,7 +111,8 @@ async def _upsert_use_system_bindings(session: AsyncSession) -> None:
                 now(),
                 now()
             from dataapp_monitorequipment e
-            left join dataapp_monitorsector s on s.id = e.sector_id
+            left join dataapp_monitorsector s on s.id = e.sector_id and s.team_id = e.team_id
+            where e.team_id = :team_id
             on conflict (team_id, system_code, equipment_id) do update set
                 equipment_code = excluded.equipment_code,
                 equipment_name = excluded.equipment_name,
@@ -119,11 +124,13 @@ async def _upsert_use_system_bindings(session: AsyncSession) -> None:
                 remark = excluded.remark,
                 updated_at = now()
             """
-        )
+        ),
+        {"team_id": str(team_id)},
     )
 
 
 async def _upsert_default_tariff(session: AsyncSession) -> None:
+    team_id = require_session_tenant_id(session)
     await session.execute(
         text(
             """
@@ -144,6 +151,7 @@ async def _upsert_default_tariff(session: AsyncSession) -> None:
                 now(),
                 now()
             from team t
+            where t.id = :team_id
             on conflict (team_id, code) do update set
                 name = excluded.name,
                 energy_type_code = excluded.energy_type_code,
@@ -155,17 +163,20 @@ async def _upsert_default_tariff(session: AsyncSession) -> None:
                 updated_at = now()
             """
         ),
-        {"code": DEFAULT_TARIFF_CODE},
+        {"team_id": str(team_id), "code": DEFAULT_TARIFF_CODE},
     )
     await session.execute(
         text(
             """
             delete from dataapp_energytariffsegment s
             using dataapp_energytariffplan p
-            where s.plan_id = p.id and p.code = :code
+            where s.team_id = :team_id
+              and p.team_id = :team_id
+              and s.plan_id = p.id
+              and p.code = :code
             """
         ),
-        {"code": DEFAULT_TARIFF_CODE},
+        {"team_id": str(team_id), "code": DEFAULT_TARIFF_CODE},
     )
     await session.execute(
         text(
@@ -196,21 +207,24 @@ async def _upsert_default_tariff(session: AsyncSession) -> None:
                     ('peak', '18:00', '21:00', 1.200000::numeric, 5),
                     ('flat', '21:00', '23:59:59', 0.800000::numeric, 6)
             ) as v(segment_type, start_time, end_time, price, sort_index)
-            where p.code = :code
+            where p.team_id = :team_id and p.code = :code
             """
         ),
-        {"code": DEFAULT_TARIFF_CODE},
+        {"team_id": str(team_id), "code": DEFAULT_TARIFF_CODE},
     )
 
 
 async def _rebuild_energy_interval_facts(session: AsyncSession) -> None:
+    team_id = require_session_tenant_id(session)
     await session.execute(
         text(
             """
             delete from dataapp_energyintervalfact
-            where source_system in ('meter_hourly', 'meter_daily')
+            where team_id = :team_id
+              and source_system in ('meter_hourly', 'meter_daily')
             """
-        )
+        ),
+        {"team_id": str(team_id)},
     )
     await session.execute(
         text(
@@ -230,10 +244,13 @@ async def _rebuild_energy_interval_facts(session: AsyncSession) -> None:
                         order by fact.reading_time, fact.id
                     ) as prev_value
                 from metering_meter_reading_fact fact
-                join dataapp_monitorequipment equipment on equipment.id = fact.equipment_id
-                left join dataapp_monitorsector sector on sector.id = equipment.sector_id
+                join dataapp_monitorequipment equipment
+                  on equipment.id = fact.equipment_id and equipment.team_id = fact.team_id
+                left join dataapp_monitorsector sector
+                  on sector.id = equipment.sector_id and sector.team_id = fact.team_id
                 where
-                    fact.reading_time is not null
+                    fact.team_id = :team_id
+                    and fact.reading_time is not null
                     and fact.normalized_value is not null
                     and fact.equipment_id is not null
                     and fact.point_code = 'forward_active_total'
@@ -281,7 +298,8 @@ async def _rebuild_energy_interval_facts(session: AsyncSession) -> None:
                         else 'flat'
                     end as segment_type
                 from hourly h
-                left join dataapp_monitorequipment e on e.id = h.equipment_id
+                left join dataapp_monitorequipment e
+                  on e.id = h.equipment_id and e.team_id = h.team_id
                 left join dataapp_energyusesystembinding b on b.team_id = h.team_id and b.equipment_id = h.equipment_id and b.is_primary
                 left join dataapp_energyusesystem s on s.team_id = h.team_id and s.code = b.system_code
             )
@@ -317,7 +335,8 @@ async def _rebuild_energy_interval_facts(session: AsyncSession) -> None:
                 now()
             from priced p
             """
-        )
+        ),
+        {"team_id": str(team_id)},
     )
     await session.execute(
         text(
@@ -353,15 +372,22 @@ async def _rebuild_energy_interval_facts(session: AsyncSession) -> None:
                 now(),
                 now()
             from dataapp_energyintervalfact
-            where source_system = 'meter_hourly'
+            where team_id = :team_id and source_system = 'meter_hourly'
             group by team_id, equipment_id, energy_type_code, date_trunc('day', period_start)
             """
-        )
+        ),
+        {"team_id": str(team_id)},
     )
 
 
 async def _rebuild_equipment_workload_facts(session: AsyncSession) -> None:
-    await session.execute(text("delete from dataapp_equipmentworkloadfact where source_system = 'meter_run_hours'"))
+    team_id = require_session_tenant_id(session)
+    await session.execute(
+        text(
+            "delete from dataapp_equipmentworkloadfact where team_id = :team_id and source_system = 'meter_run_hours'"
+        ),
+        {"team_id": str(team_id)},
+    )
     await session.execute(
         text(
             """
@@ -391,23 +417,56 @@ async def _rebuild_equipment_workload_facts(session: AsyncSession) -> None:
                 now(),
                 now()
             from dataapp_energyintervalfact
-            where source_system = 'meter_hourly' and amount > 0
+            where team_id = :team_id and source_system = 'meter_hourly' and amount > 0
             group by team_id, equipment_id, date_trunc('day', period_start)
             """
-        )
+        ),
+        {"team_id": str(team_id)},
     )
 
 
 async def _collect_result(session: AsyncSession) -> EnergyAnalysisSeedResult:
+    team_id = require_session_tenant_id(session)
+    params = {"team_id": str(team_id)}
     result = EnergyAnalysisSeedResult()
-    result.use_systems = int((await session.execute(text("select count(*) from dataapp_energyusesystem"))).scalar_one() or 0)
-    result.use_system_bindings = int((await session.execute(text("select count(*) from dataapp_energyusesystembinding"))).scalar_one() or 0)
-    result.tariff_plans = int((await session.execute(text("select count(*) from dataapp_energytariffplan"))).scalar_one() or 0)
-    result.tariff_segments = int((await session.execute(text("select count(*) from dataapp_energytariffsegment"))).scalar_one() or 0)
+    result.use_systems = int(
+        (
+            await session.execute(text("select count(*) from dataapp_energyusesystem where team_id = :team_id"), params)
+        ).scalar_one()
+        or 0
+    )
+    result.use_system_bindings = int(
+        (
+            await session.execute(
+                text("select count(*) from dataapp_energyusesystembinding where team_id = :team_id"), params
+            )
+        ).scalar_one()
+        or 0
+    )
+    result.tariff_plans = int(
+        (
+            await session.execute(
+                text("select count(*) from dataapp_energytariffplan where team_id = :team_id"), params
+            )
+        ).scalar_one()
+        or 0
+    )
+    result.tariff_segments = int(
+        (
+            await session.execute(
+                text("select count(*) from dataapp_energytariffsegment where team_id = :team_id"), params
+            )
+        ).scalar_one()
+        or 0
+    )
     result.hourly_facts = int(
         (
             await session.execute(
-                text("select count(*) from dataapp_energyintervalfact where source_system = 'meter_hourly'")
+                text(
+                    "select count(*) from dataapp_energyintervalfact "
+                    "where team_id = :team_id and source_system = 'meter_hourly'"
+                ),
+                params,
             )
         ).scalar_one()
         or 0
@@ -415,10 +474,21 @@ async def _collect_result(session: AsyncSession) -> EnergyAnalysisSeedResult:
     result.daily_facts = int(
         (
             await session.execute(
-                text("select count(*) from dataapp_energyintervalfact where source_system = 'meter_daily'")
+                text(
+                    "select count(*) from dataapp_energyintervalfact "
+                    "where team_id = :team_id and source_system = 'meter_daily'"
+                ),
+                params,
             )
         ).scalar_one()
         or 0
     )
-    result.workload_facts = int((await session.execute(text("select count(*) from dataapp_equipmentworkloadfact"))).scalar_one() or 0)
+    result.workload_facts = int(
+        (
+            await session.execute(
+                text("select count(*) from dataapp_equipmentworkloadfact where team_id = :team_id"), params
+            )
+        ).scalar_one()
+        or 0
+    )
     return result

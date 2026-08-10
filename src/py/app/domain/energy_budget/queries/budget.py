@@ -17,6 +17,7 @@ from app.domain.energy_budget.domain.policies import (
     intensity,
     recommendation_for,
 )
+from app.lib.tenancy import require_session_tenant_id
 
 if TYPE_CHECKING:
     from datetime import date
@@ -167,12 +168,18 @@ class EnergyBudgetQueryService:
         }
 
     async def _monthly_actuals(self, plan: m.EnergyCarbonBudgetPlan) -> dict[date, dict[str, Any]]:
+        team_id = require_session_tenant_id(self._session)
         where = [
+            "team_id = :team_id",
             "period_end >= :period_start",
             "period_start <= :period_end",
-            "(status = 'approved' or status = 'confirmed')",
+            "status in ('approved', 'confirmed', 'provisional')",
         ]
-        params: dict[str, Any] = {"period_start": plan.period_start, "period_end": plan.period_end}
+        params: dict[str, Any] = {
+            "team_id": str(team_id),
+            "period_start": plan.period_start,
+            "period_end": plan.period_end,
+        }
         if plan.target_scope == "area" and plan.target_code:
             where.append("area_id = :target_code")
             params["target_code"] = plan.target_code
@@ -180,9 +187,10 @@ class EnergyBudgetQueryService:
             where.append("facility_or_device_name = :target_name")
             params["target_name"] = plan.target_name or plan.target_code
         rows = (
-            await self._session.execute(
-                text(
-                    f"""
+            (
+                await self._session.execute(
+                    text(
+                        f"""
                     select
                         date_trunc('month', period_start)::date as period_month,
                         coalesce(sum(tce_amount), 0) as actual_tce,
@@ -192,10 +200,13 @@ class EnergyBudgetQueryService:
                     where {" and ".join(where)}
                     group by date_trunc('month', period_start)::date
                     """
-                ),
-                params,
+                    ),
+                    params,
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
         return {row["period_month"]: jsonable_mapping(dict(row)) for row in rows}
 
 
@@ -218,8 +229,12 @@ def _progress_row(allocation: m.EnergyCarbonBudgetAllocation, actual: dict[str, 
             "carbon_execution_rate_pct": carbon_rate,
             "energy_variance_tce": _variance(actual_tce, allocation.energy_budget_tce),
             "carbon_variance_co2e": _variance(actual_co2e, allocation.carbon_budget_co2e),
-            "energy_status": execution_status(energy_rate, allocation.energy_budget_tce is not None, (actual or {}).get("record_count", 0) > 0),
-            "carbon_status": execution_status(carbon_rate, allocation.carbon_budget_co2e is not None, (actual or {}).get("record_count", 0) > 0),
+            "energy_status": execution_status(
+                energy_rate, allocation.energy_budget_tce is not None, (actual or {}).get("record_count", 0) > 0
+            ),
+            "carbon_status": execution_status(
+                carbon_rate, allocation.carbon_budget_co2e is not None, (actual or {}).get("record_count", 0) > 0
+            ),
             "record_count": (actual or {}).get("record_count", 0),
         }
     )

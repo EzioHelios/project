@@ -53,7 +53,9 @@ def _build_csp(settings: AppSettings) -> str:
     }
     frame_sources = {"'none'"}
     if settings.altcha_enabled and settings.ALTCHA_SENTINEL_URL:
-        sentinel_origin = urlparse(settings.ALTCHA_SENTINEL_URL).scheme + "://" + urlparse(settings.ALTCHA_SENTINEL_URL).netloc
+        sentinel_origin = (
+            urlparse(settings.ALTCHA_SENTINEL_URL).scheme + "://" + urlparse(settings.ALTCHA_SENTINEL_URL).netloc
+        )
         connect_sources.add(sentinel_origin)
         frame_sources.add(sentinel_origin)
 
@@ -99,11 +101,12 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
     app_slug: str
 
     def on_cli_init(self, cli: Group) -> None:
-        from app.cli.commands import carbon_management_group, user_management_group
+        from app.cli.commands import carbon_management_group, metering_management_group, user_management_group
 
         settings = get_settings()
         self.app_slug = settings.app.slug
         cli.add_command(carbon_management_group)
+        cli.add_command(metering_management_group)
         cli.add_command(user_management_group)
 
     def on_app_init(self, app_config: AppConfig) -> AppConfig:
@@ -128,7 +131,6 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         app_config = auth.on_app_init(app_config)
         app_config.cors_config = config.cors
         app_config.after_request = add_security_headers
-
 
         app_config.plugins.extend(
             [

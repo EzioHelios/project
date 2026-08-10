@@ -19,6 +19,7 @@ from app.domain.production_denominator.queries import (
     selected_price,
     selected_price_missing,
 )
+from app.lib.tenancy import require_session_tenant_id
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,7 +52,8 @@ class EnergyIntensityQueryService:
         self._session = session
 
     async def summary(self, query: EnergyIntensityQuery) -> dict[str, Any]:
-        where_sql, params = build_energy_fact_filters(_energy_consumption_query(query))
+        team_id = require_session_tenant_id(self._session)
+        where_sql, params = build_energy_fact_filters(_energy_consumption_query(query), team_id=team_id)
         totals = await _energy_kgce_totals(self._session, query)
         by_energy_type = await _rows(
             self._session,
@@ -148,7 +150,9 @@ class EnergyIntensityQueryService:
     async def trend(self, query: EnergyIntensityQuery) -> dict[str, Any]:
         months_clamped = max(1, min(query.months, 366))
         date_part, period_format = period_sql_expr(query.granularity)
-        where_sql, params = build_energy_fact_filters(_energy_consumption_query(query))
+        where_sql, params = build_energy_fact_filters(
+            _energy_consumption_query(query), team_id=require_session_tenant_id(self._session)
+        )
         rows = await _rows(
             self._session,
             f"""
@@ -250,7 +254,9 @@ class EnergyIntensityQueryService:
         energy_totals = await _energy_kgce_totals(self._session, query)
         product_rows = await ProductionDenominatorQueryService(self._session).product_rows(_production_query(query))
         production_totals_payload = production_totals(product_rows)
-        can_calculate_unit_intensity = bool(query.product_code and query.product_code != "all") or len(product_rows) == 1
+        can_calculate_unit_intensity = (
+            bool(query.product_code and query.product_code != "all") or len(product_rows) == 1
+        )
         total_kgce = float(energy_totals.get("total_kgce") or 0)
         rows = []
         for row in product_rows:
@@ -269,7 +275,9 @@ class EnergyIntensityQueryService:
             "production_totals": production_totals_payload,
             "items": rows,
             "unit_intensity": (
-                ratio_or_none(total_kgce, production_totals_payload["total_standard_qty"]) if can_calculate_unit_intensity else None
+                ratio_or_none(total_kgce, production_totals_payload["total_standard_qty"])
+                if can_calculate_unit_intensity
+                else None
             ),
             "mixed_unit_product_intensity": None,
             "granularity": query.granularity,
@@ -282,7 +290,11 @@ class EnergyIntensityQueryService:
         product_rows = await ProductionDenominatorQueryService(self._session).product_rows(_production_query(query))
         total_kgce = float(energy_totals.get("total_kgce") or 0)
         missing_price_products = [
-            {"product_code": row.get("product_code"), "product_name": row.get("product_name"), "price_type": selected_price_type}
+            {
+                "product_code": row.get("product_code"),
+                "product_name": row.get("product_name"),
+                "price_type": selected_price_type,
+            }
             for row in product_rows
             if selected_price_missing(row, selected_price_type)
         ]
@@ -293,7 +305,11 @@ class EnergyIntensityQueryService:
         for row in product_rows:
             row_output_value = selected_output_value(row, selected_price_type)
             row_output_value_10k = row_output_value / 10000 if row_output_value else 0
-            row_kgce = total_kgce if can_calculate_product_row and not selected_price_missing(row, selected_price_type) else None
+            row_kgce = (
+                total_kgce
+                if can_calculate_product_row and not selected_price_missing(row, selected_price_type)
+                else None
+            )
             rows.append(
                 {
                     **row,
@@ -302,7 +318,9 @@ class EnergyIntensityQueryService:
                     "selected_output_value": row_output_value,
                     "selected_output_value_10k": row_output_value_10k,
                     "total_kgce": row_kgce,
-                    "kgce_per_10k_value": ratio_or_none(row_kgce, row_output_value_10k) if row_kgce is not None else None,
+                    "kgce_per_10k_value": ratio_or_none(row_kgce, row_output_value_10k)
+                    if row_kgce is not None
+                    else None,
                     "price_missing": selected_price_missing(row, selected_price_type),
                 }
             )
@@ -325,7 +343,9 @@ class EnergyIntensityQueryService:
         series = []
         for row in production_rows:
             energy = energy_by_period.get(row["period"], {"total_kgce": 0, "total_tce": 0})
-            can_calculate = bool(query.product_code and query.product_code != "all") or int(row.get("product_count") or 0) <= 1
+            can_calculate = (
+                bool(query.product_code and query.product_code != "all") or int(row.get("product_count") or 0) <= 1
+            )
             total_kgce = float(energy.get("total_kgce") or 0)
             standard_qty = float(row.get("total_standard_qty") or 0)
             series.append(
@@ -389,11 +409,14 @@ async def energy_area_denominators(session: AsyncSession) -> dict[str, Any]:
 
 
 async def _energy_kgce_totals(session: AsyncSession, query: EnergyIntensityQuery) -> dict[str, Any]:
-    where_sql, params = build_energy_fact_filters(_energy_consumption_query(query))
+    where_sql, params = build_energy_fact_filters(
+        _energy_consumption_query(query), team_id=require_session_tenant_id(session)
+    )
     row = (
-        await session.execute(
-            text(
-                f"""
+        (
+            await session.execute(
+                text(
+                    f"""
                 select
                     count(*)::int as record_count,
                     coalesce(sum(tce_amount), 0) as total_tce,
@@ -403,15 +426,20 @@ async def _energy_kgce_totals(session: AsyncSession, query: EnergyIntensityQuery
                 from energy_consumption_fact_v
                 {where_sql}
                 """
-            ),
-            params,
+                ),
+                params,
+            )
         )
-    ).mappings().one()
+        .mappings()
+        .one()
+    )
     return jsonable_mapping(dict(row))
 
 
 async def _energy_by_period(session: AsyncSession, query: EnergyIntensityQuery) -> dict[str, dict[str, Any]]:
-    where_sql, params = build_energy_fact_filters(_energy_consumption_query(query))
+    where_sql, params = build_energy_fact_filters(
+        _energy_consumption_query(query), team_id=require_session_tenant_id(session)
+    )
     date_part, period_format = period_sql_expr(query.granularity)
     rows = await _rows(
         session,

@@ -31,6 +31,7 @@ build/
 *.egg-info/
 site/
 tmp/
+/tmp_build_*.py
 
 # JavaScript dependencies, build output, and generated clients
 node_modules/

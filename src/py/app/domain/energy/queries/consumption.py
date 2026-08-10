@@ -6,9 +6,12 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import text
 
-from app.domain.energy.queries.common import jsonable_mapping, paged_payload
+from app.domain.energy.queries.common import jsonable_mapping, paged_payload, period_param
+from app.lib.tenancy import require_session_tenant_id
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -82,17 +85,20 @@ class EnergyConsumptionQueryService:
     async def facts(self, query: EnergyConsumptionQuery) -> dict[str, Any]:
         limit_clamped = max(1, min(query.limit, 200))
         offset_clamped = max(0, query.offset)
-        where_sql, params = build_energy_fact_filters(query)
+        where_sql, params = build_energy_fact_filters(query, team_id=require_session_tenant_id(self._session))
         order_field = query.sort_field if query.sort_field in ENERGY_FACT_SORT_FIELDS else "period_start"
         order_direction = "asc" if query.sort_order == "asc" else "desc"
         total = int(
-            (await self._session.execute(text(f"select count(*) from energy_consumption_fact_v {where_sql}"), params)).scalar_one()
+            (
+                await self._session.execute(text(f"select count(*) from energy_consumption_fact_v {where_sql}"), params)
+            ).scalar_one()
             or 0
         )
         rows = (
-            await self._session.execute(
-                text(
-                    f"""
+            (
+                await self._session.execute(
+                    text(
+                        f"""
                     select
                         {", ".join(ENERGY_CONSUMPTION_EXPORT_HEADERS)}
                     from energy_consumption_fact_v
@@ -100,10 +106,13 @@ class EnergyConsumptionQueryService:
                     order by {order_field} {order_direction}, source_record_id desc
                     limit :limit offset :offset
                     """
-                ),
-                {**params, "limit": limit_clamped, "offset": offset_clamped},
+                    ),
+                    {**params, "limit": limit_clamped, "offset": offset_clamped},
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
         return paged_payload([jsonable_mapping(dict(row)) for row in rows], total, limit_clamped, offset_clamped)
 
     async def summary(self, query: EnergyConsumptionQuery) -> dict[str, Any]:
@@ -126,11 +135,12 @@ class EnergyConsumptionQueryService:
             select_parts.append(f"{label_expr} as group_label_{index}")
             group_parts.extend([key_expr, label_expr])
 
-        where_sql, params = build_energy_fact_filters(query)
+        where_sql, params = build_energy_fact_filters(query, team_id=require_session_tenant_id(self._session))
         rows = (
-            await self._session.execute(
-                text(
-                    f"""
+            (
+                await self._session.execute(
+                    text(
+                        f"""
                     select
                         {", ".join(select_parts)},
                         count(*)::int as record_count,
@@ -147,10 +157,13 @@ class EnergyConsumptionQueryService:
                     group by {", ".join(group_parts)}
                     order by sum(tce_amount) desc nulls last, sum(original_amount) desc nulls last
                     """
-                ),
-                params,
+                    ),
+                    params,
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
 
         items: list[dict[str, Any]] = []
         for row in rows:
@@ -204,11 +217,12 @@ class EnergyConsumptionQueryService:
         }
 
     async def export_rows(self, query: EnergyConsumptionQuery) -> list[dict[str, Any]]:
-        where_sql, params = build_energy_fact_filters(query)
+        where_sql, params = build_energy_fact_filters(query, team_id=require_session_tenant_id(self._session))
         rows = (
-            await self._session.execute(
-                text(
-                    f"""
+            (
+                await self._session.execute(
+                    text(
+                        f"""
                     select
                         {", ".join(ENERGY_CONSUMPTION_EXPORT_HEADERS)}
                     from energy_consumption_fact_v
@@ -216,22 +230,25 @@ class EnergyConsumptionQueryService:
                     order by period_start desc, source_record_id desc
                     limit 5000
                     """
-                ),
-                params,
+                    ),
+                    params,
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
         return [jsonable_mapping(dict(row)) for row in rows]
 
 
-def build_energy_fact_filters(query: EnergyConsumptionQuery) -> tuple[str, dict[str, Any]]:
-    conditions: list[str] = []
-    params: dict[str, Any] = {}
+def build_energy_fact_filters(query: EnergyConsumptionQuery, *, team_id: UUID | str) -> tuple[str, dict[str, Any]]:
+    conditions = ["team_id = :team_id"]
+    params: dict[str, Any] = {"team_id": str(team_id)}
     if query.period_start:
         conditions.append("period_end >= :period_start")
-        params["period_start"] = query.period_start
+        params["period_start"] = period_param(query.period_start)
     if query.period_end:
         conditions.append("period_start <= :period_end")
-        params["period_end"] = query.period_end
+        params["period_end"] = period_param(query.period_end)
     if query.energy_type_code and query.energy_type_code != "all":
         conditions.append("energy_type_code = :energy_type_code")
         params["energy_type_code"] = query.energy_type_code

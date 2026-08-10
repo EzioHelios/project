@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from litestar import Controller, Request, delete, get, patch, post
+from litestar.exceptions import ClientException
 from litestar.params import Body
 from litestar.response import Response
 from sqlalchemy import func, select, text
@@ -68,6 +69,50 @@ class MasterDataController(Controller):
         row = await db_session.scalar(select(m.EnterpriseInfo).order_by(m.EnterpriseInfo.id.desc()).limit(1))
         return Response(content={"code": 200, "msg": "获取成功", "data": model_to_dict(row) if row else {}})
 
+    @get("/api/master-data/import-workbooks/template", guards=[requires_superuser])
+    async def download_master_data_import_template(self) -> Response[bytes]:
+        from app.domain.master_data.import_workbook import build_master_data_template_bytes
+
+        return Response(
+            content=build_master_data_template_bytes(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": 'attachment; filename="energy-metering-master-data-template.xlsx"'},
+        )
+
+    @post("/api/master-data/import-workbooks/preview", guards=[requires_superuser], status_code=200)
+    async def preview_master_data_import_workbook(
+        self,
+        db_session: AsyncSession,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
+        from app.domain.master_data.import_workbook import preview_master_data_workbook
+
+        workbook_base64 = str(data.get("workbook_base64") or "")
+        if not workbook_base64:
+            raise ClientException(detail="缺少 workbook_base64", status_code=400)
+        try:
+            preview = await preview_master_data_workbook(db_session, workbook_base64)
+        except ValueError as exc:
+            raise ClientException(detail=str(exc), status_code=400) from exc
+        return Response(content={"code": 200, "msg": "预览成功", "data": preview})
+
+    @post("/api/master-data/import-workbooks/import", guards=[requires_superuser])
+    async def import_master_data_import_workbook(
+        self,
+        db_session: AsyncSession,
+        data: dict[str, Any] = ADMIN_BODY,
+    ) -> Response[dict]:
+        from app.domain.master_data.import_workbook import import_master_data_workbook
+
+        workbook_base64 = str(data.get("workbook_base64") or "")
+        if not workbook_base64:
+            raise ClientException(detail="缺少 workbook_base64", status_code=400)
+        try:
+            result = await import_master_data_workbook(db_session, workbook_base64)
+        except ValueError as exc:
+            raise ClientException(detail=str(exc), status_code=400) from exc
+        return Response(content={"code": 200, "msg": "导入成功", "data": result})
+
     async def _log_admin_data_event(
         self,
         security_audit_service: AuditLogService,
@@ -101,12 +146,16 @@ class MasterDataController(Controller):
         if not include_disabled:
             conditions.append(m.MonitorSector.is_enable.is_(True))
         rows = (
-            await db_session.execute(
-                select(m.MonitorSector)
-                .where(*(conditions or [text("1=1")]))
-                .order_by(m.MonitorSector.level.asc(), m.MonitorSector.sort_index.asc(), m.MonitorSector.id.asc())
+            (
+                await db_session.execute(
+                    select(m.MonitorSector)
+                    .where(*(conditions or [text("1=1")]))
+                    .order_by(m.MonitorSector.level.asc(), m.MonitorSector.sort_index.asc(), m.MonitorSector.id.asc())
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         sector_ids = [row.id for row in rows]
         child_counts = dict(
             (
@@ -216,18 +265,22 @@ class MasterDataController(Controller):
             return Response(content={"code": 404, "msg": "区域不存在"}, status_code=404)
         child_ids = [child.id for child in area.children]
         device_rows = (
-            await db_session.execute(
-                select(m.MonitorEquipment)
-                .where(m.MonitorEquipment.sector_id == area.id)
-                .options(
-                    selectinload(m.MonitorEquipment.device_type),
-                    selectinload(m.MonitorEquipment.parent_device),
-                    selectinload(m.MonitorEquipment.sector),
-                    selectinload(m.MonitorEquipment.child_devices),
-                    selectinload(m.MonitorEquipment.device_points),
+            (
+                await db_session.execute(
+                    select(m.MonitorEquipment)
+                    .where(m.MonitorEquipment.sector_id == area.id)
+                    .options(
+                        selectinload(m.MonitorEquipment.device_type),
+                        selectinload(m.MonitorEquipment.parent_device),
+                        selectinload(m.MonitorEquipment.sector),
+                        selectinload(m.MonitorEquipment.child_devices),
+                        selectinload(m.MonitorEquipment.device_points),
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         online_count = sum(1 for item in device_rows if item.status == 0)
         child_device_counts = {}
         child_area_counts = {}
@@ -255,7 +308,9 @@ class MasterDataController(Controller):
                 "code": 200,
                 "msg": "获取成功",
                 "data": {
-                    "area": _serialize_area(area, equipment_count=len(device_rows), child_count=len(area.children), include_parent=True),
+                    "area": _serialize_area(
+                        area, equipment_count=len(device_rows), child_count=len(area.children), include_parent=True
+                    ),
                     "children": [
                         _serialize_area(
                             child,
@@ -265,7 +320,9 @@ class MasterDataController(Controller):
                         for child in sorted(area.children, key=lambda item: ((item.sort_index or 0), item.id))
                     ],
                     "devices": [
-                        _serialize_device(item, child_device_count=len(item.child_devices), point_count=len(item.device_points))
+                        _serialize_device(
+                            item, child_device_count=len(item.child_devices), point_count=len(item.device_points)
+                        )
                         for item in device_rows
                     ],
                     "stats": {
@@ -363,12 +420,22 @@ class MasterDataController(Controller):
         if obj.code == ROOT_AREA_CODE:
             return Response(content={"code": 400, "msg": "系统根区域不可删除"}, status_code=400)
         child_count = int(
-            (await db_session.execute(select(func.count(m.MonitorSector.id)).where(m.MonitorSector.parent_id == area_id))).scalar_one() or 0
+            (
+                await db_session.execute(
+                    select(func.count(m.MonitorSector.id)).where(m.MonitorSector.parent_id == area_id)
+                )
+            ).scalar_one()
+            or 0
         )
         if child_count > 0:
             return Response(content={"code": 400, "msg": "区域下仍有子区域，禁止删除"}, status_code=400)
         device_count = int(
-            (await db_session.execute(select(func.count(m.MonitorEquipment.id)).where(m.MonitorEquipment.sector_id == area_id))).scalar_one() or 0
+            (
+                await db_session.execute(
+                    select(func.count(m.MonitorEquipment.id)).where(m.MonitorEquipment.sector_id == area_id)
+                )
+            ).scalar_one()
+            or 0
         )
         if device_count > 0:
             return Response(content={"code": 400, "msg": "区域下仍有设备，禁止删除"}, status_code=400)
@@ -398,10 +465,14 @@ class MasterDataController(Controller):
         if not include_disabled:
             conditions.append(m.DeviceType.is_enabled.is_(True))
         rows = (
-            await db_session.execute(
-                select(m.DeviceType).where(*(conditions or [text("1=1")])).order_by(m.DeviceType.id.asc())
+            (
+                await db_session.execute(
+                    select(m.DeviceType).where(*(conditions or [text("1=1")])).order_by(m.DeviceType.id.asc())
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         child_counts = dict(
             (
                 await db_session.execute(
@@ -468,24 +539,38 @@ class MasterDataController(Controller):
         area_ids = [row["sector_id"] for row in page["items"] if row.get("sector_id") is not None]
         device_type_ids = [row["device_type_id"] for row in page["items"] if row.get("device_type_id") is not None]
         parent_ids = [row["parent_device_id"] for row in page["items"] if row.get("parent_device_id") is not None]
-        area_map = {
-            row.id: row
-            for row in (
-                await db_session.execute(select(m.MonitorSector).where(m.MonitorSector.id.in_(area_ids)))
-            ).scalars().all()
-        } if area_ids else {}
-        type_map = {
-            row.id: row
-            for row in (
-                await db_session.execute(select(m.DeviceType).where(m.DeviceType.id.in_(device_type_ids)))
-            ).scalars().all()
-        } if device_type_ids else {}
-        parent_map = {
-            row.id: row
-            for row in (
-                await db_session.execute(select(m.MonitorEquipment).where(m.MonitorEquipment.id.in_(parent_ids)))
-            ).scalars().all()
-        } if parent_ids else {}
+        area_map = (
+            {
+                row.id: row
+                for row in (await db_session.execute(select(m.MonitorSector).where(m.MonitorSector.id.in_(area_ids))))
+                .scalars()
+                .all()
+            }
+            if area_ids
+            else {}
+        )
+        type_map = (
+            {
+                row.id: row
+                for row in (await db_session.execute(select(m.DeviceType).where(m.DeviceType.id.in_(device_type_ids))))
+                .scalars()
+                .all()
+            }
+            if device_type_ids
+            else {}
+        )
+        parent_map = (
+            {
+                row.id: row
+                for row in (
+                    await db_session.execute(select(m.MonitorEquipment).where(m.MonitorEquipment.id.in_(parent_ids)))
+                )
+                .scalars()
+                .all()
+            }
+            if parent_ids
+            else {}
+        )
         point_counts = {}
         child_counts = {}
         if device_ids:
@@ -514,7 +599,9 @@ class MasterDataController(Controller):
             row["area_id"] = row.get("sector_id")
             row["area_name"] = _area_label(area)
             row["device_type"] = (
-                {"id": device_type.id, "code": device_type.code, "name": device_type.name} if device_type is not None else None
+                {"id": device_type.id, "code": device_type.code, "name": device_type.name}
+                if device_type is not None
+                else None
             )
             row["parent_device"] = (
                 {"id": parent_device.id, "code": parent_device.code, "name": parent_device.name or parent_device.code}
@@ -652,7 +739,11 @@ class MasterDataController(Controller):
         if obj is None:
             return Response(content={"code": 404, "msg": "设备不存在"}, status_code=404)
         child_count = int(
-            (await db_session.execute(select(func.count(m.MonitorEquipment.id)).where(m.MonitorEquipment.parent_device_id == device_id))).scalar_one()
+            (
+                await db_session.execute(
+                    select(func.count(m.MonitorEquipment.id)).where(m.MonitorEquipment.parent_device_id == device_id)
+                )
+            ).scalar_one()
             or 0
         )
         if child_count > 0:
@@ -700,16 +791,24 @@ class MasterDataController(Controller):
             conditions=conditions,
         )
         device_ids = [row["device_id"] for row in page["items"] if row.get("device_id") is not None]
-        device_map = {
-            row.id: row
-            for row in (
-                await db_session.execute(select(m.MonitorEquipment).where(m.MonitorEquipment.id.in_(device_ids)))
-            ).scalars().all()
-        } if device_ids else {}
+        device_map = (
+            {
+                row.id: row
+                for row in (
+                    await db_session.execute(select(m.MonitorEquipment).where(m.MonitorEquipment.id.in_(device_ids)))
+                )
+                .scalars()
+                .all()
+            }
+            if device_ids
+            else {}
+        )
         for row in page["items"]:
             device = device_map.get(row.get("device_id"))
             row["device"] = (
-                {"id": device.id, "code": device.code, "name": device.name or device.code} if device is not None else None
+                {"id": device.id, "code": device.code, "name": device.name or device.code}
+                if device is not None
+                else None
             )
         return Response(content=page)
 
@@ -841,8 +940,16 @@ class MasterDataController(Controller):
         sector_ids = [row["id"] for row in page["items"] if row.get("id") is not None]
         if sector_ids:
             photos = (
-                await db_session.execute(select(m.MonitorSectorPhoto).where(m.MonitorSectorPhoto.sector_id.in_(sector_ids)).order_by(m.MonitorSectorPhoto.id.desc()))
-            ).scalars().all()
+                (
+                    await db_session.execute(
+                        select(m.MonitorSectorPhoto)
+                        .where(m.MonitorSectorPhoto.sector_id.in_(sector_ids))
+                        .order_by(m.MonitorSectorPhoto.id.desc())
+                    )
+                )
+                .scalars()
+                .all()
+            )
             photos_by_sector: dict[int, list[dict[str, Any]]] = {}
             for photo in photos:
                 if photo.sector_id is not None:
@@ -850,7 +957,9 @@ class MasterDataController(Controller):
             equipment_counts = dict(
                 (
                     await db_session.execute(
-                        select(m.MonitorEquipment.sector_id, func.count()).where(m.MonitorEquipment.sector_id.in_(sector_ids)).group_by(m.MonitorEquipment.sector_id)
+                        select(m.MonitorEquipment.sector_id, func.count())
+                        .where(m.MonitorEquipment.sector_id.in_(sector_ids))
+                        .group_by(m.MonitorEquipment.sector_id)
                     )
                 ).all()
             )
@@ -944,12 +1053,22 @@ class MasterDataController(Controller):
         if obj.code == ROOT_AREA_CODE:
             return Response(content={"code": 400, "msg": "系统根区域不可删除"}, status_code=400)
         child_count = int(
-            (await db_session.execute(select(func.count(m.MonitorSector.id)).where(m.MonitorSector.parent_id == record_id))).scalar_one() or 0
+            (
+                await db_session.execute(
+                    select(func.count(m.MonitorSector.id)).where(m.MonitorSector.parent_id == record_id)
+                )
+            ).scalar_one()
+            or 0
         )
         if child_count > 0:
             return Response(content={"code": 400, "msg": "区域下仍有子区域，禁止删除"}, status_code=400)
         device_count = int(
-            (await db_session.execute(select(func.count(m.MonitorEquipment.id)).where(m.MonitorEquipment.sector_id == record_id))).scalar_one() or 0
+            (
+                await db_session.execute(
+                    select(func.count(m.MonitorEquipment.id)).where(m.MonitorEquipment.sector_id == record_id)
+                )
+            ).scalar_one()
+            or 0
         )
         if device_count > 0:
             return Response(content={"code": 400, "msg": "区域下仍有设备，禁止删除"}, status_code=400)
@@ -1145,7 +1264,18 @@ class MasterDataController(Controller):
             offset=offset,
             search=search,
             keyword=keyword,
-            search_fields=["code", "name", "external_device_id", "supplier", "location", "asset_code", "model", "manufacturer", "warehouse_name", "warehouse_code"],
+            search_fields=[
+                "code",
+                "name",
+                "external_device_id",
+                "supplier",
+                "location",
+                "asset_code",
+                "model",
+                "manufacturer",
+                "warehouse_name",
+                "warehouse_code",
+            ],
             sort_field=sort_field,
             sort_order=sort_order,
             conditions=conditions,
@@ -1153,15 +1283,26 @@ class MasterDataController(Controller):
         sector_ids = [row["sector_id"] for row in page["items"] if row.get("sector_id") is not None]
         device_type_ids = [row["device_type_id"] for row in page["items"] if row.get("device_type_id") is not None]
         if sector_ids:
-            sectors = (await db_session.execute(select(m.MonitorSector.id, m.MonitorSector.name).where(m.MonitorSector.id.in_(sector_ids)))).all()
+            sectors = (
+                await db_session.execute(
+                    select(m.MonitorSector.id, m.MonitorSector.name).where(m.MonitorSector.id.in_(sector_ids))
+                )
+            ).all()
             sector_names = dict(sectors)
             for row in page["items"]:
                 row["sector_name"] = sector_names.get(row.get("sector_id"))
         if device_type_ids:
             device_types = (
-                await db_session.execute(select(m.DeviceType.id, m.DeviceType.code, m.DeviceType.name).where(m.DeviceType.id.in_(device_type_ids)))
+                await db_session.execute(
+                    select(m.DeviceType.id, m.DeviceType.code, m.DeviceType.name).where(
+                        m.DeviceType.id.in_(device_type_ids)
+                    )
+                )
             ).all()
-            device_type_map = {identifier: {"device_type_code": code, "device_type_name": name} for identifier, code, name in device_types}
+            device_type_map = {
+                identifier: {"device_type_code": code, "device_type_name": name}
+                for identifier, code, name in device_types
+            }
             for row in page["items"]:
                 row.update(device_type_map.get(row.get("device_type_id"), {}))
         for row in page["items"]:
@@ -1243,7 +1384,11 @@ class MasterDataController(Controller):
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         child_count = int(
-            (await db_session.execute(select(func.count(m.MonitorEquipment.id)).where(m.MonitorEquipment.parent_device_id == record_id))).scalar_one()
+            (
+                await db_session.execute(
+                    select(func.count(m.MonitorEquipment.id)).where(m.MonitorEquipment.parent_device_id == record_id)
+                )
+            ).scalar_one()
             or 0
         )
         if child_count > 0:
@@ -1293,7 +1438,11 @@ class MasterDataController(Controller):
         device_ids = [row["device_id"] for row in page["items"] if row.get("device_id") is not None]
         if device_ids:
             devices = (
-                await db_session.execute(select(m.MonitorEquipment.id, m.MonitorEquipment.code, m.MonitorEquipment.name).where(m.MonitorEquipment.id.in_(device_ids)))
+                await db_session.execute(
+                    select(m.MonitorEquipment.id, m.MonitorEquipment.code, m.MonitorEquipment.name).where(
+                        m.MonitorEquipment.id.in_(device_ids)
+                    )
+                )
             ).all()
             device_map = {identifier: {"device_code": code, "device_name": name} for identifier, code, name in devices}
             for row in page["items"]:
@@ -1370,7 +1519,11 @@ class MasterDataController(Controller):
             target_type="DevicePoint",
             target_id=obj.id,
             target_label=obj.point_name,
-            details={"updated_fields": sorted(payload.keys()), "device_id": obj.device_id, "point_code": obj.point_code},
+            details={
+                "updated_fields": sorted(payload.keys()),
+                "device_id": obj.device_id,
+                "point_code": obj.point_code,
+            },
         )
         return Response(content={"code": 200, "msg": "更新成功"})
 
@@ -1710,7 +1863,11 @@ class MasterDataController(Controller):
 
     @get("/api/data/energy-storage")
     async def get_energy_storage_setting(self, db_session: AsyncSession) -> Response[dict]:
-        obj = (await db_session.execute(select(m.EnergyStorageValue).order_by(m.EnergyStorageValue.id.desc()).limit(1))).scalars().first()
+        obj = (
+            (await db_session.execute(select(m.EnergyStorageValue).order_by(m.EnergyStorageValue.id.desc()).limit(1)))
+            .scalars()
+            .first()
+        )
         return Response(content={"code": 200, "msg": "获取成功", "data": model_to_dict(obj) if obj else None})
 
     @post("/api/data/energy-storage", guards=[requires_superuser])
@@ -1721,7 +1878,11 @@ class MasterDataController(Controller):
         security_audit_service: AuditLogService,
         data: dict[str, Any] = ADMIN_BODY,
     ) -> Response[dict]:
-        obj = (await db_session.execute(select(m.EnergyStorageValue).order_by(m.EnergyStorageValue.id.desc()).limit(1))).scalars().first()
+        obj = (
+            (await db_session.execute(select(m.EnergyStorageValue).order_by(m.EnergyStorageValue.id.desc()).limit(1)))
+            .scalars()
+            .first()
+        )
         if obj is None:
             obj = m.EnergyStorageValue(**_payload_without_none(data))
             db_session.add(obj)

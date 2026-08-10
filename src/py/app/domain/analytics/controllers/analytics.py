@@ -64,6 +64,7 @@ from app.domain.carbon.deps import (
 from app.domain.carbon.emission_calculator import compute_emission_result
 from app.domain.carbon.validation import CarbonValidationError
 from app.domain.carbon_accounting.controllers.accounting import CarbonAccountingController
+from app.lib.tenancy import require_session_tenant_id
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,7 +92,9 @@ class CarbonAnalyticsController(Controller):
         bill_month = await db_session.scalar(select(func.max(m.Scope2ElectricityBill.billing_month)))
         if bill_month:
             return str(bill_month)
-        raw_last = await db_session.scalar(select(func.max(m.MeterReadingFact.reading_time)).where(m.MeterReadingFact.reading_time.is_not(None)))
+        raw_last = await db_session.scalar(
+            select(func.max(m.MeterReadingFact.reading_time)).where(m.MeterReadingFact.reading_time.is_not(None))
+        )
         return _month_string(raw_last)
 
     @staticmethod
@@ -108,8 +111,12 @@ class CarbonAnalyticsController(Controller):
 
     @staticmethod
     async def _raw_history_month_range(db_session: AsyncSession) -> tuple[str | None, str | None]:
-        first_time = await db_session.scalar(select(func.min(m.MeterReadingFact.reading_time)).where(m.MeterReadingFact.reading_time.is_not(None)))
-        last_time = await db_session.scalar(select(func.max(m.MeterReadingFact.reading_time)).where(m.MeterReadingFact.reading_time.is_not(None)))
+        first_time = await db_session.scalar(
+            select(func.min(m.MeterReadingFact.reading_time)).where(m.MeterReadingFact.reading_time.is_not(None))
+        )
+        last_time = await db_session.scalar(
+            select(func.max(m.MeterReadingFact.reading_time)).where(m.MeterReadingFact.reading_time.is_not(None))
+        )
         return (_month_string(first_time), _month_string(last_time))
 
     @staticmethod
@@ -143,8 +150,14 @@ class CarbonAnalyticsController(Controller):
     ) -> list[dict[str, Any]]:
         if current_rows is None:
             current_rows = (
-                await db_session.execute(select(m.Scope2MeterAggregate).where(m.Scope2MeterAggregate.billing_month == billing_month))
-            ).scalars().all()
+                (
+                    await db_session.execute(
+                        select(m.Scope2MeterAggregate).where(m.Scope2MeterAggregate.billing_month == billing_month)
+                    )
+                )
+                .scalars()
+                .all()
+            )
 
         candidates = [
             row
@@ -156,18 +169,22 @@ class CarbonAnalyticsController(Controller):
 
         candidate_ids = sorted({str(row.ammeter_id) for row in candidates if row.ammeter_id})
         history_rows = (
-            await db_session.execute(
-                select(m.Scope2MeterAggregate)
-                .where(
-                    m.Scope2MeterAggregate.ammeter_id.in_(candidate_ids),
-                    m.Scope2MeterAggregate.billing_month < billing_month,
-                    m.Scope2MeterAggregate.calc_status == "ready",
-                    m.Scope2MeterAggregate.total_kwh.is_not(None),
-                    m.Scope2MeterAggregate.total_kwh > 0,
+            (
+                await db_session.execute(
+                    select(m.Scope2MeterAggregate)
+                    .where(
+                        m.Scope2MeterAggregate.ammeter_id.in_(candidate_ids),
+                        m.Scope2MeterAggregate.billing_month < billing_month,
+                        m.Scope2MeterAggregate.calc_status == "ready",
+                        m.Scope2MeterAggregate.total_kwh.is_not(None),
+                        m.Scope2MeterAggregate.total_kwh > 0,
+                    )
+                    .order_by(m.Scope2MeterAggregate.ammeter_id.asc(), m.Scope2MeterAggregate.billing_month.asc())
                 )
-                .order_by(m.Scope2MeterAggregate.ammeter_id.asc(), m.Scope2MeterAggregate.billing_month.asc())
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         history_by_meter: dict[str, list[m.Scope2MeterAggregate]] = defaultdict(list)
         for row in history_rows:
@@ -189,7 +206,9 @@ class CarbonAnalyticsController(Controller):
             seasonal_values = [
                 float(row.total_kwh or 0.0)
                 for row in history
-                if row.billing_month and str(row.billing_month).endswith(target_month_token) and float(row.total_kwh or 0.0) > 0.0
+                if row.billing_month
+                and str(row.billing_month).endswith(target_month_token)
+                and float(row.total_kwh or 0.0) > 0.0
             ]
             recent_values = baseline_values[-6:]
             estimate_kwh = _historical_fit_kwh(seasonal_values, recent_values, baseline_values)
@@ -237,6 +256,7 @@ class CarbonAnalyticsController(Controller):
         month_start: datetime.datetime,
         month_end: datetime.datetime,
     ) -> list[dict[str, Any]]:
+        team_id = require_session_tenant_id(db_session)
         sql = text(
             """
             select
@@ -252,10 +272,13 @@ class CarbonAnalyticsController(Controller):
                 greatest(max(fact.normalized_value) - min(fact.normalized_value), 0) as total_kwh,
                 count(*) as sample_count
             from metering_meter_reading_fact fact
-            join dataapp_monitorequipment equipment on equipment.id = fact.equipment_id
-            left join dataapp_monitorsector sector on sector.id = equipment.sector_id
+            join dataapp_monitorequipment equipment
+              on equipment.id = fact.equipment_id and equipment.team_id = fact.team_id
+            left join dataapp_monitorsector sector
+              on sector.id = equipment.sector_id and sector.team_id = fact.team_id
             where
-                fact.reading_time >= :month_start
+                fact.team_id = :team_id
+                and fact.reading_time >= :month_start
                 and fact.reading_time < :month_end
                 and fact.reading_time is not null
                 and equipment.code is not null
@@ -266,7 +289,16 @@ class CarbonAnalyticsController(Controller):
             order by total_kwh desc nulls last, ammeter_id asc
             """
         )
-        rows = (await db_session.execute(sql, {"month_start": month_start, "month_end": month_end})).mappings().all()
+        rows = (
+            (
+                await db_session.execute(
+                    sql,
+                    {"team_id": str(team_id), "month_start": month_start, "month_end": month_end},
+                )
+            )
+            .mappings()
+            .all()
+        )
         return [dict(row) for row in rows]
 
     @staticmethod
@@ -285,7 +317,9 @@ class CarbonAnalyticsController(Controller):
         for record_type, model, source_kind in model_specs:
             rows = (await db_session.execute(select(model).where(model.status != STATUS_REJECTED))).scalars().all()
             for row in rows:
-                serialized = await _serialize_scope_record(row, db_session, source_kind=_record_source_kind(row, source_kind))
+                serialized = await _serialize_scope_record(
+                    row, db_session, source_kind=_record_source_kind(row, source_kind)
+                )
                 records.append(
                     {
                         "record_type": record_type,
@@ -386,11 +420,19 @@ class CarbonAnalyticsController(Controller):
     @get("/api/carbon/analytics/overview")
     async def get_analytics_overview(self, db_session: AsyncSession) -> Response[dict]:
         latest_month = await self._latest_energy_month(db_session)
-        energy_series = await self._build_energy_series(db_session, _months_back(latest_month, 1) if latest_month else [])
-        current_energy = energy_series[-1] if energy_series else {"energy_kwh": 0.0, "carbon_co2e": 0.0, "source_kind": "empty"}
-        previous_month = _month_string((datetime.date.fromisoformat(f"{latest_month}-01") - relativedelta(months=1)) if latest_month else None)
+        energy_series = await self._build_energy_series(
+            db_session, _months_back(latest_month, 1) if latest_month else []
+        )
+        current_energy = (
+            energy_series[-1] if energy_series else {"energy_kwh": 0.0, "carbon_co2e": 0.0, "source_kind": "empty"}
+        )
+        previous_month = _month_string(
+            (datetime.date.fromisoformat(f"{latest_month}-01") - relativedelta(months=1)) if latest_month else None
+        )
         previous_energy_series = await self._build_energy_series(db_session, [previous_month] if previous_month else [])
-        previous_energy = previous_energy_series[0] if previous_energy_series else {"energy_kwh": 0.0, "carbon_co2e": 0.0}
+        previous_energy = (
+            previous_energy_series[0] if previous_energy_series else {"energy_kwh": 0.0, "carbon_co2e": 0.0}
+        )
 
         enterprise = await db_session.scalar(select(m.EnterpriseInfo).limit(1))
         equipment_rows = (
@@ -399,8 +441,7 @@ class CarbonAnalyticsController(Controller):
                     m.MonitorEquipment.category,
                     func.count(m.MonitorEquipment.id),
                     func.sum(case((m.MonitorEquipment.status == 0, 1), else_=0)),
-                )
-                .group_by(m.MonitorEquipment.category)
+                ).group_by(m.MonitorEquipment.category)
             )
         ).all()
         category_names = {0: "用电终端", 1: "发电终端", 2: "视频终端"}
@@ -423,16 +464,31 @@ class CarbonAnalyticsController(Controller):
             scope_totals[item["scope"]] += float(item["data"].get("computed_co2e") or 0.0)
 
         alarm_total = await db_session.scalar(select(func.count(m.AlarmEvent.id))) or 0
-        alarm_unhandled = await db_session.scalar(select(func.count(m.AlarmEvent.id)).where(m.AlarmEvent.is_handle.is_(False))) or 0
+        alarm_unhandled = (
+            await db_session.scalar(select(func.count(m.AlarmEvent.id)).where(m.AlarmEvent.is_handle.is_(False))) or 0
+        )
         video_alarm_total = await db_session.scalar(select(func.count(m.VedioAlarmEvent.id))) or 0
-        video_alarm_unhandled = await db_session.scalar(select(func.count(m.VedioAlarmEvent.id)).where(m.VedioAlarmEvent.is_handle.is_(False))) or 0
+        video_alarm_unhandled = (
+            await db_session.scalar(
+                select(func.count(m.VedioAlarmEvent.id)).where(m.VedioAlarmEvent.is_handle.is_(False))
+            )
+            or 0
+        )
 
         current_energy_value = float(current_energy.get("energy_kwh") or 0.0)
         previous_energy_value = float(previous_energy.get("energy_kwh") or 0.0)
         current_carbon_value = carbon_total
         previous_carbon_value = None
-        energy_delta_ratio = ((current_energy_value - previous_energy_value) / previous_energy_value * 100) if previous_energy_value else None
-        carbon_delta_ratio = None if previous_carbon_value in (None, 0) else ((current_carbon_value - previous_carbon_value) / previous_carbon_value * 100)
+        energy_delta_ratio = (
+            ((current_energy_value - previous_energy_value) / previous_energy_value * 100)
+            if previous_energy_value
+            else None
+        )
+        carbon_delta_ratio = (
+            None
+            if previous_carbon_value in (None, 0)
+            else ((current_carbon_value - previous_carbon_value) / previous_carbon_value * 100)
+        )
 
         return Response(
             content={
@@ -442,10 +498,27 @@ class CarbonAnalyticsController(Controller):
                     "latest_month": latest_month,
                     "enterprise": enterprise.to_dict() if enterprise else {},
                     "kpis": [
-                        {"id": "energy", "label": "当期用电量", "value": round(current_energy_value, 2), "unit": "kWh", "ratio": round(energy_delta_ratio, 2) if energy_delta_ratio is not None else None},
-                        {"id": "carbon", "label": "已纳入碳排", "value": round(current_carbon_value, 2), "unit": "kgCO2e", "ratio": round(carbon_delta_ratio, 2) if carbon_delta_ratio is not None else None},
+                        {
+                            "id": "energy",
+                            "label": "当期用电量",
+                            "value": round(current_energy_value, 2),
+                            "unit": "kWh",
+                            "ratio": round(energy_delta_ratio, 2) if energy_delta_ratio is not None else None,
+                        },
+                        {
+                            "id": "carbon",
+                            "label": "已纳入碳排",
+                            "value": round(current_carbon_value, 2),
+                            "unit": "kgCO2e",
+                            "ratio": round(carbon_delta_ratio, 2) if carbon_delta_ratio is not None else None,
+                        },
                         {"id": "pending", "label": "待审核记录", "value": pending_count, "unit": "条"},
-                        {"id": "alerts", "label": "未处理预警", "value": int(alarm_unhandled) + int(video_alarm_unhandled), "unit": "条"},
+                        {
+                            "id": "alerts",
+                            "label": "未处理预警",
+                            "value": int(alarm_unhandled) + int(video_alarm_unhandled),
+                            "unit": "条",
+                        },
                     ],
                     "monitor_stats": monitor_stats,
                     "workflow": {
@@ -459,7 +532,9 @@ class CarbonAnalyticsController(Controller):
                         "video_alarm_total": int(video_alarm_total),
                         "video_alarm_unhandled": int(video_alarm_unhandled),
                     },
-                    "scope_totals": [{"name": scope, "value": round(value, 2)} for scope, value in scope_totals.items()],
+                    "scope_totals": [
+                        {"name": scope, "value": round(value, 2)} for scope, value in scope_totals.items()
+                    ],
                     "source_mix": {
                         "source_kind": current_energy.get("source_kind"),
                         "energy_kwh": round(current_energy_value, 2),
@@ -510,17 +585,23 @@ class CarbonAnalyticsController(Controller):
         diagnostics = {"source_kind": "empty"}
         if latest_month:
             ready_rows = (
-                await db_session.execute(
-                    select(m.Scope2MeterAggregate)
-                    .where(
-                        m.Scope2MeterAggregate.billing_month == latest_month,
-                        m.Scope2MeterAggregate.calc_status == "ready",
+                (
+                    await db_session.execute(
+                        select(m.Scope2MeterAggregate)
+                        .where(
+                            m.Scope2MeterAggregate.billing_month == latest_month,
+                            m.Scope2MeterAggregate.calc_status == "ready",
+                        )
+                        .order_by(m.Scope2MeterAggregate.total_kwh.desc().nullslast())
                     )
-                    .order_by(m.Scope2MeterAggregate.total_kwh.desc().nullslast())
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             if ready_rows:
-                energy_rows = [await _serialize_scope_record(row, db_session, source_kind="meter_aggregate") for row in ready_rows]
+                energy_rows = [
+                    await _serialize_scope_record(row, db_session, source_kind="meter_aggregate") for row in ready_rows
+                ]
                 diagnostics["source_kind"] = "meter_aggregate"
             else:
                 month_start, month_end = _month_window(latest_month)
@@ -554,9 +635,17 @@ class CarbonAnalyticsController(Controller):
                 "data": {
                     "latest_month": latest_month,
                     "diagnostics": diagnostics,
-                    "energy_by_area": [{"name": name, "value": round(value, 2)} for name, value in sorted(energy_by_area.items(), key=lambda item: item[1], reverse=True)[:10]],
-                    "carbon_by_type": [{"name": name, "value": round(value, 2)} for name, value in sorted(carbon_by_type.items(), key=lambda item: item[1], reverse=True)[:10]],
-                    "alerts_by_area": [{"name": name or "未命名区域", "value": int(total)} for name, total in area_events],
+                    "energy_by_area": [
+                        {"name": name, "value": round(value, 2)}
+                        for name, value in sorted(energy_by_area.items(), key=lambda item: item[1], reverse=True)[:10]
+                    ],
+                    "carbon_by_type": [
+                        {"name": name, "value": round(value, 2)}
+                        for name, value in sorted(carbon_by_type.items(), key=lambda item: item[1], reverse=True)[:10]
+                    ],
+                    "alerts_by_area": [
+                        {"name": name or "未命名区域", "value": int(total)} for name, total in area_events
+                    ],
                 },
             }
         )
@@ -565,10 +654,16 @@ class CarbonAnalyticsController(Controller):
     async def get_analytics_efficiency(self, db_session: AsyncSession) -> Response[dict]:
         latest_month = await self._latest_energy_month(db_session)
         energy_series = await self._build_energy_series(db_session, [latest_month] if latest_month else [])
-        current_energy = energy_series[0] if energy_series else {"energy_kwh": 0.0, "carbon_co2e": 0.0, "record_count": 0, "source_kind": "empty"}
+        current_energy = (
+            energy_series[0]
+            if energy_series
+            else {"energy_kwh": 0.0, "carbon_co2e": 0.0, "record_count": 0, "source_kind": "empty"}
+        )
         scope_records = await self._load_scope_records(db_session)
         status_totals: dict[str, int] = defaultdict(int)
-        source_totals: dict[str, dict[str, float]] = defaultdict(lambda: {"energy_kwh": 0.0, "carbon_co2e": 0.0, "records": 0.0})
+        source_totals: dict[str, dict[str, float]] = defaultdict(
+            lambda: {"energy_kwh": 0.0, "carbon_co2e": 0.0, "records": 0.0}
+        )
         for item in scope_records:
             status_totals[str(item["data"].get("status") or STATUS_DRAFT)] += 1
             source = str(item["data"].get("source_kind") or item["scope"])
@@ -577,7 +672,9 @@ class CarbonAnalyticsController(Controller):
             if item["record_type"] in {"Scope2ElectricityBill", "Scope2MeterAggregate"}:
                 source_totals[source]["energy_kwh"] += float(item["data"].get("total_kwh") or 0.0)
 
-        storage = await db_session.scalar(select(m.EnergyStorageValue).order_by(m.EnergyStorageValue.id.desc()).limit(1))
+        storage = await db_session.scalar(
+            select(m.EnergyStorageValue).order_by(m.EnergyStorageValue.id.desc()).limit(1)
+        )
         source_mix = [
             {
                 "name": name,
@@ -619,24 +716,40 @@ class CarbonAnalyticsController(Controller):
     async def get_energy_flow(self, db_session: AsyncSession, billing_month: str | None = None) -> Response[dict]:
         month = billing_month or await self._latest_energy_month(db_session)
         if not month:
-            return Response(content={"code": 200, "msg": "暂无数据", "data": {"billing_month": None, "nodes": [], "links": [], "diagnostics": {"source_kind": "empty"}}})
-        meter_rows = (
-            await db_session.execute(
-                select(m.Scope2MeterAggregate)
-                .where(m.Scope2MeterAggregate.billing_month == month)
-                .order_by(m.Scope2MeterAggregate.total_kwh.desc().nullslast())
+            return Response(
+                content={
+                    "code": 200,
+                    "msg": "暂无数据",
+                    "data": {"billing_month": None, "nodes": [], "links": [], "diagnostics": {"source_kind": "empty"}},
+                }
             )
-        ).scalars().all()
+        meter_rows = (
+            (
+                await db_session.execute(
+                    select(m.Scope2MeterAggregate)
+                    .where(m.Scope2MeterAggregate.billing_month == month)
+                    .order_by(m.Scope2MeterAggregate.total_kwh.desc().nullslast())
+                )
+            )
+            .scalars()
+            .all()
+        )
         diagnostics = {
             "source_kind": "meter_aggregate",
             "ready_count": sum(1 for row in meter_rows if row.calc_status == "ready"),
             "invalid_count": sum(1 for row in meter_rows if row.calc_status != "ready"),
             "used_fallback": False,
-            "zero_ready_count": sum(1 for row in meter_rows if row.calc_status == "ready" and float(row.total_kwh or 0.0) <= 0),
+            "zero_ready_count": sum(
+                1 for row in meter_rows if row.calc_status == "ready" and float(row.total_kwh or 0.0) <= 0
+            ),
         }
         flow_rows: list[dict[str, Any]]
         if meter_rows:
-            flow_rows = [await _serialize_scope_record(row, db_session, source_kind="meter_aggregate") for row in meter_rows if row.total_kwh]
+            flow_rows = [
+                await _serialize_scope_record(row, db_session, source_kind="meter_aggregate")
+                for row in meter_rows
+                if row.total_kwh
+            ]
         else:
             month_start, month_end = _month_window(month)
             flow_rows = await self._raw_meter_rollups(db_session, month_start=month_start, month_end=month_end)
@@ -659,7 +772,10 @@ class CarbonAnalyticsController(Controller):
             total_energy_kwh += value
             nodes.setdefault(area_id, {"id": area_id, "name": area_name, "category": "area"})
             nodes.setdefault(meter_id, {"id": meter_id, "name": meter_name, "category": "meter"})
-            nodes.setdefault(result_id, {"id": result_id, "name": f"{meter_name} 核算结果", "category": "result", "value": round(value, 2)})
+            nodes.setdefault(
+                result_id,
+                {"id": result_id, "name": f"{meter_name} 核算结果", "category": "result", "value": round(value, 2)},
+            )
             links.append({"source": "grid", "target": area_id, "value": round(value, 2)})
             links.append({"source": area_id, "target": meter_id, "value": round(value, 2)})
             links.append({"source": meter_id, "target": result_id, "value": round(value, 2)})
@@ -698,7 +814,14 @@ class CarbonAnalyticsController(Controller):
             result_id = f"result:{item['record_type']}"
             nodes.setdefault(scope_id, {"id": scope_id, "name": item["scope"], "category": "scope"})
             nodes.setdefault(activity_id, {"id": activity_id, "name": item["display_name"], "category": "activity"})
-            nodes.setdefault(factor_id, {"id": factor_id, "name": f"{factor_name}{f' / {factor_year}' if factor_year else ''}", "category": "factor"})
+            nodes.setdefault(
+                factor_id,
+                {
+                    "id": factor_id,
+                    "name": f"{factor_name}{f' / {factor_year}' if factor_year else ''}",
+                    "category": "factor",
+                },
+            )
             nodes.setdefault(result_id, {"id": result_id, "name": item["record_label"], "category": "result"})
             links.append({"source": scope_id, "target": activity_id, "value": round(co2e, 2)})
             links.append({"source": activity_id, "target": factor_id, "value": round(co2e, 2)})
@@ -715,7 +838,13 @@ class CarbonAnalyticsController(Controller):
                     "diagnostics": {
                         "record_count": len(records),
                         "total_co2e": round(total_co2e, 2),
-                        "empty_record_types": sorted({_scope_record_label(item["record_type"]) for item in records if item["data"].get("computed_co2e") is None}),
+                        "empty_record_types": sorted(
+                            {
+                                _scope_record_label(item["record_type"])
+                                for item in records
+                                if item["data"].get("computed_co2e") is None
+                            }
+                        ),
                     },
                 },
             }
@@ -731,7 +860,15 @@ class CarbonAnalyticsController(Controller):
         offset: int = 0,
     ) -> Response[dict]:
         items: list[dict[str, Any]] = []
-        bill_rows = (await db_session.execute(select(m.Scope2ElectricityBill).where(m.Scope2ElectricityBill.status != STATUS_REJECTED))).scalars().all()
+        bill_rows = (
+            (
+                await db_session.execute(
+                    select(m.Scope2ElectricityBill).where(m.Scope2ElectricityBill.status != STATUS_REJECTED)
+                )
+            )
+            .scalars()
+            .all()
+        )
         for row in bill_rows:
             data = await _serialize_scope_record(row, db_session, source_kind="manual_bill")
             items.append(
@@ -750,7 +887,15 @@ class CarbonAnalyticsController(Controller):
                     "factor_source": data.get("factor_source"),
                 }
             )
-        meter_rows = (await db_session.execute(select(m.Scope2MeterAggregate).where(m.Scope2MeterAggregate.status != STATUS_REJECTED))).scalars().all()
+        meter_rows = (
+            (
+                await db_session.execute(
+                    select(m.Scope2MeterAggregate).where(m.Scope2MeterAggregate.status != STATUS_REJECTED)
+                )
+            )
+            .scalars()
+            .all()
+        )
         for row in meter_rows:
             data = await _serialize_scope_record(row, db_session, source_kind="meter_aggregate")
             items.append(
@@ -771,7 +916,9 @@ class CarbonAnalyticsController(Controller):
             )
         if billing_month and (source_kind in (None, SOURCE_KIND_ESTIMATE)):
             current_month_rows = [row for row in meter_rows if row.billing_month == billing_month]
-            estimate_rows = await CarbonAnalyticsController._historical_scope2_estimates_for_month(db_session, billing_month, current_month_rows)
+            estimate_rows = await CarbonAnalyticsController._historical_scope2_estimates_for_month(
+                db_session, billing_month, current_month_rows
+            )
             for index, row in enumerate(estimate_rows):
                 items.append(
                     {
@@ -858,15 +1005,23 @@ class CarbonAnalyticsController(Controller):
         data = await _serialize_scope_record(
             row,
             db_session,
-            source_kind="manual_bill" if record_type == "Scope2ElectricityBill" else "meter_aggregate" if record_type == "Scope2MeterAggregate" else None,
+            source_kind="manual_bill"
+            if record_type == "Scope2ElectricityBill"
+            else "meter_aggregate"
+            if record_type == "Scope2MeterAggregate"
+            else None,
         )
         audit_logs = (
-            await db_session.execute(
-                select(m.CarbonAuditLog)
-                .where(m.CarbonAuditLog.record_type == record_type, m.CarbonAuditLog.record_id == record_id)
-                .order_by(m.CarbonAuditLog.created_at.desc())
+            (
+                await db_session.execute(
+                    select(m.CarbonAuditLog)
+                    .where(m.CarbonAuditLog.record_type == record_type, m.CarbonAuditLog.record_id == record_id)
+                    .order_by(m.CarbonAuditLog.created_at.desc())
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         return Response(
             content={
                 "code": 200,
@@ -905,22 +1060,34 @@ class EnergyCarbonCenterController(Controller):
             "Scope3ThirdPartyTransport": m.Scope3ThirdPartyTransport,
         }
 
-    async def _get_record_detail(self, db_session: AsyncSession, record_type: str, record_id: int) -> dict[str, Any] | None:
+    async def _get_record_detail(
+        self, db_session: AsyncSession, record_type: str, record_id: int
+    ) -> dict[str, Any] | None:
         model = self._record_model_map().get(record_type)
         if model is None:
             return None
         row = await db_session.get(model, record_id)
         if row is None:
             return None
-        source_kind = "manual_bill" if record_type == "Scope2ElectricityBill" else "meter_aggregate" if record_type == "Scope2MeterAggregate" else None
+        source_kind = (
+            "manual_bill"
+            if record_type == "Scope2ElectricityBill"
+            else "meter_aggregate"
+            if record_type == "Scope2MeterAggregate"
+            else None
+        )
         computation = await _serialize_scope_record(row, db_session, source_kind=source_kind)
         audit_logs = (
-            await db_session.execute(
-                select(m.CarbonAuditLog)
-                .where(m.CarbonAuditLog.record_type == record_type, m.CarbonAuditLog.record_id == record_id)
-                .order_by(m.CarbonAuditLog.created_at.desc())
+            (
+                await db_session.execute(
+                    select(m.CarbonAuditLog)
+                    .where(m.CarbonAuditLog.record_type == record_type, m.CarbonAuditLog.record_id == record_id)
+                    .order_by(m.CarbonAuditLog.created_at.desc())
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         return {
             "record_type": record_type,
             "record_label": _scope_record_label(record_type),
@@ -990,7 +1157,9 @@ class EnergyCarbonCenterController(Controller):
 
         # First rebuild against current raw data so estimation is based on a fresh monthly baseline.
         for billing_month in month_keys:
-            await CarbonAccountingController._rebuild_scope2_meter_aggregates(self, db_session, scope2_meter_aggregate_service, billing_month)
+            await CarbonAccountingController._rebuild_scope2_meter_aggregates(
+                self, db_session, scope2_meter_aggregate_service, billing_month
+            )
 
         inserted_imputed_rows = 0
         estimate_details: list[dict[str, Any]] = []
@@ -1000,7 +1169,9 @@ class EnergyCarbonCenterController(Controller):
         invalid_count = 0
         rebuild_details: list[dict[str, Any]] = []
         for billing_month in month_keys:
-            rows = await CarbonAccountingController._rebuild_scope2_meter_aggregates(self, db_session, scope2_meter_aggregate_service, billing_month)
+            rows = await CarbonAccountingController._rebuild_scope2_meter_aggregates(
+                self, db_session, scope2_meter_aggregate_service, billing_month
+            )
             rebuilt_count += len(rows)
             ready_month = sum(1 for row in rows if row.calc_status == "ready")
             invalid_month = len(rows) - ready_month
@@ -1029,7 +1200,9 @@ class EnergyCarbonCenterController(Controller):
         }
 
     async def _seed_demo_scope_records(self, db_session: AsyncSession, months: int = 6) -> dict[str, int]:
-        latest_month = await CarbonAnalyticsController._latest_energy_month(db_session) or datetime.date.today().strftime("%Y-%m")
+        latest_month = await CarbonAnalyticsController._latest_energy_month(
+            db_session
+        ) or datetime.date.today().strftime("%Y-%m")
         month_keys = _seed_months(latest_month, max(3, min(months, 6)))
         operator_id = await self._demo_seed_operator_id(db_session)
         created: dict[str, int] = defaultdict(int)
@@ -1063,7 +1236,9 @@ class EnergyCarbonCenterController(Controller):
                             attachment=None if index == 0 else f"/demo/evidence/scope1-mobile-{month}.pdf",
                             remark=f"{DEMO_SEED_MARKER} 范围1移动源演示记录",
                             status=STATUS_PENDING if index == 0 else STATUS_APPROVED,
-                            approved_at=None if index == 0 else datetime.datetime.combine(month_date(month, 24), datetime.time.min),
+                            approved_at=None
+                            if index == 0
+                            else datetime.datetime.combine(month_date(month, 24), datetime.time.min),
                             data_year=month_date(month, 5).year,
                             **common_feature_fields,
                         ),
@@ -1118,7 +1293,9 @@ class EnergyCarbonCenterController(Controller):
                             attachment=None if index == 2 else f"/demo/evidence/scope3-waste-{month}.pdf",
                             remark=f"{DEMO_SEED_MARKER} 范围3废弃物演示记录",
                             status=STATUS_PENDING if index in {0, 2} else STATUS_APPROVED,
-                            approved_at=None if index in {0, 2} else datetime.datetime.combine(month_date(month, 26), datetime.time.min),
+                            approved_at=None
+                            if index in {0, 2}
+                            else datetime.datetime.combine(month_date(month, 26), datetime.time.min),
                             data_year=month_date(month, 18).year,
                             **common_feature_fields,
                         ),
@@ -1137,7 +1314,9 @@ class EnergyCarbonCenterController(Controller):
                             attachment=f"/demo/evidence/scope3-transport-{month}.pdf" if index != 3 else None,
                             remark=f"{DEMO_SEED_MARKER} 范围3运输演示记录",
                             status=STATUS_APPROVED if index % 2 == 0 else STATUS_PENDING,
-                            approved_at=datetime.datetime.combine(month_date(month, 25), datetime.time.min) if index % 2 == 0 else None,
+                            approved_at=datetime.datetime.combine(month_date(month, 25), datetime.time.min)
+                            if index % 2 == 0
+                            else None,
                             created_at=datetime.datetime.combine(month_date(month, 20), datetime.time.min),
                             data_year=month_date(month, 20).year,
                             **common_feature_fields,
@@ -1160,7 +1339,11 @@ class EnergyCarbonCenterController(Controller):
                 {
                     "record_type": record_type,
                     "record_id": row.id,
-                    "action": AUDIT_ACTION_APPROVE if row.status == STATUS_APPROVED else AUDIT_ACTION_REJECT if row.status == STATUS_REJECTED else AUDIT_ACTION_SUBMIT,
+                    "action": AUDIT_ACTION_APPROVE
+                    if row.status == STATUS_APPROVED
+                    else AUDIT_ACTION_REJECT
+                    if row.status == STATUS_REJECTED
+                    else AUDIT_ACTION_SUBMIT,
                     "operator_id": operator_id,
                     "comment": log_comment,
                     "created_at": getattr(row, "approved_at", None) or datetime.datetime.utcnow(),
@@ -1174,14 +1357,28 @@ class EnergyCarbonCenterController(Controller):
 
     async def _build_monitor_area_summary(self, db_session: AsyncSession) -> list[dict[str, Any]]:
         sectors = (
-            await db_session.execute(select(m.MonitorSector).options(selectinload(m.MonitorSector.photos)).order_by(m.MonitorSector.id.asc()))
-        ).scalars().all()
+            (
+                await db_session.execute(
+                    select(m.MonitorSector)
+                    .options(selectinload(m.MonitorSector.photos))
+                    .order_by(m.MonitorSector.id.asc())
+                )
+            )
+            .scalars()
+            .all()
+        )
         equipment_counts = {
-            sector_id: {"total": 0, "online": 0, "fault": 0}
-            for sector_id in [sector.id for sector in sectors]
+            sector_id: {"total": 0, "online": 0, "fault": 0} for sector_id in [sector.id for sector in sectors]
         }
         equipment_rows = (
-            await db_session.execute(select(m.MonitorEquipment.id, m.MonitorEquipment.sector_id, m.MonitorEquipment.status, m.MonitorEquipment.category))
+            await db_session.execute(
+                select(
+                    m.MonitorEquipment.id,
+                    m.MonitorEquipment.sector_id,
+                    m.MonitorEquipment.status,
+                    m.MonitorEquipment.category,
+                )
+            )
         ).all()
         for equipment_id, sector_id, status, _category in equipment_rows:
             if sector_id not in equipment_counts:
@@ -1194,16 +1391,31 @@ class EnergyCarbonCenterController(Controller):
 
         alert_rows = (
             await db_session.execute(
-                select(m.AlarmEvent.sector_id, func.count(m.AlarmEvent.id), func.sum(case((m.AlarmEvent.is_handle.is_(False), 1), else_=0)))
-                .group_by(m.AlarmEvent.sector_id)
+                select(
+                    m.AlarmEvent.sector_id,
+                    func.count(m.AlarmEvent.id),
+                    func.sum(case((m.AlarmEvent.is_handle.is_(False), 1), else_=0)),
+                ).group_by(m.AlarmEvent.sector_id)
             )
         ).all()
-        alert_map = {sector_id: {"total": int(total or 0), "unhandled": int(unhandled or 0)} for sector_id, total, unhandled in alert_rows}
+        alert_map = {
+            sector_id: {"total": int(total or 0), "unhandled": int(unhandled or 0)}
+            for sector_id, total, unhandled in alert_rows
+        }
 
         video_rows = (
-            await db_session.execute(select(m.VideoMonitor.f_area, func.count(m.VideoMonitor.id), func.sum(case((m.VideoMonitor.status == 0, 1), else_=0))).group_by(m.VideoMonitor.f_area))
+            await db_session.execute(
+                select(
+                    m.VideoMonitor.f_area,
+                    func.count(m.VideoMonitor.id),
+                    func.sum(case((m.VideoMonitor.status == 0, 1), else_=0)),
+                ).group_by(m.VideoMonitor.f_area)
+            )
         ).all()
-        video_map = {str(area or ""): {"total": int(total or 0), "online": int(online or 0)} for area, total, online in video_rows}
+        video_map = {
+            str(area or ""): {"total": int(total or 0), "online": int(online or 0)}
+            for area, total, online in video_rows
+        }
 
         items: list[dict[str, Any]] = []
         for sector in sectors:
@@ -1237,18 +1449,34 @@ class EnergyCarbonCenterController(Controller):
         alerts: list[dict[str, Any]] = []
         area_names = {
             sector_id: sector_name or f"区域{sector_id}"
-            for sector_id, sector_name in (await db_session.execute(select(m.MonitorSector.id, m.MonitorSector.name))).all()
+            for sector_id, sector_name in (
+                await db_session.execute(select(m.MonitorSector.id, m.MonitorSector.name))
+            ).all()
         }
         equipment_names = {
             equipment_id: equipment_name or equipment_code
-            for equipment_id, equipment_name, equipment_code in (await db_session.execute(select(m.MonitorEquipment.id, m.MonitorEquipment.name, m.MonitorEquipment.code))).all()
+            for equipment_id, equipment_name, equipment_code in (
+                await db_session.execute(
+                    select(m.MonitorEquipment.id, m.MonitorEquipment.name, m.MonitorEquipment.code)
+                )
+            ).all()
         }
         video_names = {
             video_id: location or f"视频点位{video_id}"
-            for video_id, location in (await db_session.execute(select(m.VideoMonitor.id, m.VideoMonitor.location))).all()
+            for video_id, location in (
+                await db_session.execute(select(m.VideoMonitor.id, m.VideoMonitor.location))
+            ).all()
         }
 
-        alarm_rows = (await db_session.execute(select(m.AlarmEvent).order_by(m.AlarmEvent.event_time.desc().nullslast(), m.AlarmEvent.id.desc()))).scalars().all()
+        alarm_rows = (
+            (
+                await db_session.execute(
+                    select(m.AlarmEvent).order_by(m.AlarmEvent.event_time.desc().nullslast(), m.AlarmEvent.id.desc())
+                )
+            )
+            .scalars()
+            .all()
+        )
         severity_map = {1: "high", 2: "medium", 3: "medium", 4: "high"}
         type_map = {1: "设备告警", 2: "用能告警", 3: "发电告警", 4: "碳告警"}
         for row in alarm_rows:
@@ -1261,7 +1489,9 @@ class EnergyCarbonCenterController(Controller):
                     "severity": severity_map.get(row.event_type, "medium"),
                     "title": row.event_desc or type_map.get(row.event_type, "业务告警"),
                     "area_name": area_names.get(row.sector_id, "未分区"),
-                    "object_name": equipment_names.get(row.equipment_id, f"设备{row.equipment_id}" if row.equipment_id else "未关联对象"),
+                    "object_name": equipment_names.get(
+                        row.equipment_id, f"设备{row.equipment_id}" if row.equipment_id else "未关联对象"
+                    ),
                     "status": "已处理" if row.is_handle else "待处理",
                     "occurred_at": row.event_time.isoformat() if row.event_time else None,
                     "description": row.event_desc,
@@ -1269,8 +1499,16 @@ class EnergyCarbonCenterController(Controller):
             )
 
         video_alert_rows = (
-            await db_session.execute(select(m.VedioAlarmEvent).order_by(m.VedioAlarmEvent.event_time.desc().nullslast(), m.VedioAlarmEvent.id.desc()))
-        ).scalars().all()
+            (
+                await db_session.execute(
+                    select(m.VedioAlarmEvent).order_by(
+                        m.VedioAlarmEvent.event_time.desc().nullslast(), m.VedioAlarmEvent.id.desc()
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
         video_type_map = {1: "未佩戴安全帽", 2: "烟火", 3: "火点", 4: "区域入侵"}
         video_severity_map = {1: "medium", 2: "high", 3: "high", 4: "medium"}
         for row in video_alert_rows:
@@ -1283,7 +1521,9 @@ class EnergyCarbonCenterController(Controller):
                     "severity": video_severity_map.get(row.event_type, "medium"),
                     "title": video_type_map.get(row.event_type, "视频告警"),
                     "area_name": "视频监控",
-                    "object_name": video_names.get(row.equipment_id, f"视频{row.equipment_id}" if row.equipment_id else "未关联视频"),
+                    "object_name": video_names.get(
+                        row.equipment_id, f"视频{row.equipment_id}" if row.equipment_id else "未关联视频"
+                    ),
                     "status": "已处理" if row.is_handle else "待处理",
                     "occurred_at": row.event_time.isoformat() if row.event_time else None,
                     "description": row.event_desc,
@@ -1291,12 +1531,16 @@ class EnergyCarbonCenterController(Controller):
             )
 
         invalid_aggregates = (
-            await db_session.execute(
-                select(m.Scope2MeterAggregate)
-                .where(m.Scope2MeterAggregate.calc_status != "ready")
-                .order_by(m.Scope2MeterAggregate.billing_month.desc(), m.Scope2MeterAggregate.id.desc())
+            (
+                await db_session.execute(
+                    select(m.Scope2MeterAggregate)
+                    .where(m.Scope2MeterAggregate.calc_status != "ready")
+                    .order_by(m.Scope2MeterAggregate.billing_month.desc(), m.Scope2MeterAggregate.id.desc())
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         for row in invalid_aggregates:
             alerts.append(
                 {
@@ -1310,7 +1554,11 @@ class EnergyCarbonCenterController(Controller):
                     "area_name": row.area_name or "未分区",
                     "object_name": row.ammeter_name or row.ammeter_id,
                     "status": "待处理" if row.status != STATUS_APPROVED else "已处理",
-                    "occurred_at": row.updated_at.isoformat() if row.updated_at else row.created_at.isoformat() if row.created_at else None,
+                    "occurred_at": row.updated_at.isoformat()
+                    if row.updated_at
+                    else row.created_at.isoformat()
+                    if row.created_at
+                    else None,
                     "description": row.aggregation_note or row.computation_note or "聚合快照未形成有效核算结果",
                 }
             )
@@ -1354,12 +1602,16 @@ class EnergyCarbonCenterController(Controller):
                 )
 
         invalid_aggregates = (
-            await db_session.execute(
-                select(m.Scope2MeterAggregate)
-                .where(m.Scope2MeterAggregate.calc_status != "ready")
-                .order_by(m.Scope2MeterAggregate.billing_month.desc(), m.Scope2MeterAggregate.id.desc())
+            (
+                await db_session.execute(
+                    select(m.Scope2MeterAggregate)
+                    .where(m.Scope2MeterAggregate.calc_status != "ready")
+                    .order_by(m.Scope2MeterAggregate.billing_month.desc(), m.Scope2MeterAggregate.id.desc())
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         for row in invalid_aggregates:
             issue_code = "invalid_scope2_delta" if row.calc_status == "invalid_delta" else "insufficient_scope2_samples"
             issue_type = "异常增量" if row.calc_status == "invalid_delta" else "采样不足"
@@ -1426,7 +1678,9 @@ class EnergyCarbonCenterController(Controller):
                         "record_id": item["row"].id,
                     }
                 )
-            if data.get("status") == STATUS_PENDING and (not data.get("factor_source") or data.get("computed_co2e") is None):
+            if data.get("status") == STATUS_PENDING and (
+                not data.get("factor_source") or data.get("computed_co2e") is None
+            ):
                 issues.append(
                     {
                         "id": f"audit:{item['record_type']}:{item['row'].id}",
@@ -1498,21 +1752,29 @@ class EnergyCarbonCenterController(Controller):
         diagnostics = {"source_kind": "empty"}
         if latest_month:
             ready_rows = (
-                await db_session.execute(
-                    select(m.Scope2MeterAggregate)
-                    .where(
-                        m.Scope2MeterAggregate.billing_month == latest_month,
-                        m.Scope2MeterAggregate.calc_status == "ready",
+                (
+                    await db_session.execute(
+                        select(m.Scope2MeterAggregate)
+                        .where(
+                            m.Scope2MeterAggregate.billing_month == latest_month,
+                            m.Scope2MeterAggregate.calc_status == "ready",
+                        )
+                        .order_by(m.Scope2MeterAggregate.total_kwh.desc().nullslast())
                     )
-                    .order_by(m.Scope2MeterAggregate.total_kwh.desc().nullslast())
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             if ready_rows:
-                energy_rows = [await _serialize_scope_record(row, db_session, source_kind="meter_aggregate") for row in ready_rows]
+                energy_rows = [
+                    await _serialize_scope_record(row, db_session, source_kind="meter_aggregate") for row in ready_rows
+                ]
                 diagnostics["source_kind"] = "meter_aggregate"
             else:
                 month_start, month_end = _month_window(latest_month)
-                energy_rows = await CarbonAnalyticsController._raw_meter_rollups(db_session, month_start=month_start, month_end=month_end)
+                energy_rows = await CarbonAnalyticsController._raw_meter_rollups(
+                    db_session, month_start=month_start, month_end=month_end
+                )
                 diagnostics["source_kind"] = "raw_meter_fallback"
 
         energy_by_area: dict[str, float] = defaultdict(float)
@@ -1537,18 +1799,32 @@ class EnergyCarbonCenterController(Controller):
         return {
             "latest_month": latest_month,
             "diagnostics": diagnostics,
-            "energy_by_area": [{"name": name, "value": round(value, 2)} for name, value in sorted(energy_by_area.items(), key=lambda item: item[1], reverse=True)[:10]],
-            "carbon_by_type": [{"name": name, "value": round(value, 2)} for name, value in sorted(carbon_by_type.items(), key=lambda item: item[1], reverse=True)[:10]],
+            "energy_by_area": [
+                {"name": name, "value": round(value, 2)}
+                for name, value in sorted(energy_by_area.items(), key=lambda item: item[1], reverse=True)[:10]
+            ],
+            "carbon_by_type": [
+                {"name": name, "value": round(value, 2)}
+                for name, value in sorted(carbon_by_type.items(), key=lambda item: item[1], reverse=True)[:10]
+            ],
             "alerts_by_area": [{"name": name or "未命名区域", "value": int(total)} for name, total in area_events],
         }
 
     async def _efficiency_data(self, db_session: AsyncSession) -> dict[str, Any]:
         latest_month = await CarbonAnalyticsController._latest_energy_month(db_session)
-        energy_series = await CarbonAnalyticsController._build_energy_series(db_session, [latest_month] if latest_month else [])
-        current_energy = energy_series[0] if energy_series else {"energy_kwh": 0.0, "carbon_co2e": 0.0, "record_count": 0, "source_kind": "empty"}
+        energy_series = await CarbonAnalyticsController._build_energy_series(
+            db_session, [latest_month] if latest_month else []
+        )
+        current_energy = (
+            energy_series[0]
+            if energy_series
+            else {"energy_kwh": 0.0, "carbon_co2e": 0.0, "record_count": 0, "source_kind": "empty"}
+        )
         scope_records = await CarbonAnalyticsController._load_scope_records(db_session)
         status_totals: dict[str, int] = defaultdict(int)
-        source_totals: dict[str, dict[str, float]] = defaultdict(lambda: {"energy_kwh": 0.0, "carbon_co2e": 0.0, "records": 0.0})
+        source_totals: dict[str, dict[str, float]] = defaultdict(
+            lambda: {"energy_kwh": 0.0, "carbon_co2e": 0.0, "records": 0.0}
+        )
         for item in scope_records:
             status_totals[str(item["data"].get("status") or STATUS_DRAFT)] += 1
             source = str(item["data"].get("source_kind") or item["scope"])
@@ -1557,7 +1833,9 @@ class EnergyCarbonCenterController(Controller):
             if item["record_type"] in {"Scope2ElectricityBill", "Scope2MeterAggregate"}:
                 source_totals[source]["energy_kwh"] += float(item["data"].get("total_kwh") or 0.0)
 
-        storage = await db_session.scalar(select(m.EnergyStorageValue).order_by(m.EnergyStorageValue.id.desc()).limit(1))
+        storage = await db_session.scalar(
+            select(m.EnergyStorageValue).order_by(m.EnergyStorageValue.id.desc()).limit(1)
+        )
         source_mix = [
             {
                 "name": name,
@@ -1592,29 +1870,50 @@ class EnergyCarbonCenterController(Controller):
     async def _energy_flow_data(self, db_session: AsyncSession, billing_month: str | None = None) -> dict[str, Any]:
         month = billing_month or await CarbonAnalyticsController._latest_energy_month(db_session)
         if not month:
-            return {"billing_month": None, "title": "仓库级能流图", "unit": "kWh", "nodes": [], "links": [], "diagnostics": {"source_kind": "empty"}}
+            return {
+                "billing_month": None,
+                "title": "仓库级能流图",
+                "unit": "kWh",
+                "nodes": [],
+                "links": [],
+                "diagnostics": {"source_kind": "empty"},
+            }
         meter_rows = (
-            await db_session.execute(
-                select(m.Scope2MeterAggregate)
-                .where(m.Scope2MeterAggregate.billing_month == month)
-                .order_by(m.Scope2MeterAggregate.total_kwh.desc().nullslast())
+            (
+                await db_session.execute(
+                    select(m.Scope2MeterAggregate)
+                    .where(m.Scope2MeterAggregate.billing_month == month)
+                    .order_by(m.Scope2MeterAggregate.total_kwh.desc().nullslast())
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         diagnostics = {
             "source_kind": "meter_aggregate",
             "ready_count": sum(1 for row in meter_rows if row.calc_status == "ready"),
             "invalid_count": sum(1 for row in meter_rows if row.calc_status != "ready"),
-            "zero_ready_count": sum(1 for row in meter_rows if row.calc_status == "ready" and float(row.total_kwh or 0.0) <= 0),
+            "zero_ready_count": sum(
+                1 for row in meter_rows if row.calc_status == "ready" and float(row.total_kwh or 0.0) <= 0
+            ),
             "used_fallback": False,
         }
         flow_rows: list[dict[str, Any]]
         estimate_rows: list[dict[str, Any]] = []
         if meter_rows:
-            flow_rows = [await _serialize_scope_record(row, db_session, source_kind="meter_aggregate") for row in meter_rows if row.total_kwh]
-            estimate_rows = await CarbonAnalyticsController._historical_scope2_estimates_for_month(db_session, month, meter_rows)
+            flow_rows = [
+                await _serialize_scope_record(row, db_session, source_kind="meter_aggregate")
+                for row in meter_rows
+                if row.total_kwh
+            ]
+            estimate_rows = await CarbonAnalyticsController._historical_scope2_estimates_for_month(
+                db_session, month, meter_rows
+            )
         else:
             month_start, month_end = _month_window(month)
-            flow_rows = await CarbonAnalyticsController._raw_meter_rollups(db_session, month_start=month_start, month_end=month_end)
+            flow_rows = await CarbonAnalyticsController._raw_meter_rollups(
+                db_session, month_start=month_start, month_end=month_end
+            )
             diagnostics["source_kind"] = "raw_meter_fallback"
             diagnostics["used_fallback"] = True
         if estimate_rows:
@@ -1649,7 +1948,14 @@ class EnergyCarbonCenterController(Controller):
         diagnostics["positive_area_count"] = len(area_totals)
         diagnostics["estimated_count"] = len(estimate_rows)
         diagnostics["estimated_energy_kwh"] = round(sum(float(row.get("total_kwh") or 0.0) for row in estimate_rows), 4)
-        return {"billing_month": month, "title": "仓库级能流图", "unit": "kWh", "nodes": list(nodes.values()), "links": links, "diagnostics": diagnostics}
+        return {
+            "billing_month": month,
+            "title": "仓库级能流图",
+            "unit": "kWh",
+            "nodes": list(nodes.values()),
+            "links": links,
+            "diagnostics": diagnostics,
+        }
 
     async def _energy_ledger_page(
         self,
@@ -1660,7 +1966,15 @@ class EnergyCarbonCenterController(Controller):
         offset: int = 0,
     ) -> dict[str, Any]:
         items: list[dict[str, Any]] = []
-        bill_rows = (await db_session.execute(select(m.Scope2ElectricityBill).where(m.Scope2ElectricityBill.status != STATUS_REJECTED))).scalars().all()
+        bill_rows = (
+            (
+                await db_session.execute(
+                    select(m.Scope2ElectricityBill).where(m.Scope2ElectricityBill.status != STATUS_REJECTED)
+                )
+            )
+            .scalars()
+            .all()
+        )
         for row in bill_rows:
             data = await _serialize_scope_record(row, db_session, source_kind="manual_bill")
             items.append(
@@ -1678,7 +1992,15 @@ class EnergyCarbonCenterController(Controller):
                     "factor_source": data.get("factor_source"),
                 }
             )
-        meter_rows = (await db_session.execute(select(m.Scope2MeterAggregate).where(m.Scope2MeterAggregate.status != STATUS_REJECTED))).scalars().all()
+        meter_rows = (
+            (
+                await db_session.execute(
+                    select(m.Scope2MeterAggregate).where(m.Scope2MeterAggregate.status != STATUS_REJECTED)
+                )
+            )
+            .scalars()
+            .all()
+        )
         for row in meter_rows:
             data = await _serialize_scope_record(row, db_session, source_kind="meter_aggregate")
             items.append(
@@ -1698,7 +2020,9 @@ class EnergyCarbonCenterController(Controller):
             )
         if billing_month and (source_kind in (None, SOURCE_KIND_ESTIMATE)):
             current_month_rows = [row for row in meter_rows if row.billing_month == billing_month]
-            estimate_rows = await CarbonAnalyticsController._historical_scope2_estimates_for_month(db_session, billing_month, current_month_rows)
+            estimate_rows = await CarbonAnalyticsController._historical_scope2_estimates_for_month(
+                db_session, billing_month, current_month_rows
+            )
             for index, row in enumerate(estimate_rows):
                 items.append(
                     {
@@ -1769,10 +2093,22 @@ class EnergyCarbonCenterController(Controller):
             by_status[str(item["status"])] += 1
             by_area[str(item.get("area_name") or "未分区")] += 1
         return {
-            "by_source": [{"name": name, "value": value} for name, value in sorted(by_source.items(), key=lambda pair: pair[1], reverse=True)],
-            "by_severity": [{"name": name, "value": value} for name, value in sorted(by_severity.items(), key=lambda pair: pair[1], reverse=True)],
-            "by_status": [{"name": name, "value": value} for name, value in sorted(by_status.items(), key=lambda pair: pair[1], reverse=True)],
-            "by_area": [{"name": name, "value": value} for name, value in sorted(by_area.items(), key=lambda pair: pair[1], reverse=True)[:10]],
+            "by_source": [
+                {"name": name, "value": value}
+                for name, value in sorted(by_source.items(), key=lambda pair: pair[1], reverse=True)
+            ],
+            "by_severity": [
+                {"name": name, "value": value}
+                for name, value in sorted(by_severity.items(), key=lambda pair: pair[1], reverse=True)
+            ],
+            "by_status": [
+                {"name": name, "value": value}
+                for name, value in sorted(by_status.items(), key=lambda pair: pair[1], reverse=True)
+            ],
+            "by_area": [
+                {"name": name, "value": value}
+                for name, value in sorted(by_area.items(), key=lambda pair: pair[1], reverse=True)[:10]
+            ],
         }
 
     def _build_alert_trend(self, items: list[dict[str, Any]], months: int = 12) -> list[dict[str, Any]]:
@@ -1805,10 +2141,17 @@ class EnergyCarbonCenterController(Controller):
             if item.get("severity") != "low"
         }
         return {
-            "carbon_completion_rate": round(sum(1 for item in scope_records if item["data"].get("computed_co2e")) / total_records * 100, 1),
-            "approval_completion_rate": round(sum(1 for item in scope_records if item["data"].get("status") == STATUS_APPROVED) / total_records * 100, 1),
+            "carbon_completion_rate": round(
+                sum(1 for item in scope_records if item["data"].get("computed_co2e")) / total_records * 100, 1
+            ),
+            "approval_completion_rate": round(
+                sum(1 for item in scope_records if item["data"].get("status") == STATUS_APPROVED) / total_records * 100,
+                1,
+            ),
             "quality_completion_rate": round(max(0.0, 100 - (len(issue_impacts) / total_records * 100)), 1),
-            "alert_closure_rate": round(sum(1 for item in alerts if item["status"] == "已处理") / max(len(alerts), 1) * 100, 1),
+            "alert_closure_rate": round(
+                sum(1 for item in alerts if item["status"] == "已处理") / max(len(alerts), 1) * 100, 1
+            ),
         }
 
     async def _build_recent_activities(self, db_session: AsyncSession) -> list[dict[str, Any]]:
@@ -1883,7 +2226,9 @@ class EnergyCarbonCenterController(Controller):
             source_node = f"src:{scope}:{source_kind}"
             result_node = f"res:{scope}:{item['record_type']}"
             value = float(item["data"].get("computed_co2e") or 0.0)
-            nodes.setdefault(source_node, {"id": source_node, "name": _source_kind_label(source_kind), "category": "source"})
+            nodes.setdefault(
+                source_node, {"id": source_node, "name": _source_kind_label(source_kind), "category": "source"}
+            )
             nodes.setdefault(result_node, {"id": result_node, "name": result_name, "category": "result"})
             grouped[(scope_node, source_node)] += value
             grouped[(source_node, result_node)] += value
@@ -1895,8 +2240,13 @@ class EnergyCarbonCenterController(Controller):
 
     def _build_quality_trend(self, issues: list[dict[str, Any]], months: int = 12) -> list[dict[str, Any]]:
         current_month = datetime.date.today().replace(day=1)
-        labels = [(current_month - relativedelta(months=offset)).strftime("%Y-%m") for offset in range(months - 1, -1, -1)]
-        buckets = {label: {"period": label, "alerts_count": 0, "handled_count": 0, "energy_kwh": 0.0, "carbon_co2e": 0.0} for label in labels}
+        labels = [
+            (current_month - relativedelta(months=offset)).strftime("%Y-%m") for offset in range(months - 1, -1, -1)
+        ]
+        buckets = {
+            label: {"period": label, "alerts_count": 0, "handled_count": 0, "energy_kwh": 0.0, "carbon_co2e": 0.0}
+            for label in labels
+        }
         for item in issues:
             month_key = str(item.get("period") or "")[:7]
             if month_key in buckets:
@@ -1918,14 +2268,23 @@ class EnergyCarbonCenterController(Controller):
         return {
             "scope_distribution": [{"name": name, "value": value} for name, value in sorted(by_scope.items())],
             "missing_by_scope": [{"name": name, "value": value} for name, value in sorted(missing_by_scope.items())],
-            "factor_source_distribution": [{"name": name, "value": value} for name, value in sorted(by_source.items(), key=lambda pair: pair[1], reverse=True)[:10]],
+            "factor_source_distribution": [
+                {"name": name, "value": value}
+                for name, value in sorted(by_source.items(), key=lambda pair: pair[1], reverse=True)[:10]
+            ],
         }
 
     @get("/api/energy-carbon/dashboard/overview")
     async def get_dashboard_overview(self, db_session: AsyncSession) -> Response[dict]:
         latest_month = await CarbonAnalyticsController._latest_energy_month(db_session)
-        energy_series = await CarbonAnalyticsController._build_energy_series(db_session, _months_back(latest_month, 1) if latest_month else [])
-        current_energy = energy_series[-1] if energy_series else {"energy_kwh": 0.0, "carbon_co2e": 0.0, "source_kind": "empty", "record_count": 0}
+        energy_series = await CarbonAnalyticsController._build_energy_series(
+            db_session, _months_back(latest_month, 1) if latest_month else []
+        )
+        current_energy = (
+            energy_series[-1]
+            if energy_series
+            else {"energy_kwh": 0.0, "carbon_co2e": 0.0, "source_kind": "empty", "record_count": 0}
+        )
         enterprise = await db_session.scalar(select(m.EnterpriseInfo).limit(1))
         scope_records = await CarbonAnalyticsController._load_scope_records(db_session)
         alerts = await self._build_unified_alerts(db_session)
@@ -1949,11 +2308,33 @@ class EnergyCarbonCenterController(Controller):
                     "latest_month": latest_month,
                     "enterprise": enterprise.to_dict() if enterprise else {},
                     "kpis": [
-                        {"id": "energy", "label": "总能耗", "value": round(float(current_energy.get("energy_kwh") or 0.0), 2), "unit": "kWh"},
-                        {"id": "carbon", "label": "总碳排", "value": round(sum(float(item["data"].get("computed_co2e") or 0.0) for item in scope_records), 2), "unit": "kgCO2e"},
+                        {
+                            "id": "energy",
+                            "label": "总能耗",
+                            "value": round(float(current_energy.get("energy_kwh") or 0.0), 2),
+                            "unit": "kWh",
+                        },
+                        {
+                            "id": "carbon",
+                            "label": "总碳排",
+                            "value": round(
+                                sum(float(item["data"].get("computed_co2e") or 0.0) for item in scope_records), 2
+                            ),
+                            "unit": "kgCO2e",
+                        },
                         {"id": "alerts", "label": "异常数", "value": len(alerts), "unit": "条"},
-                        {"id": "unhandled", "label": "未处理告警", "value": sum(1 for item in alerts if item["status"] == "待处理"), "unit": "条"},
-                        {"id": "pending", "label": "待审核", "value": sum(1 for item in scope_records if item["data"].get("status") == STATUS_PENDING), "unit": "条"},
+                        {
+                            "id": "unhandled",
+                            "label": "未处理告警",
+                            "value": sum(1 for item in alerts if item["status"] == "待处理"),
+                            "unit": "条",
+                        },
+                        {
+                            "id": "pending",
+                            "label": "待审核",
+                            "value": sum(1 for item in scope_records if item["data"].get("status") == STATUS_PENDING),
+                            "unit": "条",
+                        },
                         {"id": "quality", "label": "数据完整率", "value": quality_rate, "unit": "%"},
                     ],
                     "trend_summary": {
@@ -1965,7 +2346,10 @@ class EnergyCarbonCenterController(Controller):
                     "risk_items": risk_items,
                     "todo_items": [
                         {"label": "待处理告警", "value": sum(1 for item in alerts if item["status"] == "待处理")},
-                        {"label": "待审核记录", "value": sum(1 for item in scope_records if item["data"].get("status") == STATUS_PENDING)},
+                        {
+                            "label": "待审核记录",
+                            "value": sum(1 for item in scope_records if item["data"].get("status") == STATUS_PENDING),
+                        },
                         {"label": "质量问题", "value": len(issues)},
                     ],
                     "health_matrix": health[:6],
@@ -1985,11 +2369,15 @@ class EnergyCarbonCenterController(Controller):
 
     @get("/api/energy-carbon/dashboard/completion")
     async def get_dashboard_completion(self, db_session: AsyncSession) -> Response[dict]:
-        return Response(content={"code": 200, "msg": "获取成功", "data": await self._build_dashboard_completion(db_session)})
+        return Response(
+            content={"code": 200, "msg": "获取成功", "data": await self._build_dashboard_completion(db_session)}
+        )
 
     @get("/api/energy-carbon/dashboard/recent-activities")
     async def get_dashboard_recent_activities(self, db_session: AsyncSession) -> Response[dict]:
-        return Response(content={"code": 200, "msg": "获取成功", "data": {"items": await self._build_recent_activities(db_session)}})
+        return Response(
+            content={"code": 200, "msg": "获取成功", "data": {"items": await self._build_recent_activities(db_session)}}
+        )
 
     @get("/api/energy-carbon/dashboard/trend")
     async def get_dashboard_trend(self, db_session: AsyncSession, months: int = 12) -> Response[dict]:
@@ -2009,7 +2397,9 @@ class EnergyCarbonCenterController(Controller):
                         "area_count": len(health),
                         "stable_count": sum(1 for item in health if item["status"] == "稳定"),
                         "risk_count": sum(1 for item in health if item["status"] != "稳定"),
-                        "high_alert_count": sum(1 for item in alerts if item["severity"] == "high" and item["status"] == "待处理"),
+                        "high_alert_count": sum(
+                            1 for item in alerts if item["severity"] == "high" and item["status"] == "待处理"
+                        ),
                     },
                 },
             }
@@ -2047,12 +2437,24 @@ class EnergyCarbonCenterController(Controller):
     async def get_energy_structure(self, db_session: AsyncSession) -> Response[dict]:
         ranking = await self._ranking_data(db_session)
         efficiency = await self._efficiency_data(db_session)
-        return Response(content={"code": 200, "msg": "获取成功", "data": {"source_mix": efficiency.get("source_mix", []), "energy_by_area": ranking.get("energy_by_area", []), "alerts_by_area": ranking.get("alerts_by_area", [])}})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {
+                    "source_mix": efficiency.get("source_mix", []),
+                    "energy_by_area": ranking.get("energy_by_area", []),
+                    "alerts_by_area": ranking.get("alerts_by_area", []),
+                },
+            }
+        )
 
     @get("/api/energy-carbon/energy/intensity")
     async def get_energy_intensity(self, db_session: AsyncSession) -> Response[dict]:
         latest_month = await CarbonAnalyticsController._latest_energy_month(db_session)
-        energy_series = await CarbonAnalyticsController._build_energy_series(db_session, [latest_month] if latest_month else [])
+        energy_series = await CarbonAnalyticsController._build_energy_series(
+            db_session, [latest_month] if latest_month else []
+        )
         current_energy = energy_series[0] if energy_series else {"energy_kwh": 0.0}
         enterprise = await db_session.scalar(select(m.EnterpriseInfo).limit(1))
         total_kwh = float(current_energy.get("energy_kwh") or 0.0)
@@ -2066,8 +2468,16 @@ class EnergyCarbonCenterController(Controller):
                     "latest_month": latest_month,
                     "metrics": [
                         {"label": "总用电量", "value": round(total_kwh, 2), "unit": "kWh"},
-                        {"label": "单位仓储面积能耗", "value": round(total_kwh / store_area, 4) if store_area else None, "unit": "kWh/㎡"},
-                        {"label": "单位园区面积能耗", "value": round(total_kwh / park_area, 4) if park_area else None, "unit": "kWh/㎡"},
+                        {
+                            "label": "单位仓储面积能耗",
+                            "value": round(total_kwh / store_area, 4) if store_area else None,
+                            "unit": "kWh/㎡",
+                        },
+                        {
+                            "label": "单位园区面积能耗",
+                            "value": round(total_kwh / park_area, 4) if park_area else None,
+                            "unit": "kWh/㎡",
+                        },
                     ],
                 },
             }
@@ -2086,7 +2496,13 @@ class EnergyCarbonCenterController(Controller):
         limit: int = 12,
         offset: int = 0,
     ) -> Response[dict]:
-        return Response(content={"code": 200, "msg": "获取成功", "data": await self._energy_ledger_page(db_session, billing_month, source_kind, limit, offset)})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": await self._energy_ledger_page(db_session, billing_month, source_kind, limit, offset),
+            }
+        )
 
     @get("/api/energy-carbon/energy/diagnostics")
     async def get_energy_diagnostics(self, db_session: AsyncSession) -> Response[dict]:
@@ -2107,7 +2523,13 @@ class EnergyCarbonCenterController(Controller):
 
     @get("/api/energy-carbon/monitor/areas")
     async def list_monitor_areas(self, db_session: AsyncSession) -> Response[dict]:
-        return Response(content={"code": 200, "msg": "获取成功", "data": {"items": await self._build_monitor_area_summary(db_session)}})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {"items": await self._build_monitor_area_summary(db_session)},
+            }
+        )
 
     @get("/api/energy-carbon/monitor/devices")
     async def list_monitor_devices(
@@ -2119,7 +2541,11 @@ class EnergyCarbonCenterController(Controller):
         limit: int = 50,
         offset: int = 0,
     ) -> Response[dict]:
-        stmt = select(m.MonitorEquipment).options(selectinload(m.MonitorEquipment.sector)).order_by(m.MonitorEquipment.sort_index.asc().nullslast(), m.MonitorEquipment.id.desc())
+        stmt = (
+            select(m.MonitorEquipment)
+            .options(selectinload(m.MonitorEquipment.sector))
+            .order_by(m.MonitorEquipment.sort_index.asc().nullslast(), m.MonitorEquipment.id.desc())
+        )
         if sector_id:
             stmt = stmt.where(m.MonitorEquipment.sector_id == sector_id)
         if status is not None:
@@ -2131,7 +2557,11 @@ class EnergyCarbonCenterController(Controller):
         for row in rows:
             alert_count = int(
                 (
-                    await db_session.execute(select(func.count(m.AlarmEvent.id)).where(m.AlarmEvent.equipment_id == row.id, m.AlarmEvent.is_handle.is_(False)))
+                    await db_session.execute(
+                        select(func.count(m.AlarmEvent.id)).where(
+                            m.AlarmEvent.equipment_id == row.id, m.AlarmEvent.is_handle.is_(False)
+                        )
+                    )
                 ).scalar_one()
             )
             items.append(
@@ -2157,26 +2587,53 @@ class EnergyCarbonCenterController(Controller):
         if category is not None:
             total_stmt = total_stmt.where(m.MonitorEquipment.category == category)
         total = int((await db_session.execute(total_stmt)).scalar_one())
-        return Response(content={"code": 200, "msg": "获取成功", "data": {"items": items, "total": total, "limit": limit, "offset": offset}})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {"items": items, "total": total, "limit": limit, "offset": offset},
+            }
+        )
 
     @get("/api/energy-carbon/monitor/devices/{device_id:int}")
     async def get_monitor_device_detail(self, db_session: AsyncSession, device_id: int) -> Response[dict]:
         device = (
-            await db_session.execute(select(m.MonitorEquipment).options(selectinload(m.MonitorEquipment.sector)).where(m.MonitorEquipment.id == device_id))
-        ).scalars().first()
+            (
+                await db_session.execute(
+                    select(m.MonitorEquipment)
+                    .options(selectinload(m.MonitorEquipment.sector))
+                    .where(m.MonitorEquipment.id == device_id)
+                )
+            )
+            .scalars()
+            .first()
+        )
         if not device:
             return Response(content={"code": 404, "msg": "设备不存在"}, status_code=404)
         meter_samples = (
-            await db_session.execute(
-                select(m.MeterReadingFact)
-                .where(m.MeterReadingFact.equipment_id == device_id)
-                .order_by(m.MeterReadingFact.reading_time.desc().nullslast(), m.MeterReadingFact.id.desc())
-                .limit(12)
+            (
+                await db_session.execute(
+                    select(m.MeterReadingFact)
+                    .where(m.MeterReadingFact.equipment_id == device_id)
+                    .order_by(m.MeterReadingFact.reading_time.desc().nullslast(), m.MeterReadingFact.id.desc())
+                    .limit(12)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         alarms = (
-            await db_session.execute(select(m.AlarmEvent).where(m.AlarmEvent.equipment_id == device_id).order_by(m.AlarmEvent.event_time.desc().nullslast()).limit(10))
-        ).scalars().all()
+            (
+                await db_session.execute(
+                    select(m.AlarmEvent)
+                    .where(m.AlarmEvent.equipment_id == device_id)
+                    .order_by(m.AlarmEvent.event_time.desc().nullslast())
+                    .limit(10)
+                )
+            )
+            .scalars()
+            .all()
+        )
         return Response(
             content={
                 "code": 200,
@@ -2203,17 +2660,21 @@ class EnergyCarbonCenterController(Controller):
     @get("/api/energy-carbon/monitor/devices/{device_id:int}/timeseries")
     async def get_monitor_device_timeseries(self, db_session: AsyncSession, device_id: int) -> Response[dict]:
         samples = (
-            await db_session.execute(
-                select(m.MeterReadingFact)
-                .where(
-                    m.MeterReadingFact.equipment_id == device_id,
-                    m.MeterReadingFact.point_code == "forward_active_total",
-                    m.MeterReadingFact.value_kind == "register_index",
+            (
+                await db_session.execute(
+                    select(m.MeterReadingFact)
+                    .where(
+                        m.MeterReadingFact.equipment_id == device_id,
+                        m.MeterReadingFact.point_code == "forward_active_total",
+                        m.MeterReadingFact.value_kind == "register_index",
+                    )
+                    .order_by(m.MeterReadingFact.reading_time.asc().nullslast(), m.MeterReadingFact.id.asc())
+                    .limit(48)
                 )
-                .order_by(m.MeterReadingFact.reading_time.asc().nullslast(), m.MeterReadingFact.id.asc())
-                .limit(48)
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         points = [
             {
                 "period": item.reading_time.strftime("%m-%d %H:%M") if item.reading_time else f"样本{index + 1}",
@@ -2227,22 +2688,39 @@ class EnergyCarbonCenterController(Controller):
     @get("/api/energy-carbon/monitor/devices/{device_id:int}/alerts")
     async def get_monitor_device_alerts(self, db_session: AsyncSession, device_id: int) -> Response[dict]:
         alarms = (
-            await db_session.execute(select(m.AlarmEvent).where(m.AlarmEvent.equipment_id == device_id).order_by(m.AlarmEvent.event_time.desc().nullslast()).limit(20))
-        ).scalars().all()
-        return Response(content={"code": 200, "msg": "获取成功", "data": {"items": [model_to_dict(item) for item in alarms]}})
+            (
+                await db_session.execute(
+                    select(m.AlarmEvent)
+                    .where(m.AlarmEvent.equipment_id == device_id)
+                    .order_by(m.AlarmEvent.event_time.desc().nullslast())
+                    .limit(20)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return Response(
+            content={"code": 200, "msg": "获取成功", "data": {"items": [model_to_dict(item) for item in alarms]}}
+        )
 
     @get("/api/energy-carbon/monitor/devices/{device_id:int}/videos")
     async def get_monitor_device_videos(self, db_session: AsyncSession, device_id: int) -> Response[dict]:
         device = await db_session.scalar(select(m.MonitorEquipment).where(m.MonitorEquipment.id == device_id))
         if not device or not device.sector_id:
             return Response(content={"code": 200, "msg": "获取成功", "data": {"items": []}})
-        sector_name = await db_session.scalar(select(m.MonitorSector.name).where(m.MonitorSector.id == device.sector_id))
+        sector_name = await db_session.scalar(
+            select(m.MonitorSector.name).where(m.MonitorSector.id == device.sector_id)
+        )
         if not sector_name:
             return Response(content={"code": 200, "msg": "获取成功", "data": {"items": []}})
         videos = (
-            await db_session.execute(select(m.VideoMonitor).where(m.VideoMonitor.f_area == sector_name).limit(8))
-        ).scalars().all()
-        return Response(content={"code": 200, "msg": "获取成功", "data": {"items": [model_to_dict(item) for item in videos]}})
+            (await db_session.execute(select(m.VideoMonitor).where(m.VideoMonitor.f_area == sector_name).limit(8)))
+            .scalars()
+            .all()
+        )
+        return Response(
+            content={"code": 200, "msg": "获取成功", "data": {"items": [model_to_dict(item) for item in videos]}}
+        )
 
     @get("/api/energy-carbon/alerts")
     async def list_energy_center_alerts(
@@ -2261,7 +2739,18 @@ class EnergyCarbonCenterController(Controller):
             items = [item for item in items if item["status"] == status]
         if severity and severity != "all":
             items = [item for item in items if item["severity"] == severity]
-        return Response(content={"code": 200, "msg": "获取成功", "data": {"items": items[offset : offset + limit], "total": len(items), "limit": limit, "offset": offset}})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {
+                    "items": items[offset : offset + limit],
+                    "total": len(items),
+                    "limit": limit,
+                    "offset": offset,
+                },
+            }
+        )
 
     @get("/api/energy-carbon/alerts/summary")
     async def get_energy_center_alert_summary(self, db_session: AsyncSession) -> Response[dict]:
@@ -2275,7 +2764,11 @@ class EnergyCarbonCenterController(Controller):
                     "total": len(items),
                     "unhandled": sum(1 for item in items if item["status"] == "待处理"),
                     "high_risk": sum(1 for item in items if item["severity"] == "high"),
-                    "today_added": sum(1 for item in items if str(item.get("occurred_at") or "").startswith(datetime.date.today().isoformat())),
+                    "today_added": sum(
+                        1
+                        for item in items
+                        if str(item.get("occurred_at") or "").startswith(datetime.date.today().isoformat())
+                    ),
                     "avg_handle_hours": None,
                     **facets,
                 },
@@ -2290,7 +2783,9 @@ class EnergyCarbonCenterController(Controller):
     @get("/api/energy-carbon/alerts/trend")
     async def get_energy_center_alert_trend(self, db_session: AsyncSession, months: int = 12) -> Response[dict]:
         items = await self._build_unified_alerts(db_session)
-        return Response(content={"code": 200, "msg": "获取成功", "data": {"series": self._build_alert_trend(items, months)}})
+        return Response(
+            content={"code": 200, "msg": "获取成功", "data": {"series": self._build_alert_trend(items, months)}}
+        )
 
     @get("/api/energy-carbon/alerts/{alert_id:str}")
     async def get_energy_center_alert_detail(self, db_session: AsyncSession, alert_id: str) -> Response[dict]:
@@ -2311,29 +2806,57 @@ class EnergyCarbonCenterController(Controller):
         match = next((item for item in items if item["id"] == alert_id), None)
         if not match:
             return Response(content={"code": 404, "msg": "告警不存在"}, status_code=404)
-        return Response(content={"code": 200, "msg": "获取成功", "data": {"items": [{"stage": "发现", "time": match.get("occurred_at"), "status": match.get("status")}]}})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {"items": [{"stage": "发现", "time": match.get("occurred_at"), "status": match.get("status")}]},
+            }
+        )
 
     @get("/api/energy-carbon/flows/energy")
-    async def get_energy_center_flow(self, db_session: AsyncSession, billing_month: str | None = None) -> Response[dict]:
-        return Response(content={"code": 200, "msg": "获取成功", "data": await self._energy_flow_data(db_session, billing_month)})
+    async def get_energy_center_flow(
+        self, db_session: AsyncSession, billing_month: str | None = None
+    ) -> Response[dict]:
+        return Response(
+            content={"code": 200, "msg": "获取成功", "data": await self._energy_flow_data(db_session, billing_month)}
+        )
 
     @get("/api/energy-carbon/flows/energy-balance")
     async def get_energy_balance(self, db_session: AsyncSession, billing_month: str | None = None) -> Response[dict]:
         month = billing_month or await CarbonAnalyticsController._latest_energy_month(db_session)
         if not month:
-            return Response(content={"code": 200, "msg": "暂无数据", "data": {"billing_month": None, "table": [], "diagnostics": []}})
+            return Response(
+                content={
+                    "code": 200,
+                    "msg": "暂无数据",
+                    "data": {"billing_month": None, "table": [], "diagnostics": []},
+                }
+            )
         flow = await self._energy_flow_data(db_session, month)
         total_input = float(flow.get("diagnostics", {}).get("total_energy_kwh") or 0.0)
         ready_rows = (
-            await db_session.execute(
-                select(m.Scope2MeterAggregate).where(m.Scope2MeterAggregate.billing_month == month, m.Scope2MeterAggregate.calc_status == "ready")
+            (
+                await db_session.execute(
+                    select(m.Scope2MeterAggregate).where(
+                        m.Scope2MeterAggregate.billing_month == month, m.Scope2MeterAggregate.calc_status == "ready"
+                    )
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         invalid_rows = (
-            await db_session.execute(
-                select(m.Scope2MeterAggregate).where(m.Scope2MeterAggregate.billing_month == month, m.Scope2MeterAggregate.calc_status != "ready")
+            (
+                await db_session.execute(
+                    select(m.Scope2MeterAggregate).where(
+                        m.Scope2MeterAggregate.billing_month == month, m.Scope2MeterAggregate.calc_status != "ready"
+                    )
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         distributed = round(sum(float(row.total_kwh or 0.0) for row in ready_rows), 2)
         losses = round(max(total_input - distributed, 0.0), 2)
         return Response(
@@ -2353,24 +2876,38 @@ class EnergyCarbonCenterController(Controller):
                         {"label": "正向能耗区域", "value": flow.get("diagnostics", {}).get("positive_area_count", 0)},
                         {"label": "零增量区域", "value": flow.get("diagnostics", {}).get("zero_ready_count", 0)},
                         {"label": "历史估算点位", "value": flow.get("diagnostics", {}).get("estimated_count", 0)},
-                        {"label": "历史估算电量", "value": f"{flow.get('diagnostics', {}).get('estimated_energy_kwh', 0)} kWh"},
-                        {"label": "回退来源", "value": "是" if flow.get("diagnostics", {}).get("used_fallback") else "否"},
+                        {
+                            "label": "历史估算电量",
+                            "value": f"{flow.get('diagnostics', {}).get('estimated_energy_kwh', 0)} kWh",
+                        },
+                        {
+                            "label": "回退来源",
+                            "value": "是" if flow.get("diagnostics", {}).get("used_fallback") else "否",
+                        },
                     ],
                 },
             }
         )
 
     @get("/api/energy-carbon/flows/energy-diagnostics")
-    async def get_energy_flow_diagnostics(self, db_session: AsyncSession, billing_month: str | None = None) -> Response[dict]:
+    async def get_energy_flow_diagnostics(
+        self, db_session: AsyncSession, billing_month: str | None = None
+    ) -> Response[dict]:
         flow = await self._energy_flow_data(db_session, billing_month)
         return Response(content={"code": 200, "msg": "获取成功", "data": flow.get("diagnostics", {})})
 
     @get("/api/energy-carbon/flows/energy-top-links")
-    async def get_energy_flow_top_links(self, db_session: AsyncSession, billing_month: str | None = None) -> Response[dict]:
+    async def get_energy_flow_top_links(
+        self, db_session: AsyncSession, billing_month: str | None = None
+    ) -> Response[dict]:
         flow = await self._energy_flow_data(db_session, billing_month)
         node_map = {item["id"]: item["name"] for item in flow.get("nodes", [])}
         top_links = [
-            {**item, "source": node_map.get(item["source"], item["source"]), "target": node_map.get(item["target"], item["target"])}
+            {
+                **item,
+                "source": node_map.get(item["source"], item["source"]),
+                "target": node_map.get(item["target"], item["target"]),
+            }
             for item in sorted(flow.get("links", []), key=lambda item: item["value"], reverse=True)[:10]
         ]
         return Response(content={"code": 200, "msg": "获取成功", "data": {"items": top_links}})
@@ -2401,17 +2938,27 @@ class EnergyCarbonCenterController(Controller):
         ledger = await self._carbon_ledger_page(db_session, None, None, 500, 0)
         records = await CarbonAnalyticsController._load_scope_records(db_session)
         usage = self._build_factor_usage(records)
-        return Response(content={"code": 200, "msg": "获取成功", "data": {"summary": ledger.get("items", []), "usage": usage, "totals": ledger.get("total", 0)}})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {"summary": ledger.get("items", []), "usage": usage, "totals": ledger.get("total", 0)},
+            }
+        )
 
     @get("/api/energy-carbon/carbon/records/{record_type:str}/{record_id:int}")
-    async def get_energy_center_carbon_record(self, db_session: AsyncSession, record_type: str, record_id: int) -> Response[dict]:
+    async def get_energy_center_carbon_record(
+        self, db_session: AsyncSession, record_type: str, record_id: int
+    ) -> Response[dict]:
         detail = await self._get_record_detail(db_session, record_type, record_id)
         if not detail:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
         return Response(content={"code": 200, "msg": "获取成功", "data": detail})
 
     @get("/api/energy-carbon/carbon/pending")
-    async def list_energy_center_pending(self, db_session: AsyncSession, limit: int = 20, offset: int = 0) -> Response[dict]:
+    async def list_energy_center_pending(
+        self, db_session: AsyncSession, limit: int = 20, offset: int = 0
+    ) -> Response[dict]:
         records = await CarbonAnalyticsController._load_scope_records(db_session)
         pending_items = [
             {
@@ -2429,12 +2976,29 @@ class EnergyCarbonCenterController(Controller):
             if item["data"].get("status") == STATUS_PENDING
         ]
         pending_items.sort(key=lambda item: (_sort_month_key(item.get("period")), item["record_id"]), reverse=True)
-        return Response(content={"code": 200, "msg": "获取成功", "data": {"items": pending_items[offset : offset + limit], "total": len(pending_items), "limit": limit, "offset": offset}})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {
+                    "items": pending_items[offset : offset + limit],
+                    "total": len(pending_items),
+                    "limit": limit,
+                    "offset": offset,
+                },
+            }
+        )
 
     @get("/api/energy-carbon/carbon/trend")
     async def get_energy_center_carbon_trend(self, db_session: AsyncSession, months: int = 12) -> Response[dict]:
         records = await CarbonAnalyticsController._load_scope_records(db_session)
-        return Response(content={"code": 200, "msg": "获取成功", "data": {"series": self._build_carbon_scope_trend(records, months)}})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {"series": self._build_carbon_scope_trend(records, months)},
+            }
+        )
 
     @get("/api/energy-carbon/carbon/flow")
     async def get_energy_center_carbon_flow(self, db_session: AsyncSession) -> Response[dict]:
@@ -2442,7 +3006,9 @@ class EnergyCarbonCenterController(Controller):
         return Response(content={"code": 200, "msg": "获取成功", "data": self._build_carbon_flow(records)})
 
     @get("/api/energy-carbon/carbon/evidence/{record_type:str}/{record_id:int}")
-    async def get_energy_center_carbon_evidence(self, db_session: AsyncSession, record_type: str, record_id: int) -> Response[dict]:
+    async def get_energy_center_carbon_evidence(
+        self, db_session: AsyncSession, record_type: str, record_id: int
+    ) -> Response[dict]:
         detail = await self._get_record_detail(db_session, record_type, record_id)
         if not detail:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
@@ -2469,7 +3035,19 @@ class EnergyCarbonCenterController(Controller):
         summary: dict[str, int] = defaultdict(int)
         for item in items:
             summary[item["issue_type"]] += 1
-        return Response(content={"code": 200, "msg": "获取成功", "data": {"items": items[offset : offset + limit], "total": len(items), "limit": limit, "offset": offset, "summary": summary}})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {
+                    "items": items[offset : offset + limit],
+                    "total": len(items),
+                    "limit": limit,
+                    "offset": offset,
+                    "summary": summary,
+                },
+            }
+        )
 
     @get("/api/energy-carbon/quality/summary")
     async def get_quality_summary(self, db_session: AsyncSession) -> Response[dict]:
@@ -2485,7 +3063,10 @@ class EnergyCarbonCenterController(Controller):
                 "msg": "获取成功",
                 "data": {
                     "summary": summary,
-                    "by_module": [{"name": name, "value": value} for name, value in sorted(by_module.items(), key=lambda pair: pair[1], reverse=True)],
+                    "by_module": [
+                        {"name": name, "value": value}
+                        for name, value in sorted(by_module.items(), key=lambda pair: pair[1], reverse=True)
+                    ],
                 },
             }
         )
@@ -2493,7 +3074,9 @@ class EnergyCarbonCenterController(Controller):
     @get("/api/energy-carbon/quality/trend")
     async def get_quality_trend(self, db_session: AsyncSession, months: int = 12) -> Response[dict]:
         issues = await self._build_quality_issues(db_session)
-        return Response(content={"code": 200, "msg": "获取成功", "data": {"series": self._build_quality_trend(issues, months)}})
+        return Response(
+            content={"code": 200, "msg": "获取成功", "data": {"series": self._build_quality_trend(issues, months)}}
+        )
 
     @get("/api/energy-carbon/quality/impact-ranking")
     async def get_quality_impact_ranking(self, db_session: AsyncSession) -> Response[dict]:
@@ -2501,7 +3084,18 @@ class EnergyCarbonCenterController(Controller):
         by_module: dict[str, int] = defaultdict(int)
         for item in issues:
             by_module[item["module"]] += 1
-        return Response(content={"code": 200, "msg": "获取成功", "data": {"items": [{"name": name, "value": value} for name, value in sorted(by_module.items(), key=lambda pair: pair[1], reverse=True)]}})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {
+                    "items": [
+                        {"name": name, "value": value}
+                        for name, value in sorted(by_module.items(), key=lambda pair: pair[1], reverse=True)
+                    ]
+                },
+            }
+        )
 
     @get("/api/energy-carbon/trace/{record_type:str}/{record_id:int}")
     async def get_trace(self, db_session: AsyncSession, record_type: str, record_id: int) -> Response[dict]:
@@ -2530,14 +3124,37 @@ class EnergyCarbonCenterController(Controller):
             count_stmt = count_stmt.where(m.EmissionFactor.scope == scope_filter)
         items = (await db_session.execute(stmt.offset(offset).limit(limit))).scalars().all()
         total = int((await db_session.execute(count_stmt)).scalar_one())
-        return Response(content={"code": 200, "msg": "获取成功", "data": {"items": [model_to_dict(item) for item in items], "total": total, "limit": limit, "offset": offset}})
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {
+                    "items": [model_to_dict(item) for item in items],
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                },
+            }
+        )
 
     @get("/api/energy-carbon/factors/stats")
     async def get_energy_center_factor_stats(self, db_session: AsyncSession) -> Response[dict]:
-        emission_total = int((await db_session.execute(select(func.count()).select_from(m.EmissionFactor))).scalar_one())
-        active_total = int((await db_session.execute(select(func.count()).select_from(m.EmissionFactor).where(m.EmissionFactor.is_active.is_(True)))).scalar_one())
-        library_total = int((await db_session.execute(select(func.count()).select_from(m.CarbonFactorLibrary))).scalar_one())
-        raw_total = int((await db_session.execute(select(func.count()).select_from(m.CarbonFactorRawRecord))).scalar_one())
+        emission_total = int(
+            (await db_session.execute(select(func.count()).select_from(m.EmissionFactor))).scalar_one()
+        )
+        active_total = int(
+            (
+                await db_session.execute(
+                    select(func.count()).select_from(m.EmissionFactor).where(m.EmissionFactor.is_active.is_(True))
+                )
+            ).scalar_one()
+        )
+        library_total = int(
+            (await db_session.execute(select(func.count()).select_from(m.CarbonFactorLibrary))).scalar_one()
+        )
+        raw_total = int(
+            (await db_session.execute(select(func.count()).select_from(m.CarbonFactorRawRecord))).scalar_one()
+        )
         records = await CarbonAnalyticsController._load_scope_records(db_session)
         missing_factor_total = sum(1 for item in records if not item["data"].get("factor_source"))
         return Response(
@@ -2563,14 +3180,20 @@ class EnergyCarbonCenterController(Controller):
     @get("/api/energy-carbon/factors/categories")
     async def get_energy_center_factor_categories(self, db_session: AsyncSession) -> Response[dict]:
         rows = (
-            await db_session.execute(select(m.EmissionFactor.scope, m.EmissionFactor.category, func.count(m.EmissionFactor.id)).group_by(m.EmissionFactor.scope, m.EmissionFactor.category))
+            await db_session.execute(
+                select(m.EmissionFactor.scope, m.EmissionFactor.category, func.count(m.EmissionFactor.id)).group_by(
+                    m.EmissionFactor.scope, m.EmissionFactor.category
+                )
+            )
         ).all()
         return Response(
             content={
                 "code": 200,
                 "msg": "获取成功",
                 "data": {
-                    "items": [{"scope": scope, "category": category, "value": int(total)} for scope, category, total in rows],
+                    "items": [
+                        {"scope": scope, "category": category, "value": int(total)} for scope, category, total in rows
+                    ],
                 },
             }
         )
@@ -2598,7 +3221,10 @@ class EnergyCarbonCenterController(Controller):
             request,
             action="carbon.scope2.backfill-raw-history",
             target_type="scope2_meter_aggregate",
-            details={"query_scope": {"start_month": effective_start, "end_month": effective_end}, "batch_size": len(month_keys)},
+            details={
+                "query_scope": {"start_month": effective_start, "end_month": effective_end},
+                "batch_size": len(month_keys),
+            },
         )
         return Response(content={"code": 200, "msg": "原始电表历史补全完成", "data": result})
 
@@ -2619,7 +3245,9 @@ class EnergyCarbonCenterController(Controller):
         invalid_count = 0
         details: list[dict[str, Any]] = []
         for billing_month in month_keys:
-            rows = await CarbonAccountingController._rebuild_scope2_meter_aggregates(self, db_session, scope2_meter_aggregate_service, billing_month, area_id)
+            rows = await CarbonAccountingController._rebuild_scope2_meter_aggregates(
+                self, db_session, scope2_meter_aggregate_service, billing_month, area_id
+            )
             rebuilt_count += len(rows)
             ready_month = sum(1 for row in rows if row.calc_status == "ready")
             invalid_month = len(rows) - ready_month
@@ -2672,7 +3300,9 @@ class EnergyCarbonCenterController(Controller):
             target_type="demo_seed",
             details={"query_scope": {"months": months}, "deleted": deleted, "created": created},
         )
-        return Response(content={"code": 200, "msg": "初始化数据已重建", "data": {"deleted": deleted, "created": created}})
+        return Response(
+            content={"code": 200, "msg": "初始化数据已重建", "data": {"deleted": deleted, "created": created}}
+        )
 
     @delete("/api/energy-carbon/admin/seed/demo-carbon", guards=[requires_superuser], status_code=200)
     async def admin_delete_demo_carbon(

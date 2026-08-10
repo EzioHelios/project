@@ -1,7 +1,8 @@
-"""云集 (Yunji) HTTP API 适配器 (Litestar版)
-"""
+"""云集 (Yunji) HTTP API 适配器 (Litestar版)"""
+
 from __future__ import annotations
 
+# ruff: noqa: ANN003, ANN201, ANN204, BLE001, DTZ007, E712, EM102, G004, RUF001, RUF003, TC002, TRY003, TRY300, TRY400
 import logging
 from datetime import datetime
 from typing import Any
@@ -14,6 +15,7 @@ from app.db import models as m
 from app.domain.carbon.collectors.base import IDataCollector
 from app.domain.metering.reading_facts import LEGACY_FIELD_TO_POINT, MeterReadingFactInput, MeterReadingFactWriter
 from app.lib.settings import get_settings
+from app.lib.tenancy import TENANT_BYPASS_SESSION_KEY
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -81,34 +83,53 @@ class YunjiAdapter(IDataCollector):
                         "normalized_value": obj.get(source_field),
                     }
                 )
-            records.append({
-                "equipment_id": obj["Address"],
-                "readings": readings,
-                "reading_time": _parse_datetime(obj.get("ReadingDate")),
-                "ammeter_id": obj["AmmeterID"],
-                "ammeter_name": obj["AmmeterName"],
-                "address": obj["Address"],
-                "area_id": obj["AreaID"],
-                "area_name": obj["AreaName"],
-                "start_time": _parse_datetime(meta.get("start_time")),
-                "end_time": _parse_datetime(meta.get("end_time")),
-                "data_source": 0,
-            })
+            records.append(
+                {
+                    "equipment_id": obj["Address"],
+                    "readings": readings,
+                    "reading_time": _parse_datetime(obj.get("ReadingDate")),
+                    "ammeter_id": obj["AmmeterID"],
+                    "ammeter_name": obj["AmmeterName"],
+                    "address": obj["Address"],
+                    "area_id": obj["AreaID"],
+                    "area_name": obj["AreaName"],
+                    "start_time": _parse_datetime(meta.get("start_time")),
+                    "end_time": _parse_datetime(meta.get("end_time")),
+                    "data_source": 0,
+                }
+            )
         return records
 
-    async def save(self, db_session: AsyncSession, normalized_list: list[dict]) -> int:
+    async def save(
+        self,
+        db_session: AsyncSession,
+        normalized_list: list[dict],
+        *,
+        auto_commit: bool = True,
+        raise_on_error: bool = False,
+    ) -> int:
         if not normalized_list:
             return 0
+        if db_session.info.get(TENANT_BYPASS_SESSION_KEY) and any(
+            row.get("team_id") is None for row in normalized_list
+        ):
+            msg = "Yunji save requires team_id for every bypass-scoped batch"
+            raise ValueError(msg)
         try:
             addresses = {row["equipment_id"] for row in normalized_list if row.get("equipment_id")}
-            equipment_rows = (
-                await db_session.scalars(
-                    select(m.MonitorEquipment).where(
-                        (m.MonitorEquipment.external_device_id.in_(addresses))
-                        | (m.MonitorEquipment.code.in_(addresses))
-                    )
-                )
-            ).all()
+            team_ids = {row["team_id"] for row in normalized_list if row.get("team_id") is not None}
+            equipment_stmt = select(m.MonitorEquipment).where(
+                (m.MonitorEquipment.external_device_id.in_(addresses)) | (m.MonitorEquipment.code.in_(addresses))
+            )
+            if team_ids:
+                equipment_stmt = equipment_stmt.where(m.MonitorEquipment.team_id.in_(team_ids))
+            equipment_rows = (await db_session.scalars(equipment_stmt)).all()
+            equipment_by_tenant_address = {
+                (equipment.team_id, address): equipment
+                for equipment in equipment_rows
+                for address in (equipment.external_device_id, equipment.code)
+                if address
+            }
             equipment_by_address = {
                 address: equipment
                 for equipment in equipment_rows
@@ -118,7 +139,12 @@ class YunjiAdapter(IDataCollector):
             rows: list[dict] = []
             for source_row in normalized_list:
                 address = source_row.get("equipment_id")
-                equipment = equipment_by_address.get(address)
+                source_team_id = source_row.get("team_id")
+                equipment = (
+                    equipment_by_tenant_address.get((source_team_id, address))
+                    if source_team_id is not None
+                    else equipment_by_address.get(address)
+                )
                 if equipment is None:
                     logger.warning("云集：未找到平台设备，跳过电表 address=%s", address)
                     continue
@@ -144,6 +170,7 @@ class YunjiAdapter(IDataCollector):
                     )
                     facts.append(
                         MeterReadingFactInput(
+                            team_id=row["team_id"],
                             source_system="yunji",
                             source_record_id=source_record_id,
                             equipment_id=row["equipment_id"],
@@ -158,25 +185,30 @@ class YunjiAdapter(IDataCollector):
                         )
                     )
             inserted = await writer.write_many(facts)
-            await db_session.commit()
+            if auto_commit:
+                await db_session.commit()
+            else:
+                await db_session.flush()
             logger.info("云集：成功写入 %s 条规范读数", inserted)
             return inserted
         except Exception as e:
             logger.error(f"云集：保存数据失败: {e}")
             await db_session.rollback()
+            if raise_on_error:
+                raise
             return 0
 
     async def sync_device_status(self, db_session: AsyncSession):
         """同步设备状态"""
         # 获取开启的云集设备
         stmt = select(func.coalesce(m.MonitorEquipment.external_device_id, m.MonitorEquipment.code)).where(
-            m.MonitorEquipment.supplier == "yj",
-            m.MonitorEquipment.is_enable == True
+            m.MonitorEquipment.supplier == "yj", m.MonitorEquipment.is_enable == True
         )
         result = await db_session.execute(stmt)
         codes = [r[0] for r in result.fetchall()]
 
-        if not codes: return
+        if not codes:
+            return
 
         try:
             r = await self.client.post("/WebApi/NH2/AmmeterBasicInfo", json={"meterAddress": ",".join(codes)})
@@ -188,8 +220,8 @@ class YunjiAdapter(IDataCollector):
                     await db_session.execute(
                         m.MonitorEquipment.__table__.update()
                         .where(
-                            (m.MonitorEquipment.external_device_id == obj["Address"]) |
-                            (m.MonitorEquipment.code == obj["Address"])
+                            (m.MonitorEquipment.external_device_id == obj["Address"])
+                            | (m.MonitorEquipment.code == obj["Address"])
                         )
                         .values(status=status, trip_state=obj["TripState"])
                     )

@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import text
 
-from app.domain.energy.queries.common import ratio_or_none
+from app.domain.energy.queries.common import period_param, ratio_or_none
+from app.lib.tenancy import require_session_tenant_id
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,7 +44,8 @@ class EnergyAnalysisQueryService:
         self._session = session
 
     async def summary(self, query: EnergyAnalysisQuery) -> dict[str, Any]:
-        where_sql, params = _build_energy_interval_filters(query)
+        team_id = require_session_tenant_id(self._session)
+        where_sql, params = _build_energy_interval_filters(query, team_id=str(team_id))
         totals_sql = text(
             f"""
             select
@@ -145,7 +147,8 @@ class EnergyAnalysisQueryService:
                 coalesce(sum(run_hours), 0) as run_hours,
                 count(distinct equipment_id)::int as equipment_count
             from dataapp_equipmentworkloadfact
-            where ((:period_start)::timestamp is null or period_end >= (:period_start)::timestamp)
+            where team_id = :team_id
+              and ((:period_start)::timestamp is null or period_end >= (:period_start)::timestamp)
               and ((:period_end)::timestamp is null or period_start <= (:period_end)::timestamp)
               and record_status = 'confirmed'
             """
@@ -174,7 +177,11 @@ class EnergyAnalysisQueryService:
                 (
                     await self._session.execute(
                         workload_sql,
-                        {"period_start": query.period_start, "period_end": query.period_end},
+                        {
+                            "team_id": str(team_id),
+                            "period_start": period_param(query.period_start),
+                            "period_end": period_param(query.period_end),
+                        },
                     )
                 )
                 .mappings()
@@ -209,6 +216,7 @@ class EnergyAnalysisQueryService:
         }
 
     async def anomalies(self, query: EnergyAnalysisQuery) -> dict[str, Any]:
+        team_id = require_session_tenant_id(self._session)
         where_sql, params = _build_energy_interval_filters(
             EnergyAnalysisQuery(
                 period_start=query.period_start,
@@ -216,7 +224,8 @@ class EnergyAnalysisQueryService:
                 granularity=query.granularity,
                 use_system_code=query.use_system_code,
                 area_keyword=query.area_keyword,
-            )
+            ),
+            team_id=str(team_id),
         )
         limit_clamped = max(1, min(query.limit, 100))
         anomaly_sql = text(
@@ -287,7 +296,8 @@ class EnergyAnalysisQueryService:
                 threshold_value,
                 status
             from dataapp_alarmevent
-            where (event_type = 2 or alarm_category in ('energy', 'carbon'))
+            where team_id = :team_id
+              and (event_type = 2 or alarm_category in ('energy', 'carbon'))
               and ((:period_start)::timestamp is null or event_time >= (:period_start)::timestamp)
               and ((:period_end)::timestamp is null or event_time <= (:period_end)::timestamp)
             order by event_time desc nulls last
@@ -298,7 +308,12 @@ class EnergyAnalysisQueryService:
             (
                 await self._session.execute(
                     energy_alarm_sql,
-                    {"period_start": query.period_start, "period_end": query.period_end, "limit": limit_clamped},
+                    {
+                        "team_id": str(team_id),
+                        "period_start": period_param(query.period_start),
+                        "period_end": period_param(query.period_end),
+                        "limit": limit_clamped,
+                    },
                 )
             )
             .mappings()
@@ -459,18 +474,18 @@ def _analysis_granularity(value: str | None) -> str:
     return value if value in {"hour", "day"} else "day"
 
 
-def _build_energy_interval_filters(query: EnergyAnalysisQuery) -> tuple[str, dict[str, Any]]:
-    conditions: list[str] = []
-    params: dict[str, Any] = {}
+def _build_energy_interval_filters(query: EnergyAnalysisQuery, *, team_id: str) -> tuple[str, dict[str, Any]]:
+    conditions: list[str] = ["team_id = :team_id", "is_current = true"]
+    params: dict[str, Any] = {"team_id": team_id}
     granularity_value = _analysis_granularity(query.granularity)
     conditions.append("granularity = :granularity")
     params["granularity"] = granularity_value
     if query.period_start:
-        conditions.append("period_end >= :period_start")
-        params["period_start"] = query.period_start
+        conditions.append("period_end >= (:period_start)::timestamp")
+        params["period_start"] = period_param(query.period_start)
     if query.period_end:
-        conditions.append("period_start <= :period_end")
-        params["period_end"] = query.period_end
+        conditions.append("period_start <= (:period_end)::timestamp")
+        params["period_end"] = period_param(query.period_end)
     if query.energy_type_code and query.energy_type_code != "all":
         conditions.append("energy_type_code = :energy_type_code")
         params["energy_type_code"] = query.energy_type_code

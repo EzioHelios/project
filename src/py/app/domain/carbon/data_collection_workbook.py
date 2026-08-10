@@ -61,6 +61,7 @@ class WorkbookFieldSpec:
             "choices": self.choices or {},
         }
 
+
 WORKBOOK_SHEETS: dict[str, str] = {
     "01_企业基本信息": "enterprise_profiles",
     "02_报告组织": "reporting_organizations",
@@ -423,6 +424,27 @@ DATASET_HEADERS: dict[str, list[str]] = {
     ],
 }
 
+CARBON_ACTIVITY_DATASETS = (
+    "scope1_mobile_combustion",
+    "scope1_stationary_combustion",
+    "scope1_refrigerant_leak",
+    "scope2_electricity_bills",
+    "scope2_purchased_energy",
+    "scope3_waste_disposal",
+    "scope3_third_party_transport",
+)
+CARBON_SOURCE_FIELDS = (
+    "source_record_no",
+    "source_version",
+    "voucher_no",
+    "evidence_status",
+    "source_hash",
+)
+for _dataset_name in CARBON_ACTIVITY_DATASETS:
+    DATASET_HEADERS[_dataset_name].extend(
+        field_name for field_name in CARBON_SOURCE_FIELDS if field_name not in DATASET_HEADERS[_dataset_name]
+    )
+
 FIELD_LABELS: dict[str, str] = {
     "account_number": "电力户号",
     "activity_amount": "活动数据量",
@@ -542,6 +564,11 @@ FIELD_LABELS: dict[str, str] = {
     "source_package": "来源资料包",
     "source_payload": "来源明细",
     "source_record_id": "来源记录号",
+    "source_record_no": "来源编号",
+    "source_version": "来源版本",
+    "voucher_no": "凭证编号",
+    "evidence_status": "凭证状态",
+    "source_hash": "来源摘要",
     "source_ref": "来源引用",
     "source_snapshot_id": "来源快照号",
     "source_system": "来源系统",
@@ -601,6 +628,7 @@ FIELD_TYPES: dict[str, str] = {
     "weight_ton": "number",
     "work_hours": "number",
     "year": "number",
+    "source_version": "number",
 }
 
 DATASET_REQUIRED_FIELDS: dict[str, set[str]] = {
@@ -628,11 +656,28 @@ DATASET_REQUIRED_FIELDS: dict[str, set[str]] = {
 }
 
 FIELD_CHOICES: dict[str, dict[str, str]] = {
-    "energy_type_code": {"电力": "electricity", "天然气": "natural_gas", "外购热力": "purchased_heat", "外购蒸汽": "purchased_steam", "外购冷量": "purchased_cooling"},
-    "fuel_type": {"柴油": "diesel", "汽油": "gasoline", "液化天然气(LNG)": "lng", "压缩天然气(CNG)": "cng", "天然气": "天然气"},
+    "energy_type_code": {
+        "电力": "electricity",
+        "天然气": "natural_gas",
+        "外购热力": "purchased_heat",
+        "外购蒸汽": "purchased_steam",
+        "外购冷量": "purchased_cooling",
+    },
+    "fuel_type": {
+        "柴油": "diesel",
+        "汽油": "gasoline",
+        "液化天然气(LNG)": "lng",
+        "压缩天然气(CNG)": "cng",
+        "天然气": "天然气",
+    },
     "leak_type": {"填充": "fill", "泄漏": "leak", "维修补充": "repair"},
     "treatment_method": {"回收": "recycle", "能源回收": "energy_recovery", "填埋": "landfill", "焚烧": "incineration"},
-    "vehicle_type": {"重型货车": "heavy_truck", "中型货车": "medium_truck", "轻型货车": "light_truck", "厢式货车": "van"},
+    "vehicle_type": {
+        "重型货车": "heavy_truck",
+        "中型货车": "medium_truck",
+        "轻型货车": "light_truck",
+        "厢式货车": "van",
+    },
     "granularity": {"小时": "hour", "日": "day", "月": "month"},
     "data_quality": {"实测": "measured", "账单": "bill", "估算": "estimated"},
     "record_status": {"已确认": "confirmed", "草稿": "draft"},
@@ -742,9 +787,9 @@ def preview_data_collection_workbook_base64(workbook_base64: str) -> dict[str, A
 
 
 def build_data_collection_template_bytes() -> bytes:
-    """Build a user-facing blank workbook template with sample rows for supplemental tables."""
+    """Build a user-facing blank workbook template without generated business records."""
 
-    workbook = _build_collection_workbook({})
+    workbook = _build_collection_workbook({dataset_name: [] for dataset_name in WORKBOOK_SHEETS.values()})
     buffer = BytesIO()
     workbook.save(buffer)
     return buffer.getvalue()
@@ -758,7 +803,10 @@ def data_collection_workbook_spec() -> dict[str, Any]:
             {
                 "sheet_name": sheet_name,
                 "dataset_name": dataset_name,
-                "fields": [field.to_payload() for field in _field_specs_for_dataset(dataset_name, DATASET_SAMPLE_ROWS.get(dataset_name, []))],
+                "fields": [
+                    field.to_payload()
+                    for field in _field_specs_for_dataset(dataset_name, DATASET_SAMPLE_ROWS.get(dataset_name, []))
+                ],
             }
             for sheet_name, dataset_name in WORKBOOK_SHEETS.items()
         ]
@@ -862,9 +910,9 @@ def _append_metadata_sheet(workbook: Workbook) -> None:
     sheet = workbook.create_sheet("00_填报说明")
     rows = [
         ("字段", "内容"),
-        ("模板用途", "能碳数据采集包, 按系统数据表拆分为多 sheet"),
-        ("样例来源", SANITIZED_SOURCE_NAME),
-        ("脱敏口径", "企业/租户标识已替换, 本地附件路径已清空, 数值仅用于导入联调"),
+        ("模板用途", "能碳数据采集包, 按业务数据类型拆分为多 sheet"),
+        ("数据要求", "请填写稳定来源编号、来源版本及可追溯凭证信息"),
+        ("版本规则", "同一来源编号与来源版本重复提交时不会重复生成业务记录"),
         ("导入范围", "企业基础信息, 报告范围, 产量, 能源, 组织碳活动数据, 排放因子, 产品碳足迹"),
     ]
     for row in rows:
