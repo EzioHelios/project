@@ -41,11 +41,17 @@ async def pull_yunji_data(_: Context) -> None:
     async with alchemy.get_session() as session:
         session.info[TENANT_BYPASS_SESSION_KEY] = True
         equipment_rows = (
-            await session.scalars(
-                select(m.MonitorEquipment).where(
+            await session.execute(
+                select(
+                    func.coalesce(m.MonitorEquipment.external_device_id, m.MonitorEquipment.code),
+                    m.MonitorEquipment.id,
+                    m.MonitorEquipment.team_id,
+                )
+                .where(
                     m.MonitorEquipment.supplier == "yj",
                     m.MonitorEquipment.is_enable.is_(True),
                 )
+                .order_by(m.MonitorEquipment.id)
             )
         ).all()
 
@@ -55,10 +61,7 @@ async def pull_yunji_data(_: Context) -> None:
 
         adapter = YunjiAdapter()
         try:
-            for equipment in equipment_rows:
-                code = equipment.external_device_id or equipment.code
-                equipment_id = equipment.id
-                team_id = equipment.team_id
+            for code, equipment_id, team_id in equipment_rows:
                 cursor = await session.scalar(
                     select(m.MeteringAcquisitionCursor).where(
                         m.MeteringAcquisitionCursor.team_id == team_id,
@@ -139,6 +142,9 @@ async def pull_yunji_data(_: Context) -> None:
                     failed_cursor.error_detail = str(exc)[:4000]
                     await session.commit()
                     logger.exception("云集：电表 %s 拉取失败", code)
+                    if "429" in str(exc):
+                        logger.warning("云集：接口限流，停止本轮剩余电表拉取")
+                        break
         finally:
             await adapter.client.aclose()
 

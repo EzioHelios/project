@@ -62,7 +62,7 @@ class YunjiAdapter(IDataCollector):
             return result
         except Exception as e:
             logger.error(f"云集：拉取数据异常: {e}")
-            return {"IsSuccess": False}
+            return {"IsSuccess": False, "Message": str(e)}
 
     def normalize(self, raw: Any) -> list[dict]:
         if not raw.get("IsSuccess"):

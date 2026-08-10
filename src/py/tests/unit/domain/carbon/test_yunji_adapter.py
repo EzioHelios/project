@@ -2,12 +2,34 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import httpx
 import pytest
 from sqlalchemy import select
 
 from app.db import models as m
 from app.domain.carbon.collectors.yunji_adapter import YunjiAdapter
 from app.lib.tenancy import TENANT_BYPASS_SESSION_KEY
+
+
+@pytest.mark.anyio
+async def test_yunji_fetch_data_preserves_rate_limit_error() -> None:
+    adapter = YunjiAdapter()
+    await adapter.client.aclose()
+    adapter.client = httpx.AsyncClient(
+        base_url="https://yunji.example",
+        transport=httpx.MockTransport(lambda _request: httpx.Response(429)),
+    )
+    try:
+        result = await adapter.fetch_data(
+            codes=["YJ-METER-001"],
+            start_time="2026-08-10 00:00:00",
+            end_time="2026-08-10 01:00:00",
+        )
+    finally:
+        await adapter.client.aclose()
+
+    assert result["IsSuccess"] is False
+    assert "429" in result["Message"]
 
 
 def test_yunji_normalize_converts_timestamps_and_preserves_meter_address() -> None:
