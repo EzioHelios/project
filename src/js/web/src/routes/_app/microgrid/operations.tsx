@@ -1,14 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { RefreshCw, Settings2 } from "lucide-react"
+import { useState } from "react"
 import { AdminEmptyState, AdminPageScaffold, AdminPanel, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
-import { formatNumber, getAssetTypeLabel, MicrogridSingleLine, ShadowModeBadge } from "@/components/microgrid/microgrid-page"
+import { formatNumber, getAssetTypeLabel, ShadowModeBadge } from "@/components/microgrid/microgrid-page"
+import { AssetFaceplate, ScadaRuntime, type ScadaSelection } from "@/components/microgrid/scada"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useMicrogridTopology } from "@/lib/api/hooks/microgrid"
+import { formatMicrogridTime } from "@/lib/microgrid-time"
 
 export const Route = createFileRoute("/_app/microgrid/operations")({ component: MicrogridOperationsPage })
 
 function MicrogridOperationsPage() {
+  const [selection, setSelection] = useState<ScadaSelection | null>(null)
   const query = useMicrogridTopology()
   const topology = query.data
   const assets = topology?.assets ?? []
@@ -58,51 +62,61 @@ function MicrogridOperationsPage() {
       {!topology?.configured ? (
         <AdminEmptyState title="尚未配置微电网站点" description="请先在运行总览初始化祥泰演示。" />
       ) : (
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
-          <AdminPanel title="一次系统拓扑" contentClassName="p-0">
-            <MicrogridSingleLine topology={topology} />
+        <div className="space-y-3">
+          <AdminPanel title="一次系统运行图" contentClassName="p-0">
+            <ScadaRuntime onSelect={setSelection} topology={topology} />
           </AdminPanel>
-          <AdminPanel title="设备状态与中控边界" contentClassName="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>设备</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead className="text-right">功率</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {assets.map((asset) => (
-                  <TableRow key={asset.id}>
-                    <TableCell>
-                      <div className="font-medium">{asset.name}</div>
-                      <div className="text-muted-foreground text-xs">
-                        {getAssetTypeLabel(asset.assetType)} · {asset.code}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className={asset.online ? "text-[hsl(var(--status-success))]" : "text-muted-foreground"}>{asset.online ? "在线" : "离线"}</span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatNumber(asset.activePowerKw)} kW{asset.socPct !== null && <div className="text-muted-foreground text-xs">SOC {formatNumber(asset.socPct)}%</div>}
-                    </TableCell>
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+            <AdminPanel title="设备状态" contentClassName="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>设备</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead>模式</TableHead>
+                    <TableHead className="text-right">功率</TableHead>
+                    <TableHead className="text-right">数据时间</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </AdminPanel>
+                </TableHeader>
+                <TableBody>
+                  {assets.map((asset) => (
+                    <TableRow key={asset.id}>
+                      <TableCell>
+                        <div className="font-medium">{asset.name}</div>
+                        <div className="text-muted-foreground text-xs">{getAssetTypeLabel(asset.assetType)}</div>
+                      </TableCell>
+                      <TableCell>
+                        <span className={asset.online ? "text-[hsl(var(--status-success))]" : "text-muted-foreground"}>{asset.online ? "在线" : "离线"}</span>
+                      </TableCell>
+                      <TableCell>{asset.stateSourceKind === "simulated" ? "模拟运行" : asset.operatingMode}</TableCell>
+                      <TableCell className="text-right">
+                        {formatNumber(asset.activePowerKw)} kW
+                        {asset.socPct !== null && <div className="text-muted-foreground text-xs">SOC {formatNumber(asset.socPct)}%</div>}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground text-xs">{formatMicrogridTime(asset.observedAt)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </AdminPanel>
+            <AdminPanel title="可调资源边界" contentClassName="divide-y p-0">
+              {controllable.map((asset) => (
+                <div className="flex items-center justify-between gap-3 px-4 py-3" key={asset.id}>
+                  <div>
+                    <div className="font-medium text-sm">{asset.name}</div>
+                    <div className="mt-1 text-muted-foreground text-xs">{asset.assetType === "storage" ? "功率目标与SOC边界" : "有功功率目标"}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-medium text-sm tabular-nums">0–{formatNumber(asset.ratedPowerKw)} kW</div>
+                    <div className="mt-1 text-muted-foreground text-xs">模拟调度</div>
+                  </div>
+                </div>
+              ))}
+            </AdminPanel>
+          </div>
+          <AssetFaceplate onOpenChange={(open) => !open && setSelection(null)} selection={selection} />
         </div>
       )}
-      <AdminPanel title="可控操作范围" contentClassName="grid gap-3 p-4 md:grid-cols-3">
-        {controllable.map((asset) => (
-          <div className="rounded-md border border-border/70 bg-muted/20 p-3" key={asset.id}>
-            <div className="font-medium text-sm">{asset.name}</div>
-            <div className="mt-2 text-muted-foreground text-xs">允许目标：有功功率{asset.assetType === "storage" ? "与SOC边界" : ""}</div>
-            <div className="mt-1 font-medium text-sm tabular-nums">0–{formatNumber(asset.ratedPowerKw)} kW</div>
-            <div className="mt-2 text-muted-foreground text-xs">保护、断路器和并离网控制不在本层执行</div>
-          </div>
-        ))}
-      </AdminPanel>
     </AdminPageScaffold>
   )
 }

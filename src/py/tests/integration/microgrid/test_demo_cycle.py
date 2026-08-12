@@ -30,6 +30,23 @@ async def test_xiangtai_demo_persists_full_shadow_dispatch_cycle(session) -> Non
     session.info[TENANT_ID_SESSION_KEY] = team.id
 
     site = await BootstrapXiangtaiDemo(session).execute()
+    assert (
+        await session.scalar(
+            select(func.count())
+            .select_from(m.MicrogridTelemetryFact)
+            .where(m.MicrogridTelemetryFact.site_id == site.id)
+        )
+        == 576
+    )
+    await BootstrapXiangtaiDemo(session).execute()
+    assert (
+        await session.scalar(
+            select(func.count())
+            .select_from(m.MicrogridTelemetryFact)
+            .where(m.MicrogridTelemetryFact.site_id == site.id)
+        )
+        == 576
+    )
     forecast = await RunForecast(session, weather=FakeWeatherAdapter()).execute(site_id=site.id)
     optimization = await RunOptimization(session).execute(forecast_run_id=forecast.id)
     dispatch = await CreateDispatchBatch(session).execute(optimization_run_id=optimization.id)

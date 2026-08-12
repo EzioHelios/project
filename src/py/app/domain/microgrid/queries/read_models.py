@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import desc, select
 
 from app.db import models as m
+from app.domain.microgrid.domain.scada import normalize_scada_scene
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -76,12 +77,13 @@ class MicrogridQueryService:
         site = await self._site(site_id)
         if site is None:
             return {"configured": False, "nodes": [], "edges": []}
-        topology = dict(site.topology or {})
+        topology = normalize_scada_scene(dict(site.topology or {}), site_code=site.code)
         topology.update(
             {
                 "configured": True,
                 "site": self._site_dict(site),
                 "mode": "shadow",
+                "topologyVersion": site.topology_version,
                 "assets": await self.assets(site_id=site.id),
             }
         )
@@ -120,6 +122,7 @@ class MicrogridQueryService:
                 "temperatureC": _number(state.temperature_c) if state else None,
                 "alarmLevel": state.alarm_level if state else "unknown",
                 "observedAt": _time(state.observed_at) if state else None,
+                "stateSourceKind": state.source_kind if state else "unknown",
             }
             for asset, state in rows
         ]

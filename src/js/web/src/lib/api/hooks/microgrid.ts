@@ -3,6 +3,7 @@ import { toast } from "sonner"
 import {
   microgridBootstrapXiangtaiDemo,
   microgridCreateDispatchBatch,
+  microgridGetAssetSeries,
   microgridGetForecastRun,
   microgridGetOptimizationRun,
   microgridGetOverview,
@@ -36,6 +37,7 @@ export type MicrogridAsset = {
   temperatureC: number | null
   alarmLevel: string
   observedAt: string | null
+  stateSourceKind: string
 }
 
 export type ForecastPoint = {
@@ -45,6 +47,14 @@ export type ForecastPoint = {
   p50: number
   p90: number
   unit: string
+}
+
+export type MicrogridSeriesPoint = {
+  observedAt: string
+  value: number
+  unit: string
+  sourceKind: string
+  quality: string
 }
 
 export type ForecastRun = {
@@ -127,9 +137,44 @@ export type MicrogridOverview = {
 export type MicrogridTopology = {
   configured: boolean
   mode?: string
+  schemaVersion?: number
+  topologyVersion?: number
+  canvas?: { width: number; height: number }
+  layout?: {
+    algorithm: "dagre"
+    direction: "TB" | "LR"
+    rankSeparation?: number
+    nodeSeparation?: number
+    edgeSeparation?: number
+  }
   site?: MicrogridOverview["site"]
-  nodes: Array<{ id: string; assetCode?: string; label: string; x: number; y: number }>
-  edges: Array<{ source: string; target: string }>
+  nodes: Array<{
+    id: string
+    kind?: string
+    assetCode?: string
+    label: string
+    meta?: string
+    x?: number
+    y?: number
+    ports?: Array<{
+      id: string
+      side: "top" | "right" | "bottom" | "left"
+      direction: "input" | "output"
+      offset?: number
+      offsetByLayout?: Partial<Record<"TB" | "LR", number>>
+      voltageLevel?: string | null
+    }>
+  }>
+  edges: Array<{
+    id?: string
+    source: string
+    target: string
+    sourceHandle?: string
+    targetHandle?: string
+    assetCode?: string
+    kind?: string
+    voltageLevel?: string
+  }>
   assets?: MicrogridAsset[]
 }
 
@@ -207,6 +252,18 @@ export function useMicrogridAssets() {
   return useQuery({
     queryKey: ["microgrid", "assets"],
     queryFn: async () => ((await microgridListAssets({ throwOnError: true })).data as { items: MicrogridAsset[] }).items,
+  })
+}
+
+export function useMicrogridAssetSeries(assetId: number | null) {
+  return useQuery({
+    queryKey: ["microgrid", "asset-series", assetId],
+    enabled: assetId !== null,
+    queryFn: async () => {
+      if (assetId === null) return []
+      const response = await microgridGetAssetSeries({ path: { asset_id: assetId }, query: { limit: 96 }, throwOnError: true })
+      return (response.data as { items: MicrogridSeriesPoint[] }).items
+    },
   })
 }
 

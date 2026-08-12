@@ -7,6 +7,7 @@ import hashlib
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from math import pi, sin
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
@@ -16,6 +17,7 @@ from sqlalchemy import delete, select
 from app.db import models as m
 from app.domain.microgrid.domain.entities import Scenario
 from app.domain.microgrid.domain.exceptions import InfeasibleDispatchError, ScenarioNotReadyError
+from app.domain.microgrid.domain.scada import xiangtai_scada_scene
 from app.domain.microgrid.infrastructure.dispatch import DispatchCommand, SimulationDispatchAdapter
 from app.domain.microgrid.infrastructure.forecasting import (
     forecast_load_quantiles,
@@ -27,6 +29,8 @@ from app.domain.microgrid.infrastructure.weather import OpenMeteoWeatherAdapter,
 from app.lib.tenancy import DEFAULT_TENANT_ID, session_tenant_id
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -56,27 +60,12 @@ class BootstrapXiangtaiDemo:
             )
         )
         if existing is not None:
+            await self._refresh_demo_telemetry(site=existing, team_id=team_id)
+            await self._session.commit()
+            await self._session.refresh(existing)
             return existing
 
-        topology = {
-            "nodes": [
-                {"id": "grid", "assetCode": "PCC", "label": "10kV市电", "x": 70, "y": 170},
-                {"id": "bus", "label": "仓库母线", "x": 270, "y": 170},
-                {"id": "pv", "assetCode": "PV-01", "label": "屋顶光伏", "x": 470, "y": 50},
-                {"id": "bess", "assetCode": "BESS-01", "label": "储能系统", "x": 470, "y": 135},
-                {"id": "charger", "assetCode": "EVSE-GROUP", "label": "充电桩群", "x": 470, "y": 220},
-                {"id": "lighting", "assetCode": "LIGHTING", "label": "仓库照明", "x": 470, "y": 305},
-                {"id": "load", "assetCode": "WAREHOUSE", "label": "仓储作业负荷", "x": 270, "y": 305},
-            ],
-            "edges": [
-                {"source": "grid", "target": "bus"},
-                {"source": "pv", "target": "bus"},
-                {"source": "bess", "target": "bus"},
-                {"source": "bus", "target": "charger"},
-                {"source": "bus", "target": "lighting"},
-                {"source": "bus", "target": "load"},
-            ],
-        }
+        topology = xiangtai_scada_scene()
         site = m.MicrogridSite(
             team_id=team_id,
             code=XIANGTAI_SITE_CODE,
@@ -236,9 +225,84 @@ class BootstrapXiangtaiDemo:
                 for code, (power, soc) in state_values.items()
             ]
         )
+        await self._refresh_demo_telemetry(site=site, team_id=team_id, assets=assets)
         await self._session.commit()
         await self._session.refresh(site)
         return site
+
+    async def _refresh_demo_telemetry(
+        self,
+        *,
+        site: m.MicrogridSite,
+        team_id: UUID,
+        assets: dict[str, m.MicrogridAsset] | None = None,
+    ) -> None:
+        """Replace the traceable 24-hour SCADA demo window without touching measured facts."""
+        if assets is None:
+            rows = (
+                await self._session.scalars(select(m.MicrogridAsset).where(m.MicrogridAsset.site_id == site.id))
+            ).all()
+            assets = {asset.code: asset for asset in rows}
+
+        source_ref = "xiangtai-demo-v1/scada-telemetry"
+        await self._session.execute(
+            delete(m.MicrogridTelemetryFact).where(
+                m.MicrogridTelemetryFact.site_id == site.id,
+                m.MicrogridTelemetryFact.source_kind == "simulated",
+                m.MicrogridTelemetryFact.source_ref == source_ref,
+            )
+        )
+
+        end = _now_quarter().astimezone(UTC)
+        facts: list[m.MicrogridTelemetryFact] = []
+        for index in range(96):
+            observed_at = end - timedelta(minutes=15 * (95 - index))
+            local = observed_at.astimezone(ZoneInfo("Asia/Shanghai"))
+            hour = local.hour + local.minute / 60
+            daylight = max(0.0, sin(pi * (hour - 6) / 12)) if 6 <= hour <= 18 else 0.0
+            warehouse = 430 + (95 if 7 <= hour < 21 else 18) + 24 * sin(2 * pi * (hour - 7) / 24)
+            pv = min(500.0, 470 * daylight**1.35)
+            charger = max(18.0, 92 + 34 * sin(2 * pi * (hour - 8) / 12)) if 7 <= hour < 22 else 18.0
+            lighting = 64.0 if 6 <= hour < 22 else 44.0
+            storage = -72.0 if 10 <= hour < 16 else (110.0 if 18 <= hour < 21 else 0.0)
+            values = {
+                "PV-01": pv,
+                "BESS-01": storage,
+                "EVSE-GROUP": charger,
+                "LIGHTING": lighting,
+                "WAREHOUSE": warehouse,
+                "PCC": warehouse + charger + lighting - pv - storage,
+            }
+            if index == 95:
+                values.update(
+                    {
+                        "PCC": 438.0,
+                        "PV-01": 286.0,
+                        "BESS-01": -72.0,
+                        "EVSE-GROUP": 96.0,
+                        "LIGHTING": 64.0,
+                        "WAREHOUSE": 536.0,
+                    }
+                )
+            for code, value in values.items():
+                asset = assets.get(code)
+                if asset is None:
+                    continue
+                facts.append(
+                    m.MicrogridTelemetryFact(
+                        team_id=team_id,
+                        site_id=site.id,
+                        asset_id=asset.id,
+                        metric_code="active_power_kw",
+                        value=Decimal(str(round(value, 3))),
+                        unit="kW",
+                        observed_at=observed_at,
+                        source_kind="simulated",
+                        source_ref=source_ref,
+                        quality="D",
+                    )
+                )
+        self._session.add_all(facts)
 
 
 class RunForecast:

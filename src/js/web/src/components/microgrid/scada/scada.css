@@ -1,0 +1,460 @@
+.scada-runtime {
+  --scada-conductor: hsl(var(--foreground) / 0.76);
+  --scada-flow: hsl(var(--primary));
+  --scada-muted: hsl(var(--muted-foreground));
+  --scada-surface: hsl(var(--background));
+  --scada-grid: hsl(var(--border) / 0.32);
+  height: clamp(720px, 68vw, 880px);
+  min-height: 720px;
+  background:
+    linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--muted) / 0.3) 100%);
+}
+
+.scada-runtime .react-flow__pane {
+  cursor: grab;
+}
+
+.scada-runtime .react-flow__pane:active {
+  cursor: grabbing;
+}
+
+.scada-runtime .react-flow__node {
+  cursor: pointer;
+}
+
+.scada-runtime .react-flow__node:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 5px;
+}
+
+.scada-runtime .react-flow__controls {
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 2px);
+  box-shadow: none;
+}
+
+.scada-runtime .react-flow__controls-button {
+  border-bottom-color: hsl(var(--border));
+  background: hsl(var(--background) / 0.94);
+  color: hsl(var(--foreground));
+}
+
+.scada-runtime .react-flow__controls-button:hover {
+  background: hsl(var(--muted));
+}
+
+.scada-port {
+  z-index: 4 !important;
+  width: 7px !important;
+  height: 7px !important;
+  min-width: 7px !important;
+  min-height: 7px !important;
+  border: 1.5px solid var(--scada-conductor) !important;
+  background: var(--scada-surface) !important;
+  pointer-events: none !important;
+}
+
+.scada-asset-node {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  gap: 10px;
+  color: var(--scada-conductor);
+}
+
+.scada-equipment-plate {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  flex: 0 0 90px;
+  overflow: visible;
+  border: 1px solid hsl(var(--border) / 0.8);
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, hsl(var(--background) / 0.96), hsl(var(--muted) / 0.42));
+  box-shadow: inset 0 0 0 1px hsl(var(--background) / 0.55);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.scada-equipment-icon {
+  position: absolute;
+  inset: 5px;
+  display: block;
+  background-repeat: no-repeat;
+  background-size: 300% 200%;
+  filter: saturate(0.88) contrast(1.02);
+}
+
+.scada-symbol-fallback {
+  position: absolute;
+  inset: 27px;
+  width: 34px;
+  height: 34px;
+}
+
+.scada-corner {
+  position: absolute;
+  z-index: 2;
+  width: 13px;
+  height: 13px;
+  border-color: hsl(var(--primary) / 0.58);
+}
+
+.scada-corner-start {
+  top: -2px;
+  left: -2px;
+  border-top: 2px solid;
+  border-left: 2px solid;
+}
+
+.scada-corner-end {
+  right: -2px;
+  bottom: -2px;
+  border-right: 2px solid;
+  border-bottom: 2px solid;
+}
+
+.scada-asset-node:hover .scada-equipment-plate,
+.scada-asset-node.is-selected .scada-equipment-plate,
+.scada-structural-node.is-selected .scada-structural-glyph,
+.scada-busbar-node.is-selected .scada-busbar-line {
+  color: hsl(var(--primary));
+  border-color: hsl(var(--primary) / 0.6);
+  box-shadow: inset 0 0 0 1px hsl(var(--background) / 0.6), 0 0 0 2px hsl(var(--primary) / 0.08);
+}
+
+.scada-asset-node:hover .scada-equipment-plate {
+  transform: translateY(-1px);
+}
+
+.scada-symbol-soc {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px;
+  background: hsl(var(--background));
+  padding: 2px 5px;
+  color: hsl(var(--foreground));
+  font-weight: 600;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.scada-node-copy {
+  min-width: 0;
+}
+
+.scada-node-label,
+.scada-structural-label,
+.scada-busbar-title {
+  color: hsl(var(--foreground));
+  font-weight: 650;
+  font-size: 12px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.scada-node-value {
+  margin-top: 5px;
+  color: hsl(var(--foreground));
+  font-weight: 650;
+  font-size: 15px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.scada-node-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 7px;
+  color: var(--scada-muted);
+  font-size: 10px;
+}
+
+.scada-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: hsl(var(--status-success));
+}
+
+.scada-asset-node.is-simulated .scada-status-dot,
+.scada-structural-node.is-simulated .scada-status-dot {
+  background: hsl(var(--primary));
+}
+
+.scada-asset-node.is-warning .scada-status-dot {
+  background: hsl(var(--status-warning));
+}
+
+.scada-asset-node.is-alarm .scada-status-dot {
+  background: hsl(var(--destructive));
+}
+
+.scada-asset-node.is-offline {
+  opacity: 0.52;
+}
+
+.scada-asset-node.is-offline .scada-status-dot {
+  background: hsl(var(--muted-foreground));
+}
+
+.scada-structural-node {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  align-content: center;
+  color: var(--scada-conductor);
+}
+
+.scada-structural-glyph {
+  width: 68px;
+  height: 46px;
+  overflow: visible;
+  fill: var(--scada-surface);
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  transition: color 160ms ease;
+}
+
+.scada-structural-node.is-tb[data-kind="isolator"] .scada-structural-glyph,
+.scada-structural-node.is-tb[data-kind="breaker"] .scada-structural-glyph,
+.scada-structural-node.is-tb[data-kind="meter"] .scada-structural-glyph,
+.scada-structural-node.is-lr[data-kind="transformer"] .scada-structural-glyph,
+.scada-structural-node.is-lr[data-kind="inverter"] .scada-structural-glyph,
+.scada-structural-node.is-lr[data-kind="pcs"] .scada-structural-glyph {
+  transform: rotate(90deg);
+}
+
+.scada-structural-node.is-lr {
+  position: relative;
+  display: block;
+}
+
+.scada-structural-node.is-lr::before,
+.scada-structural-node.is-lr::after {
+  position: absolute;
+  top: calc(50% - 1px);
+  z-index: -1;
+  height: 2px;
+  background: currentColor;
+  content: "";
+}
+
+.scada-structural-node.is-lr::before {
+  right: calc(50% + 30px);
+  left: 0;
+}
+
+.scada-structural-node.is-lr::after {
+  right: 0;
+  left: calc(50% + 30px);
+}
+
+.scada-structural-node.is-lr .scada-structural-glyph {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.scada-structural-node.is-lr[data-kind="transformer"] .scada-structural-glyph,
+.scada-structural-node.is-lr[data-kind="inverter"] .scada-structural-glyph,
+.scada-structural-node.is-lr[data-kind="pcs"] .scada-structural-glyph {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.scada-structural-node.is-lr .scada-structural-label,
+.scada-structural-node.is-lr .scada-structural-meta {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.scada-structural-node.is-lr .scada-structural-label {
+  top: calc(50% + 31px);
+}
+
+.scada-structural-node.is-lr .scada-structural-meta {
+  top: calc(50% + 46px);
+  margin-top: 0;
+}
+
+.scada-structural-node[data-kind="transformer"] .scada-structural-glyph {
+  width: 88px;
+  height: 58px;
+}
+
+.scada-structural-node[data-kind="inverter"] .scada-structural-glyph,
+.scada-structural-node[data-kind="pcs"] .scada-structural-glyph {
+  width: 76px;
+  height: 56px;
+}
+
+.scada-structural-label {
+  margin-top: 3px;
+}
+
+.scada-structural-meta,
+.scada-busbar-meta {
+  margin-top: 3px;
+  color: var(--scada-muted);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.scada-busbar-node {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  color: var(--scada-conductor);
+}
+
+.scada-busbar-line {
+  position: absolute;
+  top: 33px;
+  right: 0;
+  left: 0;
+  height: 8px;
+  border-radius: 2px;
+  background: currentColor;
+  transition: color 160ms ease;
+}
+
+.scada-busbar-node.is-lr .scada-busbar-line {
+  top: 0;
+  bottom: 0;
+  left: 33px;
+  width: 8px;
+  height: auto;
+}
+
+.scada-busbar-copy {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.scada-busbar-meta {
+  margin-top: 0;
+}
+
+.scada-busbar-node.is-lr .scada-busbar-copy {
+  top: -26px;
+  left: 50%;
+}
+
+.scada-busbar-node.is-tb .scada-busbar-ports .react-flow__handle-top,
+.scada-busbar-node.is-tb .scada-busbar-ports .react-flow__handle-bottom {
+  top: 37px !important;
+}
+
+.scada-busbar-node.is-lr .scada-busbar-ports .react-flow__handle-left,
+.scada-busbar-node.is-lr .scada-busbar-ports .react-flow__handle-right {
+  left: 37px !important;
+}
+
+.scada-feeder-base,
+.scada-feeder-flow {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.scada-feeder-base {
+  stroke: var(--scada-conductor);
+  stroke-width: 2.2;
+}
+
+.scada-feeder-flow {
+  stroke: var(--scada-flow);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-dasharray: 2 12;
+  animation: scada-power-flow 1.15s linear infinite;
+}
+
+.scada-feeder.is-reverse .scada-feeder-flow {
+  animation-direction: reverse;
+}
+
+.scada-feeder.is-offline .scada-feeder-base,
+.scada-feeder:not(.is-energized) .scada-feeder-base {
+  stroke: hsl(var(--muted-foreground) / 0.42);
+  stroke-dasharray: 5 5;
+}
+
+.scada-feeder.is-warning .scada-feeder-flow {
+  stroke: hsl(var(--status-warning));
+}
+
+.scada-feeder.is-alarm .scada-feeder-flow {
+  stroke: hsl(var(--destructive));
+}
+
+.scada-runtime-toolbar {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.2);
+  padding: 6px 10px;
+}
+
+.scada-runtime-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+  list-style: none;
+}
+
+.scada-runtime-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.scada-runtime-legend i {
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--scada-conductor);
+}
+
+.scada-runtime-legend .flow i {
+  background: var(--scada-flow);
+}
+
+.scada-runtime-legend .offline i {
+  background: hsl(var(--muted-foreground) / 0.42);
+}
+
+@keyframes scada-power-flow {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scada-feeder-flow {
+    animation: none;
+  }
+}

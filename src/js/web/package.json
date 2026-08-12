@@ -16,6 +16,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^2.0.4",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-collapsible": "^1.1.12",
@@ -35,6 +36,7 @@
     "@tanstack/react-router-devtools": "^1.157.16",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/router-vite-plugin": "^1.157.16",
+    "@xyflow/react": "^12.11.3",
     "altcha": "^3.0.10",
     "axios": "^1.13.3",
     "cesium": "^1.141.0",
