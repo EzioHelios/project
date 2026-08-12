@@ -116,6 +116,21 @@ from app.domain.metering.models import (
     MeteringQualityIssue,
     Scope2ElectricityReconciliation,
 )
+from app.domain.microgrid.models import (
+    DispatchBatch,
+    DispatchReceipt,
+    FlexibilityContract,
+    ForecastPoint,
+    ForecastRun,
+    MicrogridAsset,
+    MicrogridAssetState,
+    MicrogridScenario,
+    MicrogridSite,
+    MicrogridTelemetryFact,
+    MicrogridWeatherFact,
+    OptimizationRun,
+    OptimizationSchedulePoint,
+)
 
 __all__ = (
     "AuditLog",
@@ -229,4 +244,18 @@ __all__ = (
     "EnergyProjectionRun",
     "MeteringQualityIssue",
     "Scope2ElectricityReconciliation",
+    # microgrid domain models
+    "MicrogridSite",
+    "MicrogridAsset",
+    "MicrogridScenario",
+    "FlexibilityContract",
+    "MicrogridTelemetryFact",
+    "MicrogridWeatherFact",
+    "MicrogridAssetState",
+    "ForecastRun",
+    "ForecastPoint",
+    "OptimizationRun",
+    "OptimizationSchedulePoint",
+    "DispatchBatch",
+    "DispatchReceipt",
 )

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouterState } from "@tanstack/react-router"
-import { BellRing, Building2, ClipboardList, Cpu, Database, FileInput, Home, MonitorPlay, Settings, ShieldCheck, Zap } from "lucide-react"
+import { BellRing, Building2, ClipboardList, Cpu, Database, FileInput, Home, MonitorPlay, Network, Settings, ShieldCheck, Zap } from "lucide-react"
 import type * as React from "react"
 import { useCallback, useEffect, useMemo } from "react"
 import { NavMain } from "@/components/nav-main"
@@ -89,6 +89,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           { title: "能效对标", to: "/energy/benchmark" },
           { title: "能流分析", to: "/energy/flow" },
           { title: "能效平衡", to: "/energy/balance" },
+        ],
+      },
+      {
+        title: "微电网运营",
+        to: "/microgrid/overview",
+        icon: Network,
+        isActive: pathname.startsWith("/microgrid"),
+        items: [
+          { title: "运行总览", to: "/microgrid/overview" },
+          { title: "运行监控", to: "/microgrid/operations" },
+          { title: "预测分析", to: "/microgrid/forecast" },
+          { title: "智能优化", to: "/microgrid/optimization" },
         ],
       },
       {

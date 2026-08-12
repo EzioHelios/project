@@ -29,6 +29,12 @@ dependencies = [
   "qrcode[pil]>=7.4.0",
   "openpyxl>=3.1.5",
   "paho-mqtt>=2.1.0",
+  "pyomo>=6.10.1",
+  "highspy>=1.15.1",
+  "pvlib>=0.15.2",
+  "scikit-learn>=1.9.0",
+  "joblib>=1.5.3",
+  "httpx>=0.28.1",
 ]
 description = "Reference application for building a fullstack application with Litestar."
 keywords = ["litestar", "sqlalchemy", "alembic", "fullstack", "api", "asgi", "vite", "spa"]

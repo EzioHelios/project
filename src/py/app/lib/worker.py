@@ -39,6 +39,7 @@ def saq_worker_settings() -> dict[str, Any]:
     from app.domain.carbon import jobs as carbon_jobs
     from app.domain.iot_ingestion import infrastructure as iot_infrastructure
     from app.domain.iot_ingestion import jobs as iot_jobs
+    from app.domain.microgrid import jobs as microgrid_jobs
     from app.domain.system import jobs as system_jobs
 
     queue_name = os.getenv("SAQ_WORKER_QUEUE", "background-tasks")
@@ -63,6 +64,9 @@ def saq_worker_settings() -> dict[str, Any]:
             carbon_jobs.pull_hw_data,
             carbon_jobs.execute_day_alarm_scan,
             carbon_jobs.execute_video_alarm_scan,
+            microgrid_jobs.run_microgrid_forecast_cycle,
+            microgrid_jobs.run_microgrid_optimization_cycle,
+            microgrid_jobs.refresh_microgrid_load_models,
         ]
     )
     return {
@@ -82,6 +86,9 @@ def saq_worker_settings() -> dict[str, Any]:
             CronJob(carbon_jobs.pull_hw_data, "0 1 * * *", timeout=1200),
             CronJob(carbon_jobs.execute_day_alarm_scan, "0 2 * * *", timeout=600),
             CronJob(carbon_jobs.execute_video_alarm_scan, "0 9-18 * * *", timeout=300),
+            CronJob(microgrid_jobs.run_microgrid_forecast_cycle, "*/15 * * * *", timeout=600),
+            CronJob(microgrid_jobs.run_microgrid_optimization_cycle, "2-59/15 * * * *", timeout=300),
+            CronJob(microgrid_jobs.refresh_microgrid_load_models, "30 2 * * *", timeout=900),
         ],
         "startup": [on_startup, iot_infrastructure.on_mqtt_ingest_startup] if is_mqtt_ingest else [on_startup],
         "shutdown": [iot_infrastructure.on_mqtt_ingest_shutdown, on_shutdown] if is_mqtt_ingest else [on_shutdown],

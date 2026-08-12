@@ -59,6 +59,18 @@
     }
   ],
   "files": {
-    "includes": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.js", "src/**/*.jsx", "index.html", "*.ts", "*.js", "*.json", "!src/lib/generated", "!src/routeTree.gen.ts"]
+    "includes": [
+      "src/**/*.ts",
+      "src/**/*.tsx",
+      "src/**/*.js",
+      "src/**/*.jsx",
+      "tests/e2e/**/*.ts",
+      "index.html",
+      "*.ts",
+      "*.js",
+      "*.json",
+      "!src/lib/generated",
+      "!src/routeTree.gen.ts"
+    ]
   }
 }

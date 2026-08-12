@@ -200,6 +200,7 @@ class SaqSettings:
         from app.domain.carbon import jobs as carbon_jobs
         from app.domain.iot_ingestion import infrastructure as iot_infrastructure
         from app.domain.iot_ingestion import jobs as iot_jobs
+        from app.domain.microgrid import jobs as microgrid_jobs
         from app.domain.system import jobs as system_jobs
         from app.lib.worker import after_process, before_process, on_shutdown, on_startup
 
@@ -220,6 +221,9 @@ class SaqSettings:
                         carbon_jobs.pull_hw_data,
                         carbon_jobs.execute_day_alarm_scan,
                         carbon_jobs.execute_video_alarm_scan,
+                        microgrid_jobs.run_microgrid_forecast_cycle,
+                        microgrid_jobs.run_microgrid_optimization_cycle,
+                        microgrid_jobs.refresh_microgrid_load_models,
                     ],
                     scheduled_tasks=[
                         CronJob(
@@ -267,6 +271,21 @@ class SaqSettings:
                             function=carbon_jobs.execute_video_alarm_scan,
                             cron="0 9-18 * * *",
                             timeout=300,
+                        ),
+                        CronJob(
+                            function=microgrid_jobs.run_microgrid_forecast_cycle,
+                            cron="*/15 * * * *",
+                            timeout=600,
+                        ),
+                        CronJob(
+                            function=microgrid_jobs.run_microgrid_optimization_cycle,
+                            cron="2-59/15 * * * *",
+                            timeout=300,
+                        ),
+                        CronJob(
+                            function=microgrid_jobs.refresh_microgrid_load_models,
+                            cron="30 2 * * *",
+                            timeout=900,
                         ),
                     ],
                     concurrency=self.CONCURRENCY,
