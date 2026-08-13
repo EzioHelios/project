@@ -68,21 +68,21 @@ describe("MfaDisableDialog", () => {
       render(<MfaDisableDialog />, { wrapper: createWrapper() })
 
       // Click trigger button to open dialog
-      await user.click(screen.getByRole("button", { name: /disable mfa/i }))
+      await user.click(screen.getByRole("button", { name: "停用多因素认证" }))
 
       // Should show password input
-      expect(screen.getByPlaceholderText(/password/i)).toBeInTheDocument()
+      expect(screen.getByPlaceholderText("当前密码")).toBeInTheDocument()
       // Should NOT show OAuth button
-      expect(screen.queryByRole("button", { name: /verify with/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: /使用.+校验/ })).not.toBeInTheDocument()
     })
 
     it("calls disableMfa with password when submitted", async () => {
       const user = userEvent.setup()
       render(<MfaDisableDialog />, { wrapper: createWrapper() })
 
-      await user.click(screen.getByRole("button", { name: /disable mfa/i }))
-      await user.type(screen.getByPlaceholderText(/password/i), "testpassword123")
-      await user.click(screen.getByRole("button", { name: /^disable mfa$/i }))
+      await user.click(screen.getByRole("button", { name: "停用多因素认证" }))
+      await user.type(screen.getByPlaceholderText("当前密码"), "testpassword123")
+      await user.click(screen.getByRole("button", { name: "停用", exact: true }))
 
       expect(mockDisableMfa).toHaveBeenCalledWith("testpassword123")
     })
@@ -104,21 +104,21 @@ describe("MfaDisableDialog", () => {
       const user = userEvent.setup()
       render(<MfaDisableDialog />, { wrapper: createWrapper() })
 
-      await user.click(screen.getByRole("button", { name: /disable mfa/i }))
+      await user.click(screen.getByRole("button", { name: "停用多因素认证" }))
 
       // Should NOT show password input
-      expect(screen.queryByPlaceholderText(/password/i)).not.toBeInTheDocument()
+      expect(screen.queryByPlaceholderText("当前密码")).not.toBeInTheDocument()
       // Should show OAuth button with provider name
-      expect(screen.getByRole("button", { name: /verify with github/i })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: "使用 Github 校验" })).toBeInTheDocument()
     })
 
     it("shows explanatory message about OAuth verification", async () => {
       const user = userEvent.setup()
       render(<MfaDisableDialog />, { wrapper: createWrapper() })
 
-      await user.click(screen.getByRole("button", { name: /disable mfa/i }))
+      await user.click(screen.getByRole("button", { name: "停用多因素认证" }))
 
-      expect(screen.getByText(/re-authenticate/i)).toBeInTheDocument()
+      expect(screen.getByText("使用已关联账号完成校验后停用多因素认证。")).toBeInTheDocument()
     })
 
     it("initiates OAuth flow when verify button is clicked", async () => {
@@ -142,8 +142,8 @@ describe("MfaDisableDialog", () => {
 
       render(<MfaDisableDialog />, { wrapper: createWrapper() })
 
-      await user.click(screen.getByRole("button", { name: /disable mfa/i }))
-      await user.click(screen.getByRole("button", { name: /verify with github/i }))
+      await user.click(screen.getByRole("button", { name: "停用多因素认证" }))
+      await user.click(screen.getByRole("button", { name: "使用 Github 校验" }))
 
       expect(mockInitiateOAuth).toHaveBeenCalledWith("github")
       expect(hrefSpy).toHaveBeenCalledWith("https://oauth.example.com/auth")
@@ -173,10 +173,10 @@ describe("MfaDisableDialog", () => {
       const user = userEvent.setup()
       render(<MfaDisableDialog />, { wrapper: createWrapper() })
 
-      await user.click(screen.getByRole("button", { name: /disable mfa/i }))
+      await user.click(screen.getByRole("button", { name: "停用多因素认证" }))
 
       // Should show first provider (github)
-      expect(screen.getByRole("button", { name: /verify with github/i })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: "使用 Github 校验" })).toBeInTheDocument()
     })
   })
 })

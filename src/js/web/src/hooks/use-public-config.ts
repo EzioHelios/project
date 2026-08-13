@@ -5,6 +5,8 @@ export interface PublicAppConfig {
   displayName: string
   shortName: string
   description: string
+  brandMarkUrl: string | null
+  faviconUrl: string | null
   authMode: "cookie-session"
   captchaProvider: string | null
   captchaEnabled: boolean
@@ -16,6 +18,8 @@ export const defaultPublicConfig: PublicAppConfig = {
   displayName: "碳数据收集与管理系统",
   shortName: "CD",
   description: "支持 Scope 1/2/3 碳排放数据的采集、审核与统计分析。",
+  brandMarkUrl: null,
+  faviconUrl: null,
   authMode: "cookie-session",
   captchaProvider: null,
   captchaEnabled: false,

@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
-import { AdminPageHeader } from "@/components/admin-ui"
+import { AdminFilterBar, AdminPageHeader } from "@/components/admin-ui"
 import { type ApiEnvelope, DistributionChart, fetchCarbonApi, RankingList, TrendChart } from "@/components/carbon/analytics-panels"
 import { DetailPanel, FacetNavigation, IssueSummaryStrip, TraceTimeline } from "@/components/carbon/energy-carbon-center"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -124,33 +125,45 @@ export function QualityTracePage({ embedded = false }: { embedded?: boolean } = 
         <RankingList title="影响模块排行" items={summaryQuery.data?.data.by_module ?? []} unit="项" height={300} />
       </PageSection>
 
-      <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <Select value={issueType} onValueChange={setIssueType}>
-            <SelectTrigger>
-              <SelectValue placeholder="问题类型" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部问题类型</SelectItem>
-              {Object.keys(summary).map((key) => (
-                <SelectItem key={key} value={key}>
-                  {key}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={severity} onValueChange={setSeverity}>
-            <SelectTrigger>
-              <SelectValue placeholder="风险等级" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部等级</SelectItem>
-              <SelectItem value="high">高</SelectItem>
-              <SelectItem value="medium">中</SelectItem>
-              <SelectItem value="low">低</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="xl:col-span-2 flex justify-end">
+      <PageSection>
+        <AdminFilterBar
+          fields={[
+            {
+              key: "issue-type",
+              node: (
+                <Select value={issueType} onValueChange={setIssueType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="问题类型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部问题类型</SelectItem>
+                    {Object.keys(summary).map((key) => (
+                      <SelectItem key={key} value={key}>
+                        {key}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ),
+            },
+            {
+              key: "severity",
+              node: (
+                <Select value={severity} onValueChange={setSeverity}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="风险等级" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部等级</SelectItem>
+                    <SelectItem value="high">高</SelectItem>
+                    <SelectItem value="medium">中</SelectItem>
+                    <SelectItem value="low">低</SelectItem>
+                  </SelectContent>
+                </Select>
+              ),
+            },
+          ]}
+          actions={
             <Button
               variant="outline"
               onClick={() => {
@@ -160,8 +173,8 @@ export function QualityTracePage({ embedded = false }: { embedded?: boolean } = 
             >
               重置
             </Button>
-          </div>
-        </div>
+          }
+        />
       </PageSection>
 
       <PageSection className="grid gap-4 xl:grid-cols-[260px_minmax(0,1.05fr)_380px]">
@@ -187,11 +200,9 @@ export function QualityTracePage({ embedded = false }: { embedded?: boolean } = 
                       {item.module} · {item.period || "未标注期间"}
                     </div>
                   </div>
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs ${item.severity === "high" ? "bg-red-100 text-red-700" : item.severity === "medium" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-700"}`}
-                  >
+                  <Badge variant={item.severity === "high" ? "destructive" : item.severity === "medium" ? "warning" : "secondary"}>
                     {item.severity === "high" ? "高风险" : item.severity === "medium" ? "中风险" : "一般"}
-                  </span>
+                  </Badge>
                 </div>
                 <div className="mt-2 text-sm text-muted-foreground">{item.issue_type}</div>
               </button>

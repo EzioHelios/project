@@ -65,10 +65,10 @@ export function NavUser({ teams, currentTeam, onTeamSelect }: NavUserProps) {
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
-              <Avatar className="h-8 w-8 shrink-0 rounded-lg">
+            <SidebarMenuButton className="quiet-sidebar-user h-10 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
+              <Avatar className="size-7 shrink-0 rounded-md">
                 <AvatarImage src={user.avatarUrl ?? undefined} alt={displayName} />
-                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                <AvatarFallback className="rounded-md text-xs">{initials}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-medium">{displayName}</span>

@@ -635,8 +635,8 @@ export const statusMeta = {
 迁移完成的图表组件必须满足：
 
 - 图表容器来自 `ChartPanel`。
-- ECharts option 经过 `createAdminChartOption()`。
-- 颜色优先使用 `adminChartPalette` 或语义 `colorKey`。
+- ECharts option 经过接收 `AdminChartTheme` 的共享 builder，或 `createAdminChartOption(theme, option)`。
+- 颜色使用 `getAdminChartTheme(domain, mode)` 与语义 `colorKey`，不得引用全局固定 palette。
 - 图表 panel 显示单位、来源、更新时间中的至少一个可审计信息。
 - 截图确认图表不再像默认 ECharts 或独立 BI 插件。
 

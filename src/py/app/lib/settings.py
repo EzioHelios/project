@@ -414,6 +414,10 @@ class AppSettings:
         default_factory=get_env("APP_DESCRIPTION", "支持 Scope 1/2/3 碳排放数据的采集、审核与统计分析。")
     )
     """User-facing application description."""
+    BRAND_MARK_URL: str = field(default_factory=get_env("APP_BRAND_MARK_URL", ""))
+    """Optional user-facing brand mark URL."""
+    FAVICON_URL: str = field(default_factory=get_env("APP_FAVICON_URL", ""))
+    """Optional user-facing favicon URL."""
     VERSION: str = field(default=f"v{current_version}")
     """Current application"""
     CONTACT_NAME: str = field(default="Admin")

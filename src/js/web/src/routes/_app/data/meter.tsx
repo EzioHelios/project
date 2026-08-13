@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { createTrendChartOption, formatAdminChartNumber } from "@/lib/admin-chart-theme"
+import { createTrendChartOption, formatAdminChartNumber, useAdminChartTheme } from "@/lib/admin-chart-theme"
 import { cn } from "@/lib/utils"
 
 export const Route = createFileRoute("/_app/data/meter")({
@@ -88,6 +88,7 @@ function buildQuery(params: Record<string, string | number | undefined>) {
 }
 
 function MeterPage() {
+  const chartTheme = useAdminChartTheme("energy")
   const [period, setPeriod] = useState("day")
   const [granularity, setGranularity] = useState("hour")
   const [rankingBy, setRankingBy] = useState("equipment")
@@ -122,11 +123,11 @@ function MeterPage() {
   const chartData = useMemo(() => trendRows.map((row) => ({ period: formatPeriod(row.period), value: row.total_kwh })), [trendRows])
   const trendOption = useMemo(
     () =>
-      createTrendChartOption(chartData, [{ key: "value", label: "用电量", colorKey: "energy" }], {
+      createTrendChartOption(chartTheme, chartData, [{ key: "value", label: "用电量", colorKey: "energy" }], {
         periodKey: "period",
         includeZeroSeries: true,
       }),
-    [chartData],
+    [chartData, chartTheme],
   )
 
   const refreshAll = () => {

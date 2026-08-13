@@ -3,7 +3,17 @@ import { relative, resolve } from "node:path"
 
 const root = resolve(import.meta.dirname, "..")
 const scanRoots = ["src/components", "src/routes/_app"].map((path) => resolve(root, path))
+const standaloneScanFiles = ["src/styles.css", "src/components/microgrid/scada/scada.css"].map((path) =>
+  resolve(root, path),
+)
 const jsonMode = process.argv.includes("--json")
+
+const isAdminSurfaceFile = (file) =>
+  file === "src/styles.css" ||
+  file.startsWith("src/routes/_app/") ||
+  ["src/components/admin-ui/", "src/components/carbon/", "src/components/microgrid/"].some((prefix) =>
+    file.startsWith(prefix),
+  )
 
 const checks = [
   {
@@ -51,6 +61,13 @@ const checks = [
     label: "TSX renders JSON.stringify; verify it is not product-facing raw object output",
     test: (source) => /<[^>]*>\s*\{?\s*JSON\.stringify\(/.test(source) || /\{JSON\.stringify\([^)]*\)\}/.test(source),
   },
+  {
+    id: "admin-surface-gradient",
+    label: "Admin surface still uses a decorative CSS or Tailwind gradient",
+    test: (source, file) =>
+      isAdminSurfaceFile(file) &&
+      /(?:linear|radial|conic)-gradient|\bbg-(?:gradient|linear|radial|conic)(?:-|\b)/.test(source),
+  },
 ]
 
 function collectFiles(dir, files = []) {
@@ -68,11 +85,12 @@ function collectFiles(dir, files = []) {
 
 const report = Object.fromEntries(checks.map((check) => [check.id, { ...check, files: [] }]))
 
-for (const file of scanRoots.flatMap((dir) => collectFiles(dir))) {
+for (const file of [...scanRoots.flatMap((dir) => collectFiles(dir)), ...standaloneScanFiles]) {
   const source = readFileSync(file, "utf8")
+  const repositoryPath = relative(root, file)
   for (const check of checks) {
-    if (check.test(source)) {
-      report[check.id].files.push(relative(root, file))
+    if (check.test(source, repositoryPath)) {
+      report[check.id].files.push(repositoryPath)
     }
   }
 }

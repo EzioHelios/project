@@ -5,13 +5,15 @@ import type * as React from "react"
 import { useCallback, useEffect, useMemo } from "react"
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
+import { ProductBrand } from "@/components/product-brand"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } from "@/components/ui/sidebar"
 import { usePublicConfig } from "@/hooks/use-public-config"
 import { useAuthStore } from "@/lib/auth"
 import { listTeams, type Team } from "@/lib/generated/api"
+import { cn } from "@/lib/utils"
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({ className, ...props }: React.ComponentProps<typeof Sidebar>) {
   const { teams, currentTeam, setTeams, setCurrentTeam, isAuthenticated } = useAuthStore()
   const queryClient = useQueryClient()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
@@ -48,7 +50,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navMain = useMemo(() => {
     const isCarbonModuleRoute = pathname === "/carbon" || pathname.startsWith("/carbon/")
     const isEnergyBudgetRoute = pathname === "/energy/budget"
-    const isCarbonMgmtRoute = pathname.startsWith("/carbon-mgmt")
+    const isCarbonDataEntryRoute = pathname.startsWith("/carbon-mgmt/scope") || pathname.startsWith("/carbon-mgmt/pending") || pathname.startsWith("/carbon-mgmt/audit")
     const items: React.ComponentProps<typeof NavMain>["items"] = [
       {
         title: "工作台",
@@ -165,7 +167,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "碳数据填报",
         to: "/carbon-mgmt/scope2-bill",
         icon: FileInput,
-        isActive: isCarbonMgmtRoute,
+        isActive: isCarbonDataEntryRoute,
         items: [
           { title: "Scope 1", kind: "section" },
           { title: "固定源燃烧", to: "/carbon-mgmt/scope1-stationary" },
@@ -259,22 +261,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   )
 
   return (
-    <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
-            <span className="text-sm font-semibold">{config.shortName}</span>
-          </div>
-          <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-            <div className="truncate text-sm font-semibold">{config.displayName}</div>
-            <div className="truncate text-xs text-muted-foreground">仓库碳管理</div>
-          </div>
-        </div>
+    <Sidebar collapsible="icon" className={cn("quiet-admin-sidebar", className)} {...props}>
+      <SidebarHeader className="quiet-sidebar-header">
+        <ProductBrand displayName={config.displayName} shortName={config.shortName} brandMarkUrl={config.brandMarkUrl} />
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={navMain} />
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="quiet-sidebar-footer">
         <div className="flex items-center gap-2">
           <div className="flex-1 min-w-0">
             <NavUser teams={teamOptions} currentTeam={currentTeam} onTeamSelect={handleTeamSelect} />

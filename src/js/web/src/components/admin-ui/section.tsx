@@ -6,11 +6,12 @@ type AdminPanelProps = Omit<React.HTMLAttributes<HTMLElement>, "title"> & {
   title?: React.ReactNode
   actions?: React.ReactNode
   contentClassName?: string
+  emphasis?: "default" | "accent" | "elevated" | "inset"
 }
 
-export function AdminPanel({ title, actions, className, contentClassName, children, ...props }: AdminPanelProps) {
+export function AdminPanel({ title, actions, className, contentClassName, children, emphasis = "default", ...props }: AdminPanelProps) {
   return (
-    <section className={cn("admin-panel overflow-hidden", className)} {...props}>
+    <section className={cn("admin-panel overflow-hidden", className)} data-emphasis={emphasis} {...props}>
       {(title || actions) && (
         <div className="admin-panel-header">
           <div className="min-w-0">{title && <h2 className="admin-panel-title">{title}</h2>}</div>

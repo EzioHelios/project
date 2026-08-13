@@ -4,18 +4,20 @@ import { AdminEmptyState, AdminPageScaffold, AdminPanel, ChartPanel, ContextBar,
 import { formatNumber, getAssetTypeLabel, RunStatusBadge, ShadowModeBadge } from "@/components/microgrid/microgrid-page"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { createTrendChartOption } from "@/lib/admin-chart-theme"
+import { createTrendChartOption, useAdminChartTheme } from "@/lib/admin-chart-theme"
 import { useMicrogridActions, useMicrogridOverview } from "@/lib/api/hooks/microgrid"
 import { formatMicrogridDateTime } from "@/lib/microgrid-time"
 
 export const Route = createFileRoute("/_app/microgrid/overview")({ component: MicrogridOverviewPage })
 
 function MicrogridOverviewPage() {
+  const chartTheme = useAdminChartTheme("energy")
   const overview = useMicrogridOverview()
   const actions = useMicrogridActions()
   const data = overview.data
   const trend = (data?.trend ?? []).map((point) => ({ ...point, period: formatMicrogridDateTime(point.period) }))
   const trendOption = createTrendChartOption(
+    chartTheme,
     trend,
     [
       { key: "loadKw", label: "负荷预测", colorKey: "energy" },

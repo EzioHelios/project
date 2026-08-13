@@ -7,6 +7,7 @@ const baseText = "#dbeafe"
 const mutedText = "rgba(219,234,254,0.58)"
 const gridColor = "rgba(147,197,253,0.12)"
 const palette = ["#38bdf8", "#fbbf24", "#34d399", "#a78bfa", "#f87171", "#22d3ee", "#f59e0b"]
+const sankeyPalette = ["#38bdf8", "#34d399", "#a78bfa", "#22d3ee", "#6ee7b7", "#818cf8", "#94a3b8"]
 
 function shell(option?: EChartsOption, height = 260, emptyLabel = "暂无数据") {
   if (!option) {
@@ -177,7 +178,7 @@ export function BigscreenSankeyChart({ flow, height = 320 }: { flow: BigscreenFl
         layout: "none",
         data: flow.nodes.map((node, index) => ({
           name: node.name,
-          itemStyle: { color: palette[index % palette.length], borderColor: "rgba(255,255,255,0.18)" },
+          itemStyle: { color: sankeyPalette[index % sankeyPalette.length], borderColor: "rgba(255,255,255,0.18)" },
         })),
         links: flow.links.map((link) => ({
           source: flow.nodes.find((node) => node.id === link.source)?.name ?? link.source,

@@ -2466,7 +2466,7 @@ function numericParameters(values: Record<string, string>) {
 }
 
 function balanceStatusBadge(value?: string) {
-  if (value === "balanced") return <Badge className="bg-emerald-600 hover:bg-emerald-600">已闭合</Badge>
+  if (value === "balanced") return <Badge variant="success">已闭合</Badge>
   if (value === "insufficient_boundary") return <Badge variant="outline">边界待完善</Badge>
   return <Badge variant="outline">暂无数据</Badge>
 }

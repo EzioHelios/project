@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
-import { AdminPageHeader } from "@/components/admin-ui"
+import { AdminFilterBar, AdminPageHeader } from "@/components/admin-ui"
 import { type ApiEnvelope, DistributionChart, fetchCarbonApi, MiniStatList, TrendChart } from "@/components/carbon/analytics-panels"
 import { DetailPanel, EmptyStateCard, FacetNavigation, statusBadge } from "@/components/carbon/energy-carbon-center"
 import { Input } from "@/components/ui/input"
@@ -123,35 +123,45 @@ function MonitorCenterPage() {
     <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
       <AdminPageHeader title="数据采集与监测" />
 
-      <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <Select value={selectedArea} onValueChange={setSelectedArea}>
-            <SelectTrigger>
-              <SelectValue placeholder="区域筛选" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部区域</SelectItem>
-              {areas.map((area) => (
-                <SelectItem key={area.id} value={String(area.id)}>
-                  {area.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger>
-              <SelectValue placeholder="状态筛选" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部状态</SelectItem>
-              <SelectItem value="0">在线</SelectItem>
-              <SelectItem value="1">故障 / 离线</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="xl:col-span-2">
-            <Input value={deviceKeyword} onChange={(event) => setDeviceKeyword(event.target.value)} placeholder="搜索设备名称或编码" />
-          </div>
-        </div>
+      <PageSection>
+        <AdminFilterBar
+          fields={[
+            { key: "keyword", node: <Input value={deviceKeyword} onChange={(event) => setDeviceKeyword(event.target.value)} placeholder="搜索设备名称或编码" /> },
+            {
+              key: "area",
+              node: (
+                <Select value={selectedArea} onValueChange={setSelectedArea}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="区域筛选" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部区域</SelectItem>
+                    {areas.map((area) => (
+                      <SelectItem key={area.id} value={String(area.id)}>
+                        {area.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ),
+            },
+            {
+              key: "status",
+              node: (
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="状态筛选" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部状态</SelectItem>
+                    <SelectItem value="0">在线</SelectItem>
+                    <SelectItem value="1">故障 / 离线</SelectItem>
+                  </SelectContent>
+                </Select>
+              ),
+            },
+          ]}
+        />
       </PageSection>
 
       <PageSection className="grid gap-4 xl:grid-cols-[320px_340px_minmax(0,1fr)]">

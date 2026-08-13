@@ -107,6 +107,8 @@ class SystemController(Controller):
             display_name=settings.DISPLAY_NAME,
             short_name=settings.SHORT_NAME,
             description=settings.DESCRIPTION,
+            brand_mark_url=settings.BRAND_MARK_URL or None,
+            favicon_url=settings.FAVICON_URL or None,
             auth_mode="cookie-session",
             captcha_provider="altcha-sentinel" if settings.altcha_enabled else None,
             captcha_enabled=settings.altcha_enabled,

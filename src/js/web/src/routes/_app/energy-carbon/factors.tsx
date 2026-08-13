@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useState } from "react"
-import { AdminDataTable, AdminPageHeader, AdminTableStateRow, MetricStrip, MetricTile } from "@/components/admin-ui"
+import { AdminDataTable, AdminFilterBar, AdminPageHeader, AdminTableStateRow, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, DistributionChart, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
 import { JumpLinks } from "@/components/carbon/energy-carbon-center"
 import { Button } from "@/components/ui/button"
@@ -95,25 +95,32 @@ function EnergyCarbonFactorsPage() {
         <DistributionChart title="缺失因子分布" items={usageQuery.data?.data.missing_by_scope ?? []} />
       </PageSection>
 
-      <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
-        <div className="grid gap-3 md:grid-cols-[220px_auto] md:justify-between">
-          <Select value={scope} onValueChange={setScope}>
-            <SelectTrigger>
-              <SelectValue placeholder="范围筛选" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部范围</SelectItem>
-              <SelectItem value="scope1">范围1</SelectItem>
-              <SelectItem value="scope2">范围2</SelectItem>
-              <SelectItem value="scope3">范围3</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="flex justify-end">
+      <PageSection>
+        <AdminFilterBar
+          fields={[
+            {
+              key: "scope",
+              node: (
+                <Select value={scope} onValueChange={setScope}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="范围筛选" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部范围</SelectItem>
+                    <SelectItem value="scope1">范围1</SelectItem>
+                    <SelectItem value="scope2">范围2</SelectItem>
+                    <SelectItem value="scope3">范围3</SelectItem>
+                  </SelectContent>
+                </Select>
+              ),
+            },
+          ]}
+          actions={
             <Button variant="outline" asChild>
               <Link to="/carbon-mgmt/factors">进入详细检索</Link>
             </Button>
-          </div>
-        </div>
+          }
+        />
       </PageSection>
 
       <PageSection>

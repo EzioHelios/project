@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
 import { createRouter, RouterProvider } from "@tanstack/react-router"
 import React from "react"
 import ReactDOM from "react-dom/client"
+import "@fontsource-variable/geist"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { usePublicConfig } from "@/hooks/use-public-config"
 import { getApiBaseUrl } from "@/lib/api-base-url"
@@ -15,6 +15,8 @@ import { routeTree } from "./routeTree.gen"
 
 import "./styles.css"
 import reportWebVitals from "./reportWebVitals.ts"
+
+const ReactQueryDevtools = import.meta.env.DEV ? React.lazy(() => import("@tanstack/react-query-devtools").then((module) => ({ default: module.ReactQueryDevtools }))) : null
 
 // Extend Window type for CSRF token injected by litestar-vite
 declare global {
@@ -44,7 +46,7 @@ const withTenantHeader = (request: Request) => {
   const { currentTeam, user } = useAuthStore.getState()
   const teamId = currentTeam?.id
   const canUseCurrentTeam = Boolean(teamId && (user?.isSuperuser || user?.teams?.some((team) => team.teamId === teamId)))
-  if (!canUseCurrentTeam || !isApiRequest(request.url) || request.headers.has(tenantHeaderName)) {
+  if (!teamId || !canUseCurrentTeam || !isApiRequest(request.url) || request.headers.has(tenantHeaderName)) {
     return request
   }
 
@@ -165,7 +167,11 @@ function DocumentTitle() {
 
   React.useEffect(() => {
     document.title = config.displayName
-  }, [config.displayName])
+    if (config.faviconUrl) {
+      const favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+      favicon?.setAttribute("href", config.faviconUrl)
+    }
+  }, [config.displayName, config.faviconUrl])
 
   return null
 }
@@ -180,7 +186,11 @@ if (rootElement && !rootElement.innerHTML) {
         <QueryClientProvider client={queryClient}>
           <DocumentTitle />
           <RouterProvider router={router} />
-          <ReactQueryDevtools />
+          {ReactQueryDevtools ? (
+            <React.Suspense fallback={null}>
+              <ReactQueryDevtools />
+            </React.Suspense>
+          ) : null}
         </QueryClientProvider>
       </ThemeProvider>
     </React.StrictMode>,

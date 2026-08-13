@@ -27,6 +27,8 @@ class PublicAppConfig(CamelizedBaseStruct, kw_only=True):
     display_name: str
     short_name: str
     description: str
+    brand_mark_url: str | None = None
+    favicon_url: str | None = None
     auth_mode: str = "cookie-session"
     captcha_provider: str | None = None
     captcha_enabled: bool = False

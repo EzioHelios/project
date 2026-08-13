@@ -183,7 +183,9 @@ function DataCollectionWorkbookImportPage() {
                       >
                         <TableCell className="max-w-[260px] truncate font-medium">{sheet.sheet_name}</TableCell>
                         <TableCell className="text-right">{sheet.row_count}</TableCell>
-                        <TableCell className={cn("text-right", sheet.missing_required.length > 0 && "text-amber-700")}>{sheet.missing_required.length}</TableCell>
+                        <TableCell className={cn("text-right", sheet.missing_required.length > 0 && "text-[hsl(var(--status-warning-foreground-admin))]")}>
+                          {sheet.missing_required.length}
+                        </TableCell>
                       </TableRow>
                     ))
                   )}

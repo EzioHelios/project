@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
-import { AdminPageHeader, MetricStrip, MetricTile } from "@/components/admin-ui"
+import { AdminFilterBar, AdminPageHeader, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, CompositeTrendChart, DistributionChart, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
 import { DetailPanel, FacetNavigation, severityLabel, statusBadge } from "@/components/carbon/energy-carbon-center"
 import { Button } from "@/components/ui/button"
@@ -129,48 +129,62 @@ function AlertsCenterPage() {
         <DistributionChart title="等级分布" items={(summaryQuery.data?.data.by_severity ?? []).map((item) => ({ name: severityLabel(item.name), value: item.value }))} />
       </PageSection>
 
-      <PageSection className="rounded-lg border border-border/60 bg-card/60 p-4">
-        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger>
-              <SelectValue placeholder="处理状态" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部状态</SelectItem>
-              <SelectItem value="待处理">待处理</SelectItem>
-              <SelectItem value="已处理">已处理</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={severity} onValueChange={setSeverity}>
-            <SelectTrigger>
-              <SelectValue placeholder="风险等级" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部等级</SelectItem>
-              <SelectItem value="high">高</SelectItem>
-              <SelectItem value="medium">中</SelectItem>
-              <SelectItem value="low">低</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="xl:col-span-3 flex items-center justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSource("all")
-                setStatus("all")
-                setSeverity("all")
-              }}
-            >
-              重置
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/data/alarm-events">设备预警处理</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/data/video-alarm-events">视频预警处理</Link>
-            </Button>
-          </div>
-        </div>
+      <PageSection>
+        <AdminFilterBar
+          fields={[
+            {
+              key: "status",
+              node: (
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="处理状态" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部状态</SelectItem>
+                    <SelectItem value="待处理">待处理</SelectItem>
+                    <SelectItem value="已处理">已处理</SelectItem>
+                  </SelectContent>
+                </Select>
+              ),
+            },
+            {
+              key: "severity",
+              node: (
+                <Select value={severity} onValueChange={setSeverity}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="风险等级" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部等级</SelectItem>
+                    <SelectItem value="high">高</SelectItem>
+                    <SelectItem value="medium">中</SelectItem>
+                    <SelectItem value="low">低</SelectItem>
+                  </SelectContent>
+                </Select>
+              ),
+            },
+          ]}
+          actions={
+            <>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSource("all")
+                  setStatus("all")
+                  setSeverity("all")
+                }}
+              >
+                重置
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/data/alarm-events">设备预警处理</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/data/video-alarm-events">视频预警处理</Link>
+              </Button>
+            </>
+          }
+        />
       </PageSection>
 
       <PageSection className="grid gap-4 xl:grid-cols-[260px_minmax(0,1.1fr)_380px]">

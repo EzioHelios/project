@@ -180,8 +180,8 @@ function statusLabel(value?: string | null) {
 
 function statusBadge(value?: string | null) {
   if (value === "exceeded" || value === "forecast_exceeded" || value === "rejected") return <Badge variant="destructive">{statusLabel(value)}</Badge>
-  if (value === "warning" || value === "forecast_warning" || value === "submitted") return <Badge className="bg-amber-500 hover:bg-amber-500">{statusLabel(value)}</Badge>
-  if (value === "ok" || value === "active" || value === "approved") return <Badge className="bg-emerald-600 hover:bg-emerald-600">{statusLabel(value)}</Badge>
+  if (value === "warning" || value === "forecast_warning" || value === "submitted") return <Badge variant="warning">{statusLabel(value)}</Badge>
+  if (value === "ok" || value === "active" || value === "approved") return <Badge variant="success">{statusLabel(value)}</Badge>
   return <Badge variant="outline">{statusLabel(value)}</Badge>
 }
 

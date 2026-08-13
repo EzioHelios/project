@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { createTrendChartOption, formatAdminChartNumber } from "@/lib/admin-chart-theme"
+import { createTrendChartOption, formatAdminChartNumber, useAdminChartTheme } from "@/lib/admin-chart-theme"
 import { useAuthStore } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
@@ -162,6 +162,7 @@ function QualityBadge({ status }: { status: string }) {
 }
 
 function PointMonitoringPage() {
+  const chartTheme = useAdminChartTheme("energy")
   const currentTeam = useAuthStore((state) => state.currentTeam)
   const [keyword, setKeyword] = useState("")
   const [appliedKeyword, setAppliedKeyword] = useState("")
@@ -235,11 +236,11 @@ function PointMonitoringPage() {
   )
   const trendOption = useMemo(
     () =>
-      createTrendChartOption(chartPoints, [{ key: "value", label: selectedPoint?.point_name ?? "点位值", colorKey: "energy" }], {
+      createTrendChartOption(chartTheme, chartPoints, [{ key: "value", label: selectedPoint?.point_name ?? "点位值", colorKey: "energy" }], {
         periodKey: "period",
         includeZeroSeries: true,
       }),
-    [chartPoints, selectedPoint?.point_name],
+    [chartPoints, chartTheme, selectedPoint?.point_name],
   )
   const recentRows = useMemo(() => [...(seriesQuery.data?.data.items ?? [])].slice(-20).reverse(), [seriesQuery.data?.data.items])
   const filters = pointsQuery.data?.data.filter_options

@@ -35,13 +35,13 @@ export function sourceLabel(value?: string | null) {
 
 export function statusBadge(status?: string | null) {
   if (status === "稳定" || status === "已通过" || status === "已处理") {
-    return <Badge className="bg-emerald-600 hover:bg-emerald-600">{status}</Badge>
+    return <Badge variant="success">{status}</Badge>
   }
   if (status === "高风险" || status === "待处理" || status === "待审核" || status === "驳回") {
     return <Badge variant="destructive">{status}</Badge>
   }
   if (status === "异常" || status === "缺失") {
-    return <Badge className="bg-amber-500 hover:bg-amber-500">{status}</Badge>
+    return <Badge variant="warning">{status}</Badge>
   }
   return <Badge variant="secondary">{status || "未标注"}</Badge>
 }
@@ -178,7 +178,11 @@ export function TaskList({
       {items.length === 0 && <AdminEmptyState title={emptyLabel} />}
       {items.map((item, index) => (
         <div key={`${item.label}-${index}`} className="flex items-start gap-3 rounded-md border border-border/60 bg-card/60 px-3 py-2">
-          {item.tone === "warning" ? <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-500" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-500" />}
+          {item.tone === "warning" ? (
+            <AlertTriangle className="mt-0.5 h-4 w-4 text-[hsl(var(--status-warning-foreground-admin))]" />
+          ) : (
+            <CheckCircle2 className="mt-0.5 h-4 w-4 text-[hsl(var(--status-success-foreground-admin))]" />
+          )}
           <div className="min-w-0 flex-1">
             <div className="text-sm font-medium">{item.label}</div>
             {item.value !== undefined && <div className="text-xs text-muted-foreground">{item.value}</div>}

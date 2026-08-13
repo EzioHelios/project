@@ -195,6 +195,10 @@ Suggested semantic palette:
 | `chart.danger` | Alarm / exceeded threshold. |
 | `chart.neutral` | Baseline, average, inactive series. |
 
+化石燃料、热量和成本可使用低饱和暖色，以保留业务对象的自然联想；告警琥珀和危险红只能用于明确状态或异常。普通趋势、排行和构成图继续使用业务语义序列，不强制套用单一冷色谱。
+
+桑基图是例外：无固定状态含义的流程节点统一从 `AdminChartTheme.flowColors` 取色，使用蓝、绿、紫、青和钢灰，以强化流向层级并与冷色界面协调。损失、超限或故障节点仍显式使用 `chart.danger`。`flowColors` 不得作为折线、柱状、环图和状态图的默认色板。
+
 Do not use saturated blue as a catch-all. Do not introduce page-local pie color arrays.
 
 ## Chart Type Rules

@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
-import { type AdminMarketKlinePoint, createMarketKlineChartOption } from "@/lib/admin-chart-theme"
+import { type AdminMarketKlinePoint, createMarketKlineChartOption, useAdminChartTheme } from "@/lib/admin-chart-theme"
 
 type CompliancePosition = {
   period_id?: number | null
@@ -1180,7 +1180,7 @@ export function CarbonAssetsPanel({ header }: { header?: React.ReactNode }) {
               <div className="space-y-3">
                 {recommendations.map((item, index) => (
                   <div key={`${item.priority}-${index}`} className="flex gap-3 rounded-md border p-3">
-                    <AlertTriangle className="mt-0.5 size-4 text-amber-600" />
+                    <AlertTriangle className="mt-0.5 size-4 text-[hsl(var(--status-warning-foreground-admin))]" />
                     <div className="space-y-1">
                       <Badge variant="outline">{item.priority}</Badge>
                       <div className="text-sm">{item.action}</div>
@@ -1278,10 +1278,11 @@ function MarketPricesPanel({
   isLoading?: boolean
   onUseLatest: (point: MarketPricePoint) => void
 }) {
+  const chartTheme = useAdminChartTheme("carbon")
   const points = (payload?.items ?? []).filter((item) => item.instrument === instrument)
   const latestObserved = [...points].reverse().find((item) => item.is_observed)
   const latest = payload?.latest[instrument] ?? latestObserved ?? points[points.length - 1]
-  const chartOption = createMarketKlineChartOption(points, { showVolume: instrument === "CCER" })
+  const chartOption = createMarketKlineChartOption(chartTheme, points, { showVolume: instrument === "CCER" })
 
   return (
     <div className="space-y-4">

@@ -225,3 +225,7 @@ When an agent creates or modifies admin UI:
 4. Do not expose raw data structures to business users.
 5. Prefer one clear page archetype over bespoke layout.
 6. Verify the result with a screenshot before considering the UI done.
+
+## V2 Theme and Domain System
+
+The runtime theme, energy/carbon domain mapping, component variants, and chart builder contract are defined in [`admin-design-system-v2.md`](./admin-design-system-v2.md). This document remains the product-level visual direction; the V2 document is the implementation contract.

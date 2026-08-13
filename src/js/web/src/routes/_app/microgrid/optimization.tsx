@@ -6,13 +6,14 @@ import { formatNumber, RunStatusBadge } from "@/components/microgrid/microgrid-p
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { createTrendChartOption } from "@/lib/admin-chart-theme"
+import { createTrendChartOption, useAdminChartTheme } from "@/lib/admin-chart-theme"
 import { useMicrogridActions, useMicrogridForecastRuns, useMicrogridOptimizationRun, useMicrogridOptimizationRuns } from "@/lib/api/hooks/microgrid"
 import { formatMicrogridDateTime } from "@/lib/microgrid-time"
 
 export const Route = createFileRoute("/_app/microgrid/optimization")({ component: MicrogridOptimizationPage })
 
 function MicrogridOptimizationPage() {
+  const chartTheme = useAdminChartTheme("energy")
   const [confirmOpen, setConfirmOpen] = useState(false)
   const forecastRuns = useMicrogridForecastRuns()
   const runs = useMicrogridOptimizationRuns()
@@ -34,6 +35,7 @@ function MicrogridOptimizationPage() {
   )
   const socPoints = useMemo(() => schedule.map((point) => ({ period: formatMicrogridDateTime(point.validAt), socPct: point.socPct })), [schedule])
   const powerOption = createTrendChartOption(
+    chartTheme,
     powerPoints,
     [
       { key: "loadKw", label: "固定负荷", colorKey: "energy" },
@@ -44,7 +46,10 @@ function MicrogridOptimizationPage() {
     ],
     { periodKey: "period", includeZeroSeries: true },
   )
-  const socOption = createTrendChartOption(socPoints, [{ key: "socPct", label: "SOC", colorKey: "energy" }], { periodKey: "period", includeZeroSeries: true })
+  const socOption = createTrendChartOption(chartTheme, socPoints, [{ key: "socPct", label: "SOC", colorKey: "energy" }], {
+    periodKey: "period",
+    includeZeroSeries: true,
+  })
   const latestForecastId = forecastRuns.data?.find((item) => item.status === "completed")?.id
   const isFeasible = run.data?.status === "optimal" || run.data?.status === "feasible"
 

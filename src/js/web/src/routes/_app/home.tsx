@@ -6,7 +6,8 @@ import { AdminPageHeader, ChartPanel } from "@/components/admin-ui"
 import { Button } from "@/components/ui/button"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { createComboTrendChartOption, createDistributionChartOption } from "@/lib/admin-chart-theme"
+import { createComboTrendChartOption, createDistributionChartOption, useAdminChartTheme } from "@/lib/admin-chart-theme"
+import { AdminDomainScope, type DesignDomain } from "@/lib/design-domain"
 
 export const Route = createFileRoute("/_app/home")({
   component: HomePage,
@@ -128,13 +129,16 @@ const distributionData = {
 
 function HomePage() {
   const [distributionMode, setDistributionMode] = useState<"energy" | "carbon">("energy")
-  const trendOption = createComboTrendChartOption(trendPoints, {
+  const neutralChartTheme = useAdminChartTheme("neutral")
+  const energyChartTheme = useAdminChartTheme("energy")
+  const carbonChartTheme = useAdminChartTheme("carbon")
+  const trendOption = createComboTrendChartOption(neutralChartTheme, trendPoints, {
     bars: [{ key: "energy", label: "综合能耗", colorKey: "energy" }],
     lines: [{ key: "carbon", label: "碳排放", colorKey: "carbon", yAxisIndex: 1 }],
     leftAxisName: "MWh",
     rightAxisName: "tCO2e",
   })
-  const distributionOption = createDistributionChartOption(distributionData[distributionMode], { unit: "%" })
+  const distributionOption = createDistributionChartOption(distributionMode === "energy" ? energyChartTheme : carbonChartTheme, distributionData[distributionMode], { unit: "%" })
 
   return (
     <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
@@ -155,29 +159,35 @@ function HomePage() {
       <PageSection delay={0.05}>
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-3">
-            <FunctionGroup title="能源运营" count="6 项" items={energyFunctions} />
-            <FunctionGroup title="碳排放管理" count="6 项" items={carbonFunctions} />
+            <AdminDomainScope domain="energy">
+              <FunctionGroup title="能源运营" count="6 项" items={energyFunctions} domain="energy" />
+            </AdminDomainScope>
+            <AdminDomainScope domain="carbon">
+              <FunctionGroup title="碳排放管理" count="6 项" items={carbonFunctions} domain="carbon" />
+            </AdminDomainScope>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
             <ChartPanel title="能耗与碳排趋势" option={trendOption} height={220} />
-            <ChartPanel
-              title="分区能碳构成"
-              option={distributionOption}
-              height={220}
-              actions={
-                <Tabs value={distributionMode} onValueChange={(value) => setDistributionMode(value as "energy" | "carbon")} className="gap-0">
-                  <TabsList className="h-8">
-                    <TabsTrigger value="energy" className="px-2 text-xs">
-                      能耗
-                    </TabsTrigger>
-                    <TabsTrigger value="carbon" className="px-2 text-xs">
-                      碳排
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              }
-            />
+            <AdminDomainScope domain={distributionMode}>
+              <ChartPanel
+                title="分区能碳构成"
+                option={distributionOption}
+                height={220}
+                actions={
+                  <Tabs value={distributionMode} onValueChange={(value) => setDistributionMode(value as "energy" | "carbon")} className="gap-0">
+                    <TabsList className="h-8">
+                      <TabsTrigger value="energy" className="px-2 text-xs">
+                        能耗
+                      </TabsTrigger>
+                      <TabsTrigger value="carbon" className="px-2 text-xs">
+                        碳排
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                }
+              />
+            </AdminDomainScope>
           </div>
         </div>
       </PageSection>
@@ -187,9 +197,9 @@ function HomePage() {
 
 type FunctionItem = (typeof energyFunctions)[number] | (typeof carbonFunctions)[number]
 
-function FunctionGroup({ title, count, items }: { title: string; count: string; items: readonly FunctionItem[] }) {
+function FunctionGroup({ title, count, items, domain }: { title: string; count: string; items: readonly FunctionItem[]; domain: DesignDomain }) {
   return (
-    <section className="space-y-2.5">
+    <section className="space-y-2.5" data-design-domain={domain}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="font-semibold text-base leading-6">{title}</h2>

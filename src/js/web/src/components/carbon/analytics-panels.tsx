@@ -14,6 +14,7 @@ import {
   createSankeyChartOption,
   createTrendChartOption,
   formatAdminChartNumber,
+  useAdminChartTheme,
 } from "@/lib/admin-chart-theme"
 import { cn } from "@/lib/utils"
 
@@ -116,6 +117,7 @@ export function KpiStrip({ items }: { items: KpiItem[] }) {
           label={item.label}
           value={formatAdminChartNumber(item.value)}
           unit={item.unit}
+          tone="domain"
           meta={
             <span className="inline-flex items-center gap-1">
               <TrendingUp className="h-3.5 w-3.5" />
@@ -129,7 +131,8 @@ export function KpiStrip({ items }: { items: KpiItem[] }) {
 }
 
 export function TrendChart({ title, points, lines, height = 340 }: { title: string; points: TrendPoint[]; lines: SeriesConfig[]; height?: number }) {
-  return <ChartPanel title={title} option={createTrendChartOption(points, lines)} height={height} emptyLabel="暂无趋势数据" />
+  const chartTheme = useAdminChartTheme("carbon")
+  return <ChartPanel title={title} option={createTrendChartOption(chartTheme, points, lines)} height={height} emptyLabel="暂无趋势数据" />
 }
 
 export function CompositeTrendChart({
@@ -149,19 +152,25 @@ export function CompositeTrendChart({
   leftAxisName?: string
   rightAxisName?: string
 }) {
-  return <ChartPanel title={title} option={createComboTrendChartOption(points, { bars, lines, leftAxisName, rightAxisName })} height={height} emptyLabel="暂无趋势数据" />
+  const chartTheme = useAdminChartTheme("carbon")
+  return (
+    <ChartPanel title={title} option={createComboTrendChartOption(chartTheme, points, { bars, lines, leftAxisName, rightAxisName })} height={height} emptyLabel="暂无趋势数据" />
+  )
 }
 
 export function RankingList({ title, items, unit, height = 320 }: { title: string; items: RankingItem[]; unit?: string; height?: number }) {
-  return <ChartPanel title={title} unit={unit} option={createRankingChartOption(items, { unit })} height={height} emptyLabel="暂无排行数据" />
+  const chartTheme = useAdminChartTheme("carbon")
+  return <ChartPanel title={title} unit={unit} option={createRankingChartOption(chartTheme, items, { unit })} height={height} emptyLabel="暂无排行数据" />
 }
 
 export function DistributionChart({ title, items, unit, height = 280 }: { title: string; items: DistributionItem[]; unit?: string; height?: number }) {
-  return <ChartPanel title={title} unit={unit} option={createDistributionChartOption(items, { unit })} height={height} emptyLabel="暂无分布数据" />
+  const chartTheme = useAdminChartTheme("carbon")
+  return <ChartPanel title={title} unit={unit} option={createDistributionChartOption(chartTheme, items, { unit })} height={height} emptyLabel="暂无分布数据" />
 }
 
 export function GaugeStatCard({ title, value, suffix, height = 240 }: { title: string; value: number; suffix?: string; height?: number }) {
-  return <ChartPanel title={title} unit={suffix} option={createGaugeChartOption(value, { suffix })} height={height} emptyLabel="暂无完成度数据" />
+  const chartTheme = useAdminChartTheme("carbon")
+  return <ChartPanel title={title} unit={suffix} option={createGaugeChartOption(chartTheme, value, { suffix })} height={height} emptyLabel="暂无完成度数据" />
 }
 
 export function DiagnosticsPanel({ title, items }: { title: string; items: { label: string; value: string | number | null | undefined }[] }) {
@@ -180,7 +189,8 @@ export function DiagnosticsPanel({ title, items }: { title: string; items: { lab
 }
 
 export function FlowGraph({ title, unit, nodes, links, height = 620 }: { title: string; unit?: string; nodes: FlowNode[]; links: FlowLink[]; height?: number }) {
-  return <ChartPanel title={title} unit={unit} option={createSankeyChartOption(nodes, links)} height={height} emptyLabel="暂无流向数据" />
+  const chartTheme = useAdminChartTheme("carbon")
+  return <ChartPanel title={title} unit={unit} option={createSankeyChartOption(chartTheme, nodes, links)} height={height} emptyLabel="暂无流向数据" />
 }
 
 export function LedgerTable({ title, rows, columns }: { title: string; rows: Record<string, unknown>[]; columns: { key: string; label: string; align?: "left" | "right" }[] }) {
@@ -216,8 +226,9 @@ export function LedgerTable({ title, rows, columns }: { title: string; rows: Rec
 }
 
 export function ScopeSummary({ items }: { items: RankingItem[] }) {
+  const chartTheme = useAdminChartTheme("carbon")
   const chartItems = items.map((item) => ({ name: item.name, value: item.value }))
-  return <ChartPanel title="范围贡献" unit="kgCO2e" option={createDistributionChartOption(chartItems, { unit: "kgCO2e" })} height={260} emptyLabel="暂无范围汇总" />
+  return <ChartPanel title="范围贡献" unit="kgCO2e" option={createDistributionChartOption(chartTheme, chartItems, { unit: "kgCO2e" })} height={260} emptyLabel="暂无范围汇总" />
 }
 
 export function InsightCallout({ title, tone = "default" }: { title: string; tone?: "default" | "warning" }) {
@@ -225,7 +236,9 @@ export function InsightCallout({ title, tone = "default" }: { title: string; ton
     <div
       className={cn(
         "flex items-start gap-3 rounded-lg border px-4 py-3 text-sm",
-        tone === "warning" ? "border-amber-300/60 bg-amber-50 text-amber-950 dark:border-amber-700/40 dark:bg-amber-950/20 dark:text-amber-100" : "border-border/60 bg-card/70",
+        tone === "warning"
+          ? "border-[hsl(var(--status-warning))]/35 bg-[hsl(var(--status-warning))]/10 text-[hsl(var(--status-warning-foreground-admin))]"
+          : "border-border/60 bg-card/70",
       )}
     >
       {tone === "warning" ? <AlertTriangle className="mt-0.5 h-4 w-4" /> : <GitBranch className="mt-0.5 h-4 w-4" />}

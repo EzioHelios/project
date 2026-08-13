@@ -10,7 +10,11 @@ const routeState = vi.hoisted(() => ({
 }))
 
 vi.mock("@tanstack/react-router", () => ({
-  Link: ({ to, children }: { to: string; children: React.ReactNode }) => <a href={to}>{children}</a>,
+  Link: ({ to, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { to: string }) => (
+    <a href={to} {...props}>
+      {children}
+    </a>
+  ),
   useNavigate: () => vi.fn(),
   useRouterState: ({ select }: { select: (state: { location: { pathname: string } }) => string }) => select({ location: { pathname: routeState.pathname } }),
 }))
@@ -64,13 +68,13 @@ describe("AppSidebar", () => {
     }))
   })
 
-  it("shows a direct carbon emission ledger entry", () => {
+  it("shows the primary carbon accounting entry", () => {
     renderSidebar()
 
-    const ledgerLink = screen.getByRole("link", { name: "碳排放台账" })
+    const accountingLink = screen.getByRole("link", { name: "碳排放核算" })
 
-    expect(ledgerLink).toBeInTheDocument()
-    expect(ledgerLink).toHaveAttribute("href", "/carbon/ledger")
+    expect(accountingLink).toBeInTheDocument()
+    expect(accountingLink).toHaveAttribute("href", "/carbon/accounting")
   })
 
   it("shows carbon data entry links for Scope records", () => {
@@ -78,8 +82,13 @@ describe("AppSidebar", () => {
 
     renderSidebar()
 
-    expect(screen.getByRole("link", { name: "碳数据填报" })).toHaveAttribute("href", "/carbon-mgmt/scope2-bill")
-    expect(screen.getByRole("link", { name: "电力账单" })).toHaveAttribute("href", "/carbon-mgmt/scope2-bill")
+    const parentButton = screen.getByRole("button", { name: "碳数据填报" })
+    const currentLeafLink = screen.getByRole("link", { name: "电力账单" })
+
+    expect(parentButton).toHaveAttribute("data-active", "false")
+    expect(parentButton).not.toHaveAttribute("aria-current")
+    expect(currentLeafLink).toHaveAttribute("href", "/carbon-mgmt/scope2-bill")
+    expect(currentLeafLink).toHaveAttribute("aria-current", "page")
     expect(screen.getByRole("link", { name: "固定源燃烧" })).toHaveAttribute("href", "/carbon-mgmt/scope1-stationary")
     expect(screen.getByRole("link", { name: "移动源燃烧" })).toHaveAttribute("href", "/carbon-mgmt/scope1-mobile")
     expect(screen.getByRole("link", { name: "废弃物处理" })).toHaveAttribute("href", "/carbon-mgmt/scope3-waste")
@@ -88,9 +97,9 @@ describe("AppSidebar", () => {
   it("places carbon data entry after activity ledger", () => {
     renderSidebar()
 
-    const activityLedgerLink = screen.getByRole("link", { name: "活动台账" })
-    const carbonDataEntryLink = screen.getByRole("link", { name: "碳数据填报" })
+    const activityLedgerButton = screen.getByRole("button", { name: "活动台账" })
+    const carbonDataEntryButton = screen.getByRole("button", { name: "碳数据填报" })
 
-    expect(activityLedgerLink.compareDocumentPosition(carbonDataEntryLink)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(activityLedgerButton.compareDocumentPosition(carbonDataEntryButton)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 })

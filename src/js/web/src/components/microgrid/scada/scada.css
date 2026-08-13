@@ -6,8 +6,7 @@
   --scada-grid: hsl(var(--border) / 0.32);
   height: clamp(720px, 68vw, 880px);
   min-height: 720px;
-  background:
-    linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--muted) / 0.3) 100%);
+  background: hsl(var(--background));
 }
 
 .scada-runtime .react-flow__pane {
@@ -72,8 +71,7 @@
   overflow: visible;
   border: 1px solid hsl(var(--border) / 0.8);
   border-radius: 8px;
-  background:
-    linear-gradient(145deg, hsl(var(--background) / 0.96), hsl(var(--muted) / 0.42));
+  background: hsl(var(--background));
   box-shadow: inset 0 0 0 1px hsl(var(--background) / 0.55);
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }

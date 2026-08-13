@@ -1,14 +1,28 @@
 import { Outlet, useRouterState } from "@tanstack/react-router"
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { resolveAdminDomain } from "@/lib/design-domain"
 
 export function AppLayout() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
   const isBigscreenRoute = pathname.startsWith("/bigscreen")
+  const designDomain = resolveAdminDomain(pathname)
+
+  useEffect(() => {
+    const root = document.documentElement
+    if (isBigscreenRoute) {
+      delete root.dataset.adminDomain
+      return
+    }
+    root.dataset.adminDomain = designDomain
+    return () => {
+      delete root.dataset.adminDomain
+    }
+  }, [designDomain, isBigscreenRoute])
 
   const header = useMemo(() => {
     if (pathname === "/home") {
@@ -124,12 +138,12 @@ export function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="admin-shell flex min-h-svh flex-col" data-design-domain={designDomain}>
       <main className="flex flex-1">
         <SidebarProvider>
           <AppSidebar />
           <SidebarInset>
-            <header className="flex h-14 shrink-0 items-center gap-2 border-border/70 border-b bg-background/86 backdrop-blur">
+            <header className="admin-shell-header flex h-14 shrink-0 items-center gap-2 border-b">
               <div className="flex w-full items-center justify-between gap-4 px-4">
                 <div className="flex items-center gap-2">
                   <SidebarTrigger className="-ml-1" />

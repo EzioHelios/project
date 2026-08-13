@@ -13,11 +13,12 @@ type MetricTileProps = React.HTMLAttributes<HTMLDivElement> & {
   value: React.ReactNode
   unit?: React.ReactNode
   meta?: React.ReactNode
-  tone?: "default" | "success" | "warning" | "danger" | "info"
+  tone?: "default" | "domain" | "success" | "warning" | "danger" | "info"
 }
 
 const toneClassName: Record<NonNullable<MetricTileProps["tone"]>, string> = {
   default: "",
+  domain: "",
   success: "border-[hsl(var(--status-success))]/30 bg-[hsl(var(--status-success))]/5",
   warning: "border-[hsl(var(--status-warning))]/35 bg-[hsl(var(--status-warning))]/10",
   danger: "border-[hsl(var(--status-danger))]/30 bg-[hsl(var(--status-danger))]/5",

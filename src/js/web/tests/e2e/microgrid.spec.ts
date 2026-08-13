@@ -284,12 +284,12 @@ async function installApiMocks(page: Page) {
 }
 
 for (const [path, heading, mode, evidence] of [
-  ["/microgrid/overview", "微电网运行总览", "影子运行", "未来24小时功率计划"],
+  ["/microgrid/overview", "运行总览", "影子运行", "未来24小时功率计划"],
   ["/microgrid/operations", "运行监控", "影子运行", "一次系统运行图"],
-  ["/microgrid/forecast", "微电网预测分析", "实测负荷优先", "仓库负荷分位数预测"],
-  ["/microgrid/optimization", "微电网智能优化", "模拟闭环", "资源调度计划"],
-  ["/microgrid/settings/assets", "微电网设备与场景", "已发布 / 不可修改", "资源参数与来源"],
-  ["/microgrid/settings/flexibility", "微电网柔性契约", "安全下限优先", "调度边界"],
+  ["/microgrid/forecast", "预测分析", "实测负荷优先", "仓库负荷分位数预测"],
+  ["/microgrid/optimization", "智能优化", "模拟闭环", "资源调度计划"],
+  ["/microgrid/settings/assets", "设备与场景", "已发布 / 不可修改", "资源参数与来源"],
+  ["/microgrid/settings/flexibility", "柔性契约", "安全下限优先", "调度边界"],
 ] as const) {
   test(`${heading} renders the configured Xiangtai shadow workflow`, async ({ page }) => {
     await installApiMocks(page)

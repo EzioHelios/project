@@ -2,7 +2,7 @@ import { Activity, Clock3, Database, Radio, Thermometer } from "lucide-react"
 import { ChartPanel } from "@/components/admin-ui"
 import { getAssetTypeLabel } from "@/components/microgrid/microgrid-page"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { createTrendChartOption } from "@/lib/admin-chart-theme"
+import { createTrendChartOption, useAdminChartTheme } from "@/lib/admin-chart-theme"
 import { useMicrogridAssetSeries } from "@/lib/api/hooks/microgrid"
 import { formatMicrogridDateTime, formatMicrogridTime } from "@/lib/microgrid-time"
 import type { ScadaSelection } from "../types"
@@ -35,10 +35,11 @@ function Fact({ label, value, icon: Icon }: { label: string; value: string; icon
 }
 
 export function AssetFaceplate({ selection, onOpenChange }: { selection: ScadaSelection | null; onOpenChange: (open: boolean) => void }) {
+  const chartTheme = useAdminChartTheme("energy")
   const asset = selection?.asset
   const series = useMicrogridAssetSeries(asset?.id ?? null)
   const chartPoints = (series.data ?? []).map((point) => ({ period: formatMicrogridTime(point.observedAt), value: point.value }))
-  const option = createTrendChartOption(chartPoints, [{ key: "value", label: "有功功率", colorKey: "energy" }], { includeZeroSeries: true })
+  const option = createTrendChartOption(chartTheme, chartPoints, [{ key: "value", label: "有功功率", colorKey: "energy" }], { includeZeroSeries: true })
   return (
     <Sheet onOpenChange={onOpenChange} open={selection !== null}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">

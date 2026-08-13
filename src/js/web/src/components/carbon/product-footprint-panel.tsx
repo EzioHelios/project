@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { createDistributionChartOption, createRankingChartOption, createSankeyChartOption } from "@/lib/admin-chart-theme"
+import { createDistributionChartOption, createRankingChartOption, createSankeyChartOption, useAdminChartTheme } from "@/lib/admin-chart-theme"
 
 type ProductFootprintSummary = {
   study_count: number
@@ -332,6 +332,7 @@ const supplierMatchLabels: Record<string, string> = {
 }
 
 export function ProductFootprintPanel({ header }: { header?: ReactNode }) {
+  const chartTheme = useAdminChartTheme("carbon")
   const qc = useQueryClient()
   const [selectedStudyId, setSelectedStudyId] = useState<number | null>(null)
   const [studyOpen, setStudyOpen] = useState(false)
@@ -410,19 +411,22 @@ export function ProductFootprintPanel({ header }: { header?: ReactNode }) {
     () => stageSummary.map((item) => ({ name: item.stage_name || item.stage_code, value: item.kg_co2e })).filter((item) => item.value > 0),
     [stageSummary],
   )
-  const stageDistributionOption = useMemo(() => createDistributionChartOption(stageDistribution, { unit: "kgCO2e" }), [stageDistribution])
-  const productRankingOption = useMemo(() => createRankingChartOption(productFootprintRanking, { unit: "kgCO2e", colorKey: "carbon", limit: 8 }), [productFootprintRanking])
+  const stageDistributionOption = useMemo(() => createDistributionChartOption(chartTheme, stageDistribution, { unit: "kgCO2e" }), [chartTheme, stageDistribution])
+  const productRankingOption = useMemo(
+    () => createRankingChartOption(chartTheme, productFootprintRanking, { unit: "kgCO2e", colorKey: "carbon", limit: 8 }),
+    [chartTheme, productFootprintRanking],
+  )
   const footprintFlow = useMemo(() => buildProductFootprintFlow(stageSummary, inventoryItems, latestResult?.total_co2e), [stageSummary, inventoryItems, latestResult?.total_co2e])
   const footprintFlowOption = useMemo(
     () =>
-      createSankeyChartOption(footprintFlow.nodes, footprintFlow.links, {
+      createSankeyChartOption(chartTheme, footprintFlow.nodes, footprintFlow.links, {
         categoryColorMap: {
           product_total: "carbon",
           stage: "energy",
           activity: "scope2",
         },
       }),
-    [footprintFlow],
+    [chartTheme, footprintFlow],
   )
 
   useEffect(() => {

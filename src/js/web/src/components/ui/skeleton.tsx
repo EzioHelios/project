@@ -22,7 +22,7 @@ function Skeleton({ className, shimmer = true, ...props }: SkeletonProps) {
 // Pre-built skeleton patterns
 function SkeletonCard({ className }: { className?: string }) {
   return (
-    <div className={cn("rounded-xl border border-border/60 bg-card/80 p-6 space-y-4", className)}>
+    <div className={cn("space-y-4 rounded-lg border border-border/70 bg-card/82 p-6", className)}>
       <Skeleton className="h-6 w-1/3" />
       <Skeleton className="h-4 w-full" />
       <Skeleton className="h-4 w-2/3" />

@@ -134,9 +134,9 @@ function formatNumber(value: number | null | undefined, digits = 2) {
 
 function statusBadge(status?: string | null) {
   const label = statusLabels[status || ""] ?? status ?? "-"
-  if (status === "ok") return <Badge className="bg-emerald-600 hover:bg-emerald-600">{label}</Badge>
+  if (status === "ok") return <Badge variant="success">{label}</Badge>
   if (status === "severe") return <Badge variant="destructive">{label}</Badge>
-  if (status === "warning") return <Badge className="bg-amber-500 hover:bg-amber-500">{label}</Badge>
+  if (status === "warning") return <Badge variant="warning">{label}</Badge>
   return <Badge variant="outline">{label}</Badge>
 }
 

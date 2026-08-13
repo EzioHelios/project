@@ -6,13 +6,14 @@ import { formatNumber, RunStatusBadge } from "@/components/microgrid/microgrid-p
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsTrigger } from "@/components/ui/tabs"
-import { createTrendChartOption } from "@/lib/admin-chart-theme"
+import { createTrendChartOption, useAdminChartTheme } from "@/lib/admin-chart-theme"
 import { useMicrogridActions, useMicrogridForecastRun, useMicrogridForecastRuns, useMicrogridOverview } from "@/lib/api/hooks/microgrid"
 import { formatMicrogridDateTime } from "@/lib/microgrid-time"
 
 export const Route = createFileRoute("/_app/microgrid/forecast")({ component: MicrogridForecastPage })
 
 function MicrogridForecastPage() {
+  const chartTheme = useAdminChartTheme("energy")
   const [seriesCode, setSeriesCode] = useState<"load" | "pv" | "soc">("load")
   const overview = useMicrogridOverview()
   const runs = useMicrogridForecastRuns()
@@ -27,6 +28,7 @@ function MicrogridForecastPage() {
     [run.data?.points, seriesCode],
   )
   const option = createTrendChartOption(
+    chartTheme,
     points,
     [
       { key: "p10", label: "P10", colorKey: "neutral" },
