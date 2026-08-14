@@ -9,6 +9,7 @@ from sqlalchemy import desc, select
 
 from app.config import alchemy
 from app.db import models as m
+from app.domain.microgrid.infrastructure.metering import MicrogridMeterProjection
 from app.domain.microgrid.usecases import RunForecast, RunOptimization
 from app.lib.tenancy import TENANT_BYPASS_SESSION_KEY
 
@@ -16,6 +17,24 @@ if TYPE_CHECKING:
     from saq.types import Context
 
 logger = logging.getLogger(__name__)
+
+
+async def project_microgrid_meter_history(_: Context) -> None:
+    """Refresh the latest 21-day measured projections for explicitly bound sites."""
+    async with alchemy.get_session() as session:
+        session.info[TENANT_BYPASS_SESSION_KEY] = True
+        site_ids = (
+            await session.scalars(
+                select(m.MicrogridAssetMeterBinding.site_id)
+                .where(m.MicrogridAssetMeterBinding.enabled.is_(True))
+                .distinct()
+            )
+        ).all()
+        for site_id in site_ids:
+            try:
+                await MicrogridMeterProjection(session).project(site_id=site_id)
+            except Exception:
+                logger.exception("Microgrid meter projection failed for site %s", site_id)
 
 
 async def run_microgrid_forecast_cycle(_: Context) -> None:
@@ -42,7 +61,11 @@ async def run_microgrid_optimization_cycle(_: Context) -> None:
         for site in sites:
             forecast = await session.scalar(
                 select(m.ForecastRun)
-                .where(m.ForecastRun.site_id == site.id, m.ForecastRun.status == "completed")
+                .where(
+                    m.ForecastRun.site_id == site.id,
+                    m.ForecastRun.status == "completed",
+                    m.ForecastRun.quality_status == "pass",
+                )
                 .order_by(desc(m.ForecastRun.created_at))
             )
             if forecast is None:

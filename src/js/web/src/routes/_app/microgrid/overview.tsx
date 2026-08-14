@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { RefreshCw, Sparkles } from "lucide-react"
 import { AdminEmptyState, AdminPageScaffold, AdminPanel, ChartPanel, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
-import { formatNumber, getAssetTypeLabel, RunStatusBadge, ShadowModeBadge } from "@/components/microgrid/microgrid-page"
+import { formatNumber, getAssetTypeLabel, getOptimizationAlgorithmLabel, MicrogridOperatingBadge, RunStatusBadge } from "@/components/microgrid/microgrid-page"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { createTrendChartOption, useAdminChartTheme } from "@/lib/admin-chart-theme"
@@ -29,14 +29,14 @@ function MicrogridOverviewPage() {
 
   if (!overview.isLoading && !data?.configured) {
     return (
-      <AdminPageScaffold title="运行总览" status={<ShadowModeBadge />}>
+      <AdminPageScaffold title="运行总览" status={<MicrogridOperatingBadge />}>
         <AdminEmptyState
-          title="祥泰微电网演示尚未初始化"
-          description="创建祥泰演示场景并生成首轮预测与优化结果。"
+          title="微电网站点尚未初始化"
+          description="完成站点配置后即可生成预测与优化计划。"
           actions={
             <Button disabled={actions.bootstrap.isPending} onClick={() => actions.bootstrap.mutate()}>
               <Sparkles />
-              {actions.bootstrap.isPending ? "正在初始化" : "初始化祥泰演示"}
+              {actions.bootstrap.isPending ? "正在初始化" : "初始化站点"}
             </Button>
           }
         />
@@ -48,8 +48,8 @@ function MicrogridOverviewPage() {
   return (
     <AdminPageScaffold
       title="运行总览"
-      status={<ShadowModeBadge />}
-      meta={data?.site ? `${data.site.name} · 场景 ${data.scenario?.name ?? "-"} v${data.scenario?.version ?? "-"}` : undefined}
+      status={<MicrogridOperatingBadge />}
+      meta={data?.site ? `${data.site.name} · 策略 v${data.scenario?.version ?? "-"}` : undefined}
       topActions={
         <Button disabled={overview.isFetching} onClick={() => void overview.refetch()} size="sm" variant="outline">
           <RefreshCw className={overview.isFetching ? "animate-spin" : ""} />
@@ -63,12 +63,8 @@ function MicrogridOverviewPage() {
             <div className="font-medium text-sm">{data?.site?.name ?? "-"}</div>
           </div>
           <div className="min-w-40">
-            <span className="text-muted-foreground text-xs">数据模式</span>
-            <div className="font-medium text-sm">影子运行</div>
-          </div>
-          <div className="min-w-56">
-            <span className="text-muted-foreground text-xs">参数来源</span>
-            <div className="truncate font-medium text-sm">{data?.scenario?.sourceName ?? "-"}</div>
+            <span className="text-muted-foreground text-xs">当前策略</span>
+            <div className="font-medium text-sm">v{data?.scenario?.version ?? "-"}</div>
           </div>
           <div className="min-w-40">
             <span className="text-muted-foreground text-xs">时间基准</span>
@@ -78,12 +74,27 @@ function MicrogridOverviewPage() {
       }
       metrics={
         <MetricStrip className="xl:grid-cols-6">
-          <MetricTile label="PCC功率" value={formatNumber(metrics?.pccPowerKw)} unit="kW" meta="模拟状态投影" />
+          <MetricTile label="PCC功率" value={formatNumber(metrics?.pccPowerKw)} unit="kW" />
           <MetricTile label="光伏功率" value={formatNumber(metrics?.pvPowerKw)} unit="kW" />
           <MetricTile label="储能SOC" value={formatNumber(metrics?.socPct)} unit="%" />
-          <MetricTile label="优化节省" value={formatNumber(metrics?.savingsCny, 2)} unit="元/日" tone="success" />
-          <MetricTile label="削减峰值" value={formatNumber(metrics?.peakReductionKw)} unit="kW" />
-          <MetricTile label="减排" value={formatNumber(metrics?.carbonReductionKg)} unit="kgCO₂e" />
+          <MetricTile
+            label={(metrics?.savingsCny ?? 0) >= 0 ? "优化节省" : "费用增加"}
+            value={formatNumber(Math.abs(metrics?.savingsCny ?? 0), 2)}
+            unit="元/日"
+            tone={(metrics?.savingsCny ?? 0) >= 0 ? "success" : "warning"}
+          />
+          <MetricTile
+            label={(data?.optimizationRun?.peakChangeKw ?? 0) <= 0 ? "峰值下降" : "峰值增加"}
+            value={formatNumber(Math.abs(data?.optimizationRun?.peakChangeKw ?? 0))}
+            unit="kW"
+            tone={(data?.optimizationRun?.peakChangeKw ?? 0) <= 0 ? "success" : "warning"}
+          />
+          <MetricTile
+            label={(metrics?.carbonReductionKg ?? 0) >= 0 ? "减排" : "排放增加"}
+            value={formatNumber(Math.abs(metrics?.carbonReductionKg ?? 0))}
+            unit="kgCO₂e"
+            tone={(metrics?.carbonReductionKg ?? 0) >= 0 ? "success" : "warning"}
+          />
         </MetricStrip>
       }
     >
@@ -91,15 +102,23 @@ function MicrogridOverviewPage() {
         <ChartPanel
           title="未来24小时功率计划"
           unit="kW"
-          source="负荷/PV预测与MILP计划"
+          source="负荷与光伏预测 / MILP滚动优化"
           updatedAt={formatMicrogridDateTime(data?.optimizationRun?.completedAt ?? data?.forecastRun?.completedAt)}
           option={trendOption}
           height={330}
         />
-        <AdminPanel title="计算链状态" contentClassName="divide-y divide-border/60 p-0">
+        <AdminPanel title="运行状态" contentClassName="divide-y divide-border/60 p-0">
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-sm">负荷与光伏预测</span>
-            <RunStatusBadge status={data?.forecastRun?.status} />
+            <RunStatusBadge status={data?.forecastRun?.qualityStatus ?? data?.forecastRun?.status} />
+          </div>
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-sm">数据完整率</span>
+            <RunStatusBadge status={data?.dataReadiness?.ready ? "pass" : "warning"} />
+          </div>
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-sm">调度状态</span>
+            <RunStatusBadge status={data?.dispatchBatch?.status} />
           </div>
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-sm">滚动优化</span>
@@ -107,8 +126,8 @@ function MicrogridOverviewPage() {
           </div>
           <div className="grid grid-cols-2 gap-3 px-4 py-3 text-sm">
             <div>
-              <div className="text-muted-foreground text-xs">求解器</div>
-              <div className="mt-1 font-medium">{data?.optimizationRun?.solver ?? "HiGHS"}</div>
+              <div className="text-muted-foreground text-xs">优化算法</div>
+              <div className="mt-1 font-medium">{data?.optimizationRun ? getOptimizationAlgorithmLabel(data.optimizationRun.solver) : "-"}</div>
             </div>
             <div>
               <div className="text-muted-foreground text-xs">求解耗时</div>
@@ -136,7 +155,6 @@ function MicrogridOverviewPage() {
               <TableHead>状态</TableHead>
               <TableHead className="text-right">当前功率</TableHead>
               <TableHead className="text-right">额定功率</TableHead>
-              <TableHead>数据来源</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -147,7 +165,6 @@ function MicrogridOverviewPage() {
                 <TableCell>{asset.online ? "在线" : "离线"}</TableCell>
                 <TableCell className="text-right">{formatNumber(asset.activePowerKw)} kW</TableCell>
                 <TableCell className="text-right">{formatNumber(asset.ratedPowerKw)} kW</TableCell>
-                <TableCell>{asset.sourceKind === "enterprise_assumption" ? "企业演示假设" : asset.sourceKind}</TableCell>
               </TableRow>
             ))}
           </TableBody>

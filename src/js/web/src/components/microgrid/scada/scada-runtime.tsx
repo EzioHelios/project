@@ -45,7 +45,7 @@ export function ScadaRuntime({ topology, onSelect }: { topology: MicrogridTopolo
             失电或离线
           </li>
         </ul>
-        <div className="text-muted-foreground text-[10px] tabular-nums">拓扑V{topology.topologyVersion ?? 1} · 自动布局 · 只读运行视图</div>
+        <div className="text-muted-foreground text-[10px] tabular-nums">拓扑 V{topology.topologyVersion ?? 1} · 实时监视</div>
       </div>
       <div className="scada-runtime" ref={containerRef}>
         <ReactFlow

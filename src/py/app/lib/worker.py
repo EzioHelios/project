@@ -67,6 +67,7 @@ def saq_worker_settings() -> dict[str, Any]:
             microgrid_jobs.run_microgrid_forecast_cycle,
             microgrid_jobs.run_microgrid_optimization_cycle,
             microgrid_jobs.refresh_microgrid_load_models,
+            microgrid_jobs.project_microgrid_meter_history,
         ]
     )
     return {
@@ -89,6 +90,7 @@ def saq_worker_settings() -> dict[str, Any]:
             CronJob(microgrid_jobs.run_microgrid_forecast_cycle, "*/15 * * * *", timeout=600),
             CronJob(microgrid_jobs.run_microgrid_optimization_cycle, "2-59/15 * * * *", timeout=300),
             CronJob(microgrid_jobs.refresh_microgrid_load_models, "30 2 * * *", timeout=900),
+            CronJob(microgrid_jobs.project_microgrid_meter_history, "7 * * * *", timeout=900),
         ],
         "startup": [on_startup, iot_infrastructure.on_mqtt_ingest_startup] if is_mqtt_ingest else [on_startup],
         "shutdown": [iot_infrastructure.on_mqtt_ingest_shutdown, on_shutdown] if is_mqtt_ingest else [on_shutdown],

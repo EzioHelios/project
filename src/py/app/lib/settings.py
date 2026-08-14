@@ -224,6 +224,7 @@ class SaqSettings:
                         microgrid_jobs.run_microgrid_forecast_cycle,
                         microgrid_jobs.run_microgrid_optimization_cycle,
                         microgrid_jobs.refresh_microgrid_load_models,
+                        microgrid_jobs.project_microgrid_meter_history,
                     ],
                     scheduled_tasks=[
                         CronJob(
@@ -285,6 +286,11 @@ class SaqSettings:
                         CronJob(
                             function=microgrid_jobs.refresh_microgrid_load_models,
                             cron="30 2 * * *",
+                            timeout=900,
+                        ),
+                        CronJob(
+                            function=microgrid_jobs.project_microgrid_meter_history,
+                            cron="7 * * * *",
                             timeout=900,
                         ),
                     ],

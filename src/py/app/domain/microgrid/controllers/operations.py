@@ -5,7 +5,7 @@ from __future__ import annotations
 # ruff: noqa: TC001 - Litestar resolves request DTO annotations at runtime.
 from typing import TYPE_CHECKING, Any
 
-from litestar import Controller, post
+from litestar import Controller, get, post
 from litestar.exceptions import ClientException
 from litestar.response import Response
 
@@ -24,6 +24,26 @@ class MicrogridOperationsController(Controller):
 
     path = "/api/microgrid"
     tags = ["Microgrid"]
+
+    @get(
+        "/dispatch-batches",
+        operation_id="MicrogridListDispatchBatches",
+        guards=[requires_permission("microgrid.view")],
+    )
+    async def dispatch_batches(
+        self,
+        db_session: AsyncSession,
+        site_id: int | None = None,
+        status: str | None = None,
+        scenario_id: int | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "items": await MicrogridQueryService(db_session).dispatch_batches(
+                site_id=site_id,
+                status=status,
+                scenario_id=scenario_id,
+            )
+        }
 
     @post(
         "/dispatch-batches",

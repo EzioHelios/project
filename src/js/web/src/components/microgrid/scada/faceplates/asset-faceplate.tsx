@@ -8,9 +8,9 @@ import { formatMicrogridDateTime, formatMicrogridTime } from "@/lib/microgrid-ti
 import type { ScadaSelection } from "../types"
 
 const sourceLabels: Record<string, string> = {
-  simulated: "模拟遥测",
+  simulated: "系统状态",
   measured: "现场采集",
-  projected: "状态投影",
+  projected: "状态计算",
   unknown: "未识别",
 }
 
@@ -48,18 +48,18 @@ export function AssetFaceplate({ selection, onOpenChange }: { selection: ScadaSe
             <span className={`inline-flex size-2 rounded-full ${toneClasses[selection?.tone ?? "simulated"]}`} />
             <SheetTitle>{selection?.label ?? "设备详情"}</SheetTitle>
           </div>
-          <SheetDescription>{asset ? `${getAssetTypeLabel(asset.assetType)} · ${asset.code}` : "一次系统结构节点 · 影子运行"}</SheetDescription>
+          <SheetDescription>{asset ? `${getAssetTypeLabel(asset.assetType)} · ${asset.code}` : "一次系统结构节点"}</SheetDescription>
         </SheetHeader>
         <div className="px-4">
           <div className="grid grid-cols-2 gap-x-5">
             <Fact icon={Activity} label="运行状态" value={selection?.statusLabel ?? "-"} />
-            <Fact icon={Radio} label="通信状态" value={asset ? (asset.online ? "在线" : "离线") : "模拟联锁"} />
+            <Fact icon={Radio} label="通信状态" value={asset ? (asset.online ? "在线" : "离线") : "状态正常"} />
             <Fact icon={Activity} label="有功功率" value={asset?.activePowerKw === null || asset?.activePowerKw === undefined ? "-" : `${asset.activePowerKw.toFixed(1)} kW`} />
-            <Fact icon={Database} label="数据来源" value={sourceLabels[asset?.stateSourceKind ?? "simulated"] ?? asset?.stateSourceKind ?? "模拟状态"} />
+            <Fact icon={Database} label="数据来源" value={sourceLabels[asset?.stateSourceKind ?? "simulated"] ?? asset?.stateSourceKind ?? "系统状态"} />
             {asset?.socPct !== null && asset?.socPct !== undefined && <Fact icon={Activity} label="储能SOC" value={`${asset.socPct.toFixed(1)} %`} />}
             {asset?.temperatureC !== null && asset?.temperatureC !== undefined && <Fact icon={Thermometer} label="设备温度" value={`${asset.temperatureC.toFixed(1)} ℃`} />}
             <Fact icon={Clock3} label="数据时间" value={formatMicrogridDateTime(asset?.observedAt)} />
-            <Fact icon={Database} label="运行边界" value={asset?.controllable ? "模拟功率目标" : "只读监视"} />
+            <Fact icon={Database} label="运行边界" value={asset?.controllable ? "功率目标" : "状态监视"} />
           </div>
           {asset && (
             <div className="mt-4 pb-5">
@@ -70,7 +70,7 @@ export function AssetFaceplate({ selection, onOpenChange }: { selection: ScadaSe
                 source={sourceLabels[asset.stateSourceKind] ?? asset.stateSourceKind}
                 title="最近24小时功率"
                 unit="kW"
-                updatedAt={formatMicrogridDateTime(series.data?.at(-1)?.observedAt ?? asset.observedAt)}
+                updatedAt={formatMicrogridDateTime(series.data?.[Math.max((series.data?.length ?? 1) - 1, 0)]?.observedAt ?? asset.observedAt)}
               />
             </div>
           )}

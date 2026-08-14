@@ -117,6 +117,7 @@ export function AppLayout() {
       if (pathname === "/microgrid/operations") return { eyebrow: "微电网运营", title: "运行监控" }
       if (pathname === "/microgrid/forecast") return { eyebrow: "微电网运营", title: "预测分析" }
       if (pathname === "/microgrid/optimization") return { eyebrow: "微电网运营", title: "智能优化" }
+      if (pathname === "/microgrid/dispatch") return { eyebrow: "微电网运营", title: "调度记录" }
       if (pathname === "/microgrid/settings/assets") return { eyebrow: "微电网配置", title: "设备与场景" }
       if (pathname === "/microgrid/settings/flexibility") return { eyebrow: "微电网配置", title: "柔性契约" }
       return { eyebrow: "微电网运营", title: "微电网运营" }

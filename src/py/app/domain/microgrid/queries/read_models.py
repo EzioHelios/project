@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-# ruff: noqa: PERF401, RUF001, TC003
+# ruff: noqa: EM101, PERF401, PLR2004, RUF001, TC003, TRY003
 from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import desc, select
+from sqlalchemy import case, desc, func, select
 
 from app.db import models as m
+from app.domain.microgrid.domain.exceptions import ScenarioNotReadyError
 from app.domain.microgrid.domain.scada import normalize_scada_scene
+from app.domain.microgrid.infrastructure.metering import MicrogridMeterProjection
+from app.lib.tenancy import DEFAULT_TENANT_ID
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,6 +54,13 @@ class MicrogridQueryService:
         pcc = states.get("grid", {})
         pv = states.get("pv", {})
         storage = states.get("storage", {})
+        readiness = await MicrogridMeterProjection(self._session).readiness(site_id=site.id)
+        dispatch = await self._session.scalar(
+            select(m.DispatchBatch)
+            .join(m.OptimizationRun, m.OptimizationRun.id == m.DispatchBatch.optimization_run_id)
+            .where(m.OptimizationRun.site_id == site.id)
+            .order_by(desc(m.DispatchBatch.created_at))
+        )
         return {
             "configured": True,
             "mode": "shadow",
@@ -71,6 +81,8 @@ class MicrogridQueryService:
             "assets": assets,
             "forecastRun": self._forecast_summary(forecast) if forecast else None,
             "optimizationRun": self._optimization_summary(optimization) if optimization else None,
+            "dataReadiness": readiness.as_dict(),
+            "dispatchBatch": self._dispatch_summary(dispatch) if dispatch else None,
         }
 
     async def topology(self, *, site_id: int | None = None) -> dict[str, Any]:
@@ -226,6 +238,10 @@ class MicrogridQueryService:
                 "targetEnergyKwh": _number(contract.target_energy_kwh),
                 "priority": contract.priority,
                 "enabled": contract.enabled,
+                "penaltyCnyPerKwh": _number(contract.penalty_cny_per_kwh),
+                "recoveryConstraints": contract.recovery_constraints,
+                "hardConstraint": bool(contract.recovery_constraints.get("hard_constraint", True)),
+                "assetType": asset.asset_type,
             }
             for contract, asset in rows
         ]
@@ -338,28 +354,168 @@ class MicrogridQueryService:
             .scalars()
             .all()
         )
+        result = self._dispatch_summary(batch)
+        result.update(
+            {
+                "id": batch.id,
+                "optimizationRunId": batch.optimization_run_id,
+                "status": batch.status,
+                "adapterCode": batch.adapter_code,
+                "expiresAt": _time(batch.expires_at),
+                "commandCount": batch.command_count,
+                "acceptedCount": batch.accepted_count,
+                "rejectedCount": batch.rejected_count,
+                "receipts": [
+                    {
+                        "commandKey": row.command_key,
+                        "assetCode": row.asset_code,
+                        "scheduledAt": _time(row.scheduled_at),
+                        "receivedAt": _time(row.received_at),
+                        "targetPowerKw": _number(row.target_power_kw),
+                        "executedPowerKw": _number(row.executed_power_kw),
+                        "status": row.status,
+                        "reason": row.reason,
+                    }
+                    for row in receipts
+                ],
+                "assetSummaries": _dispatch_asset_summaries(receipts),
+            }
+        )
+        return result
+
+    async def dispatch_batches(
+        self, *, site_id: int | None = None, status: str | None = None, scenario_id: int | None = None, limit: int = 50
+    ) -> list[dict[str, Any]]:
+        statement = (
+            select(m.DispatchBatch, m.OptimizationRun, m.MicrogridScenario)
+            .join(m.OptimizationRun, m.OptimizationRun.id == m.DispatchBatch.optimization_run_id)
+            .join(m.MicrogridScenario, m.MicrogridScenario.id == m.OptimizationRun.scenario_id)
+        )
+        if site_id is not None:
+            statement = statement.where(m.OptimizationRun.site_id == site_id)
+        if status is not None:
+            statement = statement.where(m.DispatchBatch.status == status)
+        if scenario_id is not None:
+            statement = statement.where(m.OptimizationRun.scenario_id == scenario_id)
+        rows = (await self._session.execute(statement.order_by(desc(m.DispatchBatch.created_at)).limit(limit))).all()
+        return [
+            {
+                **self._dispatch_summary(batch),
+                "siteId": run.site_id,
+                "scenarioId": run.scenario_id,
+                "scenarioName": scenario.name,
+                "scenarioVersion": scenario.version,
+                "purpose": run.purpose,
+            }
+            for batch, run, scenario in rows
+        ]
+
+    async def bindings(self, *, site_id: int) -> list[dict[str, Any]]:
+        rows = (
+            await self._session.execute(
+                select(m.MicrogridAssetMeterBinding, m.MicrogridAsset, m.MonitorEquipment)
+                .join(m.MicrogridAsset, m.MicrogridAsset.id == m.MicrogridAssetMeterBinding.asset_id)
+                .join(m.MonitorEquipment, m.MonitorEquipment.id == m.MicrogridAssetMeterBinding.equipment_id)
+                .where(m.MicrogridAssetMeterBinding.site_id == site_id)
+                .order_by(m.MicrogridAssetMeterBinding.role, m.MonitorEquipment.name)
+            )
+        ).all()
+        return [
+            {
+                "id": binding.id,
+                "siteId": binding.site_id,
+                "assetId": asset.id,
+                "assetCode": asset.code,
+                "assetName": asset.name,
+                "equipmentId": equipment.id,
+                "equipmentCode": equipment.code,
+                "equipmentName": equipment.name,
+                "role": binding.role,
+                "pointCode": binding.point_code,
+                "direction": binding.direction,
+                "sign": _number(binding.sign),
+                "sourceKind": binding.source_kind,
+                "sourceName": binding.source_name,
+                "enabled": binding.enabled,
+            }
+            for binding, asset, equipment in rows
+        ]
+
+    async def data_readiness(self, *, site_id: int) -> dict[str, Any]:
+        return (await MicrogridMeterProjection(self._session).readiness(site_id=site_id)).as_dict()
+
+    async def optimization_comparison(self, *, run_ids: list[int]) -> dict[str, Any]:
+        if not 2 <= len(run_ids) <= 3 or len(set(run_ids)) != len(run_ids):
+            raise ScenarioNotReadyError("select two or three distinct optimization runs")
+        runs = list(
+            (
+                await self._session.scalars(
+                    select(m.OptimizationRun).where(m.OptimizationRun.id.in_(run_ids)).order_by(m.OptimizationRun.id)
+                )
+            ).all()
+        )
+        if len(runs) != len(run_ids):
+            raise ScenarioNotReadyError("one or more optimization runs are unavailable")
+        forecasts = {
+            row.id: row
+            for row in (
+                await self._session.scalars(
+                    select(m.ForecastRun).where(m.ForecastRun.id.in_([run.forecast_run_id for run in runs]))
+                )
+            ).all()
+        }
+        windows = {
+            (forecasts[run.forecast_run_id].horizon_start, forecasts[run.forecast_run_id].horizon_end) for run in runs
+        }
+        if len({run.site_id for run in runs}) != 1 or len(windows) != 1:
+            raise ScenarioNotReadyError("only runs from the same site and forecast window can be compared")
+        details = [await self.optimization_run(run.id) for run in runs]
         return {
-            "id": batch.id,
-            "optimizationRunId": batch.optimization_run_id,
-            "status": batch.status,
-            "adapterCode": batch.adapter_code,
-            "expiresAt": _time(batch.expires_at),
-            "commandCount": batch.command_count,
-            "acceptedCount": batch.accepted_count,
-            "rejectedCount": batch.rejected_count,
-            "completedAt": _time(batch.completed_at),
-            "receipts": [
+            "siteId": runs[0].site_id,
+            "horizonStart": _time(next(iter(windows))[0]),
+            "horizonEnd": _time(next(iter(windows))[1]),
+            "runs": details,
+        }
+
+    async def economic_input_options(self) -> dict[str, Any]:
+        tariff_rows = (
+            await self._session.scalars(
+                select(m.EnergyTariffPlan)
+                .where(m.EnergyTariffPlan.is_enabled.is_(True))
+                .order_by(m.EnergyTariffPlan.name)
+            )
+        ).all()
+        factor_rows = (
+            await self._session.scalars(
+                select(m.EmissionFactor)
+                .where(
+                    m.EmissionFactor.scope == "scope2",
+                    m.EmissionFactor.category == "electricity",
+                    m.EmissionFactor.is_active.is_(True),
+                )
+                .order_by(desc(m.EmissionFactor.year), m.EmissionFactor.sub_category)
+            )
+        ).all()
+        return {
+            "tariffPlans": [
                 {
-                    "commandKey": row.command_key,
-                    "assetCode": row.asset_code,
-                    "scheduledAt": _time(row.scheduled_at),
-                    "receivedAt": _time(row.received_at),
-                    "targetPowerKw": _number(row.target_power_kw),
-                    "executedPowerKw": _number(row.executed_power_kw),
-                    "status": row.status,
-                    "reason": row.reason,
+                    "id": row.id,
+                    "code": row.code,
+                    "name": row.name,
+                    "effectiveFrom": row.effective_from.isoformat() if row.effective_from else None,
                 }
-                for row in receipts
+                for row in tariff_rows
+            ],
+            "emissionFactors": [
+                {
+                    "id": row.id,
+                    "code": row.sub_category,
+                    "value": _number(row.factor_value),
+                    "unit": row.factor_unit,
+                    "year": row.year,
+                    "source": row.source,
+                }
+                for row in factor_rows
             ],
         }
 
@@ -367,7 +523,19 @@ class MicrogridQueryService:
         statement = select(m.MicrogridSite)
         if site_id is not None:
             statement = statement.where(m.MicrogridSite.id == site_id)
-        return await self._session.scalar(statement.order_by(m.MicrogridSite.id).limit(1))
+        return await self._session.scalar(
+            statement.outerjoin(
+                m.MicrogridAssetMeterBinding,
+                m.MicrogridAssetMeterBinding.site_id == m.MicrogridSite.id,
+            )
+            .group_by(m.MicrogridSite.id)
+            .order_by(
+                case((func.count(m.MicrogridAssetMeterBinding.id) > 0, 0), else_=1),
+                case((m.MicrogridSite.team_id == DEFAULT_TENANT_ID, 0), else_=1),
+                m.MicrogridSite.id,
+            )
+            .limit(1)
+        )
 
     async def _published_scenario(self, site_id: int) -> dict[str, Any] | None:
         scenario = await self._session.scalar(
@@ -427,6 +595,7 @@ class MicrogridQueryService:
             "pccCapacityKw": _number(site.pcc_capacity_kw),
             "status": site.status,
             "sourceName": site.source_name,
+            "bindingTemplateAvailable": site.code == "xiangtai-taizhou" and site.team_id == DEFAULT_TENANT_ID,
         }
 
     @staticmethod
@@ -445,6 +614,10 @@ class MicrogridQueryService:
             "confidenceLevel": _number(scenario.confidence_level),
             "validFrom": _time(scenario.valid_from),
             "publishedAt": _time(scenario.published_at),
+            "tariffPlanId": scenario.tariff_plan_id,
+            "gridEmissionFactorId": scenario.grid_emission_factor_id,
+            "basedOnScenarioId": scenario.based_on_scenario_id,
+            "changeSummary": scenario.change_summary,
         }
 
     @staticmethod
@@ -462,10 +635,28 @@ class MicrogridQueryService:
             "inputSnapshot": run.input_snapshot,
             "completedAt": _time(run.completed_at),
             "errorMessage": run.error_message,
+            "qualityStatus": run.quality_status,
+            "qualityChecks": run.quality_checks,
+            "historySourceKind": run.history_source_kind,
+            "historyCoveragePct": _number(run.history_coverage_pct),
         }
 
     @staticmethod
     def _optimization_summary(run: m.OptimizationRun) -> dict[str, Any]:
+        input_snapshot = run.input_snapshot if isinstance(run.input_snapshot, dict) else {}
+        strategy = input_snapshot.get("strategy") if isinstance(input_snapshot.get("strategy"), dict) else {}
+        charger = strategy.get("charger") if isinstance(strategy.get("charger"), dict) else {}
+        target_energy_kwh = float(charger.get("target_energy_kwh", 0) or 0)
+        shortfall_kwh = 0.0
+        for diagnostic in run.diagnostics or []:
+            if diagnostic.get("constraint") == "charger_energy_deadline":
+                shortfall_kwh = float(diagnostic.get("shortfallKwh", 0) or 0)
+                break
+        ev_completion_pct = (
+            max(0.0, min(100.0, (target_energy_kwh - shortfall_kwh) / target_energy_kwh * 100))
+            if target_energy_kwh > 0
+            else None
+        )
         return {
             "id": run.id,
             "siteId": run.site_id,
@@ -485,4 +676,51 @@ class MicrogridQueryService:
             "inputSnapshot": run.input_snapshot,
             "completedAt": _time(run.completed_at),
             "errorMessage": run.error_message,
+            "purpose": run.purpose,
+            "baselinePeakKw": _number(run.baseline_peak_kw),
+            "optimizedPeakKw": _number(run.optimized_peak_kw),
+            "peakChangeKw": _number(run.peak_change_kw),
+            "evCompletionPct": ev_completion_pct,
         }
+
+    @staticmethod
+    def _dispatch_summary(batch: m.DispatchBatch) -> dict[str, Any]:
+        return {
+            "id": batch.id,
+            "optimizationRunId": batch.optimization_run_id,
+            "status": batch.status,
+            "adapterCode": batch.adapter_code,
+            "expiresAt": _time(batch.expires_at),
+            "commandCount": batch.command_count,
+            "acceptedCount": batch.accepted_count,
+            "rejectedCount": batch.rejected_count,
+            "completedAt": _time(batch.completed_at),
+        }
+
+
+def _dispatch_asset_summaries(receipts: list[m.DispatchReceipt]) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for row in receipts:
+        item = grouped.setdefault(
+            row.asset_code,
+            {
+                "assetCode": row.asset_code,
+                "commandCount": 0,
+                "executedCount": 0,
+                "clippedCount": 0,
+                "rejectedCount": 0,
+                "absoluteDeviationKwh": 0.0,
+            },
+        )
+        item["commandCount"] += 1
+        if row.status == "executed":
+            item["executedCount"] += 1
+        elif row.status == "clipped":
+            item["clippedCount"] += 1
+        elif row.status == "rejected":
+            item["rejectedCount"] += 1
+        if row.executed_power_kw is not None:
+            item["absoluteDeviationKwh"] += abs(float(row.executed_power_kw) - float(row.target_power_kw)) * 0.25
+    for item in grouped.values():
+        item["absoluteDeviationKwh"] = round(item["absoluteDeviationKwh"], 4)
+    return list(grouped.values())

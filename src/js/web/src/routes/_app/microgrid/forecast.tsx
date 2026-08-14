@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Play } from "lucide-react"
 import { useMemo, useState } from "react"
 import { AdminEmptyState, AdminPageScaffold, AdminPanel, AdminTabsList, ChartPanel, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
-import { formatNumber, RunStatusBadge } from "@/components/microgrid/microgrid-page"
+import { formatNumber, getForecastModelLabel, RunStatusBadge } from "@/components/microgrid/microgrid-page"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsTrigger } from "@/components/ui/tabs"
@@ -44,8 +44,8 @@ function MicrogridForecastPage() {
   return (
     <AdminPageScaffold
       title="预测分析"
-      status={<RunStatusBadge status={run.data?.status} />}
-      meta={run.data ? `${run.data.modelVersion} · 预测间隔 ${run.data.intervalMinutes} 分钟` : "尚无预测运行"}
+      status={<RunStatusBadge status={run.data?.qualityStatus ?? run.data?.status} />}
+      meta={run.data ? `${getForecastModelLabel(run.data.modelVersion)} · ${run.data.intervalMinutes}分钟` : "尚无预测运行"}
       topActions={
         <Button disabled={!siteId || actions.runForecast.isPending} onClick={() => siteId && actions.runForecast.mutate({ siteId, scenarioId: scenarioId ?? undefined })} size="sm">
           <Play />
@@ -59,14 +59,6 @@ function MicrogridForecastPage() {
             <div className="font-medium text-sm">未来24小时 / 96点</div>
           </div>
           <div className="min-w-48">
-            <span className="text-muted-foreground text-xs">天气来源</span>
-            <div className="font-medium text-sm">Open-Meteo / 模拟回退</div>
-          </div>
-          <div className="min-w-48">
-            <span className="text-muted-foreground text-xs">数据模式</span>
-            <div className="font-medium text-sm">实测负荷优先</div>
-          </div>
-          <div className="min-w-48">
             <span className="text-muted-foreground text-xs">时间基准</span>
             <div className="font-medium text-sm">站点时间 UTC+8</div>
           </div>
@@ -74,17 +66,34 @@ function MicrogridForecastPage() {
       }
       metrics={
         <MetricStrip>
-          <MetricTile label="MAE" value={formatNumber(run.data?.metrics.mae_kw, 2)} unit="kW" />
-          <MetricTile label="RMSE" value={formatNumber(run.data?.metrics.rmse_kw, 2)} unit="kW" />
-          <MetricTile label="MAPE" value={formatNumber(run.data?.metrics.mape_pct, 2)} unit="%" />
-          <MetricTile label="区间覆盖率" value={formatNumber((run.data?.metrics.coverage ?? 0) * 100, 1)} unit="%" />
+          <MetricTile
+            label={seriesCode === "load" ? "MAE" : "预测点数"}
+            value={seriesCode === "load" ? formatNumber(run.data?.metrics.mae_kw, 2) : points.length}
+            unit={seriesCode === "load" ? "kW" : "点"}
+          />
+          <MetricTile
+            label={seriesCode === "load" ? "RMSE" : "预测算法"}
+            value={seriesCode === "load" ? formatNumber(run.data?.metrics.rmse_kw, 2) : seriesCode === "pv" ? "pvlib ModelChain" : "状态转移模型"}
+            unit={seriesCode === "load" ? "kW" : ""}
+          />
+          <MetricTile
+            label={seriesCode === "load" ? "MAPE" : "质量状态"}
+            value={seriesCode === "load" ? formatNumber(run.data?.metrics.mape_pct, 2) : getForecastAvailability(run.data?.qualityStatus)}
+            unit={seriesCode === "load" ? "%" : ""}
+            tone={run.data?.qualityStatus === "pass" ? "success" : "warning"}
+          />
+          <MetricTile
+            label={seriesCode === "load" ? "区间覆盖率" : "数据完整率"}
+            value={formatNumber(seriesCode === "load" ? (run.data?.metrics.coverage ?? 0) * 100 : run.data?.historyCoveragePct, 1)}
+            unit="%"
+          />
         </MetricStrip>
       }
     >
       {!run.data && !run.isLoading ? (
         <AdminEmptyState
           title="尚无预测结果"
-          description="初始化祥泰场景后运行首个24小时预测。"
+          description="完成站点配置后即可运行24小时预测。"
           actions={
             <Button disabled={!siteId} onClick={() => siteId && actions.runForecast.mutate({ siteId, scenarioId: scenarioId ?? undefined })}>
               运行预测
@@ -103,7 +112,7 @@ function MicrogridForecastPage() {
           <ChartPanel
             title={seriesCode === "load" ? "仓库负荷分位数预测" : seriesCode === "pv" ? "光伏出力分位数预测" : "储能SOC预测包络"}
             unit={unit}
-            source={run.data?.inputSnapshot.weatherProvider ? String(run.data.inputSnapshot.weatherProvider) : "模型输入快照"}
+            source={seriesCode === "load" ? getForecastModelLabel(run.data?.modelVersion) : seriesCode === "pv" ? "pvlib ModelChain / PVWatts" : "储能物理状态转移模型"}
             updatedAt={formatMicrogridDateTime(run.data?.completedAt)}
             option={option}
             height={360}
@@ -123,32 +132,28 @@ function MicrogridForecastPage() {
                   {(runs.data ?? []).slice(0, 8).map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>{formatMicrogridDateTime(item.completedAt)}</TableCell>
-                      <TableCell>{item.modelVersion}</TableCell>
+                      <TableCell>{getForecastModelLabel(item.modelVersion)}</TableCell>
                       <TableCell>24h / {item.intervalMinutes}min</TableCell>
                       <TableCell>
-                        <RunStatusBadge status={item.status} />
+                        <RunStatusBadge status={item.qualityStatus ?? item.status} />
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </AdminPanel>
-            <AdminPanel title="模型输入快照" contentClassName="space-y-3 p-4 text-sm">
+            <AdminPanel title="预测模型" contentClassName="space-y-3 p-4 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">场景版本</span>
-                <span>v{String(run.data?.inputSnapshot.scenarioVersion ?? "-")}</span>
+                <span className="text-muted-foreground">负荷预测</span>
+                <span className="text-right">{getForecastModelLabel(run.data?.modelVersion)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">负荷模型</span>
-                <span className="max-w-52 truncate">{run.data?.metrics.model ?? run.data?.modelVersion ?? "-"}</span>
+                <span className="text-muted-foreground">光伏预测</span>
+                <span>pvlib ModelChain / PVWatts</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">PV模型</span>
-                <span>pvlib / PVWatts</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">SOC模型</span>
-                <span>物理状态方程</span>
+                <span className="text-muted-foreground">SOC预测</span>
+                <span>物理状态转移模型</span>
               </div>
             </AdminPanel>
           </div>
@@ -156,4 +161,10 @@ function MicrogridForecastPage() {
       )}
     </AdminPageScaffold>
   )
+}
+
+function getForecastAvailability(status?: string | null) {
+  if (status === "pass") return "可用"
+  if (status === "failed") return "不可用"
+  return status ? "需关注" : "-"
 }

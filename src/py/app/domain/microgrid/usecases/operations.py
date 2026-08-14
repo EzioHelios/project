@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-# ruff: noqa: EM101, PLR2004, RUF001, TC002, TRY003, TRY300, TRY301
+# ruff: noqa: EM101, PLR0915, PLR2004, RUF001, TC002, TRY003, TRY300, TRY301
 import hashlib
+import json
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from math import pi, sin
+from math import isfinite, pi, sin
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
@@ -24,6 +25,7 @@ from app.domain.microgrid.infrastructure.forecasting import (
     forecast_pv_quantiles,
     propagate_soc_quantiles,
 )
+from app.domain.microgrid.infrastructure.metering import MicrogridMeterProjection
 from app.domain.microgrid.infrastructure.optimization import OptimizationResult, optimize_dispatch
 from app.domain.microgrid.infrastructure.weather import OpenMeteoWeatherAdapter, WeatherAdapter, history_for_training
 from app.lib.tenancy import DEFAULT_TENANT_ID, session_tenant_id
@@ -60,6 +62,7 @@ class BootstrapXiangtaiDemo:
             )
         )
         if existing is not None:
+            await self._upgrade_demo_scenario(site=existing)
             await self._refresh_demo_telemetry(site=existing, team_id=team_id)
             await self._session.commit()
             await self._session.refresh(existing)
@@ -112,12 +115,14 @@ class BootstrapXiangtaiDemo:
         parameters: dict[str, Any] = {
             "interval_minutes": 15,
             "reserve_margin_pct": 8,
+            "objective_weights": {"energy": 1, "peak": 1.5, "carbon": 1.5},
             "grid": {"pcc_capacity_kw": 1250, "export_capacity_kw": 300},
             "pv": {"dc_capacity_kw": 600, "ac_capacity_kw": 500, "tilt_deg": 18, "azimuth_deg": 180},
             "storage": {
                 "capacity_kwh": 1000,
                 "power_kw": 500,
                 "initial_soc_pct": 52,
+                "terminal_soc_pct": 52,
                 "minimum_soc_pct": 15,
                 "maximum_soc_pct": 90,
                 "charging_efficiency": 0.95,
@@ -143,7 +148,7 @@ class BootstrapXiangtaiDemo:
                 "battery_degradation_cny_per_kwh": 0.08,
                 "export_cny_per_kwh": 0.25,
                 "demand_cny_per_kw_day": 0.35,
-                "grid_carbon_kg_per_kwh": 0.5703,
+                "grid_carbon_kg_per_kwh": 0.5827,
                 "carbon_cny_per_kg": 0.08,
                 "curtailment_cny_per_kwh": 0.02,
             },
@@ -167,6 +172,7 @@ class BootstrapXiangtaiDemo:
             confidence_level=Decimal("0.50"),
             published_at=datetime.now(UTC),
         )
+        await self._attach_default_economics(scenario=scenario, team_id=team_id)
         self._session.add(scenario)
         await self._session.flush()
 
@@ -229,6 +235,40 @@ class BootstrapXiangtaiDemo:
         await self._session.commit()
         await self._session.refresh(site)
         return site
+
+    async def _upgrade_demo_scenario(self, *, site: m.MicrogridSite) -> None:
+        scenario = await self._session.scalar(
+            select(m.MicrogridScenario)
+            .where(m.MicrogridScenario.site_id == site.id, m.MicrogridScenario.status == "published")
+            .order_by(m.MicrogridScenario.version.desc())
+        )
+        if scenario is None:
+            return
+        parameters = deepcopy(scenario.parameters)
+        parameters.setdefault("objective_weights", {"energy": 1, "peak": 1.5, "carbon": 1.5})
+        storage = parameters.setdefault("storage", {})
+        storage.setdefault("terminal_soc_pct", storage.get("initial_soc_pct", 52))
+        parameters.setdefault("economics", {})["grid_carbon_kg_per_kwh"] = 0.5827
+        scenario.parameters = parameters
+        await self._attach_default_economics(scenario=scenario, team_id=site.team_id)
+
+    async def _attach_default_economics(self, *, scenario: m.MicrogridScenario, team_id: UUID) -> None:
+        tariff = await self._session.scalar(
+            select(m.EnergyTariffPlan).where(
+                m.EnergyTariffPlan.team_id == team_id,
+                m.EnergyTariffPlan.code == "default_electricity_tou",
+                m.EnergyTariffPlan.is_enabled.is_(True),
+            )
+        )
+        factor = await self._session.scalar(
+            select(m.EmissionFactor).where(
+                m.EmissionFactor.sub_category == "grid_electricity_jiangsu",
+                m.EmissionFactor.year == 2023,
+                m.EmissionFactor.is_active.is_(True),
+            )
+        )
+        scenario.tariff_plan_id = tariff.id if tariff else scenario.tariff_plan_id
+        scenario.grid_emission_factor_id = factor.id if factor else scenario.grid_emission_factor_id
 
     async def _refresh_demo_telemetry(
         self,
@@ -354,7 +394,9 @@ class RunForecast:
                 raise ScenarioNotReadyError("weather forecast does not cover the 24-hour horizon")
             weather_frame = weather_frame.iloc[:96]
             await self._persist_weather(site=site, frame=weather_frame)
-            history_index, history_load, history_temperature = await self._load_history(site=site, end=horizon_start)
+            history_index, history_load, history_temperature, history_meta = await self._load_history(
+                site=site, end=horizon_start
+            )
             forecast_index = list(weather_frame.index.to_pydatetime())
             load_points, metrics = forecast_load_quantiles(
                 history_index=history_index,
@@ -396,15 +438,33 @@ class RunForecast:
                     for point in points
                 )
             self._session.add_all(point_rows)
+            metrics = {**metrics, "rmse_kw": round(float(metrics["mae_kw"]) * 1.24, 3)}
+            mean_load = max(sum(history_load) / max(len(history_load), 1), 1)
+            metrics["mape_pct"] = round(float(metrics["mae_kw"]) / mean_load * 100, 2)
+            quality_status, quality_checks = _forecast_quality(
+                load_points=load_points,
+                pv_points=pv_points,
+                soc_points=soc_points,
+                weather_frame=weather_frame,
+                metrics=metrics,
+                history_meta=history_meta,
+            )
             run.status = "completed"
             run.model_version = str(metrics["model"])
-            run.metrics = {**metrics, "rmse_kw": round(float(metrics["mae_kw"]) * 1.24, 3), "mape_pct": 7.8}
+            run.metrics = metrics
+            run.quality_status = quality_status
+            run.quality_checks = quality_checks
+            run.history_source_kind = str(history_meta["sourceKind"])
+            run.history_coverage_pct = Decimal(str(history_meta["coveragePct"]))
+            run.input_snapshot = {**run.input_snapshot, "history": history_meta}
             run.completed_at = datetime.now(UTC)
             await self._session.commit()
             await self._session.refresh(run)
             return run
         except Exception as exc:
             run.status = "failed"
+            run.quality_status = "failed"
+            run.quality_checks = [{"code": "execution", "status": "failed", "message": str(exc)[:500]}]
             run.error_message = str(exc)[:4000]
             run.completed_at = datetime.now(UTC)
             await self._session.commit()
@@ -423,41 +483,50 @@ class RunForecast:
 
     async def _load_history(
         self, *, site: m.MicrogridSite, end: datetime
-    ) -> tuple[list[datetime], list[float], list[float]]:
+    ) -> tuple[list[datetime], list[float], list[float], dict[str, Any]]:
         start = end - timedelta(days=21)
+        readiness = await MicrogridMeterProjection(self._session).readiness(site_id=site.id, end=end)
+        if not readiness.ready:
+            index, load, temperature = history_for_training(end=end)
+            return index, load, temperature, readiness.as_dict()
+        fixed_load_assets = (
+            await self._session.scalars(
+                select(m.MicrogridAssetMeterBinding.asset_id)
+                .where(
+                    m.MicrogridAssetMeterBinding.site_id == site.id,
+                    m.MicrogridAssetMeterBinding.role == "fixed_load",
+                    m.MicrogridAssetMeterBinding.enabled.is_(True),
+                )
+                .distinct()
+            )
+        ).all()
         rows = (
             (
                 await self._session.execute(
-                    select(m.EnergyIntervalFact)
+                    select(m.MicrogridTelemetryFact)
                     .where(
-                        m.EnergyIntervalFact.team_id == site.team_id,
-                        m.EnergyIntervalFact.energy_type_code.in_(["electricity", "electricity_purchased"]),
-                        m.EnergyIntervalFact.is_current.is_(True),
-                        m.EnergyIntervalFact.period_start >= start.replace(tzinfo=None),
-                        m.EnergyIntervalFact.period_start < end.replace(tzinfo=None),
+                        m.MicrogridTelemetryFact.site_id == site.id,
+                        m.MicrogridTelemetryFact.asset_id.in_(fixed_load_assets),
+                        m.MicrogridTelemetryFact.metric_code == "active_power_kw",
+                        m.MicrogridTelemetryFact.source_kind == "measured_projection",
+                        m.MicrogridTelemetryFact.observed_at >= start,
+                        m.MicrogridTelemetryFact.observed_at < end,
                     )
-                    .order_by(m.EnergyIntervalFact.period_start)
+                    .order_by(m.MicrogridTelemetryFact.observed_at)
                 )
             )
             .scalars()
             .all()
         )
-        if len(rows) < 192:
-            return history_for_training(end=end)
         index: list[datetime] = []
         load: list[float] = []
         temperature: list[float] = []
         for row in rows:
-            point = (
-                row.period_start.replace(tzinfo=ZoneInfo(site.timezone))
-                if row.period_start.tzinfo is None
-                else row.period_start
-            )
-            duration = max((row.period_end - row.period_start).total_seconds() / 3600, 0.25)
+            point = row.observed_at.replace(tzinfo=UTC) if row.observed_at.tzinfo is None else row.observed_at
             index.append(point)
-            load.append(float(row.amount) / duration)
+            load.append(float(row.value))
             temperature.append(27.0)
-        return index, load, temperature
+        return index, load, temperature, readiness.as_dict()
 
     async def _persist_weather(self, *, site: m.MicrogridSite, frame: pd.DataFrame) -> None:
         valid_times = list(frame.index.to_pydatetime())
@@ -493,20 +562,95 @@ class RunForecast:
         )
 
 
+def _forecast_quality(
+    *,
+    load_points: list[Any],
+    pv_points: list[Any],
+    soc_points: list[Any],
+    weather_frame: pd.DataFrame,
+    metrics: dict[str, Any],
+    history_meta: dict[str, Any],
+) -> tuple[str, list[dict[str, Any]]]:
+    """Evaluate deterministic quality gates before an optimization can consume a forecast."""
+    checks: list[dict[str, Any]] = []
+
+    def add(code: str, status: str, message: str) -> None:
+        checks.append({"code": code, "status": status, "message": message})
+
+    all_points = [*load_points, *pv_points, *soc_points]
+    add(
+        "horizon",
+        "pass" if len(load_points) == len(pv_points) == len(soc_points) == 96 else "failed",
+        "未来24小时共96点",
+    )
+    ordered = all(point.p10 <= point.p50 <= point.p90 for point in all_points)
+    add("quantile_order", "pass" if ordered else "failed", "P10、P50、P90分位数顺序")
+    finite = all(isfinite(value) for point in all_points for value in (point.p10, point.p50, point.p90))
+    add("finite_values", "pass" if finite else "failed", "预测值均为有限数值")
+    night_pv = [
+        point
+        for point, ghi in zip(pv_points, weather_frame["ghi"].tolist(), strict=True)
+        if float(ghi) <= 1 and abs(point.p90) > 1e-6
+    ]
+    add("pv_night", "failed" if night_pv else "pass", "夜间光伏出力为零")
+    weather_complete = len(weather_frame) >= 96 and not weather_frame.isna().any(axis=None)
+    add("weather", "pass" if weather_complete else "failed", "天气预报覆盖完整")
+    if not history_meta.get("ready"):
+        add("history_source", "warning", "真实历史未就绪，整段使用演示回退")
+    else:
+        add("history_source", "pass", "使用绑定电表的实测投影")
+    model = str(metrics.get("model", ""))
+    add("model", "warning" if "baseline" in model else "pass", f"负荷模型：{model}")
+    coverage = float(metrics.get("coverage", 0))
+    add("interval_coverage", "pass" if coverage >= 0.65 else "warning", f"区间覆盖率 {coverage:.1%}")
+    mape = float(metrics.get("mape_pct", 100))
+    add("mape", "pass" if mape <= 15 else "warning", f"MAPE {mape:.2f}%")
+    if any(item["status"] == "failed" for item in checks):
+        return "failed", checks
+    if any(item["status"] == "warning" for item in checks):
+        return "warning", checks
+    return "pass", checks
+
+
 class RunOptimization:
     """Execute the Pyomo/HiGHS optimizer and persist its auditable schedule."""
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def execute(self, *, forecast_run_id: int) -> m.OptimizationRun:
+    async def execute(
+        self,
+        *,
+        forecast_run_id: int,
+        scenario_id: int | None = None,
+        purpose: str = "operational",
+        acknowledge_quality_warning: bool = False,
+    ) -> m.OptimizationRun:
         forecast_run = await self._session.get(m.ForecastRun, forecast_run_id)
         if forecast_run is None or forecast_run.status != "completed":
             raise ScenarioNotReadyError("a completed forecast run is required")
-        scenario = await self._session.get(m.MicrogridScenario, forecast_run.scenario_id)
-        if scenario is None or scenario.status != "published":
-            raise ScenarioNotReadyError("a published scenario is required")
-        idempotency_key = _fingerprint(forecast_run.team_id, forecast_run.id, scenario.id, "optimization-v1")
+        if purpose not in {"trial", "operational"}:
+            raise ScenarioNotReadyError("optimization purpose must be trial or operational")
+        if forecast_run.quality_status == "failed":
+            raise ScenarioNotReadyError("failed forecast quality blocks optimization")
+        if forecast_run.quality_status == "warning" and not (purpose == "trial" and acknowledge_quality_warning):
+            raise ScenarioNotReadyError("forecast warning requires an acknowledged risk trial")
+        scenario = await self._session.get(m.MicrogridScenario, scenario_id or forecast_run.scenario_id)
+        if scenario is None or scenario.site_id != forecast_run.site_id:
+            raise ScenarioNotReadyError("optimization scenario must belong to the forecast site")
+        if purpose == "operational" and scenario.status != "published":
+            raise ScenarioNotReadyError("operational optimization requires a published scenario")
+        if purpose == "operational" and (scenario.tariff_plan_id is None or scenario.grid_emission_factor_id is None):
+            raise ScenarioNotReadyError("operational optimization requires tariff and emission-factor ledgers")
+        parameter_snapshot = json.dumps(scenario.parameters, ensure_ascii=False, sort_keys=True)
+        idempotency_key = _fingerprint(
+            forecast_run.team_id,
+            forecast_run.id,
+            scenario.id,
+            purpose,
+            parameter_snapshot,
+            "optimization-v2",
+        )
         existing = await self._session.scalar(
             select(m.OptimizationRun).where(m.OptimizationRun.idempotency_key == idempotency_key)
         )
@@ -519,11 +663,19 @@ class RunOptimization:
             forecast_run_id=forecast_run.id,
             idempotency_key=idempotency_key,
             status="running",
+            purpose=purpose,
             input_snapshot={
                 "scenarioId": scenario.id,
                 "scenarioVersion": scenario.version,
                 "forecastRunId": forecast_run.id,
                 "forecastModel": forecast_run.model_version,
+                "forecastQuality": {
+                    "status": forecast_run.quality_status,
+                    "checks": forecast_run.quality_checks,
+                    "historySourceKind": forecast_run.history_source_kind,
+                    "historyCoveragePct": float(forecast_run.history_coverage_pct or 0),
+                },
+                "purpose": purpose,
             },
         )
         self._session.add(run)
@@ -544,9 +696,22 @@ class RunOptimization:
         if len(load_points) != 96 or len(pv_points) != 96:
             raise ScenarioNotReadyError("forecast must contain 96 load and 96 PV points")
         index = [point.valid_at for point in load_points]
-        tariff = [_tariff_for(point.valid_at, scenario.parameters["tariff"]) for point in load_points]
         parameters, contract_ids = await self._parameters_with_contracts(scenario=scenario, index=index)
-        run.input_snapshot = {**run.input_snapshot, "flexibilityContractIds": contract_ids}
+        tariff, economics_snapshot = await self._economic_inputs(
+            scenario=scenario,
+            index=index,
+            allow_fallback=purpose == "trial",
+        )
+        if economics_snapshot["emissionFactor"] is not None:
+            parameters.setdefault("economics", {})["grid_carbon_kg_per_kwh"] = economics_snapshot["emissionFactor"][
+                "value"
+            ]
+        run.input_snapshot = {
+            **run.input_snapshot,
+            "flexibilityContractIds": contract_ids,
+            "strategy": deepcopy(parameters),
+            "economics": economics_snapshot,
+        }
         result = optimize_dispatch(
             index=index,
             fixed_load_kw=[float(point.p50) for point in load_points],
@@ -582,6 +747,78 @@ class RunOptimization:
         await self._session.refresh(run)
         return run
 
+    async def _economic_inputs(
+        self,
+        *,
+        scenario: m.MicrogridScenario,
+        index: list[datetime],
+        allow_fallback: bool,
+    ) -> tuple[list[float], dict[str, Any]]:
+        segments = []
+        tariff_plan = None
+        if scenario.tariff_plan_id is not None:
+            tariff_plan = await self._session.get(m.EnergyTariffPlan, scenario.tariff_plan_id)
+            segments = list(
+                (
+                    await self._session.scalars(
+                        select(m.EnergyTariffSegment)
+                        .where(m.EnergyTariffSegment.plan_id == scenario.tariff_plan_id)
+                        .order_by(m.EnergyTariffSegment.sort_index)
+                    )
+                ).all()
+            )
+        factor = (
+            await self._session.get(m.EmissionFactor, scenario.grid_emission_factor_id)
+            if scenario.grid_emission_factor_id is not None
+            else None
+        )
+        if tariff_plan is not None and segments:
+            tariff = [_ledger_tariff_for(valid_at, segments) for valid_at in index]
+            tariff_snapshot: dict[str, Any] | None = {
+                "id": tariff_plan.id,
+                "code": tariff_plan.code,
+                "name": tariff_plan.name,
+                "effectiveFrom": tariff_plan.effective_from.isoformat() if tariff_plan.effective_from else None,
+                "effectiveTo": tariff_plan.effective_to.isoformat() if tariff_plan.effective_to else None,
+                "sourceKind": "platform_ledger",
+                "segments": [
+                    {
+                        "type": row.segment_type,
+                        "start": row.start_time.isoformat(),
+                        "end": row.end_time.isoformat(),
+                        "price": float(row.price),
+                    }
+                    for row in segments
+                ],
+            }
+        elif allow_fallback:
+            tariff = [_tariff_for(valid_at, scenario.parameters["tariff"]) for valid_at in index]
+            tariff_snapshot = {
+                "sourceKind": "enterprise_assumption",
+                "values": deepcopy(scenario.parameters["tariff"]),
+            }
+        else:
+            raise ScenarioNotReadyError("valid tariff ledger is required")
+        if factor is None and not allow_fallback:
+            raise ScenarioNotReadyError("valid grid emission factor is required")
+        factor_snapshot = (
+            {
+                "id": factor.id,
+                "code": factor.sub_category,
+                "value": float(factor.factor_value),
+                "unit": factor.factor_unit,
+                "year": factor.year,
+                "source": factor.source,
+                "sourceKind": "platform_ledger",
+            }
+            if factor is not None
+            else {
+                "value": float(scenario.parameters.get("economics", {}).get("grid_carbon_kg_per_kwh", 0.5827)),
+                "sourceKind": "enterprise_assumption",
+            }
+        )
+        return tariff, {"tariffPlan": tariff_snapshot, "emissionFactor": factor_snapshot}
+
     async def _parameters_with_contracts(
         self, *, scenario: m.MicrogridScenario, index: list[datetime]
     ) -> tuple[dict[str, Any], list[int]]:
@@ -616,6 +853,7 @@ class RunOptimization:
                         "maximum_power_kw": float(contract.maximum_power_kw),
                         "target_energy_kwh": float(contract.target_energy_kwh or 0),
                         "penalty_cny_per_kwh": float(contract.penalty_cny_per_kwh),
+                        "hard_constraint": bool(contract.recovery_constraints.get("hard_constraint", True)),
                     }
                 )
             elif asset_type == "lighting":
@@ -643,6 +881,9 @@ class RunOptimization:
         run.baseline_cost_cny = Decimal(str(result.baseline_cost_cny))
         run.savings_cny = Decimal(str(result.savings_cny)) if result.savings_cny is not None else None
         run.peak_reduction_kw = Decimal(str(result.peak_reduction_kw)) if result.peak_reduction_kw is not None else None
+        run.baseline_peak_kw = Decimal(str(result.baseline_peak_kw)) if result.baseline_peak_kw is not None else None
+        run.optimized_peak_kw = Decimal(str(result.optimized_peak_kw)) if result.optimized_peak_kw is not None else None
+        run.peak_change_kw = Decimal(str(result.peak_change_kw)) if result.peak_change_kw is not None else None
         run.carbon_reduction_kg = (
             Decimal(str(result.carbon_reduction_kg)) if result.carbon_reduction_kg is not None else None
         )
@@ -662,6 +903,11 @@ class CreateDispatchBatch:
         run = await self._session.get(m.OptimizationRun, optimization_run_id)
         if run is None or run.status not in {"optimal", "feasible"}:
             raise InfeasibleDispatchError("only a feasible optimization run can be dispatched")
+        if run.purpose != "operational":
+            raise InfeasibleDispatchError("trial optimization runs cannot be dispatched")
+        forecast = await self._session.get(m.ForecastRun, run.forecast_run_id)
+        if forecast is None or forecast.quality_status != "pass":
+            raise InfeasibleDispatchError("dispatch requires a forecast that passed the quality gate")
         idempotency_key = _fingerprint(run.team_id, run.id, "simulation-dispatch-v1")
         existing = await self._session.scalar(
             select(m.DispatchBatch).where(m.DispatchBatch.idempotency_key == idempotency_key)
@@ -669,8 +915,8 @@ class CreateDispatchBatch:
         if existing is not None:
             return existing
         scenario = await self._session.get(m.MicrogridScenario, run.scenario_id)
-        if scenario is None:
-            raise InfeasibleDispatchError("optimization scenario snapshot is unavailable")
+        if scenario is None or scenario.status != "published":
+            raise InfeasibleDispatchError("a published optimization scenario is required")
         assets = (
             (
                 await self._session.execute(
@@ -805,3 +1051,16 @@ def _tariff_for(valid_at: datetime, tariff: dict[str, Any]) -> float:
     if 9 <= hour < 12 or 17 <= hour < 22:
         return float(tariff["peak"])
     return float(tariff["flat"])
+
+
+def _ledger_tariff_for(valid_at: datetime, segments: list[m.EnergyTariffSegment]) -> float:
+    local_time = valid_at.astimezone(ZoneInfo("Asia/Shanghai")).time().replace(tzinfo=None)
+    for segment in segments:
+        if segment.start_time <= segment.end_time:
+            matches = segment.start_time <= local_time < segment.end_time
+        else:
+            matches = local_time >= segment.start_time or local_time < segment.end_time
+        if matches:
+            return float(segment.price)
+    msg = f"tariff plan has no segment for {local_time.isoformat()}"
+    raise ScenarioNotReadyError(msg)

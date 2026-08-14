@@ -28,11 +28,11 @@ export function getAssetTone(asset: MicrogridAsset | undefined): ScadaStateTone 
   if (!asset.online) return "offline"
   if (["critical", "alarm", "error"].includes(asset.alarmLevel)) return "alarm"
   if (["warning", "minor"].includes(asset.alarmLevel)) return "warning"
-  return asset.stateSourceKind === "simulated" ? "simulated" : "normal"
+  return "normal"
 }
 
 function assetStatus(asset: MicrogridAsset | undefined, kind: ScadaNodeKind) {
-  if (!asset) return kind === "isolator" || kind === "breaker" ? "模拟合闸" : "结构节点"
+  if (!asset) return kind === "isolator" || kind === "breaker" ? "合闸" : "结构节点"
   if (!asset.online) return "通信中断"
   if (asset.alarmLevel !== "normal") return asset.alarmLevel === "warning" ? "预警" : "告警"
   if (kind === "storage") {
@@ -40,7 +40,7 @@ function assetStatus(asset: MicrogridAsset | undefined, kind: ScadaNodeKind) {
     if ((asset.activePowerKw ?? 0) > 0.1) return "放电"
     return "待机"
   }
-  return asset.stateSourceKind === "simulated" ? "模拟运行" : "运行"
+  return "运行"
 }
 
 function nodeType(kind: ScadaNodeKind) {

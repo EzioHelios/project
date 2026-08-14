@@ -7,7 +7,18 @@ from decimal import Decimal
 from typing import Any
 
 from advanced_alchemy.base import BigIntAuditBase
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.lib.tenancy import TeamScopedMixin
@@ -66,6 +77,37 @@ class MicrogridAsset(TeamScopedMixin, BigIntAuditBase):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
 
 
+class MicrogridAssetMeterBinding(TeamScopedMixin, BigIntAuditBase):
+    """Explicit, effective-dated mapping from a microgrid resource to a platform meter."""
+
+    __tablename__ = "microgrid_asset_meter_binding"
+    __table_args__ = (
+        UniqueConstraint(
+            "team_id",
+            "site_id",
+            "asset_id",
+            "equipment_id",
+            "point_code",
+            "direction",
+            name="uq_microgrid_binding_resource_meter",
+        ),
+        Index("ix_microgrid_binding_site_role", "team_id", "site_id", "role", "enabled"),
+    )
+
+    site_id: Mapped[int] = mapped_column(ForeignKey("microgrid_site.id", ondelete="CASCADE"), index=True)
+    asset_id: Mapped[int] = mapped_column(ForeignKey("microgrid_asset.id", ondelete="CASCADE"), index=True)
+    equipment_id: Mapped[int] = mapped_column(ForeignKey("dataapp_monitorequipment.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(32), index=True)
+    point_code: Mapped[str] = mapped_column(String(64), default="forward_active_total")
+    direction: Mapped[str] = mapped_column(String(16), default="import")
+    sign: Mapped[Decimal] = mapped_column(Numeric(8, 4), default=Decimal(1))
+    valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    valid_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_kind: Mapped[str] = mapped_column(String(32), default="manual_configuration")
+    source_name: Mapped[str] = mapped_column(String(128), default="管理员手工绑定")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+
+
 class MicrogridScenario(TeamScopedMixin, BigIntAuditBase):
     """Immutable-on-publish operating parameter snapshot."""
 
@@ -87,6 +129,16 @@ class MicrogridScenario(TeamScopedMixin, BigIntAuditBase):
     confidence_level: Mapped[Decimal] = mapped_column(Numeric(5, 4), default=Decimal("0.50"))
     valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    tariff_plan_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dataapp_energytariffplan.id", ondelete="SET NULL"), index=True
+    )
+    grid_emission_factor_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dataapp_emissionfactor.id", ondelete="SET NULL"), index=True
+    )
+    based_on_scenario_id: Mapped[int | None] = mapped_column(
+        ForeignKey("microgrid_scenario.id", ondelete="SET NULL"), index=True
+    )
+    change_summary: Mapped[str | None] = mapped_column(String(255))
 
 
 class FlexibilityContract(TeamScopedMixin, BigIntAuditBase):
@@ -193,6 +245,10 @@ class ForecastRun(TeamScopedMixin, BigIntAuditBase):
     metrics: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error_message: Mapped[str | None] = mapped_column(Text)
+    quality_status: Mapped[str] = mapped_column(String(16), default="warning", index=True)
+    quality_checks: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    history_source_kind: Mapped[str] = mapped_column(String(32), default="simulated", index=True)
+    history_coverage_pct: Mapped[Decimal | None] = mapped_column(Numeric(7, 4))
 
 
 class ForecastPoint(TeamScopedMixin, BigIntAuditBase):
@@ -239,6 +295,10 @@ class OptimizationRun(TeamScopedMixin, BigIntAuditBase):
     diagnostics: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error_message: Mapped[str | None] = mapped_column(Text)
+    purpose: Mapped[str] = mapped_column(String(16), default="operational", index=True)
+    baseline_peak_kw: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    optimized_peak_kw: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    peak_change_kw: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
 
 
 class OptimizationSchedulePoint(TeamScopedMixin, BigIntAuditBase):
@@ -313,6 +373,7 @@ __all__ = (
     "ForecastPoint",
     "ForecastRun",
     "MicrogridAsset",
+    "MicrogridAssetMeterBinding",
     "MicrogridAssetState",
     "MicrogridScenario",
     "MicrogridSite",

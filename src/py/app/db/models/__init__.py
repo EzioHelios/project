@@ -123,6 +123,7 @@ from app.domain.microgrid.models import (
     ForecastPoint,
     ForecastRun,
     MicrogridAsset,
+    MicrogridAssetMeterBinding,
     MicrogridAssetState,
     MicrogridScenario,
     MicrogridSite,
@@ -247,6 +248,7 @@ __all__ = (
     # microgrid domain models
     "MicrogridSite",
     "MicrogridAsset",
+    "MicrogridAssetMeterBinding",
     "MicrogridScenario",
     "FlexibilityContract",
     "MicrogridTelemetryFact",

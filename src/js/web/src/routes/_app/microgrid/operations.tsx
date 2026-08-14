@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { RefreshCw, Settings2 } from "lucide-react"
 import { useState } from "react"
-import { AdminEmptyState, AdminPageScaffold, AdminPanel, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
-import { formatNumber, getAssetTypeLabel, ShadowModeBadge } from "@/components/microgrid/microgrid-page"
+import { AdminEmptyState, AdminPageScaffold, AdminPanel, MetricStrip, MetricTile } from "@/components/admin-ui"
+import { formatNumber, getAssetTypeLabel, MicrogridOperatingBadge } from "@/components/microgrid/microgrid-page"
 import { AssetFaceplate, ScadaRuntime, type ScadaSelection } from "@/components/microgrid/scada"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { useMicrogridTopology } from "@/lib/api/hooks/microgrid"
+import { type MicrogridAsset, useMicrogridTopology } from "@/lib/api/hooks/microgrid"
 import { formatMicrogridTime } from "@/lib/microgrid-time"
 
 export const Route = createFileRoute("/_app/microgrid/operations")({ component: MicrogridOperationsPage })
@@ -22,8 +22,8 @@ function MicrogridOperationsPage() {
   return (
     <AdminPageScaffold
       title="运行监控"
-      status={<ShadowModeBadge />}
-      meta={topology?.site ? `${topology.site.name} · 10–15秒状态轮询` : undefined}
+      status={<MicrogridOperatingBadge />}
+      meta={topology?.site?.name}
       topActions={
         <div className="flex gap-2">
           <Button asChild size="sm" variant="outline">
@@ -38,18 +38,6 @@ function MicrogridOperationsPage() {
           </Button>
         </div>
       }
-      filters={
-        <ContextBar>
-          <div className="min-w-44">
-            <span className="text-muted-foreground text-xs">控制边界</span>
-            <div className="font-medium text-sm">功率/SOC目标</div>
-          </div>
-          <div className="min-w-44">
-            <span className="text-muted-foreground text-xs">现场系统</span>
-            <div className="font-medium text-sm">模拟调度</div>
-          </div>
-        </ContextBar>
-      }
       metrics={
         <MetricStrip>
           <MetricTile label="在线设备" value={assets.filter((asset) => asset.online).length} unit={`/ ${assets.length}`} />
@@ -60,7 +48,7 @@ function MicrogridOperationsPage() {
       }
     >
       {!topology?.configured ? (
-        <AdminEmptyState title="尚未配置微电网站点" description="请先在运行总览初始化祥泰演示。" />
+        <AdminEmptyState title="尚未配置微电网站点" description="请先完成站点与设备配置。" />
       ) : (
         <div className="space-y-3">
           <AdminPanel title="一次系统运行图" contentClassName="p-0">
@@ -88,7 +76,7 @@ function MicrogridOperationsPage() {
                       <TableCell>
                         <span className={asset.online ? "text-[hsl(var(--status-success))]" : "text-muted-foreground"}>{asset.online ? "在线" : "离线"}</span>
                       </TableCell>
-                      <TableCell>{asset.stateSourceKind === "simulated" ? "模拟运行" : asset.operatingMode}</TableCell>
+                      <TableCell>{getAssetOperatingMode(asset)}</TableCell>
                       <TableCell className="text-right">
                         {formatNumber(asset.activePowerKw)} kW
                         {asset.socPct !== null && <div className="text-muted-foreground text-xs">SOC {formatNumber(asset.socPct)}%</div>}
@@ -108,7 +96,6 @@ function MicrogridOperationsPage() {
                   </div>
                   <div className="text-right">
                     <div className="font-medium text-sm tabular-nums">0–{formatNumber(asset.ratedPowerKw)} kW</div>
-                    <div className="mt-1 text-muted-foreground text-xs">模拟调度</div>
                   </div>
                 </div>
               ))}
@@ -119,4 +106,18 @@ function MicrogridOperationsPage() {
       )}
     </AdminPageScaffold>
   )
+}
+
+function getAssetOperatingMode(asset: MicrogridAsset) {
+  if (!asset.online) return "离线"
+  if (asset.assetType === "storage") {
+    if ((asset.activePowerKw ?? 0) < -0.1) return "充电"
+    if ((asset.activePowerKw ?? 0) > 0.1) return "放电"
+    return "待机"
+  }
+  if (asset.assetType === "pv") return "并网"
+  if (asset.assetType === "grid") return "供电"
+  if (asset.assetType === "charger") return "充电"
+  if (asset.assetType === "generator") return "待机"
+  return "运行"
 }

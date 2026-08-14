@@ -103,6 +103,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
           { title: "运行监控", to: "/microgrid/operations" },
           { title: "预测分析", to: "/microgrid/forecast" },
           { title: "智能优化", to: "/microgrid/optimization" },
+          { title: "调度记录", to: "/microgrid/dispatch" },
         ],
       },
       {

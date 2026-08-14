@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-# ruff: noqa: PLR0915, TC003
+# ruff: noqa: PLR0915, PLR2004, RUF001, TC003
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -43,6 +43,9 @@ class OptimizationResult:
     baseline_cost_cny: float
     savings_cny: float | None
     peak_reduction_kw: float | None
+    baseline_peak_kw: float | None
+    optimized_peak_kw: float | None
+    peak_change_kw: float | None
     carbon_reduction_kg: float | None
     schedule: list[SchedulePoint]
     cost_breakdown: dict[str, float]
@@ -94,6 +97,14 @@ def optimize_dispatch(
     generator_min = float(generator.get("minimum_power_kw", 0))
     generator_ramp = float(generator.get("ramp_kw_per_interval", generator_max))
     reserve_margin = float(parameters.get("reserve_margin_pct", 8)) / 100
+    objective_weights = parameters.get("objective_weights", {})
+    energy_weight = float(objective_weights.get("energy", 1))
+    peak_weight = float(objective_weights.get("peak", 1))
+    carbon_weight = float(objective_weights.get("carbon", 1))
+    terminal_soc_pct = float(storage.get("terminal_soc_pct", storage.get("initial_soc_pct", 50)))
+    terminal_energy = battery_capacity * terminal_soc_pct / 100
+    charger_hard_constraint = bool(charger.get("hard_constraint", True))
+    charger_penalty = float(charger.get("penalty_cny_per_kwh", 8))
 
     model = pyo.ConcreteModel()
     model.t = pyo.RangeSet(0, count - 1)
@@ -110,6 +121,7 @@ def optimize_dispatch(
     model.generator_on = pyo.Var(model.t, domain=pyo.Binary)
     model.generator_start = pyo.Var(model.t, domain=pyo.Binary)
     model.peak = pyo.Var(domain=pyo.NonNegativeReals, bounds=(0, pcc_capacity))
+    model.charger_shortfall = pyo.Var(domain=pyo.NonNegativeReals)
 
     model.pv_limit = pyo.Constraint(model.t, rule=lambda _, t: model.pv_used[t] <= pv_available_kw[t])
     model.charge_exclusive = pyo.Constraint(
@@ -132,7 +144,7 @@ def optimize_dispatch(
         )
 
     model.energy_balance = pyo.Constraint(model.t, rule=energy_balance)
-    model.terminal_energy = pyo.Constraint(expr=model.energy[count - 1] >= initial_energy)
+    model.terminal_energy = pyo.Constraint(expr=model.energy[count - 1] >= terminal_energy)
     for t in range(count):
         if t not in charger_allowed:
             model.charger[t].fix(0)
@@ -141,9 +153,14 @@ def optimize_dispatch(
         model.lighting[t].setlb(lighting_minimums[t])
         model.lighting[t].setub(lighting_maximums[t])
     if charger_target > 0:
-        model.charger_target = pyo.Constraint(
-            expr=sum(model.charger[t] * interval_hours for t in charger_allowed) >= charger_target
-        )
+        delivered_energy = sum(model.charger[t] * interval_hours for t in charger_allowed)
+        if charger_hard_constraint:
+            model.charger_shortfall.fix(0)
+            model.charger_target = pyo.Constraint(expr=delivered_energy >= charger_target)
+        else:
+            model.charger_target = pyo.Constraint(expr=delivered_energy + model.charger_shortfall >= charger_target)
+    else:
+        model.charger_shortfall.fix(0)
 
     model.generator_minimum = pyo.Constraint(
         model.t, rule=lambda _, t: model.generator[t] >= generator_min * model.generator_on[t]
@@ -189,16 +206,21 @@ def optimize_dispatch(
         expr=sum(
             interval_hours
             * (
-                model.grid_import[t] * (tariff_cny_per_kwh[t] + carbon_factor * carbon_price)
-                - model.grid_export[t] * export_price
-                + (model.charge[t] + model.discharge[t]) * degradation_cost
-                + (pv_available_kw[t] - model.pv_used[t]) * curtailment_cost
-                + model.generator[t] * generator_cost
+                energy_weight
+                * (
+                    model.grid_import[t] * tariff_cny_per_kwh[t]
+                    - model.grid_export[t] * export_price
+                    + (model.charge[t] + model.discharge[t]) * degradation_cost
+                    + (pv_available_kw[t] - model.pv_used[t]) * curtailment_cost
+                    + model.generator[t] * generator_cost
+                )
+                + carbon_weight * model.grid_import[t] * carbon_factor * carbon_price
             )
-            + model.generator_start[t] * generator_start_cost
+            + energy_weight * model.generator_start[t] * generator_start_cost
             for t in range(count)
         )
-        + model.peak * demand_cost,
+        + peak_weight * model.peak * demand_cost
+        + model.charger_shortfall * charger_penalty,
         sense=pyo.minimize,
     )
 
@@ -280,6 +302,9 @@ def optimize_dispatch(
             baseline_cost_cny=baseline_cost,
             savings_cny=None,
             peak_reduction_kw=None,
+            baseline_peak_kw=max(baseline_import),
+            optimized_peak_kw=None,
+            peak_change_kw=None,
             carbon_reduction_kg=None,
             schedule=[],
             cost_breakdown={},
@@ -335,18 +360,39 @@ def optimize_dispatch(
                 ),
             )
         )
-    objective = float(pyo.value(model.objective))
     optimized_peak = max(point.grid_import_kw for point in schedule)
+    shortfall = float(pyo.value(model.charger_shortfall))
+    optimized_cost = (
+        energy_cost
+        + optimized_peak * demand_cost
+        + degradation_total
+        + carbon_cost_total
+        + curtailment_total
+        + generator_total
+        + shortfall * charger_penalty
+    )
     optimized_grid_kwh = sum(point.grid_import_kw * interval_hours for point in schedule)
     baseline_grid_kwh = sum(baseline_import) * interval_hours
+    if shortfall > 1e-6:
+        diagnostics.append(
+            {
+                "constraint": "charger_energy_deadline",
+                "severity": "warning",
+                "message": f"充电任务欠交 {shortfall:.1f} kWh，已计入违约成本",
+                "shortfallKwh": shortfall,
+            }
+        )
     return OptimizationResult(
         status="optimal" if termination == TerminationCondition.optimal else "feasible",
         solver_seconds=solver_seconds,
         mip_gap=0.0 if termination == TerminationCondition.optimal else 0.01,
-        objective_cny=objective,
+        objective_cny=optimized_cost,
         baseline_cost_cny=baseline_cost,
-        savings_cny=baseline_cost - objective,
+        savings_cny=baseline_cost - optimized_cost,
         peak_reduction_kw=max(baseline_import) - optimized_peak,
+        baseline_peak_kw=max(baseline_import),
+        optimized_peak_kw=optimized_peak,
+        peak_change_kw=optimized_peak - max(baseline_import),
         carbon_reduction_kg=(baseline_grid_kwh - optimized_grid_kwh) * carbon_factor,
         schedule=schedule,
         cost_breakdown={
@@ -356,6 +402,7 @@ def optimize_dispatch(
             "carbon_cost_cny": carbon_cost_total,
             "curtailment_cost_cny": curtailment_total,
             "generator_cost_cny": generator_total,
+            "flexibility_penalty_cny": shortfall * charger_penalty,
         },
         diagnostics=diagnostics,
     )

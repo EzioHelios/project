@@ -1,11 +1,12 @@
 """Forecast and MILP acceptance tests."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
 
 from app.domain.microgrid.infrastructure.forecasting import forecast_load_quantiles, forecast_pv_quantiles
+from app.domain.microgrid.infrastructure.metering import RegisterReading, project_register_series
 from app.domain.microgrid.infrastructure.optimization import optimize_dispatch
 from app.domain.microgrid.infrastructure.weather import demo_weather, history_for_training
 
@@ -126,3 +127,44 @@ def test_infeasible_charging_deadline_produces_no_dispatchable_schedule() -> Non
     assert result.schedule == []
     assert result.diagnostics[0]["constraint"] == "charger_energy_deadline"
     assert result.diagnostics[-1]["constraint"] == "system_feasibility"
+
+
+def test_soft_charging_deadline_returns_penalized_shortfall() -> None:
+    start = datetime(2026, 8, 12, tzinfo=ZoneInfo("Asia/Shanghai"))
+    index = [start + timedelta(minutes=15 * position) for position in range(96)]
+    parameters = _parameters()
+    parameters["charger"]["target_energy_kwh"] = 10_000
+    parameters["charger"]["hard_constraint"] = False
+    parameters["charger"]["penalty_cny_per_kwh"] = 8
+
+    result = optimize_dispatch(
+        index=index,
+        fixed_load_kw=[450] * 96,
+        pv_available_kw=[0] * 96,
+        tariff_cny_per_kwh=[0.76] * 96,
+        parameters=parameters,
+    )
+
+    assert result.status == "optimal"
+    assert result.cost_breakdown["flexibility_penalty_cny"] > 0
+    assert result.diagnostics[-1]["constraint"] == "charger_energy_deadline"
+
+
+def test_register_projection_rejects_reset_gap_duplicate_and_jump() -> None:
+    start = datetime(2026, 8, 12, tzinfo=UTC)
+    readings = [
+        RegisterReading(start, 100),
+        RegisterReading(start + timedelta(minutes=15), 110),
+        RegisterReading(start + timedelta(minutes=15), 110),
+        RegisterReading(start + timedelta(minutes=30), 2),
+        RegisterReading(start + timedelta(hours=2), 3),
+        RegisterReading(start + timedelta(hours=2, minutes=15), 10_000),
+        RegisterReading(start + timedelta(hours=2, minutes=30), 10_010),
+    ]
+
+    projected = project_register_series(readings, sign=-1, rated_power_kw=100)
+
+    assert [(point.observed_at, point.power_kw) for point in projected] == [
+        (start + timedelta(minutes=15), -40),
+        (start + timedelta(hours=2, minutes=30), -40),
+    ]

@@ -8,6 +8,7 @@ from app.domain.microgrid.domain.entities import FlexibilityWindow, Scenario
 from app.domain.microgrid.domain.exceptions import PublishedScenarioMutationError, ScenarioNotReadyError
 from app.domain.microgrid.domain.policies import StoragePolicy, advance_soc
 from app.domain.microgrid.domain.scada import normalize_scada_scene, validate_scada_scene, xiangtai_scada_scene
+from app.domain.microgrid.usecases.configuration import validate_strategy_parameters
 
 pytestmark = pytest.mark.unit
 
@@ -85,3 +86,33 @@ def test_scada_scene_validator_rejects_unknown_port() -> None:
     scene["edges"][0]["sourceHandle"] = "missing-terminal"
 
     assert validate_scada_scene(scene) == ["grid-hv-isolator: unknown source port missing-terminal"]
+
+
+@pytest.mark.parametrize(
+    ("parameters", "message"),
+    [
+        (
+            {
+                "grid": {},
+                "pv": {},
+                "storage": {"minimum_soc_pct": 15, "maximum_soc_pct": 90, "terminal_soc_pct": 52},
+                "tariff": {},
+                "reserve_margin_pct": 101,
+            },
+            "reserve margin",
+        ),
+        (
+            {
+                "grid": {},
+                "pv": {},
+                "storage": {"minimum_soc_pct": 15, "maximum_soc_pct": 90, "terminal_soc_pct": 52},
+                "tariff": {},
+                "economics": {"battery_degradation_cny_per_kwh": -0.01},
+            },
+            "degradation cost",
+        ),
+    ],
+)
+def test_strategy_parameters_reject_unsafe_advanced_values(parameters: dict, message: str) -> None:
+    with pytest.raises(ScenarioNotReadyError, match=message):
+        validate_strategy_parameters(parameters)

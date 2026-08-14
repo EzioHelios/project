@@ -27,15 +27,29 @@ export function MicrogridSettingsTabs() {
   )
 }
 
-export function ShadowModeBadge() {
-  return <StatusBadge status="in_progress" label="影子运行" />
+export function MicrogridOperatingBadge() {
+  return <StatusBadge status="in_progress" label="运行中" />
 }
 
 export function RunStatusBadge({ status }: { status?: string | null }) {
+  if (status === "pass") return <StatusBadge status="approved" label="可用" />
+  if (status === "warning") return <StatusBadge status="pending" label="需关注" />
   if (status === "optimal" || status === "feasible" || status === "completed") return <StatusBadge status="approved" label={status === "optimal" ? "最优解" : "已完成"} />
   if (status === "running" || status === "queued") return <StatusBadge status="in_progress" label="计算中" />
   if (status === "failed" || status === "infeasible") return <StatusBadge status="rejected" label={status === "infeasible" ? "不可行" : "失败"} />
-  return <StatusBadge status="pending" label="未运行" />
+  return <StatusBadge status="pending" label="待运行" />
+}
+
+export function getForecastModelLabel(modelVersion?: string | null) {
+  if (!modelVersion) return "预测模型"
+  if (modelVersion.includes("hist-gradient-boosting")) return "HistGradientBoosting 分位数预测"
+  if (modelVersion.includes("yesterday-same-interval")) return "同期基线预测"
+  return modelVersion
+}
+
+export function getOptimizationAlgorithmLabel(solver?: string | null) {
+  if (!solver || solver.toLowerCase() === "highs") return "Pyomo + HiGHS MILP"
+  return `${solver} MILP`
 }
 
 export function formatNumber(value: number | null | undefined, digits = 1) {

@@ -22,6 +22,41 @@ class CreateScenarioRequest(CamelizedBaseStruct, kw_only=True):
     confidence_level: float = 0.5
 
 
+class UpdateScenarioRequest(CamelizedBaseStruct, kw_only=True):
+    """Update the site's working draft, creating it from a published version when needed."""
+
+    parameters: dict[str, Any]
+    name: str | None = None
+    tariff_plan_id: int | None = None
+    grid_emission_factor_id: int | None = None
+    change_summary: str | None = None
+
+
+class MeterBindingItemRequest(CamelizedBaseStruct, kw_only=True):
+    """One manually confirmed meter binding."""
+
+    asset_id: int
+    equipment_id: int
+    role: str
+    point_code: str = "forward_active_total"
+    direction: str = "import"
+    sign: float = 1
+    enabled: bool = True
+
+
+class ReplaceMeterBindingsRequest(CamelizedBaseStruct, kw_only=True):
+    """Replace a site's confirmed binding set."""
+
+    monitor_sector_id: int | None = None
+    bindings: list[MeterBindingItemRequest]
+
+
+class ApplyBindingTemplateRequest(CamelizedBaseStruct, kw_only=True):
+    """Explicit confirmation for the Xiangtai binding template."""
+
+    confirm: bool = False
+
+
 class CreateFlexibilityContractRequest(CamelizedBaseStruct, kw_only=True):
     """Create or update a flexible-load envelope."""
 
@@ -35,6 +70,7 @@ class CreateFlexibilityContractRequest(CamelizedBaseStruct, kw_only=True):
     target_energy_kwh: float | None = None
     priority: int = 50
     penalty_cny_per_kwh: float = 5
+    hard_constraint: bool = True
     enabled: bool = True
 
 
@@ -50,6 +86,9 @@ class RunOptimizationRequest(CamelizedBaseStruct, kw_only=True):
     """Launch an optimization run."""
 
     forecast_run_id: int
+    scenario_id: int | None = None
+    purpose: str = "operational"
+    acknowledge_quality_warning: bool = False
 
 
 class CreateDispatchBatchRequest(CamelizedBaseStruct, kw_only=True):
@@ -59,10 +98,14 @@ class CreateDispatchBatchRequest(CamelizedBaseStruct, kw_only=True):
 
 
 __all__ = (
+    "ApplyBindingTemplateRequest",
     "BootstrapDemoRequest",
     "CreateDispatchBatchRequest",
     "CreateFlexibilityContractRequest",
     "CreateScenarioRequest",
+    "MeterBindingItemRequest",
+    "ReplaceMeterBindingsRequest",
     "RunForecastRequest",
     "RunOptimizationRequest",
+    "UpdateScenarioRequest",
 )

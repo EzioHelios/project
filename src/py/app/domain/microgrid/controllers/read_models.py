@@ -63,6 +63,14 @@ class MicrogridReadController(Controller):
     async def events(self, db_session: AsyncSession, site_id: int | None = None) -> dict[str, Any]:
         return {"items": await MicrogridQueryService(db_session).events(site_id=site_id)}
 
+    @get("/sites/{site_id:int}/data-readiness", operation_id="MicrogridGetDataReadiness")
+    async def data_readiness(self, db_session: AsyncSession, site_id: int) -> dict[str, Any]:
+        return await MicrogridQueryService(db_session).data_readiness(site_id=site_id)
+
+    @get("/economic-input-options", operation_id="MicrogridGetEconomicInputOptions")
+    async def economic_input_options(self, db_session: AsyncSession) -> dict[str, Any]:
+        return await MicrogridQueryService(db_session).economic_input_options()
+
     @get("/scenarios", operation_id="MicrogridListScenarios")
     async def scenarios(self, db_session: AsyncSession, site_id: int | None = None) -> dict[str, Any]:
         return {"items": await MicrogridQueryService(db_session).scenarios(site_id=site_id)}
@@ -105,6 +113,7 @@ class MicrogridReadController(Controller):
                 target_energy_kwh=data.target_energy_kwh,
                 priority=data.priority,
                 penalty_cny_per_kwh=data.penalty_cny_per_kwh,
+                hard_constraint=data.hard_constraint,
                 enabled=data.enabled,
             )
         except (MicrogridDomainError, ValueError) as exc:
@@ -152,7 +161,12 @@ class MicrogridReadController(Controller):
         self, db_session: AsyncSession, data: RunOptimizationRequest
     ) -> Response[dict[str, Any]]:
         try:
-            run = await RunOptimization(db_session).execute(forecast_run_id=data.forecast_run_id)
+            run = await RunOptimization(db_session).execute(
+                forecast_run_id=data.forecast_run_id,
+                scenario_id=data.scenario_id,
+                purpose=data.purpose,
+                acknowledge_quality_warning=data.acknowledge_quality_warning,
+            )
             result = await MicrogridQueryService(db_session).optimization_run(run.id)
             return Response(content=result or {"id": run.id, "status": run.status}, status_code=202)
         except (MicrogridDomainError, ValueError) as exc:
@@ -164,6 +178,14 @@ class MicrogridReadController(Controller):
         if result is None:
             raise NotFoundException(detail="Optimization run not found")
         return result
+
+    @get("/optimization-comparison", operation_id="MicrogridGetOptimizationComparison")
+    async def optimization_comparison(self, db_session: AsyncSession, run_ids: str) -> dict[str, Any]:
+        try:
+            ids = [int(value) for value in run_ids.split(",") if value]
+            return await MicrogridQueryService(db_session).optimization_comparison(run_ids=ids)
+        except (MicrogridDomainError, ValueError) as exc:
+            raise ClientException(status_code=422, detail=str(exc)) from exc
 
     @get("/dispatch-batches/{batch_id:int}", operation_id="MicrogridGetDispatchBatch")
     async def dispatch_batch(self, db_session: AsyncSession, batch_id: int) -> dict[str, Any]:

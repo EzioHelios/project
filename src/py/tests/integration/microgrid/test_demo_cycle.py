@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import time
+from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -9,8 +11,10 @@ import pytest
 from sqlalchemy import func, select
 
 from app.db import models as m
+from app.domain.microgrid.domain.exceptions import InfeasibleDispatchError, ScenarioNotReadyError
 from app.domain.microgrid.infrastructure.weather import demo_weather
 from app.domain.microgrid.usecases import BootstrapXiangtaiDemo, CreateDispatchBatch, RunForecast, RunOptimization
+from app.domain.microgrid.usecases.bindings import BindingTemplate
 from app.lib.tenancy import TENANT_ID_SESSION_KEY
 
 pytestmark = [pytest.mark.anyio, pytest.mark.integration]
@@ -28,6 +32,39 @@ async def test_xiangtai_demo_persists_full_shadow_dispatch_cycle(session) -> Non
     session.add(team)
     await session.flush()
     session.info[TENANT_ID_SESSION_KEY] = team.id
+
+    tariff = m.EnergyTariffPlan(
+        team_id=team.id,
+        code="default_electricity_tou",
+        name="测试分时电价",
+        energy_type_code="electricity",
+        is_enabled=True,
+    )
+    factor = m.EmissionFactor(
+        scope="scope2",
+        category="electricity",
+        sub_category="grid_electricity_jiangsu",
+        unit="kWh",
+        factor_value=Decimal("0.5827"),
+        factor_unit="kgCO2e/kWh",
+        year=2023,
+        source="测试台账",
+        is_active=True,
+    )
+    session.add_all([tariff, factor])
+    await session.flush()
+    session.add(
+        m.EnergyTariffSegment(
+            team_id=team.id,
+            plan_id=tariff.id,
+            segment_type="flat",
+            start_time=time(0),
+            end_time=time(23, 59, 59),
+            price=Decimal("0.76"),
+            sort_index=0,
+        )
+    )
+    await session.commit()
 
     site = await BootstrapXiangtaiDemo(session).execute()
     assert (
@@ -47,7 +84,23 @@ async def test_xiangtai_demo_persists_full_shadow_dispatch_cycle(session) -> Non
         )
         == 576
     )
+    with pytest.raises(ScenarioNotReadyError, match="only applies to the Xiangtai site"):
+        await BindingTemplate(session).execute(site.id)
+
     forecast = await RunForecast(session, weather=FakeWeatherAdapter()).execute(site_id=site.id)
+    assert forecast.quality_status == "warning"
+    with pytest.raises(ScenarioNotReadyError, match="acknowledged risk trial"):
+        await RunOptimization(session).execute(forecast_run_id=forecast.id)
+    trial = await RunOptimization(session).execute(
+        forecast_run_id=forecast.id,
+        purpose="trial",
+        acknowledge_quality_warning=True,
+    )
+    with pytest.raises(InfeasibleDispatchError, match="trial optimization runs cannot be dispatched"):
+        await CreateDispatchBatch(session).execute(optimization_run_id=trial.id)
+
+    forecast.quality_status = "pass"
+    await session.commit()
     optimization = await RunOptimization(session).execute(forecast_run_id=forecast.id)
     dispatch = await CreateDispatchBatch(session).execute(optimization_run_id=optimization.id)
 
