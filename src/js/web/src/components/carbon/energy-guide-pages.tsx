@@ -18,25 +18,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
 
-type EnergySummary = {
-  latest_month?: string | null
-  energy_by_area: { name: string; value: number }[]
-  alerts_by_area: { name: string; value: number }[]
-  carbon_by_type: { name: string; value: number }[]
-  source_mix: { name: string; energy_kwh: number; carbon_co2e: number; record_count: number }[]
-  energy_efficiency?: { source_kind?: string; energy_kwh?: number; carbon_co2e?: number; record_count?: number }
-  workflow: { name: string; value: number }[]
-  ledger: Record<string, unknown>[]
-}
-
-type TrendData = {
-  series: {
-    period: string
-    energy_kwh: number
-    scope2_co2e: number
-  }[]
-}
-
 type EnergyAnalysisSummary = {
   totals: {
     record_count: number
@@ -546,20 +527,6 @@ type EnergyHierarchyRow = {
 function initialEnergyImportTab() {
   if (typeof window === "undefined") return "summary"
   return new URLSearchParams(window.location.search).get("tab") === "export" ? "export" : "summary"
-}
-
-function _useEnergySummary() {
-  return useQuery<ApiEnvelope<EnergySummary>>({
-    queryKey: ["energy-carbon", "energy", "summary"],
-    queryFn: () => fetchCarbonApi<EnergySummary>("/api/energy-carbon/energy/summary"),
-  })
-}
-
-function _useEnergyTrend(months: string) {
-  return useQuery<ApiEnvelope<TrendData>>({
-    queryKey: ["energy-carbon", "energy", "trend", months],
-    queryFn: () => fetchCarbonApi<TrendData>(`/api/energy-carbon/energy/trend?months=${months}`),
-  })
 }
 
 const formatEnergyValue = (value: number | null | undefined, digits = 4) =>

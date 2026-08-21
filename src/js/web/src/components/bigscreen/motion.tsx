@@ -1,5 +1,5 @@
 import type * as React from "react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 
 import type { BigscreenMediaItem } from "@/lib/bigscreen/types"
 import { cn } from "@/lib/utils"
@@ -268,7 +268,9 @@ export function BigscreenHighlightCycle<T>({
 
   return (
     <div className={cn("bigscreen-highlight-cycle", className)}>
-      {items.map((item, index) => renderItem(item, index, index === activeIndex))}
+      {items.map((item, index) => (
+        <Fragment key={getItemKey(item, index)}>{renderItem(item, index, index === activeIndex)}</Fragment>
+      ))}
     </div>
   )
 }

@@ -103,9 +103,7 @@ export function RawJsonCollapsible({ data, title = "原始返回值" }: { data: 
           </Button>
         </CollapsibleTrigger>
       </div>
-      <CollapsibleContent className="mt-3">
-        {Array.isArray(data) ? <AutoTable data={data} maxColumns={10} /> : <KeyValueGrid data={data} />}
-      </CollapsibleContent>
+      <CollapsibleContent className="mt-3">{Array.isArray(data) ? <AutoTable data={data} maxColumns={10} /> : <KeyValueGrid data={data} />}</CollapsibleContent>
     </Collapsible>
   )
 }

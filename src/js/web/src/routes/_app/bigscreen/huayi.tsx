@@ -153,9 +153,7 @@ function HuayiBigscreenPage() {
             emptyLabel="暂无零碳生活数据"
             intervalMs={5200}
             getItemKey={(section) => section.id}
-            renderPage={(section) => (
-              <LifestyleSectionPanel section={section} highlight={section.id === "green-traffic"} variant="rotating" className="h-full" />
-            )}
+            renderPage={(section) => <LifestyleSectionPanel section={section} highlight={section.id === "green-traffic"} variant="rotating" className="h-full" />}
           />
         </BigscreenPanel>
       </div>

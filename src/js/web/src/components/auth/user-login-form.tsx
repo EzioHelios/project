@@ -18,12 +18,16 @@ interface UserLoginFormProps extends React.HTMLAttributes<HTMLDivElement> {
   redirectUrl?: string | null
 }
 
+type AltchaWidgetElement = HTMLElement & {
+  reset?: () => void
+}
+
 export function UserLoginForm({ className, redirectUrl, ...props }: UserLoginFormProps) {
   const navigate = useNavigate()
   const { config } = usePublicConfig()
   const { login, isLoading } = useAuthStore()
   const formRef = useRef<HTMLFormElement | null>(null)
-  const widgetRef = useRef<HTMLElement | null>(null)
+  const widgetRef = useRef<AltchaWidgetElement | null>(null)
   const [verification, setVerification] = useState<HumanVerificationSubmission | null>(null)
   const [showCaptcha, setShowCaptcha] = useState(false)
 

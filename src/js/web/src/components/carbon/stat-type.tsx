@@ -2,15 +2,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export type StatType = "day" | "month" | "year"
 
-export function StatTypeSelect({
-  value,
-  onChange,
-  className,
-}: {
-  value: StatType
-  onChange: (value: StatType) => void
-  className?: string
-}) {
+export function StatTypeSelect({ value, onChange, className }: { value: StatType; onChange: (value: StatType) => void; className?: string }) {
   return (
     <div className={className}>
       <Select value={value} onValueChange={(v) => onChange(v as StatType)}>
@@ -26,4 +18,3 @@ export function StatTypeSelect({
     </div>
   )
 }
-

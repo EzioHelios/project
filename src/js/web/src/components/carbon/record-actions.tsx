@@ -1,9 +1,8 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query"
 import type { QueryKey } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-
-import { Button } from "@/components/ui/button"
 import type { CarbonStatus } from "@/components/carbon/status-badge"
+import { Button } from "@/components/ui/button"
 
 type Action = "submit" | "approve" | "reject" | "delete"
 
@@ -23,7 +22,7 @@ async function callAction(basePath: string, id: number, action: Action) {
     } catch {
       // 后端可能返回的是纯文本错误（例如 Traceback），避免 JSON 解析异常把原始错误吞掉
     }
-    if (!res.ok || (json && json.code && json.code !== 200 && json.code !== 0)) {
+    if (!res.ok || (json?.code && json.code !== 200 && json.code !== 0)) {
       throw new Error(json?.msg || `删除失败 (HTTP ${res.status})`)
     }
     return
@@ -39,7 +38,7 @@ async function callAction(basePath: string, id: number, action: Action) {
   } catch {
     // 后端异常时可能返回纯文本 Traceback，这里避免 JSON 解析错误导致误报
   }
-  if (!res.ok || (json && json.code && json.code !== 200 && json.code !== 0)) {
+  if (!res.ok || (json?.code && json.code !== 200 && json.code !== 0)) {
     throw new Error(json?.msg || `操作失败 (HTTP ${res.status})`)
   }
 }
@@ -74,4 +73,3 @@ export function CarbonRecordActions({ id, status, basePath, invalidateKey }: Car
     </div>
   )
 }
-

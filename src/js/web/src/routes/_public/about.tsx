@@ -174,7 +174,7 @@ function AboutPage() {
       <PageContainer className="relative">
         <div className="mb-6">
           <Button variant="ghost" size="sm" asChild>
-            <Link to="/landing">
+            <Link to="/">
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to home
             </Link>
           </Button>

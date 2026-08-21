@@ -37,7 +37,7 @@ const UNIT_LABELS: Record<string, string> = {
   "m³": "立方米",
   t: "吨",
   kWh: "千瓦时",
-  "t·km": "吨公里",
+  t·km: "吨公里",
   TJ: "太焦耳",
 }
 

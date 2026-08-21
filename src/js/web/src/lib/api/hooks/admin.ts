@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { getApiBaseUrl } from "@/lib/api-base-url"
 import {
-  type ListRolesData,
   type AdminListAuditLogsData,
   type AdminListTeamsData,
   type AdminListUsersData,
@@ -20,10 +19,11 @@ import {
   adminListUsers,
   adminUpdateTeam,
   adminUpdateUser,
-  listRoles,
   type DashboardStats,
   getDashboardStats,
   getRecentActivity,
+  type ListRolesData,
+  listRoles,
   type RecentActivity,
 } from "@/lib/generated/api"
 

@@ -8,7 +8,7 @@ export const Route = createFileRoute("/$")({
     if (isAuthenticated) {
       throw redirect({ to: "/home" })
     }
-    throw redirect({ to: "/landing" })
+    throw redirect({ to: "/" })
   },
 })
 

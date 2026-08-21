@@ -175,7 +175,6 @@ export function BigscreenSankeyChart({ flow, height = 320 }: { flow: BigscreenFl
     series: [
       {
         type: "sankey",
-        layout: "none",
         data: flow.nodes.map((node, index) => ({
           name: node.name,
           itemStyle: { color: sankeyPalette[index % sankeyPalette.length], borderColor: "rgba(255,255,255,0.18)" },

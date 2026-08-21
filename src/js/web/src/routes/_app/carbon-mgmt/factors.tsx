@@ -481,7 +481,7 @@ function RawPayloadTable({ payload }: { payload: unknown }) {
   )
 }
 
-function formatPayloadValue(value: unknown) {
+function formatPayloadValue(value: unknown): string {
   if (value === null || value === undefined) return "-"
   if (typeof value === "number") return Number.isFinite(value) ? value.toLocaleString("zh-CN") : String(value)
   if (typeof value === "boolean") return value ? "是" : "否"

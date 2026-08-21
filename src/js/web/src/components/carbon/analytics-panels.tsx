@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   type AdminChartBarSeriesConfig,
+  type AdminChartDatum,
   type AdminChartLineSeriesConfig,
   type AdminChartSeriesConfig,
   createComboTrendChartOption,
@@ -78,8 +79,6 @@ type DistributionItem = {
 }
 
 type SeriesConfig = AdminChartSeriesConfig<keyof TrendPoint & string>
-type BarSeriesConfig = AdminChartBarSeriesConfig<keyof TrendPoint & string>
-type LineSeriesConfig = AdminChartLineSeriesConfig<keyof TrendPoint & string>
 
 export async function fetchCarbonApi<T>(url: string) {
   const res = await fetch(url)
@@ -135,7 +134,7 @@ export function TrendChart({ title, points, lines, height = 340 }: { title: stri
   return <ChartPanel title={title} option={createTrendChartOption(chartTheme, points, lines)} height={height} emptyLabel="暂无趋势数据" />
 }
 
-export function CompositeTrendChart({
+export function CompositeTrendChart<T extends AdminChartDatum>({
   title,
   points,
   bars,
@@ -145,9 +144,9 @@ export function CompositeTrendChart({
   rightAxisName,
 }: {
   title: string
-  points: TrendPoint[]
-  bars: BarSeriesConfig[]
-  lines: LineSeriesConfig[]
+  points: T[]
+  bars: AdminChartBarSeriesConfig<Extract<keyof T, string>>[]
+  lines: AdminChartLineSeriesConfig<Extract<keyof T, string>>[]
   height?: number
   leftAxisName?: string
   rightAxisName?: string

@@ -17,9 +17,7 @@ export function PermissionCenterNav() {
   return (
     <div className="flex flex-wrap gap-2">
       {navItems.map((item) => {
-        const isActive = item.activePaths.some((path) =>
-          "exact" in item && item.exact ? pathname === path : pathname === path || pathname.startsWith(path),
-        )
+        const isActive = item.activePaths.some((path) => ("exact" in item && item.exact ? pathname === path : pathname === path || pathname.startsWith(path)))
         return (
           <Button key={item.to} asChild variant={isActive ? "default" : "outline"} size="sm">
             <Link to={item.to}>{item.label}</Link>

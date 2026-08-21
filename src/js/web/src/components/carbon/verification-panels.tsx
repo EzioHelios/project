@@ -230,6 +230,7 @@ type VerificationProject = {
   reporting_org_name?: string | null
   period_name?: string | null
   boundary_name?: string | null
+  accounting_batch_id?: number | null
   batch_name?: string | null
   batch_status?: string | null
   batch_inventory_status?: string | null

@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from "@/lib/api-base-url"
 import type {
   BigscreenApiEnvelope,
   BigscreenCarbonResponse,
@@ -7,7 +8,6 @@ import type {
   BigscreenPowerResponse,
   HuayiBigscreenOverviewResponse,
 } from "@/lib/bigscreen/types"
-import { getApiBaseUrl } from "@/lib/api-base-url"
 
 async function requestBigscreen<T>(path: string): Promise<BigscreenApiEnvelope<T>> {
   const apiUrl = getApiBaseUrl()

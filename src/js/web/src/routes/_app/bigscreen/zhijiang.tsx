@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 
-import { BigscreenBarChart, BigscreenLineChart, BigscreenPieChart } from "@/components/bigscreen/charts"
+import { BigscreenLineChart, BigscreenPieChart } from "@/components/bigscreen/charts"
 import { BigscreenInfoCard, BigscreenMetricCard, BigscreenPanel } from "@/components/bigscreen/panel"
 import { BigscreenSceneHost } from "@/components/bigscreen/scene"
 
@@ -251,15 +251,7 @@ function AuditStatusTag({ status }: { status: AuditStatus }) {
   )
 }
 
-function CountyPilotMap({
-  sites,
-  selectedSiteId,
-  onSelect,
-}: {
-  sites: SiteRecord[]
-  selectedSiteId: string
-  onSelect: (siteId: string) => void
-}) {
+function CountyPilotMap({ sites, selectedSiteId, onSelect }: { sites: SiteRecord[]; selectedSiteId: string; onSelect: (siteId: string) => void }) {
   return (
     <div className="bigscreen-zhijiang-map-shell">
       <svg className="bigscreen-zhijiang-map-base" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
@@ -324,8 +316,7 @@ function ZhijiangBigscreenPage() {
     const totalSettlementWan = siteRecords.reduce((sum, site) => sum + site.contractSettlementWan, 0)
     const weightedDataCompleteness =
       siteRecords.reduce((sum, site) => sum + site.dataCompleteness * site.meterCount, 0) / siteRecords.reduce((sum, site) => sum + site.meterCount, 0)
-    const weightedPayback =
-      siteRecords.reduce((sum, site) => sum + site.paybackYears * site.deviceCount, 0) / siteRecords.reduce((sum, site) => sum + site.deviceCount, 0)
+    const weightedPayback = siteRecords.reduce((sum, site) => sum + site.paybackYears * site.deviceCount, 0) / siteRecords.reduce((sum, site) => sum + site.deviceCount, 0)
 
     return {
       totalBaseline,
@@ -398,11 +389,15 @@ function ZhijiangBigscreenPage() {
 
   const totalTrend = useMemo(() => {
     const periods = siteRecords[0]?.trend.map((point) => point.period) ?? []
-    return periods.map((period, index) => ({
-      period,
-      energy_kwh: siteRecords.reduce((sum, site) => sum + (site.trend[index]?.energy_kwh ?? 0), 0),
-      carbon_co2e: Number(siteRecords.reduce((sum, site) => sum + (site.trend[index]?.carbon_co2e ?? 0), 0).toFixed(1)),
-    }))
+    return periods.map((period, index) => {
+      const energyKwh = siteRecords.reduce((sum, site) => sum + (site.trend[index]?.energy_kwh ?? 0), 0)
+      return {
+        period,
+        energy_kwh: energyKwh,
+        carbon_co2e: Number(siteRecords.reduce((sum, site) => sum + (site.trend[index]?.carbon_co2e ?? 0), 0).toFixed(1)),
+        value: energyKwh,
+      }
+    })
   }, [])
 
   const sceneDistribution = useMemo(() => {
@@ -436,11 +431,7 @@ function ZhijiangBigscreenPage() {
     })
   }, [])
 
-  const auditRows = useMemo(
-    () =>
-      [...siteRecords].sort((left, right) => right.dataCompleteness - left.dataCompleteness),
-    [],
-  )
+  const auditRows = useMemo(() => [...siteRecords].sort((left, right) => right.dataCompleteness - left.dataCompleteness), [])
 
   return (
     <div className="bigscreen-page bigscreen-zhijiang-page">
