@@ -28,6 +28,7 @@ export function getAssetTone(asset: MicrogridAsset | undefined): ScadaStateTone 
   if (!asset.online) return "offline"
   if (["critical", "alarm", "error"].includes(asset.alarmLevel)) return "alarm"
   if (["warning", "minor"].includes(asset.alarmLevel)) return "warning"
+  if (asset.stateSourceKind === "simulated") return "simulated"
   return "normal"
 }
 
