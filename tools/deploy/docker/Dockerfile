@@ -51,9 +51,10 @@ RUN --mount=type=cache,id=apt-cache,target=/var/cache/apt,sharing=locked \
 # For SHA256 pinning: COPY --from=ghcr.io/astral-sh/uv@sha256:<digest> /uv /uvx /bin/
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Install bun and bunx (litestar-vite type generation invokes bunx explicitly)
-COPY --from=oven/bun:latest /usr/local/bin/bun /usr/local/bin/bun
-COPY --from=oven/bun:latest /usr/local/bin/bunx /usr/local/bin/bunx
+# Pin Bun to the version validated by the local toolchain. Floating `latest`
+# introduced a Bun 1.4 incompatibility in the OpenAPI type-generation step.
+COPY --from=oven/bun:1.3.10 /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:1.3.10 /usr/local/bin/bunx /usr/local/bin/bunx
 
 # =============================================================================
 # Stage 2: Builder
