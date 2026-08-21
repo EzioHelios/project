@@ -30,7 +30,19 @@ def _index_exists(table_name: str, index_name: str) -> bool:
     return index_name in {index["name"] for index in sa.inspect(op.get_bind()).get_indexes(table_name)}
 
 
-def _foreign_key_exists(table_name: str, constraint_name: str) -> bool:
+def _foreign_key_exists(
+    table_name: str,
+    constrained_columns: list[str],
+    referred_table: str,
+) -> bool:
+    return any(
+        foreign_key["constrained_columns"] == constrained_columns
+        and foreign_key["referred_table"] == referred_table
+        for foreign_key in sa.inspect(op.get_bind()).get_foreign_keys(table_name)
+    )
+
+
+def _named_foreign_key_exists(table_name: str, constraint_name: str) -> bool:
     return constraint_name in {
         foreign_key["name"] for foreign_key in sa.inspect(op.get_bind()).get_foreign_keys(table_name)
     }
@@ -128,7 +140,7 @@ def upgrade() -> None:
         "microgrid_scenario",
         sa.Column("change_summary", sa.String(length=255), nullable=True),
     )
-    if not _foreign_key_exists("microgrid_scenario", "fk_microgrid_scenario_tariff_plan_id"):
+    if not _foreign_key_exists("microgrid_scenario", ["tariff_plan_id"], "dataapp_energytariffplan"):
         op.create_foreign_key(
             "fk_microgrid_scenario_tariff_plan_id",
             "microgrid_scenario",
@@ -137,7 +149,7 @@ def upgrade() -> None:
             ["id"],
             ondelete="SET NULL",
         )
-    if not _foreign_key_exists("microgrid_scenario", "fk_microgrid_scenario_grid_emission_factor_id"):
+    if not _foreign_key_exists("microgrid_scenario", ["grid_emission_factor_id"], "dataapp_emissionfactor"):
         op.create_foreign_key(
             "fk_microgrid_scenario_grid_emission_factor_id",
             "microgrid_scenario",
@@ -146,7 +158,7 @@ def upgrade() -> None:
             ["id"],
             ondelete="SET NULL",
         )
-    if not _foreign_key_exists("microgrid_scenario", "fk_microgrid_scenario_based_on_scenario_id"):
+    if not _foreign_key_exists("microgrid_scenario", ["based_on_scenario_id"], "microgrid_scenario"):
         op.create_foreign_key(
             "fk_microgrid_scenario_based_on_scenario_id",
             "microgrid_scenario",
@@ -209,20 +221,35 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_microgrid_optimization_run_purpose", table_name="microgrid_optimization_run")
+    if _index_exists("microgrid_optimization_run", "ix_microgrid_optimization_run_purpose"):
+        op.drop_index("ix_microgrid_optimization_run_purpose", table_name="microgrid_optimization_run")
     for column in ("peak_change_kw", "optimized_peak_kw", "baseline_peak_kw", "purpose"):
-        op.drop_column("microgrid_optimization_run", column)
+        if _column_exists("microgrid_optimization_run", column):
+            op.drop_column("microgrid_optimization_run", column)
 
-    op.drop_index("ix_microgrid_forecast_run_history_source_kind", table_name="microgrid_forecast_run")
-    op.drop_index("ix_microgrid_forecast_run_quality_status", table_name="microgrid_forecast_run")
+    for index_name in (
+        "ix_microgrid_forecast_run_history_source_kind",
+        "ix_microgrid_forecast_run_quality_status",
+    ):
+        if _index_exists("microgrid_forecast_run", index_name):
+            op.drop_index(index_name, table_name="microgrid_forecast_run")
     for column in ("history_coverage_pct", "history_source_kind", "quality_checks", "quality_status"):
-        op.drop_column("microgrid_forecast_run", column)
+        if _column_exists("microgrid_forecast_run", column):
+            op.drop_column("microgrid_forecast_run", column)
 
     for column in ("based_on_scenario_id", "grid_emission_factor_id", "tariff_plan_id"):
-        op.drop_index(f"ix_microgrid_scenario_{column}", table_name="microgrid_scenario")
-    op.drop_constraint("fk_microgrid_scenario_based_on_scenario_id", "microgrid_scenario", type_="foreignkey")
-    op.drop_constraint("fk_microgrid_scenario_grid_emission_factor_id", "microgrid_scenario", type_="foreignkey")
-    op.drop_constraint("fk_microgrid_scenario_tariff_plan_id", "microgrid_scenario", type_="foreignkey")
+        index_name = f"ix_microgrid_scenario_{column}"
+        if _index_exists("microgrid_scenario", index_name):
+            op.drop_index(index_name, table_name="microgrid_scenario")
+    for constraint_name in (
+        "fk_microgrid_scenario_based_on_scenario_id",
+        "fk_microgrid_scenario_grid_emission_factor_id",
+        "fk_microgrid_scenario_tariff_plan_id",
+    ):
+        if _named_foreign_key_exists("microgrid_scenario", constraint_name):
+            op.drop_constraint(constraint_name, "microgrid_scenario", type_="foreignkey")
     for column in ("change_summary", "based_on_scenario_id", "grid_emission_factor_id", "tariff_plan_id"):
-        op.drop_column("microgrid_scenario", column)
-    op.drop_table(BINDING_TABLE)
+        if _column_exists("microgrid_scenario", column):
+            op.drop_column("microgrid_scenario", column)
+    if _table_exists(BINDING_TABLE):
+        op.drop_table(BINDING_TABLE)
