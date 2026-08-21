@@ -3,18 +3,20 @@ import "cesium/Build/Cesium/Widgets/widgets.css"
 import { useEffect, useRef, useState } from "react"
 
 import { createDefaultBigscreenSceneEngine } from "@/lib/bigscreen/map/engine"
-import { loadBigscreenScene, resolveBigscreenPublicUrl } from "@/lib/bigscreen/map/scene"
+import { loadBigscreenSceneCandidates, resolveBigscreenPublicUrl } from "@/lib/bigscreen/map/scene"
 import type { BigscreenLoadedScene, BigscreenSceneEngine, BigscreenSceneEngineKind } from "@/lib/bigscreen/map/types"
 
 type BigscreenSceneLoadState = { status: "loading"; message: string } | { status: "ready"; message?: string } | { status: "error"; message: string }
 
 export function BigscreenSceneCanvas({
   manifestUrl = resolveBigscreenPublicUrl("maps/taizhou-warehouse/scene.json"),
+  manifestUrls,
   createEngine = createDefaultBigscreenSceneEngine,
   className,
   variant = "panel",
 }: {
   manifestUrl?: string
+  manifestUrls?: string[]
   createEngine?: (sceneEngine: BigscreenSceneEngineKind) => Promise<BigscreenSceneEngine> | BigscreenSceneEngine
   className?: string
   variant?: "panel" | "stage"
@@ -27,18 +29,20 @@ export function BigscreenSceneCanvas({
     status: "loading",
     message: "正在加载园区场景",
   })
+  const manifestCandidateKey = (manifestUrls?.length ? manifestUrls : [manifestUrl]).join("|")
 
   useEffect(() => {
     let cancelled = false
 
     async function mountScene() {
+      const manifestCandidates = manifestCandidateKey.split("|").filter(Boolean)
       setLoadState({
         status: "loading",
         message: "正在加载园区场景",
       })
 
       try {
-        const loadedScene = await loadBigscreenScene(manifestUrl)
+        const loadedScene = await loadBigscreenSceneCandidates(manifestCandidates)
         if (cancelled || !containerRef.current) {
           return
         }
@@ -91,7 +95,7 @@ export function BigscreenSceneCanvas({
       engineRef.current?.destroy()
       engineRef.current = null
     }
-  }, [createEngine, manifestUrl])
+  }, [createEngine, manifestCandidateKey])
 
   return (
     <div className={`bigscreen-map-frame ${variant === "stage" ? "bigscreen-map-frame-stage" : ""} ${className ?? ""}`.trim()}>

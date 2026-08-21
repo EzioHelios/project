@@ -1,13 +1,17 @@
 import type {
   BigscreenLoadedScene,
+  BigscreenSceneBuildingLayerConfig,
   BigscreenSceneConfig,
   BigscreenSceneCoordinateSystem,
-  BigscreenSceneBuildingLayerConfig,
+  BigscreenSceneEnvironmentConfig,
   BigscreenSceneFeatureLayerConfig,
   BigscreenSceneImageryProviderConfig,
   BigscreenSceneInitialCamera,
   BigscreenSceneLngLat,
+  BigscreenSceneModelAsset,
+  BigscreenSceneModelLayerConfig,
   BigscreenScenePadding,
+  BigscreenSceneSiteLayerConfig,
   BigscreenSceneTerrainProviderConfig,
   BigscreenSceneZoneLayerConfig,
   BigscreenWarehouseFeature,
@@ -36,27 +40,73 @@ const DEFAULT_IMAGERY_PROVIDER: BigscreenSceneImageryProviderConfig = {
   url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
   credit: "© OpenStreetMap contributors",
   maximumLevel: 19,
+  alpha: 0.42,
+  brightness: 0.7,
+  contrast: 0.92,
+  saturation: 0.18,
+  gamma: 0.96,
 }
 
 const DEFAULT_TERRAIN_PROVIDER: BigscreenSceneTerrainProviderConfig = {
   kind: "ellipsoid",
 }
 
+const DEFAULT_ENVIRONMENT: BigscreenSceneEnvironmentConfig = {
+  backgroundColor: "#06151b",
+  globeBaseColor: "#102a31",
+  lighting: true,
+  dynamicAtmosphereLighting: true,
+  clockTime: "2026-04-18T23:20:00Z",
+  fog: {
+    enabled: true,
+    density: 0.00018,
+    minimumBrightness: 0.12,
+    screenSpaceErrorFactor: 2.2,
+  },
+  ambientOcclusion: {
+    enabled: true,
+    intensity: 1.6,
+    bias: 0.2,
+    lengthCap: 0.22,
+    directionCount: 6,
+    stepCount: 20,
+  },
+}
+
 type PartialSceneConfig = Partial<
   Omit<
     BigscreenSceneConfig,
-    "cameraHome" | "warehouseLayer" | "futureLayers" | "center" | "imageryProvider" | "terrainProvider" | "viewerOptions" | "siteLayer" | "buildingLayer" | "zoneLayer"
+    | "cameraHome"
+    | "warehouseLayer"
+    | "futureLayers"
+    | "center"
+    | "imageryProvider"
+    | "terrainProvider"
+    | "viewerOptions"
+    | "environment"
+    | "siteLayer"
+    | "buildingLayer"
+    | "zoneLayer"
+    | "modelLayer"
   >
 > & {
+  extends?: string
   engine?: "maplibre"
   center?: BigscreenSceneLngLat
   imageryProvider?: Partial<BigscreenSceneImageryProviderConfig>
   terrainProvider?: Partial<Extract<BigscreenSceneTerrainProviderConfig, { kind: "cesium-terrain" }>> | { kind?: "ellipsoid" }
   cameraHome?: Partial<BigscreenSceneConfig["cameraHome"]>
   viewerOptions?: Partial<BigscreenSceneConfig["viewerOptions"]>
-  siteLayer?: Partial<BigscreenSceneFeatureLayerConfig>
+  environment?: Partial<Omit<BigscreenSceneEnvironmentConfig, "fog" | "ambientOcclusion">> & {
+    fog?: Partial<BigscreenSceneEnvironmentConfig["fog"]>
+    ambientOcclusion?: Partial<BigscreenSceneEnvironmentConfig["ambientOcclusion"]>
+  }
+  siteLayer?: Partial<BigscreenSceneSiteLayerConfig>
   buildingLayer?: Partial<BigscreenSceneBuildingLayerConfig>
   zoneLayer?: Partial<BigscreenSceneZoneLayerConfig>
+  modelLayer?: Partial<Omit<BigscreenSceneModelLayerConfig, "assets">> & {
+    assets?: Partial<BigscreenSceneModelAsset>[]
+  }
   warehouseLayer?: Partial<BigscreenWarehouseLayerConfig>
   futureLayers?: Partial<BigscreenSceneConfig["futureLayers"]>
   styleUrl?: string
@@ -102,12 +152,40 @@ function normalizeWarehouseFeature(feature: BigscreenWarehouseFeature, index: nu
   }
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
+export class BigscreenSceneResourceError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+    readonly resourceKind: "candidate-manifest" | "inherited-manifest" | "asset" = "asset",
+  ) {
+    super(message)
+    this.name = "BigscreenSceneResourceError"
+  }
+}
+
+async function fetchJson<T>(url: string, resourceKind: BigscreenSceneResourceError["resourceKind"] = "asset"): Promise<T> {
   const response = await fetch(url)
   if (!response.ok) {
-    throw new Error(`Failed to load ${url}: HTTP ${response.status}`)
+    throw new BigscreenSceneResourceError(`Failed to load ${url}: HTTP ${response.status}`, response.status, resourceKind)
   }
-  return (await response.json()) as T
+
+  const body = await response.text()
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? ""
+  const isHtmlFallback = contentType.includes("text/html") || /^\s*(?:<!doctype\s+html|<html[\s>])/iu.test(body)
+  if (isHtmlFallback) {
+    // Vite and some SPA hosts return index.html with HTTP 200 for a missing
+    // public asset. Treat that response as an absent top-level candidate so
+    // tenant lookup can continue, but never hide a broken inherited manifest
+    // or a missing scene asset behind the platform fallback.
+    const status = resourceKind === "candidate-manifest" ? 404 : response.status
+    throw new BigscreenSceneResourceError(`Expected JSON from ${url}, received the SPA HTML fallback`, status, resourceKind)
+  }
+
+  try {
+    return JSON.parse(body) as T
+  } catch (error) {
+    throw new BigscreenSceneResourceError(`Invalid JSON in ${url}: ${error instanceof Error ? error.message : "unknown parse error"}`, response.status, resourceKind)
+  }
 }
 
 function normalizeImageryProvider(input?: Partial<BigscreenSceneImageryProviderConfig>): BigscreenSceneImageryProviderConfig {
@@ -118,6 +196,11 @@ function normalizeImageryProvider(input?: Partial<BigscreenSceneImageryProviderC
     minimumLevel: input?.minimumLevel,
     maximumLevel: input?.maximumLevel ?? DEFAULT_IMAGERY_PROVIDER.maximumLevel,
     subdomains: input?.subdomains?.length ? input.subdomains : undefined,
+    alpha: input?.alpha ?? DEFAULT_IMAGERY_PROVIDER.alpha,
+    brightness: input?.brightness ?? DEFAULT_IMAGERY_PROVIDER.brightness,
+    contrast: input?.contrast ?? DEFAULT_IMAGERY_PROVIDER.contrast,
+    saturation: input?.saturation ?? DEFAULT_IMAGERY_PROVIDER.saturation,
+    gamma: input?.gamma ?? DEFAULT_IMAGERY_PROVIDER.gamma,
   }
 }
 
@@ -176,9 +259,36 @@ function normalizeBuildingLayer(input: Partial<BigscreenSceneBuildingLayerConfig
   return {
     ...baseLayer,
     defaultHeight: input?.defaultHeight ?? 8,
-    defaultOpacity: input?.defaultOpacity ?? 0.48,
-    solarPanelColor: input?.solarPanelColor?.trim() || "#123d72",
-    solarPanelStrokeColor: input?.solarPanelStrokeColor?.trim() || "#87d8ff",
+    defaultOpacity: input?.defaultOpacity ?? 0.96,
+    defaultWallColor: input?.defaultWallColor?.trim() || "#a9b9bb",
+    defaultRoofColor: input?.defaultRoofColor?.trim() || "#c8d3d4",
+    featureColorMode: input?.featureColorMode === "feature" ? "feature" : "uniform",
+    roofEdgeColor: input?.roofEdgeColor?.trim() || "#8bc4ca",
+    roofEdgeOpacity: input?.roofEdgeOpacity ?? 0.44,
+    showLabels: input?.showLabels ?? true,
+    labelDistance: input?.labelDistance ?? 1200,
+    solarPanelColor: input?.solarPanelColor?.trim() || "#123f58",
+    solarPanelStrokeColor: input?.solarPanelStrokeColor?.trim() || "#4da8ba",
+  }
+}
+
+function normalizeSiteLayer(input: Partial<BigscreenSceneSiteLayerConfig> | undefined): BigscreenSceneSiteLayerConfig | undefined {
+  const baseLayer = normalizeFeatureLayer(input, "./site.geojson", "#58777b")
+  if (!baseLayer) {
+    return undefined
+  }
+  return {
+    ...baseLayer,
+    featureColorMode: input?.featureColorMode === "feature" ? "feature" : "palette",
+    defaultColor: input?.defaultColor?.trim() || "#526568",
+    typeColors: {
+      concrete: "#526568",
+      road: "#29393d",
+      green: "#294d3d",
+      reserved: "#3d554d",
+      corridor: "#203a40",
+      ...input?.typeColors,
+    },
   }
 }
 
@@ -190,13 +300,84 @@ function normalizeZoneLayer(input: Partial<BigscreenSceneZoneLayerConfig> | unde
 
   return {
     ...baseLayer,
-    defaultOpacity: input?.defaultOpacity ?? 0.48,
+    defaultOpacity: input?.defaultOpacity ?? 0.26,
+    defaultColor: input?.defaultColor?.trim() || "#2eb8a6",
+    featureColorMode: input?.featureColorMode === "feature" ? "feature" : "uniform",
     defaultHeight: input?.defaultHeight ?? 0.55,
     surfaceHeight: input?.surfaceHeight ?? 14.2,
+    showLabels: input?.showLabels ?? false,
+  }
+}
+
+function normalizeEnvironment(input?: PartialSceneConfig["environment"]): BigscreenSceneEnvironmentConfig {
+  return {
+    backgroundColor: input?.backgroundColor?.trim() || DEFAULT_ENVIRONMENT.backgroundColor,
+    globeBaseColor: input?.globeBaseColor?.trim() || DEFAULT_ENVIRONMENT.globeBaseColor,
+    lighting: input?.lighting ?? DEFAULT_ENVIRONMENT.lighting,
+    dynamicAtmosphereLighting: input?.dynamicAtmosphereLighting ?? DEFAULT_ENVIRONMENT.dynamicAtmosphereLighting,
+    clockTime: input?.clockTime?.trim() || DEFAULT_ENVIRONMENT.clockTime,
+    fog: {
+      enabled: input?.fog?.enabled ?? DEFAULT_ENVIRONMENT.fog.enabled,
+      density: input?.fog?.density ?? DEFAULT_ENVIRONMENT.fog.density,
+      minimumBrightness: input?.fog?.minimumBrightness ?? DEFAULT_ENVIRONMENT.fog.minimumBrightness,
+      screenSpaceErrorFactor: input?.fog?.screenSpaceErrorFactor ?? DEFAULT_ENVIRONMENT.fog.screenSpaceErrorFactor,
+    },
+    ambientOcclusion: {
+      enabled: input?.ambientOcclusion?.enabled ?? DEFAULT_ENVIRONMENT.ambientOcclusion.enabled,
+      intensity: input?.ambientOcclusion?.intensity ?? DEFAULT_ENVIRONMENT.ambientOcclusion.intensity,
+      bias: input?.ambientOcclusion?.bias ?? DEFAULT_ENVIRONMENT.ambientOcclusion.bias,
+      lengthCap: input?.ambientOcclusion?.lengthCap ?? DEFAULT_ENVIRONMENT.ambientOcclusion.lengthCap,
+      directionCount: input?.ambientOcclusion?.directionCount ?? DEFAULT_ENVIRONMENT.ambientOcclusion.directionCount,
+      stepCount: input?.ambientOcclusion?.stepCount ?? DEFAULT_ENVIRONMENT.ambientOcclusion.stepCount,
+    },
+  }
+}
+
+function normalizeModelLayer(input?: PartialSceneConfig["modelLayer"]): BigscreenSceneModelLayerConfig {
+  const assets = (input?.assets ?? []).flatMap((asset, index): BigscreenSceneModelAsset[] => {
+    const position = asset.position
+    if (!Array.isArray(position) || position.length !== 3 || !position.every((value) => typeof value === "number" && Number.isFinite(value)) || !asset.url?.trim()) {
+      return []
+    }
+    return [
+      {
+        id: asset.id?.trim() || `model-${index + 1}`,
+        name: asset.name?.trim() || undefined,
+        url: asset.url.trim(),
+        show: asset.show ?? true,
+        position: position as [number, number, number],
+        heading: asset.heading ?? 0,
+        pitch: asset.pitch ?? 0,
+        roll: asset.roll ?? 0,
+        scale: asset.scale ?? 1,
+        minimumPixelSize: asset.minimumPixelSize ?? 0,
+        maximumScale: asset.maximumScale,
+        castShadows: asset.castShadows ?? true,
+        receiveShadows: asset.receiveShadows ?? true,
+        semanticType: asset.semanticType?.trim() || undefined,
+        assetKey: asset.assetKey?.trim() || undefined,
+        source:
+          asset.source?.name?.trim() && asset.source.license?.trim()
+            ? {
+                name: asset.source.name.trim(),
+                url: asset.source.url?.trim() || undefined,
+                license: asset.source.license.trim(),
+              }
+            : undefined,
+      },
+    ]
+  })
+
+  return {
+    show: input?.show ?? true,
+    assets,
   }
 }
 
 export function resolveBigscreenPublicUrl(path: string) {
+  if (/^https?:\/\//iu.test(path)) {
+    return path
+  }
   const baseUrl = import.meta.env.BASE_URL || "/"
   return `${baseUrl}${path.replace(/^\//u, "")}`
 }
@@ -204,9 +385,12 @@ export function resolveBigscreenPublicUrl(path: string) {
 export function normalizeBigscreenSceneConfig(input: PartialSceneConfig): BigscreenSceneConfig {
   const center = isLngLat(input.center) ? input.center : DEFAULT_CENTER
   const sceneEngine = input.sceneEngine ?? (input.engine === "maplibre" ? "maplibre" : "cesium")
-  const fitPadding = normalizePadding(input.cameraHome?.fitPadding ?? input.cameraFallback?.padding)
+  const legacyCamera = input.maplibre?.cameraFallback ?? input.cameraFallback
+  const fitPadding = normalizePadding(input.cameraHome?.fitPadding ?? legacyCamera?.padding)
 
   return {
+    sceneId: input.sceneId?.trim() || "industrial-campus",
+    revision: input.revision?.trim() || "1",
     sceneEngine,
     coordinateSystem: (input.coordinateSystem === "gcj02" ? "gcj02" : "wgs84") satisfies BigscreenSceneCoordinateSystem,
     center,
@@ -215,10 +399,10 @@ export function normalizeBigscreenSceneConfig(input: PartialSceneConfig): Bigscr
     imageryProvider: normalizeImageryProvider(input.imageryProvider),
     terrainProvider: normalizeTerrainProvider(input.terrainProvider),
     cameraHome: {
-      center: isLngLat(input.cameraHome?.center) ? input.cameraHome.center : isLngLat(input.cameraFallback?.center) ? input.cameraFallback.center : center,
+      center: isLngLat(input.cameraHome?.center) ? input.cameraHome.center : isLngLat(legacyCamera?.center) ? legacyCamera.center : center,
       height: input.cameraHome?.height ?? 1450,
-      heading: input.cameraHome?.heading ?? input.cameraFallback?.bearing ?? -18,
-      pitch: input.cameraHome?.pitch ?? input.cameraFallback?.pitch ?? -42,
+      heading: input.cameraHome?.heading ?? legacyCamera?.bearing ?? -18,
+      pitch: input.cameraHome?.pitch ?? legacyCamera?.pitch ?? -42,
       roll: input.cameraHome?.roll ?? 0,
       fitPadding,
     },
@@ -234,9 +418,11 @@ export function normalizeBigscreenSceneConfig(input: PartialSceneConfig): Bigscr
       orderIndependentTranslucency: input.viewerOptions?.orderIndependentTranslucency ?? true,
       highDynamicRange: input.viewerOptions?.highDynamicRange ?? true,
     },
-    siteLayer: normalizeFeatureLayer(input.siteLayer, "./site.geojson", "#d9fbff"),
+    environment: normalizeEnvironment(input.environment),
+    siteLayer: normalizeSiteLayer(input.siteLayer),
     buildingLayer: normalizeBuildingLayer(input.buildingLayer),
     zoneLayer: normalizeZoneLayer(input.zoneLayer),
+    modelLayer: normalizeModelLayer(input.modelLayer),
     warehouseLayer: normalizeWarehouseLayer(input, center),
     futureLayers: {
       tileset: input.futureLayers?.tileset ?? [],
@@ -244,13 +430,13 @@ export function normalizeBigscreenSceneConfig(input: PartialSceneConfig): Bigscr
       pointCloud: input.futureLayers?.pointCloud ?? [],
     },
     maplibre: {
-      styleUrl: input.styleUrl?.trim() || "./style.json",
+      styleUrl: input.maplibre?.styleUrl?.trim() || input.styleUrl?.trim() || "./style.json",
       cameraFallback: {
-        center: isLngLat(input.cameraFallback?.center) ? input.cameraFallback.center : center,
-        zoom: input.cameraFallback?.zoom ?? 16.45,
-        bearing: input.cameraFallback?.bearing ?? -18,
-        pitch: input.cameraFallback?.pitch ?? 54,
-        maxZoom: input.cameraFallback?.maxZoom ?? 17.1,
+        center: isLngLat(legacyCamera?.center) ? legacyCamera.center : center,
+        zoom: legacyCamera?.zoom ?? 16.45,
+        bearing: legacyCamera?.bearing ?? -18,
+        pitch: legacyCamera?.pitch ?? 54,
+        maxZoom: legacyCamera?.maxZoom ?? 17.1,
         padding: fitPadding,
       },
     },
@@ -270,7 +456,11 @@ export function normalizeWarehouseFeatureCollection(input: Partial<BigscreenWare
 }
 
 export function resolveSceneAssetUrl(url: string, manifestUrl: string) {
-  return new URL(url, new URL(manifestUrl, window.location.origin)).toString()
+  const resolved = new URL(url, new URL(manifestUrl, window.location.origin))
+  if (!/^https?:$/u.test(resolved.protocol)) {
+    throw new Error(`Unsupported scene asset protocol: ${resolved.protocol}`)
+  }
+  return resolved.toString()
 }
 
 function shouldResolveSceneAssetUrl(url: string) {
@@ -281,67 +471,138 @@ export function resolveWarehouseDataUrl(config: BigscreenSceneConfig) {
   return config.warehouseLayer.dataUrl
 }
 
+function mergeSceneConfig(base: PartialSceneConfig, override: PartialSceneConfig): PartialSceneConfig {
+  return {
+    ...base,
+    ...override,
+    imageryProvider: { ...base.imageryProvider, ...override.imageryProvider },
+    terrainProvider: { ...base.terrainProvider, ...override.terrainProvider } as PartialSceneConfig["terrainProvider"],
+    cameraHome: {
+      ...base.cameraHome,
+      ...override.cameraHome,
+      fitPadding: override.cameraHome?.fitPadding ?? base.cameraHome?.fitPadding,
+    },
+    viewerOptions: { ...base.viewerOptions, ...override.viewerOptions },
+    environment: {
+      ...base.environment,
+      ...override.environment,
+      fog: { ...base.environment?.fog, ...override.environment?.fog },
+      ambientOcclusion: { ...base.environment?.ambientOcclusion, ...override.environment?.ambientOcclusion },
+    },
+    siteLayer: override.siteLayer === undefined ? base.siteLayer : { ...base.siteLayer, ...override.siteLayer },
+    buildingLayer: override.buildingLayer === undefined ? base.buildingLayer : { ...base.buildingLayer, ...override.buildingLayer },
+    zoneLayer: override.zoneLayer === undefined ? base.zoneLayer : { ...base.zoneLayer, ...override.zoneLayer },
+    modelLayer: {
+      ...base.modelLayer,
+      ...override.modelLayer,
+      assets: override.modelLayer?.assets ?? base.modelLayer?.assets,
+    },
+    warehouseLayer: { ...base.warehouseLayer, ...override.warehouseLayer },
+    futureLayers: {
+      tileset: override.futureLayers?.tileset ?? base.futureLayers?.tileset,
+      splat: override.futureLayers?.splat ?? base.futureLayers?.splat,
+      pointCloud: override.futureLayers?.pointCloud ?? base.futureLayers?.pointCloud,
+    },
+    maplibre: override.maplibre === undefined ? base.maplibre : { ...base.maplibre, ...override.maplibre },
+    cameraFallback: {
+      ...base.cameraFallback,
+      ...override.cameraFallback,
+      padding: override.cameraFallback?.padding ?? base.cameraFallback?.padding,
+    },
+    statusColors: { ...base.statusColors, ...override.statusColors },
+    extends: undefined,
+  }
+}
+
+function resolvePartialSceneAssetUrls(input: PartialSceneConfig, manifestUrl: string): PartialSceneConfig {
+  const resolveUrl = (url: string | undefined) => (url && shouldResolveSceneAssetUrl(url) ? resolveSceneAssetUrl(url, manifestUrl) : url)
+  return {
+    ...input,
+    imageryProvider: input.imageryProvider
+      ? {
+          ...input.imageryProvider,
+          url: resolveUrl(input.imageryProvider.url),
+        }
+      : undefined,
+    terrainProvider:
+      input.terrainProvider?.kind === "cesium-terrain"
+        ? {
+            ...input.terrainProvider,
+            url: resolveUrl(input.terrainProvider.url) ?? "",
+          }
+        : input.terrainProvider,
+    siteLayer: input.siteLayer ? { ...input.siteLayer, dataUrl: resolveUrl(input.siteLayer.dataUrl) } : undefined,
+    buildingLayer: input.buildingLayer ? { ...input.buildingLayer, dataUrl: resolveUrl(input.buildingLayer.dataUrl) } : undefined,
+    zoneLayer: input.zoneLayer ? { ...input.zoneLayer, dataUrl: resolveUrl(input.zoneLayer.dataUrl) } : undefined,
+    warehouseLayer: input.warehouseLayer ? { ...input.warehouseLayer, dataUrl: resolveUrl(input.warehouseLayer.dataUrl) } : undefined,
+    warehouseDataUrl: resolveUrl(input.warehouseDataUrl),
+    styleUrl: resolveUrl(input.styleUrl),
+    maplibre: input.maplibre ? { ...input.maplibre, styleUrl: resolveUrl(input.maplibre.styleUrl) ?? input.maplibre.styleUrl } : undefined,
+    modelLayer: input.modelLayer
+      ? {
+          ...input.modelLayer,
+          assets: input.modelLayer.assets?.map((asset) => ({ ...asset, url: resolveUrl(asset.url) ?? asset.url })),
+        }
+      : undefined,
+    futureLayers: input.futureLayers
+      ? {
+          tileset: input.futureLayers.tileset?.map((layer) => ({ ...layer, url: resolveUrl(layer.url) ?? layer.url })),
+          splat: input.futureLayers.splat?.map((layer) => ({ ...layer, url: resolveUrl(layer.url) ?? layer.url })),
+          pointCloud: input.futureLayers.pointCloud?.map((layer) => ({ ...layer, url: resolveUrl(layer.url) ?? layer.url })),
+        }
+      : undefined,
+  }
+}
+
+async function loadSceneConfigChain(manifestUrl: string, ancestors: string[] = []): Promise<PartialSceneConfig> {
+  const resolvedManifestUrl = resolveSceneAssetUrl(manifestUrl, window.location.href)
+  if (ancestors.includes(resolvedManifestUrl)) {
+    throw new Error(`Scene manifest inheritance cycle: ${[...ancestors, resolvedManifestUrl].join(" -> ")}`)
+  }
+  if (ancestors.length >= 8) {
+    throw new Error("Scene manifest inheritance exceeds 8 levels")
+  }
+
+  const rawConfig = await fetchJson<PartialSceneConfig>(resolvedManifestUrl, ancestors.length === 0 ? "candidate-manifest" : "inherited-manifest")
+  const currentConfig = resolvePartialSceneAssetUrls(rawConfig, resolvedManifestUrl)
+  if (!rawConfig.extends?.trim()) {
+    return currentConfig
+  }
+
+  const baseUrl = resolveSceneAssetUrl(rawConfig.extends, resolvedManifestUrl)
+  const baseConfig = await loadSceneConfigChain(baseUrl, [...ancestors, resolvedManifestUrl])
+  return mergeSceneConfig(baseConfig, currentConfig)
+}
+
 export async function loadBigscreenScene(manifestUrl: string): Promise<BigscreenLoadedScene> {
-  const rawConfig = await fetchJson<PartialSceneConfig>(manifestUrl)
+  const rawConfig = await loadSceneConfigChain(manifestUrl)
   const config = normalizeBigscreenSceneConfig(rawConfig)
-  const imageryProvider =
-    config.imageryProvider.kind === "url-template"
-      ? {
-          ...config.imageryProvider,
-          url: shouldResolveSceneAssetUrl(config.imageryProvider.url) ? resolveSceneAssetUrl(config.imageryProvider.url, manifestUrl) : config.imageryProvider.url,
-        }
-      : config.imageryProvider
-  const terrainProvider =
-    config.terrainProvider.kind === "cesium-terrain"
-      ? {
-          ...config.terrainProvider,
-          url: resolveSceneAssetUrl(config.terrainProvider.url, manifestUrl),
-        }
-      : config.terrainProvider
-  const warehouseDataUrl = resolveSceneAssetUrl(resolveWarehouseDataUrl(config), manifestUrl)
-  const siteLayer = config.siteLayer
-    ? {
-        ...config.siteLayer,
-        dataUrl: resolveSceneAssetUrl(config.siteLayer.dataUrl, manifestUrl),
-      }
-    : undefined
-  const buildingLayer = config.buildingLayer
-    ? {
-        ...config.buildingLayer,
-        dataUrl: resolveSceneAssetUrl(config.buildingLayer.dataUrl, manifestUrl),
-      }
-    : undefined
-  const zoneLayer = config.zoneLayer
-    ? {
-        ...config.zoneLayer,
-        dataUrl: resolveSceneAssetUrl(config.zoneLayer.dataUrl, manifestUrl),
-      }
-    : undefined
-  const maplibre = config.maplibre
-    ? {
-        ...config.maplibre,
-        styleUrl: resolveSceneAssetUrl(config.maplibre.styleUrl, manifestUrl),
-      }
-    : undefined
-  const warehouses = normalizeWarehouseFeatureCollection(await fetchJson<BigscreenWarehouseFeatureCollection>(warehouseDataUrl))
+  const warehouses = normalizeWarehouseFeatureCollection(await fetchJson<BigscreenWarehouseFeatureCollection>(resolveWarehouseDataUrl(config)))
 
   return {
-    manifestUrl,
-    config: {
-      ...config,
-      imageryProvider,
-      terrainProvider,
-      siteLayer,
-      buildingLayer,
-      zoneLayer,
-      warehouseLayer: {
-        ...config.warehouseLayer,
-        dataUrl: warehouseDataUrl,
-      },
-      maplibre,
-    },
+    manifestUrl: resolveSceneAssetUrl(manifestUrl, window.location.href),
+    config,
     warehouses,
   }
+}
+
+export async function loadBigscreenSceneCandidates(manifestUrls: string[]): Promise<BigscreenLoadedScene> {
+  if (manifestUrls.length === 0) {
+    throw new Error("At least one scene manifest candidate is required")
+  }
+
+  for (const [index, manifestUrl] of manifestUrls.entries()) {
+    try {
+      return await loadBigscreenScene(manifestUrl)
+    } catch (error) {
+      const canFallback = error instanceof BigscreenSceneResourceError && error.status === 404 && error.resourceKind === "candidate-manifest" && index < manifestUrls.length - 1
+      if (!canFallback) {
+        throw error
+      }
+    }
+  }
+
+  throw new Error("No scene manifest could be loaded")
 }
 
 export async function loadBigscreenMapScene(manifestUrl: string) {

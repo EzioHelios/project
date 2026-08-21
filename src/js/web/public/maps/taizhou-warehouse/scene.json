@@ -1,18 +1,9 @@
 {
-  "sceneEngine": "cesium",
-  "coordinateSystem": "wgs84",
+  "extends": "../templates/industrial-v2.json",
+  "sceneId": "taizhou-warehouse",
+  "revision": "2",
   "center": [119.890793, 32.421059],
-  "interactive": true,
   "attributionLabel": "泰州中心库三维展示模型",
-  "imageryProvider": {
-    "kind": "url-template",
-    "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    "credit": "© OpenStreetMap contributors",
-    "maximumLevel": 19
-  },
-  "terrainProvider": {
-    "kind": "ellipsoid"
-  },
   "cameraHome": {
     "center": [119.890793, 32.421059],
     "height": 620,
@@ -26,45 +17,48 @@
       "left": 72
     }
   },
-  "viewerOptions": {
-    "sceneMode": "3d",
-    "shadows": true,
-    "requestRenderMode": false,
-    "maximumRenderTimeChange": 0,
-    "msaaSamples": 8,
-    "useBrowserRecommendedResolution": false,
-    "resolutionScale": 1,
-    "fxaa": true,
-    "orderIndependentTranslucency": true,
-    "highDynamicRange": true
-  },
   "siteLayer": {
     "dataUrl": "./site.geojson",
     "show": true,
-    "outlineColor": "#d9fbff",
-    "outlineOpacity": 0.72,
-    "outlineWidth": 1
+    "outlineColor": "#58777b",
+    "outlineOpacity": 0.46,
+    "outlineWidth": 1,
+    "featureColorMode": "palette"
   },
   "buildingLayer": {
     "dataUrl": "./buildings.geojson",
     "show": true,
-    "outlineColor": "#9be8ff",
-    "outlineOpacity": 0.94,
-    "outlineWidth": 1.8,
+    "outlineColor": "#76aeb5",
+    "outlineOpacity": 0.4,
+    "outlineWidth": 1,
     "defaultHeight": 8,
-    "defaultOpacity": 1,
-    "solarPanelColor": "#174f92",
-    "solarPanelStrokeColor": "#b7ecff"
+    "defaultOpacity": 0.98,
+    "defaultWallColor": "#9aa9ab",
+    "defaultRoofColor": "#c2cdcf",
+    "featureColorMode": "uniform",
+    "roofEdgeColor": "#86b9bf",
+    "roofEdgeOpacity": 0.42,
+    "showLabels": true,
+    "labelDistance": 980,
+    "solarPanelColor": "#123d56",
+    "solarPanelStrokeColor": "#4b96a6"
   },
   "zoneLayer": {
     "dataUrl": "./zones.geojson",
     "show": true,
-    "outlineColor": "#f8fdff",
-    "outlineOpacity": 0.78,
+    "outlineColor": "#65c4b6",
+    "outlineOpacity": 0.3,
     "outlineWidth": 0.8,
-    "defaultOpacity": 0.72,
-    "defaultHeight": 1.4,
-    "surfaceHeight": 31.5
+    "defaultOpacity": 0.2,
+    "defaultColor": "#28aa97",
+    "featureColorMode": "uniform",
+    "defaultHeight": 0.5,
+    "surfaceHeight": 31.05,
+    "showLabels": false
+  },
+  "modelLayer": {
+    "show": true,
+    "assets": []
   },
   "warehouseLayer": {
     "dataUrl": "./warehouses.geojson",
@@ -78,11 +72,6 @@
       "active": "#22c55e",
       "warning": "#f59e0b"
     }
-  },
-  "futureLayers": {
-    "tileset": [],
-    "splat": [],
-    "pointCloud": []
   },
   "maplibre": {
     "styleUrl": "../bigscreen/style.json",

@@ -1,19 +1,27 @@
 import {
   Cartesian2,
   Cartesian3,
+  Cesium3DTileset,
   Math as CesiumMath,
   CesiumTerrainProvider,
   Color,
+  ColorMaterialProperty,
+  ConstantProperty,
   Credit,
+  DistanceDisplayCondition,
   EllipsoidTerrainProvider,
-  Entity,
+  type Entity,
   GeoJsonDataSource,
   GridMaterialProperty,
   HeadingPitchRange,
+  HeadingPitchRoll,
   JulianDate,
   LabelStyle,
   Matrix4,
-  PolylineGlowMaterialProperty,
+  NearFarScalar,
+  type PolygonGraphics,
+  ShadowMode,
+  Transforms,
   UrlTemplateImageryProvider,
   VerticalOrigin,
   Viewer,
@@ -66,6 +74,24 @@ function readNumberProperty(entity: Entity, key: string, now: JulianDate) {
 
 function cssColor(value: string | undefined, fallback: string, alpha = 1) {
   return Color.fromCssColorString(value?.trim() || fallback).withAlpha(alpha)
+}
+
+function applyPolygonStyle(
+  polygon: PolygonGraphics,
+  options: {
+    height: number
+    extrudedHeight: number
+    outline: boolean
+    outlineColor: Color
+    materialColor: Color
+  },
+) {
+  polygon.height = new ConstantProperty(options.height)
+  polygon.extrudedHeight = new ConstantProperty(options.extrudedHeight)
+  polygon.perPositionHeight = new ConstantProperty(false)
+  polygon.outline = new ConstantProperty(options.outline)
+  polygon.outlineColor = new ConstantProperty(options.outlineColor)
+  polygon.material = new ColorMaterialProperty(options.materialColor)
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -141,10 +167,7 @@ function resolveCameraTarget(context: BigscreenSceneEngineMountContext) {
 function applyCamera(viewer: Viewer, context: BigscreenSceneEngineMountContext) {
   const target = resolveCameraTarget(context)
   const targetPosition = Cartesian3.fromDegrees(target.center[0], target.center[1], 0)
-  viewer.camera.lookAt(
-    targetPosition,
-    new HeadingPitchRange(CesiumMath.toRadians(target.heading), CesiumMath.toRadians(target.pitch), target.height),
-  )
+  viewer.camera.lookAt(targetPosition, new HeadingPitchRange(CesiumMath.toRadians(target.heading), CesiumMath.toRadians(target.pitch), target.height))
   viewer.camera.lookAtTransform(Matrix4.IDENTITY)
 }
 
@@ -175,6 +198,39 @@ function applyRenderQuality(viewer: Viewer, context: BigscreenSceneEngineMountCo
   }
 }
 
+function applyEnvironment(viewer: Viewer, context: BigscreenSceneEngineMountContext) {
+  const environment = context.config.environment
+  viewer.scene.backgroundColor = Color.fromCssColorString(environment.backgroundColor)
+  viewer.scene.globe.baseColor = Color.fromCssColorString(environment.globeBaseColor)
+  viewer.scene.globe.enableLighting = environment.lighting
+  viewer.scene.globe.dynamicAtmosphereLighting = environment.dynamicAtmosphereLighting
+  viewer.scene.globe.dynamicAtmosphereLightingFromSun = environment.dynamicAtmosphereLighting
+
+  if (environment.clockTime) {
+    try {
+      viewer.clock.currentTime = JulianDate.fromIso8601(environment.clockTime)
+      viewer.clock.shouldAnimate = false
+    } catch {
+      // Invalid tenant clock configuration must not prevent the scene from loading.
+    }
+  }
+
+  viewer.scene.fog.enabled = environment.fog.enabled
+  viewer.scene.fog.density = environment.fog.density
+  viewer.scene.fog.minimumBrightness = environment.fog.minimumBrightness
+  viewer.scene.fog.screenSpaceErrorFactor = environment.fog.screenSpaceErrorFactor
+
+  const ambientOcclusion = viewer.scene.postProcessStages.ambientOcclusion
+  ambientOcclusion.enabled = environment.ambientOcclusion.enabled
+  Object.assign(ambientOcclusion.uniforms, {
+    intensity: environment.ambientOcclusion.intensity,
+    bias: environment.ambientOcclusion.bias,
+    lengthCap: environment.ambientOcclusion.lengthCap,
+    directionCount: environment.ambientOcclusion.directionCount,
+    stepCount: environment.ambientOcclusion.stepCount,
+  })
+}
+
 async function addGeoJsonFeatureLayer(viewer: Viewer, layer: BigscreenSceneFeatureLayerConfig, applyEntityStyle: (entity: Entity, now: JulianDate) => void) {
   if (!layer.show) {
     return null
@@ -203,27 +259,19 @@ async function addSiteLayer(viewer: Viewer, context: BigscreenSceneEngineMountCo
   }
 
   return addGeoJsonFeatureLayer(viewer, layer, (entity, now) => {
-    const color = readStringProperty(entity, "color", now)
-    const opacity = readNumberProperty(entity, "opacity", now) ?? 0.82
     const height = readNumberProperty(entity, "height_m", now) ?? 0
-    const outlineColor = readStringProperty(entity, "outlineColor", now) ?? layer.outlineColor
     const type = readStringProperty(entity, "type", now)
+    const color = layer.featureColorMode === "feature" ? readStringProperty(entity, "color", now) : (layer.typeColors[type ?? ""] ?? layer.defaultColor)
+    const opacity = layer.featureColorMode === "feature" ? (readNumberProperty(entity, "opacity", now) ?? 0.82) : type === "reserved" ? 0.72 : 0.98
 
-    entity.polygon.height = height
-    entity.polygon.extrudedHeight = height + 0.04
-    entity.polygon.perPositionHeight = false
-    entity.polygon.outline = true
-    entity.polygon.outlineColor = cssColor(outlineColor, layer.outlineColor, layer.outlineOpacity)
-    if (type === "concrete") {
-      entity.polygon.material = new GridMaterialProperty({
-        color: cssColor(color, "#d7e6e8", Math.min(0.72, opacity)),
-        cellAlpha: 0.1,
-        lineCount: new Cartesian2(26, 18),
-        lineThickness: new Cartesian2(0.55, 0.55),
-      })
-      return
-    }
-    entity.polygon.material = cssColor(color, "#d7e6e8", opacity)
+    if (!entity.polygon) return
+    applyPolygonStyle(entity.polygon, {
+      height,
+      extrudedHeight: height + 0.04,
+      outline: type !== "road",
+      outlineColor: cssColor(layer.outlineColor, layer.outlineColor, type === "concrete" ? layer.outlineOpacity * 0.42 : layer.outlineOpacity),
+      materialColor: cssColor(color, type === "road" ? "#334247" : "#65777a", opacity),
+    })
   })
 }
 
@@ -257,28 +305,8 @@ function getFeatureCenter(feature: ScenePolygonFeature): BigscreenSceneLngLat | 
   return [(bounds.minLng + bounds.maxLng) / 2, (bounds.minLat + bounds.maxLat) / 2]
 }
 
-function boundsToDegreesArray(bounds: NonNullable<ReturnType<typeof getFeatureBounds>>) {
-  return [bounds.minLng, bounds.minLat, bounds.maxLng, bounds.minLat, bounds.maxLng, bounds.maxLat, bounds.minLng, bounds.maxLat]
-}
-
-function boundsToDegreesArrayHeights(bounds: NonNullable<ReturnType<typeof getFeatureBounds>>, height: number) {
-  return [
-    bounds.minLng,
-    bounds.minLat,
-    height,
-    bounds.maxLng,
-    bounds.minLat,
-    height,
-    bounds.maxLng,
-    bounds.maxLat,
-    height,
-    bounds.minLng,
-    bounds.maxLat,
-    height,
-    bounds.minLng,
-    bounds.minLat,
-    height,
-  ]
+function ringToDegreesArrayHeights(ring: BigscreenSceneLngLat[], height: number) {
+  return ring.flatMap(([lng, lat]) => [lng, lat, height])
 }
 
 function getFeatureShortCode(feature: ScenePolygonFeature) {
@@ -291,15 +319,12 @@ function getFeatureShortCode(feature: ScenePolygonFeature) {
   return code || name
 }
 
-function addPerimeterLine(viewer: Viewer, bounds: NonNullable<ReturnType<typeof getFeatureBounds>>, height: number, color = "#9be8ff", width = 2) {
+function addPerimeterLine(viewer: Viewer, ring: BigscreenSceneLngLat[], height: number, color: string, opacity: number, width = 1.2) {
   viewer.entities.add({
     polyline: {
-      positions: Cartesian3.fromDegreesArrayHeights(boundsToDegreesArrayHeights(bounds, height)),
+      positions: Cartesian3.fromDegreesArrayHeights(ringToDegreesArrayHeights(ring, height)),
       width,
-      material: new PolylineGlowMaterialProperty({
-        color: Color.fromCssColorString(color).withAlpha(0.78),
-        glowPower: 0.16,
-      }),
+      material: Color.fromCssColorString(color).withAlpha(opacity),
     },
   })
 }
@@ -313,9 +338,9 @@ function addBuildingFacadeLines(viewer: Viewer, feature: ScenePolygonFeature, he
   const centerLat = (bounds.minLat + bounds.maxLat) / 2
   const metersPerLng = 111_320 * Math.cos(CesiumMath.toRadians(centerLat))
   const widthMeters = (bounds.maxLng - bounds.minLng) * metersPerLng
-  const lineCount = Math.max(4, Math.min(18, Math.floor(widthMeters / 24)))
+  const lineCount = Math.max(3, Math.min(10, Math.floor(widthMeters / 34)))
   const stepLng = (bounds.maxLng - bounds.minLng) / lineCount
-  const material = Color.fromCssColorString("#c9f4ff").withAlpha(0.5)
+  const material = Color.fromCssColorString("#719094").withAlpha(0.24)
 
   for (let index = 1; index < lineCount; index += 1) {
     const lng = bounds.minLng + stepLng * index
@@ -323,7 +348,7 @@ function addBuildingFacadeLines(viewer: Viewer, feature: ScenePolygonFeature, he
       viewer.entities.add({
         polyline: {
           positions: [Cartesian3.fromDegrees(lng, lat, 0.25), Cartesian3.fromDegrees(lng, lat, height - 0.4)],
-          width: 1.15,
+          width: 0.8,
           material,
         },
       })
@@ -333,26 +358,25 @@ function addBuildingFacadeLines(viewer: Viewer, feature: ScenePolygonFeature, he
 
 function addRoofCap(viewer: Viewer, context: BigscreenSceneEngineMountContext, feature: ScenePolygonFeature) {
   const bounds = getFeatureBounds(feature)
+  const ring = feature.geometry?.coordinates?.[0] ?? []
   const buildingLayer = context.config.buildingLayer
-  if (!bounds || !buildingLayer) {
+  if (!bounds || ring.length < 3 || !buildingLayer) {
     return
   }
 
   const height = feature.properties?.height_m ?? buildingLayer.defaultHeight
-  const roofDeckColor = feature.properties?.roof === "solar" ? "#e9f4f8" : (feature.properties?.roofColor ?? "#eef8fb")
+  const roofDeckColor = buildingLayer.featureColorMode === "feature" ? (feature.properties?.roofColor ?? buildingLayer.defaultRoofColor) : buildingLayer.defaultRoofColor
   viewer.entities.add({
     name: `${feature.properties?.name ?? "建筑"} 屋顶盖板`,
     polygon: {
-      hierarchy: Cartesian3.fromDegreesArray(boundsToDegreesArray(bounds)),
+      hierarchy: Cartesian3.fromDegreesArray(ring.flat()),
       height: height + 0.08,
-      material: cssColor(roofDeckColor, "#eef8fb", 0.98),
-      outline: true,
-      outlineColor: cssColor(feature.properties?.outlineColor, buildingLayer.outlineColor, 0.9),
+      material: cssColor(roofDeckColor, buildingLayer.defaultRoofColor, 0.98),
+      outline: false,
     },
   })
 
-  addPerimeterLine(viewer, bounds, 0.22, "#7adff5", 1.5)
-  addPerimeterLine(viewer, bounds, height + 0.2, "#d7fbff", feature.properties?.type?.startsWith("warehouse") ? 2.4 : 1.7)
+  addPerimeterLine(viewer, ring, height + 0.2, buildingLayer.roofEdgeColor, buildingLayer.roofEdgeOpacity, feature.properties?.type?.startsWith("warehouse") ? 1.4 : 1.1)
   addBuildingFacadeLines(viewer, feature, height)
 }
 
@@ -365,6 +389,7 @@ function addFeatureLabel(
     text?: string
     color?: string
     offsetY?: number
+    maxDistance?: number
   },
 ) {
   const center = getFeatureCenter(feature)
@@ -378,14 +403,16 @@ function addFeatureLabel(
     position: Cartesian3.fromDegrees(center[0], center[1], height),
     label: {
       text: labelText,
-      font: `700 ${options.fontSize}px sans-serif`,
+      font: `600 ${options.fontSize}px Geist, "PingFang SC", sans-serif`,
       fillColor: cssColor(options.color, "#f8fdff", 0.96),
       outlineColor: Color.BLACK.withAlpha(0.88),
       outlineWidth: 4,
       style: LabelStyle.FILL_AND_OUTLINE,
       verticalOrigin: VerticalOrigin.BOTTOM,
       pixelOffset: new Cartesian2(0, options.offsetY ?? -8),
-      disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      disableDepthTestDistance: Math.min(options.maxDistance ?? 900, 700),
+      distanceDisplayCondition: new DistanceDisplayCondition(0, options.maxDistance ?? 900),
+      scaleByDistance: new NearFarScalar(180, 1, options.maxDistance ?? 900, 0.72),
       showBackground: true,
       backgroundColor: Color.fromCssColorString("#02111c").withAlpha(0.68),
       backgroundPadding: new Cartesian2(7, 4),
@@ -416,38 +443,38 @@ function addSolarPanels(viewer: Viewer, context: BigscreenSceneEngineMountContex
   const depthMeters = (bounds.maxLat - bounds.minLat) * metersPerLat
   const columns = Math.max(4, Math.min(36, Math.floor(widthMeters / 8)))
   const rows = Math.max(3, Math.min(18, Math.floor(depthMeters / 6)))
-  const gapMeters = 1.25
   const insetMeters = 6.5
   const usableWidth = Math.max(8, widthMeters - insetMeters * 2)
   const usableDepth = Math.max(8, depthMeters - insetMeters * 2)
-  const panelWidthMeters = Math.max(4, (usableWidth - gapMeters * (columns - 1)) / columns)
-  const panelDepthMeters = Math.max(3, (usableDepth - gapMeters * (rows - 1)) / rows)
-  const panelWidthLng = panelWidthMeters / metersPerLng
-  const panelDepthLat = panelDepthMeters / metersPerLat
-  const gapLng = gapMeters / metersPerLng
-  const gapLat = gapMeters / metersPerLat
-  const startLng = bounds.minLng + insetMeters / metersPerLng
-  const startLat = bounds.minLat + insetMeters / metersPerLat
+  const west = bounds.minLng + insetMeters / metersPerLng
+  const south = bounds.minLat + insetMeters / metersPerLat
+  const east = west + usableWidth / metersPerLng
+  const north = south + usableDepth / metersPerLat
   const height = (feature.properties?.height_m ?? buildingLayer.defaultHeight) + 0.28
 
-  for (let row = 0; row < rows; row += 1) {
-    for (let column = 0; column < columns; column += 1) {
-      const west = startLng + column * (panelWidthLng + gapLng)
-      const south = startLat + row * (panelDepthLat + gapLat)
-      const east = west + panelWidthLng
-      const north = south + panelDepthLat
-      viewer.entities.add({
-        name: `${feature.properties?.name ?? "建筑"} 光伏板`,
-        polygon: {
-          hierarchy: Cartesian3.fromDegreesArray([west, south, east, south, east, north, west, north]),
-          height,
-          material: cssColor(feature.properties?.roofColor, buildingLayer.solarPanelColor, 0.96),
-          outline: true,
-          outlineColor: cssColor(buildingLayer.solarPanelStrokeColor, buildingLayer.solarPanelStrokeColor, 0.52),
-        },
-      })
-    }
-  }
+  viewer.entities.add({
+    name: `${feature.properties?.name ?? "建筑"} 光伏阵列`,
+    polygon: {
+      hierarchy: Cartesian3.fromDegreesArray([west, south, east, south, east, north, west, north]),
+      height,
+      material: cssColor(buildingLayer.solarPanelColor, buildingLayer.solarPanelColor, 0.96),
+      outline: false,
+    },
+  })
+  viewer.entities.add({
+    name: `${feature.properties?.name ?? "建筑"} 光伏阵列分格`,
+    polygon: {
+      hierarchy: Cartesian3.fromDegreesArray([west, south, east, south, east, north, west, north]),
+      height: height + 0.025,
+      material: new GridMaterialProperty({
+        color: cssColor(buildingLayer.solarPanelStrokeColor, buildingLayer.solarPanelStrokeColor, 0.42),
+        cellAlpha: 0.04,
+        lineCount: new Cartesian2(columns, rows),
+        lineThickness: new Cartesian2(0.055, 0.055),
+      }),
+      outline: false,
+    },
+  })
 }
 
 async function addBuildingLayer(viewer: Viewer, context: BigscreenSceneEngineMountContext) {
@@ -457,24 +484,25 @@ async function addBuildingLayer(viewer: Viewer, context: BigscreenSceneEngineMou
   }
 
   const dataSource = await addGeoJsonFeatureLayer(viewer, layer, (entity, now) => {
-    const color = readStringProperty(entity, "wallColor", now) ?? readStringProperty(entity, "color", now)
-    const opacity = readNumberProperty(entity, "opacity", now) ?? layer.defaultOpacity
+    const color = layer.featureColorMode === "feature" ? (readStringProperty(entity, "wallColor", now) ?? readStringProperty(entity, "color", now)) : layer.defaultWallColor
+    const opacity = layer.featureColorMode === "feature" ? (readNumberProperty(entity, "opacity", now) ?? layer.defaultOpacity) : layer.defaultOpacity
     const height = readNumberProperty(entity, "height_m", now) ?? layer.defaultHeight
-    const outlineColor = readStringProperty(entity, "outlineColor", now) ?? layer.outlineColor
 
-    entity.polygon.height = 0
-    entity.polygon.extrudedHeight = height
-    entity.polygon.perPositionHeight = false
-    entity.polygon.outline = true
-    entity.polygon.outlineColor = cssColor(outlineColor, layer.outlineColor, layer.outlineOpacity)
-    entity.polygon.material = cssColor(color, "#d8eef2", opacity)
+    if (!entity.polygon) return
+    applyPolygonStyle(entity.polygon, {
+      height: 0,
+      extrudedHeight: height,
+      outline: true,
+      outlineColor: cssColor(layer.outlineColor, layer.outlineColor, layer.outlineOpacity),
+      materialColor: cssColor(color, layer.defaultWallColor, opacity),
+    })
   })
 
   const featureCollection = await fetchJson<SceneFeatureCollection>(layer.dataUrl)
   for (const feature of featureCollection.features) {
     addRoofCap(viewer, context, feature)
     addSolarPanels(viewer, context, feature)
-    if (!shouldShowBuildingLabel(feature)) {
+    if (!layer.showLabels || !shouldShowBuildingLabel(feature)) {
       continue
     }
     const height = feature.properties?.height_m ?? layer.defaultHeight
@@ -482,6 +510,7 @@ async function addBuildingLayer(viewer: Viewer, context: BigscreenSceneEngineMou
       fontSize: feature.properties?.type?.startsWith("warehouse") ? 20 : 18,
       color: "#f8fdff",
       offsetY: -12,
+      maxDistance: layer.labelDistance,
     })
   }
 
@@ -495,21 +524,25 @@ async function addZoneLayer(viewer: Viewer, context: BigscreenSceneEngineMountCo
   }
 
   const dataSource = await addGeoJsonFeatureLayer(viewer, layer, (entity, now) => {
-    const color = readStringProperty(entity, "color", now)
-    const opacity = readNumberProperty(entity, "opacity", now) ?? layer.defaultOpacity
+    const color = layer.featureColorMode === "feature" ? readStringProperty(entity, "color", now) : layer.defaultColor
+    const opacity = layer.featureColorMode === "feature" ? (readNumberProperty(entity, "opacity", now) ?? layer.defaultOpacity) : layer.defaultOpacity
     const height = readNumberProperty(entity, "displayHeight_m", now) ?? layer.surfaceHeight
     const thickness = readNumberProperty(entity, "height_m", now) ?? layer.defaultHeight
-    const outlineColor = readStringProperty(entity, "outlineColor", now) ?? layer.outlineColor
 
-    entity.polygon.height = height
-    entity.polygon.extrudedHeight = height + thickness
-    entity.polygon.perPositionHeight = false
-    entity.polygon.outline = true
-    entity.polygon.outlineColor = cssColor(outlineColor, layer.outlineColor, layer.outlineOpacity)
-    entity.polygon.material = cssColor(color, "#38bdf8", opacity)
+    if (!entity.polygon) return
+    applyPolygonStyle(entity.polygon, {
+      height,
+      extrudedHeight: height + thickness,
+      outline: true,
+      outlineColor: cssColor(layer.outlineColor, layer.outlineColor, layer.outlineOpacity),
+      materialColor: cssColor(color, layer.defaultColor, opacity),
+    })
   })
 
   const featureCollection = await fetchJson<SceneFeatureCollection>(layer.dataUrl)
+  if (!layer.showLabels) {
+    return dataSource
+  }
   for (const feature of featureCollection.features) {
     const height = feature.properties?.displayHeight_m ?? layer.surfaceHeight
     const thickness = feature.properties?.height_m ?? layer.defaultHeight
@@ -518,6 +551,7 @@ async function addZoneLayer(viewer: Viewer, context: BigscreenSceneEngineMountCo
       fontSize: 13,
       color: "#ffffff",
       offsetY: -4,
+      maxDistance: 720,
     })
   }
 
@@ -541,21 +575,86 @@ async function addWarehouseLayer(viewer: Viewer, context: BigscreenSceneEngineMo
     const height = Number(entity.properties?.height_m?.getValue(now) ?? 24)
     const baseColor = Color.fromCssColorString(getWarehouseStatusColor(context.config, status ?? "normal"))
 
-    entity.polygon.height = 0
-    entity.polygon.extrudedHeight = Number.isFinite(height) ? height : 24
-    entity.polygon.perPositionHeight = false
-    entity.polygon.outline = true
-    entity.polygon.outlineColor = outlineColor
-    entity.polygon.material = baseColor.withAlpha(context.config.warehouseLayer.extrusionOpacity)
+    applyPolygonStyle(entity.polygon, {
+      height: 0,
+      extrudedHeight: Number.isFinite(height) ? height : 24,
+      outline: true,
+      outlineColor,
+      materialColor: baseColor.withAlpha(context.config.warehouseLayer.extrusionOpacity),
+    })
   }
 
   await viewer.dataSources.add(dataSource)
   return dataSource
 }
 
+function resolveModelShadowMode(castShadows: boolean, receiveShadows: boolean) {
+  if (castShadows && receiveShadows) return ShadowMode.ENABLED
+  if (castShadows) return ShadowMode.CAST_ONLY
+  if (receiveShadows) return ShadowMode.RECEIVE_ONLY
+  return ShadowMode.DISABLED
+}
+
+function addModelLayer(viewer: Viewer, context: BigscreenSceneEngineMountContext) {
+  const layer = context.config.modelLayer
+  if (!layer.show) {
+    return
+  }
+
+  for (const asset of layer.assets) {
+    if (!asset.show) {
+      continue
+    }
+    const position = Cartesian3.fromDegrees(asset.position[0], asset.position[1], asset.position[2])
+    const orientation = Transforms.headingPitchRollQuaternion(
+      position,
+      new HeadingPitchRoll(CesiumMath.toRadians(asset.heading), CesiumMath.toRadians(asset.pitch), CesiumMath.toRadians(asset.roll)),
+    )
+    viewer.entities.add({
+      id: `scene-model:${asset.id}`,
+      name: asset.name ?? asset.id,
+      position,
+      orientation,
+      properties: {
+        assetKey: asset.assetKey,
+        semanticType: asset.semanticType,
+      },
+      model: {
+        uri: asset.url,
+        show: true,
+        scale: asset.scale,
+        minimumPixelSize: asset.minimumPixelSize,
+        maximumScale: asset.maximumScale,
+        shadows: resolveModelShadowMode(asset.castShadows, asset.receiveShadows),
+        runAnimations: false,
+        incrementallyLoadTextures: true,
+      },
+    })
+  }
+}
+
+async function addTilesetLayers(viewer: Viewer, context: BigscreenSceneEngineMountContext) {
+  const tilesets: Cesium3DTileset[] = []
+  for (const layer of context.config.futureLayers.tileset) {
+    if (!layer.show) {
+      continue
+    }
+    const tileset = await Cesium3DTileset.fromUrl(layer.url, {
+      enableCollision: false,
+      preloadWhenHidden: false,
+      maximumScreenSpaceError: 12,
+    })
+    tileset.show = true
+    viewer.scene.primitives.add(tileset)
+    tilesets.push(tileset)
+  }
+  return tilesets
+}
+
 export function createCesiumBigscreenSceneEngine(): BigscreenSceneEngine {
   let viewer: Viewer | null = null
   let sceneDataSources: GeoJsonDataSource[] = []
+  let sceneTilesets: Cesium3DTileset[] = []
   let mountContext: BigscreenSceneEngineMountContext | null = null
 
   return {
@@ -588,17 +687,18 @@ export function createCesiumBigscreenSceneEngine(): BigscreenSceneEngine {
         msaaSamples: context.config.viewerOptions.msaaSamples,
       })
       applyRenderQuality(viewer, context)
+      applyEnvironment(viewer, context)
 
       const imageryProvider = createImageryProvider(context)
       if (imageryProvider) {
         const imageryLayer = viewer.imageryLayers.addImageryProvider(imageryProvider)
-        imageryLayer.alpha = 0.62
-        imageryLayer.brightness = 0.72
-        imageryLayer.contrast = 0.82
-        imageryLayer.saturation = 0.28
+        imageryLayer.alpha = context.config.imageryProvider.alpha
+        imageryLayer.brightness = context.config.imageryProvider.brightness
+        imageryLayer.contrast = context.config.imageryProvider.contrast
+        imageryLayer.saturation = context.config.imageryProvider.saturation
+        imageryLayer.gamma = context.config.imageryProvider.gamma
       }
       viewer.terrainProvider = await createTerrainProvider(context)
-      viewer.scene.globe.baseColor = Color.fromCssColorString("#cfe0e3")
       viewer.scene.globe.depthTestAgainstTerrain = false
       applyInteractionPolicy(viewer, context.config.interactive)
       const siteDataSource = await addSiteLayer(viewer, context)
@@ -606,6 +706,8 @@ export function createCesiumBigscreenSceneEngine(): BigscreenSceneEngine {
       const zoneDataSource = await addZoneLayer(viewer, context)
       const warehouseDataSource = context.config.siteLayer || context.config.buildingLayer || context.config.zoneLayer ? null : await addWarehouseLayer(viewer, context)
       sceneDataSources = [siteDataSource, buildingDataSource, zoneDataSource, warehouseDataSource].filter((dataSource): dataSource is GeoJsonDataSource => Boolean(dataSource))
+      addModelLayer(viewer, context)
+      sceneTilesets = await addTilesetLayers(viewer, context)
       applyCamera(viewer, context)
       viewer.scene.requestRender()
       context.onReady?.()
@@ -626,9 +728,13 @@ export function createCesiumBigscreenSceneEngine(): BigscreenSceneEngine {
         for (const dataSource of sceneDataSources) {
           viewer.dataSources.remove(dataSource, true)
         }
+        for (const tileset of sceneTilesets) {
+          viewer.scene.primitives.remove(tileset)
+        }
         viewer.entities.removeAll()
       }
       sceneDataSources = []
+      sceneTilesets = []
       mountContext = null
       viewer?.destroy()
       viewer = null

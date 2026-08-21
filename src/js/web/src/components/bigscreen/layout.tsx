@@ -8,7 +8,9 @@ import { ScreenHeader } from "@/components/bigscreen/primitives/ScreenHeader"
 import { BigscreenSceneCanvas } from "@/components/bigscreen/scene-canvas"
 import { BigscreenSkinProvider } from "@/components/bigscreen/skins/context"
 import { getBigscreenSkinDefinition } from "@/components/bigscreen/skins/registry"
+import { useAuthStore } from "@/lib/auth"
 import { useBigscreenEnvironment, useBigscreenMeta } from "@/lib/bigscreen/hooks"
+import { resolveTenantBigscreenSceneManifestCandidates } from "@/lib/bigscreen/map/scene-resolver"
 
 const fallbackNav = [
   { label: "企业介绍", path: "/bigscreen/intro" },
@@ -67,11 +69,8 @@ function useClock() {
 
 export function BigscreenLayout() {
   const pathname = useLocation({ select: (location) => location.pathname })
-  const metaVariant = pathname.startsWith("/bigscreen/huayi")
-    ? "huayi"
-    : pathname.startsWith("/bigscreen/zhijiang")
-      ? "zhijiang"
-      : "default"
+  const currentTeam = useAuthStore((state) => state.currentTeam)
+  const metaVariant = pathname.startsWith("/bigscreen/huayi") ? "huayi" : pathname.startsWith("/bigscreen/zhijiang") ? "zhijiang" : "default"
   const { scale, tier } = useBigscreenViewport()
   const now = useClock()
   const queryVariant = metaVariant === "zhijiang" ? "default" : metaVariant
@@ -80,12 +79,8 @@ export function BigscreenLayout() {
   const environmentQuery = useBigscreenEnvironment(meta?.show_weather !== false)
   const environment = environmentQuery.data
   const skin = getBigscreenSkinDefinition()
-  const navItems =
-    metaVariant === "zhijiang"
-      ? []
-      : metaVariant === "huayi"
-        ? []
-        : meta?.nav_items ?? [...fallbackNavByVariant[metaVariant]]
+  const sceneManifestUrls = resolveTenantBigscreenSceneManifestCandidates(currentTeam)
+  const navItems = metaVariant === "zhijiang" ? [] : metaVariant === "huayi" ? [] : (meta?.nav_items ?? [...fallbackNavByVariant[metaVariant]])
   const resolution = tier === "2160" ? "2160" : "1080"
   const fallbackMeta =
     metaVariant === "zhijiang"
@@ -103,7 +98,7 @@ export function BigscreenLayout() {
             city: "江苏省泰州市",
           }
   const displayCity = meta?.city ?? fallbackMeta?.city ?? environment?.city ?? "--"
-  const displayWeather = meta?.show_weather === false ? "--" : environment?.weather ?? "--"
+  const displayWeather = meta?.show_weather === false ? "--" : (environment?.weather ?? "--")
 
   return (
     <BigscreenSkinProvider skin={skin}>
@@ -118,17 +113,13 @@ export function BigscreenLayout() {
                 } as React.CSSProperties
               }
             >
-              <BigscreenSceneCanvas variant="stage" />
+              <BigscreenSceneCanvas variant="stage" manifestUrls={sceneManifestUrls} />
             </div>
             <div className="bigscreen-shell">
               <ScreenHeader
                 title={meta?.title ?? fallbackMeta?.title ?? "仓储能碳态势指挥大屏"}
                 shortName={meta?.short_name ?? fallbackMeta?.shortName ?? "LC"}
-                description={
-                  meta?.description ??
-                  fallbackMeta?.description ??
-                  "围绕园区主视觉对象组织经营总览、电量监控、能碳协同与企业介绍，形成可上墙、可持续观看的大屏系统。"
-                }
+                description={meta?.description ?? fallbackMeta?.description ?? "围绕园区主视觉对象组织经营总览、电量监控、能碳协同与企业介绍，形成可上墙、可持续观看的大屏系统。"}
                 city={displayCity}
                 weather={displayWeather}
                 now={now}

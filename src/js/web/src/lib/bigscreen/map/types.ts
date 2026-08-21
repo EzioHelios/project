@@ -40,6 +40,11 @@ export type BigscreenSceneImageryProviderConfig = {
   minimumLevel?: number
   maximumLevel?: number
   subdomains?: string[]
+  alpha: number
+  brightness: number
+  contrast: number
+  saturation: number
+  gamma: number
 }
 
 export type BigscreenSceneTerrainProviderConfig =
@@ -90,17 +95,83 @@ export type BigscreenSceneFeatureLayerConfig = {
   outlineWidth: number
 }
 
+export type BigscreenSceneSiteLayerConfig = BigscreenSceneFeatureLayerConfig & {
+  featureColorMode: "feature" | "palette"
+  defaultColor: string
+  typeColors: Record<string, string>
+}
+
 export type BigscreenSceneBuildingLayerConfig = BigscreenSceneFeatureLayerConfig & {
   defaultHeight: number
   defaultOpacity: number
+  defaultWallColor: string
+  defaultRoofColor: string
+  featureColorMode: "feature" | "uniform"
+  roofEdgeColor: string
+  roofEdgeOpacity: number
+  showLabels: boolean
+  labelDistance: number
   solarPanelColor: string
   solarPanelStrokeColor: string
 }
 
 export type BigscreenSceneZoneLayerConfig = BigscreenSceneFeatureLayerConfig & {
   defaultOpacity: number
+  defaultColor: string
+  featureColorMode: "feature" | "uniform"
   defaultHeight: number
   surfaceHeight: number
+  showLabels: boolean
+}
+
+export type BigscreenSceneEnvironmentConfig = {
+  backgroundColor: string
+  globeBaseColor: string
+  lighting: boolean
+  dynamicAtmosphereLighting: boolean
+  clockTime?: string
+  fog: {
+    enabled: boolean
+    density: number
+    minimumBrightness: number
+    screenSpaceErrorFactor: number
+  }
+  ambientOcclusion: {
+    enabled: boolean
+    intensity: number
+    bias: number
+    lengthCap: number
+    directionCount: number
+    stepCount: number
+  }
+}
+
+export type BigscreenSceneModelAsset = {
+  id: string
+  name?: string
+  url: string
+  show: boolean
+  position: [lng: number, lat: number, height: number]
+  heading: number
+  pitch: number
+  roll: number
+  scale: number
+  minimumPixelSize: number
+  maximumScale?: number
+  castShadows: boolean
+  receiveShadows: boolean
+  semanticType?: string
+  assetKey?: string
+  source?: {
+    name: string
+    url?: string
+    license: string
+  }
+}
+
+export type BigscreenSceneModelLayerConfig = {
+  show: boolean
+  assets: BigscreenSceneModelAsset[]
 }
 
 export type BigscreenSceneLegacyMaplibreConfig = {
@@ -116,6 +187,8 @@ export type BigscreenSceneLegacyMaplibreConfig = {
 }
 
 export type BigscreenSceneConfig = {
+  sceneId: string
+  revision: string
   sceneEngine: BigscreenSceneEngineKind
   coordinateSystem: BigscreenSceneCoordinateSystem
   center: BigscreenSceneLngLat
@@ -125,9 +198,11 @@ export type BigscreenSceneConfig = {
   terrainProvider: BigscreenSceneTerrainProviderConfig
   cameraHome: BigscreenSceneCameraHome
   viewerOptions: BigscreenSceneViewerOptions
-  siteLayer?: BigscreenSceneFeatureLayerConfig
+  environment: BigscreenSceneEnvironmentConfig
+  siteLayer?: BigscreenSceneSiteLayerConfig
   buildingLayer?: BigscreenSceneBuildingLayerConfig
   zoneLayer?: BigscreenSceneZoneLayerConfig
+  modelLayer: BigscreenSceneModelLayerConfig
   warehouseLayer: BigscreenWarehouseLayerConfig
   futureLayers: {
     tileset: BigscreenFutureTilesetLayer[]

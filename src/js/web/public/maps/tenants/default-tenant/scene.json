@@ -1,0 +1,6 @@
+{
+  "extends": "../../taizhou-warehouse/scene.json",
+  "sceneId": "default-tenant-campus",
+  "revision": "1",
+  "attributionLabel": "祥泰仓库三维场景"
+}

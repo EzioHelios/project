@@ -1,0 +1,107 @@
+{
+  "sceneId": "industrial-campus-template",
+  "revision": "2",
+  "sceneEngine": "cesium",
+  "coordinateSystem": "wgs84",
+  "interactive": true,
+  "imageryProvider": {
+    "kind": "url-template",
+    "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    "credit": "© OpenStreetMap contributors",
+    "maximumLevel": 19,
+    "alpha": 0.34,
+    "brightness": 0.62,
+    "contrast": 0.94,
+    "saturation": 0.12,
+    "gamma": 0.94
+  },
+  "terrainProvider": {
+    "kind": "ellipsoid"
+  },
+  "viewerOptions": {
+    "sceneMode": "3d",
+    "shadows": true,
+    "requestRenderMode": true,
+    "maximumRenderTimeChange": 30,
+    "msaaSamples": 4,
+    "useBrowserRecommendedResolution": false,
+    "resolutionScale": 1,
+    "fxaa": true,
+    "orderIndependentTranslucency": true,
+    "highDynamicRange": true
+  },
+  "environment": {
+    "backgroundColor": "#06151b",
+    "globeBaseColor": "#10282e",
+    "lighting": true,
+    "dynamicAtmosphereLighting": true,
+    "clockTime": "2026-04-18T23:20:00Z",
+    "fog": {
+      "enabled": true,
+      "density": 0.00018,
+      "minimumBrightness": 0.12,
+      "screenSpaceErrorFactor": 2.2
+    },
+    "ambientOcclusion": {
+      "enabled": true,
+      "intensity": 1.55,
+      "bias": 0.2,
+      "lengthCap": 0.22,
+      "directionCount": 6,
+      "stepCount": 20
+    }
+  },
+  "siteLayer": {
+    "show": true,
+    "outlineColor": "#58777b",
+    "outlineOpacity": 0.42,
+    "outlineWidth": 1,
+    "featureColorMode": "palette",
+    "defaultColor": "#526568",
+    "typeColors": {
+      "concrete": "#526568",
+      "road": "#29393d",
+      "green": "#294d3d",
+      "reserved": "#3d554d",
+      "corridor": "#203a40"
+    }
+  },
+  "buildingLayer": {
+    "show": true,
+    "outlineColor": "#75aeb5",
+    "outlineOpacity": 0.42,
+    "outlineWidth": 1,
+    "defaultHeight": 8,
+    "defaultOpacity": 0.98,
+    "defaultWallColor": "#9cabad",
+    "defaultRoofColor": "#becacc",
+    "featureColorMode": "uniform",
+    "roofEdgeColor": "#83bbc1",
+    "roofEdgeOpacity": 0.44,
+    "showLabels": true,
+    "labelDistance": 1050,
+    "solarPanelColor": "#123f58",
+    "solarPanelStrokeColor": "#4b9cac"
+  },
+  "zoneLayer": {
+    "show": true,
+    "outlineColor": "#70d2c4",
+    "outlineOpacity": 0.36,
+    "outlineWidth": 1,
+    "defaultOpacity": 0.22,
+    "defaultColor": "#2eb8a6",
+    "featureColorMode": "uniform",
+    "defaultHeight": 0.45,
+    "surfaceHeight": 14.2,
+    "showLabels": false
+  },
+  "modelLayer": {
+    "show": true,
+    "assets": []
+  },
+  "futureLayers": {
+    "tileset": [],
+    "splat": [],
+    "pointCloud": []
+  }
+}
