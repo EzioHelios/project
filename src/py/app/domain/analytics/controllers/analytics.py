@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from dateutil.relativedelta import relativedelta
-from litestar import Controller, Request, delete, get, post
+from litestar import Controller, Request, get, post
 from litestar.params import Body
 from litestar.response import Response
 from sqlalchemy import case, func, select, text
@@ -3282,7 +3282,6 @@ class EnergyCarbonCenterController(Controller):
             }
         )
 
-    @post("/api/energy-carbon/admin/seed/demo-carbon", guards=[requires_superuser])
     async def admin_seed_demo_carbon(
         self,
         request: Request[Any, Any, Any],
@@ -3304,7 +3303,6 @@ class EnergyCarbonCenterController(Controller):
             content={"code": 200, "msg": "初始化数据已重建", "data": {"deleted": deleted, "created": created}}
         )
 
-    @delete("/api/energy-carbon/admin/seed/demo-carbon", guards=[requires_superuser], status_code=200)
     async def admin_delete_demo_carbon(
         self,
         request: Request[Any, Any, Any],

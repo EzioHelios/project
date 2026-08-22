@@ -11,6 +11,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } fr
 import { usePublicConfig } from "@/hooks/use-public-config"
 import { useAuthStore } from "@/lib/auth"
 import { listTeams, type Team } from "@/lib/generated/api"
+import { categoryRoute, GHG_CATEGORY_GROUPS } from "@/lib/ghg-categories"
 import { cn } from "@/lib/utils"
 
 export function AppSidebar({ className, ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -50,7 +51,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
   const navMain = useMemo(() => {
     const isCarbonModuleRoute = pathname === "/carbon" || pathname.startsWith("/carbon/")
     const isEnergyBudgetRoute = pathname === "/energy/budget"
-    const isCarbonDataEntryRoute = pathname.startsWith("/carbon-mgmt/scope") || pathname.startsWith("/carbon-mgmt/pending") || pathname.startsWith("/carbon-mgmt/audit")
+    const isCarbonInventoryRoute = pathname.startsWith("/carbon-mgmt/activities") || pathname.startsWith("/carbon-mgmt/import") || pathname.startsWith("/carbon-mgmt/category")
     const items: React.ComponentProps<typeof NavMain>["items"] = [
       {
         title: "工作台",
@@ -107,12 +108,24 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
         ],
       },
       {
+        title: "碳数据填报",
+        to: "/carbon-mgmt/activities",
+        icon: FileInput,
+        isActive: isCarbonInventoryRoute,
+        items: [
+          { title: "全部活动", to: "/carbon-mgmt/activities" },
+          ...GHG_CATEGORY_GROUPS.flatMap((group) => [
+            { title: group.shortName, kind: "section" as const },
+            ...group.items.map((category) => ({ title: `${category.code} ${category.name}`, to: categoryRoute(category.code) })),
+          ]),
+        ],
+      },
+      {
         title: "碳排放管理",
-        to: "/carbon/accounting",
+        to: "/carbon/product-footprint",
         icon: ShieldCheck,
         isActive: isCarbonModuleRoute || isEnergyBudgetRoute,
         items: [
-          { title: "碳排放核算", to: "/carbon/accounting" },
           { title: "产品碳足迹", to: "/carbon/product-footprint" },
           { title: "供应链碳", to: "/carbon/supply-chain" },
           { title: "核查支撑", to: "/carbon/verification" },
@@ -162,29 +175,6 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
           { title: "产品价格", to: "/data/product-prices" },
           { title: "产品批次产量", to: "/data/production-output" },
           { title: "产品产线关联", to: "/data/product-resource-bindings" },
-        ],
-      },
-      {
-        title: "碳数据填报",
-        to: "/carbon-mgmt/scope2-bill",
-        icon: FileInput,
-        isActive: isCarbonDataEntryRoute,
-        items: [
-          { title: "Scope 1", kind: "section" },
-          { title: "固定源燃烧", to: "/carbon-mgmt/scope1-stationary" },
-          { title: "移动源燃烧", to: "/carbon-mgmt/scope1-mobile" },
-          { title: "制冷剂逸散", to: "/carbon-mgmt/scope1-refrigerant" },
-          { title: "Scope 2", kind: "section" },
-          { title: "电力账单", to: "/carbon-mgmt/scope2-bill" },
-          { title: "电表聚合", to: "/carbon-mgmt/scope2-records" },
-          { title: "外购热汽冷", to: "/carbon-mgmt/scope2-purchased-energy" },
-          { title: "Scope2 对账", to: "/carbon-mgmt/scope2-reconciliation" },
-          { title: "Scope 3", kind: "section" },
-          { title: "废弃物处理", to: "/carbon-mgmt/scope3-waste" },
-          { title: "外购运输", to: "/carbon-mgmt/scope3-transport" },
-          { title: "审核流转", kind: "section" },
-          { title: "待审核", to: "/carbon-mgmt/pending" },
-          { title: "审核日志", to: "/carbon-mgmt/audit" },
         ],
       },
       {

@@ -61,7 +61,7 @@ const energyFunctions = [
 const carbonFunctions = [
   {
     title: "碳排放核算",
-    to: "/carbon/accounting",
+    to: "/carbon-mgmt/activities",
     icon: ShieldCheck,
     promise: "从活动数据、因子匹配到计算结果形成可审核碳账。",
     action: "发起核算",

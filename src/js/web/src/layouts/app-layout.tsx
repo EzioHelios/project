@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { resolveAdminDomain } from "@/lib/design-domain"
+import { GHG_CATEGORY_GROUPS } from "@/lib/ghg-categories"
 
 export function AppLayout() {
   const pathname = useRouterState({
@@ -84,12 +85,13 @@ export function AppLayout() {
       return { eyebrow: "定时任务", title: "定时任务" }
     }
     if (pathname.startsWith("/carbon-mgmt")) {
-      if (pathname === "/carbon-mgmt/scope1-mobile") return { eyebrow: "碳排放管理", title: "[范围1] 移动源燃烧" }
-      if (pathname === "/carbon-mgmt/scope1-stationary") return { eyebrow: "碳排放管理", title: "[范围1] 固定源燃烧" }
-      if (pathname === "/carbon-mgmt/scope1-refrigerant") return { eyebrow: "碳排放管理", title: "[范围1] 制冷剂逸散" }
-      if (pathname === "/carbon-mgmt/scope2-bill") return { eyebrow: "碳排放管理", title: "[范围2] 电费账单" }
-      if (pathname === "/carbon-mgmt/scope3-waste") return { eyebrow: "碳排放管理", title: "[范围3] 废弃物处理" }
-      if (pathname === "/carbon-mgmt/scope3-transport") return { eyebrow: "碳排放管理", title: "[范围3] 外购运输" }
+      if (pathname === "/carbon-mgmt/activities") return { eyebrow: "温室气体盘查", title: "活动数据台账" }
+      if (pathname === "/carbon-mgmt/import") return { eyebrow: "温室气体盘查", title: "活动数据导入" }
+      if (pathname.startsWith("/carbon-mgmt/category/")) {
+        const categoryCode = pathname.split("/").at(-1)
+        const category = GHG_CATEGORY_GROUPS.flatMap((group) => group.items).find((item) => item.code === categoryCode)
+        return { eyebrow: "碳数据填报", title: category ? `${category.code} ${category.name}` : "活动数据分类" }
+      }
       if (pathname === "/carbon-mgmt/factors") return { eyebrow: "碳排放因子库", title: "排放因子库" }
       if (pathname === "/carbon-mgmt/calculation-factors") return { eyebrow: "碳排放因子库", title: "计算因子库" }
       if (pathname === "/carbon-mgmt/audit") return { eyebrow: "碳排放管理", title: "审核操作日志" }
@@ -103,7 +105,6 @@ export function AppLayout() {
     }
     if (pathname === "/energy" || pathname.startsWith("/energy/")) {
       if (pathname === "/energy/consumption") return { eyebrow: "能源运营", title: "能耗查询" }
-      if (pathname === "/energy/import") return { eyebrow: "能源运营", title: "采集包导入" }
       if (pathname === "/energy/intensity") return { eyebrow: "能源运营", title: "能耗强度" }
       if (pathname === "/energy/analysis") return { eyebrow: "能源运营", title: "用能分析" }
       if (pathname === "/energy/benchmark") return { eyebrow: "能源运营", title: "能效对标" }
@@ -123,8 +124,6 @@ export function AppLayout() {
       return { eyebrow: "微电网运营", title: "微电网运营" }
     }
     if (pathname.startsWith("/carbon")) {
-      if (pathname === "/carbon/accounting") return { eyebrow: "碳核算", title: "碳排放核算" }
-      if (pathname === "/carbon/ledger") return { eyebrow: "碳核算", title: "碳排放台账" }
       if (pathname === "/carbon/product-footprint") return { eyebrow: "碳核算", title: "产品碳足迹核算" }
       if (pathname === "/carbon/supply-chain") return { eyebrow: "碳核算", title: "供应链碳管理" }
       if (pathname === "/carbon/verification") return { eyebrow: "碳核算", title: "碳核查支撑" }

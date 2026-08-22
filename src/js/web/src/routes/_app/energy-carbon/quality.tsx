@@ -91,7 +91,7 @@ export function QualityTracePage({ embedded = false }: { embedded?: boolean } = 
         <Link to="/data/meter">查看电表明细</Link>
       </Button>
       <Button variant="outline" asChild>
-        <Link to="/carbon/accounting">查看碳排放核算</Link>
+        <Link to="/carbon-mgmt/activities">查看活动数据台账</Link>
       </Button>
     </div>
   )

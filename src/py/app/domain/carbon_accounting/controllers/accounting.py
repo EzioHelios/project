@@ -5,7 +5,7 @@ import datetime
 from typing import TYPE_CHECKING, Any
 
 from advanced_alchemy.filters import LimitOffset, OrderBy
-from litestar import Controller, Request, delete, get, patch, post
+from litestar import Request, delete, get, patch, post
 from litestar.params import Body
 from litestar.response import Response
 from sqlalchemy import func, select, text
@@ -65,7 +65,12 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
-class CarbonAccountingController(Controller):
+class CarbonAccountingController:
+    """Legacy helpers retained for non-writing analytics during the data migration.
+
+    This class intentionally is not a Litestar controller. Scope-specific CRUD is
+    retired; all new activity writes use ``/api/ghg-inventory``.
+    """
     tags = ["Carbon Accounting"]
     signature_types = [Response]
     dependencies = {

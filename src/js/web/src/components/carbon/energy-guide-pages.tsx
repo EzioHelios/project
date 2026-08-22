@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
-import { ChevronDown, ChevronRight, FileSpreadsheet } from "lucide-react"
+import { ChevronDown, ChevronRight } from "lucide-react"
 import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -623,11 +622,11 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
   const formatNumber = (value: number | null | undefined, digits = 4) =>
     value === null || value === undefined ? "-" : Number(value).toLocaleString("zh-CN", { maximumFractionDigits: digits })
   const sourceRoute: Record<string, string> = {
-    Scope1MobileCombustion: "/carbon-mgmt/scope1-mobile",
-    Scope1StationaryCombustion: "/carbon-mgmt/scope1-stationary",
-    Scope2ElectricityBill: "/carbon-mgmt/scope2-bill",
-    Scope2MeterAggregate: "/carbon-mgmt/scope2-records",
-    Scope2PurchasedEnergy: "/carbon-mgmt/scope2-purchased-energy",
+    Scope1MobileCombustion: "/carbon-mgmt/activities",
+    Scope1StationaryCombustion: "/carbon-mgmt/activities",
+    Scope2ElectricityBill: "/carbon-mgmt/activities",
+    Scope2MeterAggregate: "/carbon-mgmt/activities",
+    Scope2PurchasedEnergy: "/carbon-mgmt/activities",
   }
 
   return (
@@ -635,14 +634,6 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
       <AdminPageScaffold
         header={header}
         title={header ? undefined : "能耗查询"}
-        topActions={
-          <Button asChild type="button" variant="outline" size="sm">
-            <Link to="/energy/import">
-              <FileSpreadsheet className="mr-2 size-4" />
-              采集包导入
-            </Link>
-          </Button>
-        }
         tabs={
           <AdminTabsList>
             <TabsTrigger value="summary">汇总查询</TabsTrigger>

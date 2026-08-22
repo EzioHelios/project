@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from litestar import Controller, get, patch, post
+from litestar import get, patch, post
 from litestar.params import Body, Parameter
 from litestar.response import File, Response
 
@@ -18,7 +18,8 @@ if TYPE_CHECKING:
 INVENTORY_BODY = Body()
 
 
-class CarbonAccountingInventoryController(Controller):
+class _RetiredCarbonAccountingInventoryController:
+    """Historical batch API retained as source code only; no longer route-discovered."""
     tags = ["Carbon Accounting"]
 
     @get("/api/carbon/accounting/batches")

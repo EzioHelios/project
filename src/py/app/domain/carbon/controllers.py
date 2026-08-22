@@ -129,7 +129,12 @@ DEFAULT_DEVICE_TYPES: tuple[dict[str, Any], ...] = (
 )
 
 
-class CarbonDataCollectionWorkbookController(Controller):
+class _RetiredCarbonDataCollectionWorkbookController:
+    """Retained only so historical import helpers remain readable during migration.
+
+    The class intentionally does not inherit Litestar ``Controller``. The canonical
+    GHG inventory workbench is the only supported workbook write path.
+    """
     tags = ["Carbon"]
 
     @get("/api/carbon/data-collection-workbooks/spec", guards=[requires_superuser])
