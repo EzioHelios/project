@@ -1,0 +1,1 @@
+"""GHG inventory read models."""

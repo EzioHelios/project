@@ -24,6 +24,7 @@ from app.domain.carbon.mvp_data_importer import seed_carbon_mvp_data
 from app.domain.carbon.production_data_importer import import_wms_production_data
 from app.domain.carbon.real_company_package_importer import import_real_company_packages
 from app.domain.energy.benchmark_importer import seed_warehouse_energy_benchmark_data
+from app.domain.ghg_inventory.usecases.tenant_dataset import CompleteWarehouseTenantInventory
 from app.lib.deps import create_service_provider, provide_services
 from app.lib.settings import get_settings
 from app.lib.tenancy import TENANT_BYPASS_SESSION_KEY, TENANT_ID_SESSION_KEY
@@ -499,3 +500,34 @@ def seed_energy_benchmark_data_command(team_slug: str) -> None:
 
     console.rule("Seed energy benchmark data.")
     anyio.run(_seed)
+
+
+@carbon_management_group.command(
+    name="complete-ghg-tenant-data",
+    help="Complete reporting boundaries and area/equipment allocations for one tenant inventory.",
+)
+@click.option("--team", "team_slug", type=click.STRING, required=True, help="Tenant team slug.")
+def complete_ghg_tenant_data_command(team_slug: str) -> None:
+    """Build an idempotent, fully allocated GHG inventory tenant data set."""
+    console = get_console()
+
+    async def _complete() -> None:
+        from app.domain.metering.legacy_migration import resolve_team_id
+
+        async with alchemy.get_session() as session:
+            session.info[TENANT_BYPASS_SESSION_KEY] = True
+            team_id = await resolve_team_id(session, team_slug)
+            await session.commit()
+            session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
+            session.info[TENANT_ID_SESSION_KEY] = team_id
+            result = await CompleteWarehouseTenantInventory(session).execute()
+        console.print(
+            "[green]Completed tenant GHG resource allocation[/green] "
+            f"periods={result.reporting_periods} boundaries={result.boundaries} devices={result.devices} "
+            f"measurement_boundaries={result.measurement_boundaries} sources={result.emission_sources} "
+            f"activities={result.activities} allocations={result.allocations} "
+            f"parameters={result.parameter_values} calculation_runs={result.calculation_runs}"
+        )
+
+    console.rule("Complete GHG tenant data.")
+    anyio.run(_complete)
