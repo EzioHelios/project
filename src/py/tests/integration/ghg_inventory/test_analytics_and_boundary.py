@@ -2,10 +2,12 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import select
 
 from app.db import models as m
 from app.domain.ghg_inventory.queries.analytics import GhgAnalyticsQueryService
 from app.domain.ghg_inventory.queries.result_slice import GhgAnalyticsFilter, GhgResultSliceQuery
+from app.domain.ghg_inventory.usecases.reports import CreateInventoryReport, TransitionInventoryReport
 from app.domain.organization_boundary.schemas import (
     BoundaryAreaSelection,
     BoundaryEquipmentSelection,
@@ -16,6 +18,153 @@ from app.domain.organization_boundary.usecases.boundary import OrganizationBound
 from app.lib.tenancy import TENANT_BYPASS_SESSION_KEY, TENANT_ID_SESSION_KEY
 
 pytestmark = [pytest.mark.anyio, pytest.mark.integration]
+
+
+async def test_inventory_report_can_be_resubmitted_and_archived_with_audit_trail(session) -> None:
+    team = m.Team(name="Report Lifecycle Tenant", slug="report-lifecycle-tenant")
+    profile = m.GhgReportingProfile(
+        code="REPORT-LIFECYCLE-PROFILE",
+        name="报告生命周期配置",
+        version="1",
+        standard_code="ISO 14064-1",
+        standard_version="2018",
+        effective_from=date(2026, 1, 1),
+    )
+    session.add_all([team, profile])
+    await session.flush()
+    session.info[TENANT_BYPASS_SESSION_KEY] = True
+    organization = m.ReportingOrganization(team_id=team.id, code="REPORT-ORG", name="报告组织")
+    session.add(organization)
+    await session.flush()
+    period = m.ReportingPeriod(
+        team_id=team.id,
+        reporting_org_id=organization.id,
+        code="REPORT-2026",
+        name="2026年度",
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 12, 31),
+    )
+    session.add(period)
+    await session.flush()
+    boundary = m.OrganizationBoundary(
+        team_id=team.id,
+        reporting_org_id=organization.id,
+        period_id=period.id,
+        boundary_no="REPORT-BOUNDARY",
+        boundary_name="报告边界",
+        status="published",
+    )
+    session.add(boundary)
+    await session.flush()
+    run = m.GhgCalculationRun(
+        team_id=team.id,
+        run_code="REPORT-RUN",
+        inventory_code="REPORT-INV",
+        reporting_profile_id=profile.id,
+        reporting_org_id=organization.id,
+        reporting_period_id=period.id,
+        organization_boundary_id=boundary.id,
+        status="completed",
+        started_at=datetime.now(UTC),
+        completed_at=datetime.now(UTC),
+    )
+    session.add(run)
+    await session.flush()
+    activities = [
+        m.GhgActivityRecord(
+            team_id=team.id,
+            record_code=f"REPORT-ACTIVITY-{index}",
+            inventory_code=run.inventory_code,
+            reporting_period_id=period.id,
+            organization_boundary_id=boundary.id,
+            organization_code=organization.code,
+            facility_code="REPORT-FACILITY",
+            source_code="REPORT-SOURCE",
+            activity_code=f"REPORT-ACTIVITY-{index}",
+            activity_name="盘查活动数据",
+            period_start=date(2026, index, 1),
+            period_end=date(2026, index, 28),
+            iso_category_code="1.1",
+            ghg_scope="scope1",
+            source_mechanism="stationary_combustion",
+            value_chain_position="within_boundary",
+            activity_amount=Decimal(100),
+            activity_unit="m3",
+            data_source_type="measured",
+            measurement_method="计量表",
+            status="approved",
+        )
+        for index in (1, 2)
+    ]
+    evidence = m.GhgEvidenceFile(
+        team_id=team.id,
+        evidence_code="REPORT-EVIDENCE-1",
+        file_name="天然气结算单.pdf",
+        document_type="invoice",
+        storage_key="tests/report-evidence-1.pdf",
+        sha256="a" * 64,
+        verification_status="verified",
+    )
+    session.add_all([*activities, evidence])
+    await session.flush()
+    session.add(
+        m.GhgEvidenceLink(
+            team_id=team.id,
+            link_code="REPORT-EVIDENCE-LINK-1",
+            record_type="activity",
+            record_code=activities[0].record_code,
+            evidence_id=evidence.id,
+            evidence_role="primary",
+            review_status="approved",
+        )
+    )
+    await session.commit()
+    session.info.clear()
+    session.info[TENANT_ID_SESSION_KEY] = team.id
+
+    report = await CreateInventoryReport(session).execute(
+        run_code=run.run_code,
+        title="2026年度组织温室气体盘查报告",
+        change_summary="初始版本",
+    )
+    assert report.evidence_snapshot == {
+        "activityCount": 2,
+        "linkedActivityCount": 1,
+        "evidenceLinkCount": 1,
+        "coveragePct": "50.00",
+    }
+
+    transitions = TransitionInventoryReport(session)
+    actions = (
+        ("submit", "编制人", None),
+        ("reject", "审核人", "补充证据索引"),
+        ("resubmit", "编制人", "已补充证据索引"),
+        ("approve", "审核人", "复核通过"),
+        ("publish", "批准人", "批准发布"),
+        ("archive", "档案管理员", "年度归档"),
+    )
+    for action, actor, comment in actions:
+        report = await transitions.execute(
+            report_code=report.report_code,
+            version=report.version,
+            action=action,
+            actor=actor,
+            comment=comment,
+        )
+
+    reviews = list(
+        (
+            await session.scalars(
+                select(m.GhgInventoryReportReview)
+                .where(m.GhgInventoryReportReview.report_id == report.id)
+                .order_by(m.GhgInventoryReportReview.acted_at)
+            )
+        ).all()
+    )
+    assert report.status == "archived"
+    assert [review.action for review in reviews] == [action for action, _actor, _comment in actions]
+    assert reviews[2].from_status == "rejected"
+    assert reviews[2].to_status == "submitted"
 
 
 async def test_result_slice_keeps_scope2_methods_separate_and_applies_attribution(session) -> None:

@@ -474,6 +474,21 @@ class GhgInventoryReportController(Controller):
         return await self._transition(db_session, current_user, report_code, version, "submit", data)
 
     @post(
+        "/{report_code:str}/{version:int}/resubmit",
+        operation_id="GhgInventoryResubmitReport",
+        guards=[requires_permission("carbon.inventory.report.manage")],
+    )
+    async def resubmit_report(
+        self,
+        db_session: AsyncSession,
+        current_user: User,
+        report_code: str,
+        version: int,
+        data: GhgInventoryReportActionRequest,
+    ) -> GhgInventoryReportResponse:
+        return await self._transition(db_session, current_user, report_code, version, "resubmit", data)
+
+    @post(
         "/{report_code:str}/{version:int}/approve",
         operation_id="GhgInventoryApproveReport",
         guards=[requires_permission("carbon.inventory.report.review")],
@@ -517,6 +532,21 @@ class GhgInventoryReportController(Controller):
         data: GhgInventoryReportActionRequest,
     ) -> GhgInventoryReportResponse:
         return await self._transition(db_session, current_user, report_code, version, "publish", data)
+
+    @post(
+        "/{report_code:str}/{version:int}/archive",
+        operation_id="GhgInventoryArchiveReport",
+        guards=[requires_permission("carbon.inventory.report.publish")],
+    )
+    async def archive_report(
+        self,
+        db_session: AsyncSession,
+        current_user: User,
+        report_code: str,
+        version: int,
+        data: GhgInventoryReportActionRequest,
+    ) -> GhgInventoryReportResponse:
+        return await self._transition(db_session, current_user, report_code, version, "archive", data)
 
     @staticmethod
     async def _transition(

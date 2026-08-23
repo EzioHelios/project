@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
@@ -18,6 +19,48 @@ from app.lib.tenancy import require_session_tenant_id
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
+
+async def build_inventory_evidence_snapshot(session: AsyncSession, inventory_code: str) -> dict[str, int | str]:
+    """Build the report evidence snapshot from the current inventory evidence links."""
+    activity_codes = set(
+        (
+            await session.scalars(
+                select(GhgActivityRecord.record_code).where(GhgActivityRecord.inventory_code == inventory_code)
+            )
+        ).all()
+    )
+    evidence_count = int(
+        await session.scalar(
+            select(func.count())
+            .select_from(GhgEvidenceLink)
+            .where(
+                GhgEvidenceLink.record_type == "activity",
+                GhgEvidenceLink.record_code.in_(activity_codes),
+            )
+        )
+        or 0
+    )
+    linked_record_count = int(
+        await session.scalar(
+            select(func.count(func.distinct(GhgEvidenceLink.record_code))).where(
+                GhgEvidenceLink.record_type == "activity",
+                GhgEvidenceLink.record_code.in_(activity_codes),
+            )
+        )
+        or 0
+    )
+    coverage_pct = (
+        (Decimal(linked_record_count) * Decimal(100) / Decimal(len(activity_codes))).quantize(Decimal("0.01"))
+        if activity_codes
+        else Decimal(0)
+    )
+    return {
+        "activityCount": len(activity_codes),
+        "linkedActivityCount": linked_record_count,
+        "evidenceLinkCount": evidence_count,
+        "coveragePct": str(coverage_pct),
+    }
 
 
 class CreateInventoryReport:
@@ -45,33 +88,7 @@ class CreateInventoryReport:
             )
             or 0
         )
-        activity_codes = set(
-            (
-                await self.session.scalars(
-                    select(GhgActivityRecord.record_code).where(GhgActivityRecord.inventory_code == run.inventory_code)
-                )
-            ).all()
-        )
-        evidence_count = int(
-            await self.session.scalar(
-                select(func.count())
-                .select_from(GhgEvidenceLink)
-                .where(
-                    GhgEvidenceLink.record_type == "activity",
-                    GhgEvidenceLink.record_code.in_(activity_codes),
-                )
-            )
-            or 0
-        )
-        linked_record_count = int(
-            await self.session.scalar(
-                select(func.count(func.distinct(GhgEvidenceLink.record_code))).where(
-                    GhgEvidenceLink.record_type == "activity",
-                    GhgEvidenceLink.record_code.in_(activity_codes),
-                )
-            )
-            or 0
-        )
+        evidence_snapshot = await build_inventory_evidence_snapshot(self.session, run.inventory_code)
         report = GhgInventoryReport(
             report_code=report_code,
             version=latest_version + 1,
@@ -89,12 +106,7 @@ class CreateInventoryReport:
                 "qualitySnapshot": run.quality_snapshot,
             },
             metrics_snapshot=run.summary_snapshot,
-            evidence_snapshot={
-                "activityCount": len(activity_codes),
-                "linkedActivityCount": linked_record_count,
-                "evidenceLinkCount": evidence_count,
-                "coveragePct": str(run.quality_snapshot.get("evidenceCoveragePct") or "0.00"),
-            },
+            evidence_snapshot=evidence_snapshot,
             change_summary=change_summary,
         )
         self.session.add(report)
@@ -107,9 +119,11 @@ class TransitionInventoryReport:
 
     TRANSITIONS = {
         "submit": ("draft", "submitted"),
+        "resubmit": ("rejected", "submitted"),
         "approve": ("submitted", "approved"),
         "reject": ("submitted", "rejected"),
         "publish": ("approved", "published"),
+        "archive": ("published", "archived"),
     }
 
     def __init__(self, session: AsyncSession) -> None:
@@ -148,7 +162,7 @@ class TransitionInventoryReport:
         now = datetime.now().astimezone()
         original_status = report.status
         report.status = target_status
-        if action == "submit":
+        if action in {"submit", "resubmit"}:
             report.submitted_by = actor
             report.submitted_at = now
         elif action == "approve":
