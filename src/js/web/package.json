@@ -8,6 +8,7 @@
     "build": "vite build && node ./scripts/copy-cesium-assets.mjs && node ./scripts/generate-spa-index.mjs",
     "audit:admin-visual": "node ./scripts/admin-visual-audit.mjs",
     "lint": "biome check --write . && node ./scripts/admin-layout-check.mjs",
+    "qa:evidence:organization-carbon": "node ./scripts/capture-org-carbon-tender-evidence.mjs",
     "format": "biome format --write .",
     "preview": "vite preview",
     "test": "vitest run",

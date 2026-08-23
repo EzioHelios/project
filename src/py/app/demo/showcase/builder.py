@@ -47,7 +47,11 @@ from app.domain.ghg_inventory.models import (
     GhgParameterValue,
 )
 from app.domain.ghg_inventory.usecases.calculation import RunInventoryCalculation
-from app.domain.ghg_inventory.usecases.reports import CreateInventoryReport, TransitionInventoryReport
+from app.domain.ghg_inventory.usecases.reports import (
+    CreateInventoryReport,
+    TransitionInventoryReport,
+    build_inventory_evidence_snapshot,
+)
 from app.domain.microgrid.domain.scada import warehouse_microgrid_scada_scene
 from app.domain.microgrid.infrastructure.weather import demo_weather
 from app.domain.microgrid.usecases.operations import (
@@ -494,6 +498,7 @@ class ShowcaseDemoBuilder:
         runs = await self._calculation_runs(periods=periods, boundaries=boundaries)
         await self._evidence(activities)
         reports = await self._reports(runs)
+        await self._synchronize_report_evidence_snapshots(runs)
         verification_projects = await self._verification(reports=reports, runs=runs, activities=activities)
         reduction_projects = await self._reduction(
             boundary=boundaries[2025], areas=areas, equipment=equipment, runs=runs
@@ -1623,6 +1628,26 @@ class ShowcaseDemoBuilder:
                 await self._create_current_ytd_revision(run)
             reports[year] = report
         return reports
+
+    async def _synchronize_report_evidence_snapshots(self, runs: dict[int, GhgCalculationRun]) -> None:
+        """Repair repeatable demo snapshots using the evidence links installed for each inventory."""
+        for run in runs.values():
+            evidence_snapshot = await build_inventory_evidence_snapshot(self.session, run.inventory_code)
+            run.quality_snapshot = {
+                **dict(run.quality_snapshot or {}),
+                "evidenceRecordCount": evidence_snapshot["linkedActivityCount"],
+                "evidenceCoveragePct": evidence_snapshot["coveragePct"],
+            }
+            report_rows = list(
+                (
+                    await self.session.scalars(
+                        select(GhgInventoryReport).where(GhgInventoryReport.inventory_code == run.inventory_code)
+                    )
+                ).all()
+            )
+            for report in report_rows:
+                report.evidence_snapshot = dict(evidence_snapshot)
+        await self.session.commit()
 
     async def _create_current_ytd_revision(self, run: GhgCalculationRun) -> GhgInventoryReport:
         report = await CreateInventoryReport(self.session).execute(
@@ -2777,6 +2802,36 @@ class ShowcaseDemoBuilder:
                 )
                 or 0
             ),
+            "verificationProjects": int(
+                await self.session.scalar(
+                    select(func.count(m.CarbonVerificationProject.id)).where(
+                        m.CarbonVerificationProject.project_no.startswith("DEMO-PARK-VER-")
+                    )
+                )
+                or 0
+            ),
+            "verificationBoundProjects": int(
+                await self.session.scalar(
+                    select(func.count(m.CarbonVerificationProject.id)).where(
+                        m.CarbonVerificationProject.project_no.startswith("DEMO-PARK-VER-"),
+                        m.CarbonVerificationProject.inventory_report_id.is_not(None),
+                        m.CarbonVerificationProject.calculation_run_id.is_not(None),
+                        m.CarbonVerificationProject.boundary_id.is_not(None),
+                    )
+                )
+                or 0
+            ),
+            "verificationFindings": int(
+                await self.session.scalar(
+                    select(func.count(m.CarbonVerificationFinding.id))
+                    .join(
+                        m.CarbonVerificationProject,
+                        m.CarbonVerificationProject.id == m.CarbonVerificationFinding.project_id,
+                    )
+                    .where(m.CarbonVerificationProject.project_no.startswith("DEMO-PARK-VER-"))
+                )
+                or 0
+            ),
             "evidenceLinks": len(linked_records),
             "reductionProjects": int(
                 await self.session.scalar(
@@ -2884,6 +2939,9 @@ class ShowcaseDemoBuilder:
             "all_activities_have_evidence": len(linked_records) == len(activities),
             "annual_calculation_runs": counts["runs"] >= 3,
             "report_lifecycle": counts["reports"] >= 4,
+            "verification_workbench": counts["verificationProjects"] >= 3
+            and counts["verificationBoundProjects"] == counts["verificationProjects"]
+            and counts["verificationFindings"] >= 2,
             "reduction_workbench": counts["reductionProjects"] >= 5,
             "climate_governance": counts["climatePrograms"] == 3,
             "carbon_asset_reference": counts["carbonAssetInstruments"] == 3
