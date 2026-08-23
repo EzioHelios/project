@@ -154,6 +154,19 @@ export type AdminChartMaccItem = { name: string; reduction: number; cost: number
 export type AdminChartFlowNode = { id: string; name: string; value?: number; category?: string }
 export type AdminChartFlowLink = { source: string; target: string; value: number }
 export type AdminMarketKlinePoint = { trade_date: string; open: number; close: number; low: number; high: number; volume?: number | null }
+export type AdminTargetPathPoint = { period: string; actual?: number | null; reference?: number | null; forecast?: number | null }
+export type AdminReadinessStatus = "complete" | "partial" | "missing" | "blocked" | "not_applicable"
+export type AdminReadinessMatrixItem = { domain: string; dimension: string; status: AdminReadinessStatus; detail?: string }
+export type AdminBulletSegment = { name: string; value: number; colorKey?: AdminChartColorKey }
+export type AdminMarketPriceVolumePoint = {
+  period: string
+  price: number
+  volume?: number | null
+  open?: number | null
+  high?: number | null
+  low?: number | null
+}
+export type AdminTornadoItem = { name: string; downside: number; upside: number }
 
 export function getAdminChartColor(theme: AdminChartTheme, key: AdminChartColorKey | undefined, fallbackIndex = 0) {
   return key ? theme.palette[key] : theme.seriesColors[fallbackIndex % theme.seriesColors.length]
@@ -162,6 +175,18 @@ export function getAdminChartColor(theme: AdminChartTheme, key: AdminChartColorK
 export function formatAdminChartNumber(value: number | null | undefined, digits = 2) {
   if (value === null || value === undefined || Number.isNaN(value)) return "-"
   return Number(value).toLocaleString("zh-CN", { maximumFractionDigits: digits })
+}
+
+function formatAdminAxisNumber(value: number) {
+  return new Intl.NumberFormat("zh-CN", { notation: "compact", maximumFractionDigits: 1 }).format(value)
+}
+
+function niceAdminAxisMaximum(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return 1
+  const magnitude = 10 ** Math.floor(Math.log10(value))
+  const fraction = value / magnitude
+  const niceFraction = [1, 1.2, 1.5, 2, 2.5, 5, 10].find((candidate) => candidate >= fraction) ?? 10
+  return niceFraction * magnitude
 }
 
 function chartParamRecord(params: unknown) {
@@ -356,7 +381,7 @@ export function createRankingChartOption(
     grid: { top: 8, left: 10, right: 18, bottom: 6, containLabel: true },
     xAxis: {
       ...valueAxis(theme),
-      axisLabel: { color: theme.palette.axis, margin: 10, formatter: (value: number) => `${formatAdminChartNumber(value, 0)}${unit ? ` ${unit}` : ""}` },
+      axisLabel: { color: theme.palette.axis, margin: 10, formatter: (value: number) => formatAdminAxisNumber(value) },
     },
     yAxis: {
       type: "category",
@@ -719,32 +744,377 @@ export function createSankeyChartOption(
   })
 }
 
-export function createMarketKlineChartOption(theme: AdminChartTheme, points: AdminMarketKlinePoint[], config: { showVolume?: boolean } = {}): EChartsOption | undefined {
+export function createMarketKlineChartOption(
+  theme: AdminChartTheme,
+  points: AdminMarketKlinePoint[],
+  config: { showVolume?: boolean; priceUnit?: string; volumeUnit?: string } = {},
+): EChartsOption | undefined {
   if (points.length === 0) return undefined
+  const showVolume = config.showVolume ?? true
+  const useZoom = points.length > 16
+  const movingAverage = points.map((_, index) => {
+    if (index < 4) return null
+    const window = points.slice(index - 4, index + 1)
+    return window.reduce((sum, point) => sum + point.close, 0) / window.length
+  })
   const priceSeries: SeriesOption = {
     type: "candlestick",
-    name: "价格",
+    name: "日K",
+    xAxisIndex: 0,
+    yAxisIndex: 0,
     data: points.map((point) => [point.open, point.close, point.low, point.high]),
     itemStyle: { color: theme.palette.danger, color0: theme.palette.success, borderColor: theme.palette.danger, borderColor0: theme.palette.success },
   }
-  const volumeSeries: SeriesOption | null =
-    (config.showVolume ?? true)
-      ? {
-          type: "bar",
-          name: "成交量",
-          yAxisIndex: 1,
-          barMaxWidth: 10,
-          itemStyle: { color: theme.palette.neutral, opacity: 0.3, borderRadius: [4, 4, 0, 0] },
-          data: points.map((point) => point.volume ?? 0),
-        }
-      : null
+  const movingAverageSeries: SeriesOption = {
+    type: "line",
+    name: "MA5",
+    xAxisIndex: 0,
+    yAxisIndex: 0,
+    data: movingAverage,
+    smooth: true,
+    showSymbol: false,
+    connectNulls: false,
+    lineStyle: { color: theme.palette.scope2, width: 1.6 },
+    itemStyle: { color: theme.palette.scope2 },
+  }
+  const volumeSeries: SeriesOption | null = showVolume
+    ? {
+        type: "bar",
+        name: "成交量",
+        xAxisIndex: 1,
+        yAxisIndex: 1,
+        barMaxWidth: 12,
+        data: points.map((point) => ({
+          value: point.volume ?? 0,
+          itemStyle: { color: point.close >= point.open ? theme.palette.danger : theme.palette.success, opacity: 0.44 },
+        })),
+      }
+    : null
   return createAdminChartOption(theme, {
     legend: { top: 0, left: 0 },
-    xAxis: categoryAxis(
-      theme,
-      points.map((point) => point.trade_date),
-    ),
-    yAxis: [valueAxis(theme, "元/吨"), { ...valueAxis(theme, "吨"), splitLine: { show: false } }],
-    series: volumeSeries ? [priceSeries, volumeSeries] : [priceSeries],
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "cross" },
+      formatter: (params: unknown) => {
+        const list = Array.isArray(params) ? params.map(chartParamRecord) : [chartParamRecord(params)]
+        const candle = list.find((item) => item.seriesName === "日K")
+        const values = Array.isArray(candle?.data) ? candle.data.map(Number) : []
+        const date = String(candle?.axisValue ?? list[0]?.axisValue ?? "")
+        if (values.length < 4) return date
+        const volume = points.find((point) => point.trade_date === date)?.volume
+        return [
+          date,
+          `开盘　${formatAdminChartNumber(values[0], 2)}`,
+          `收盘　${formatAdminChartNumber(values[1], 2)}`,
+          `最低　${formatAdminChartNumber(values[2], 2)}`,
+          `最高　${formatAdminChartNumber(values[3], 2)}`,
+          volume == null ? "" : `成交量　${formatAdminChartNumber(volume, 0)}`,
+        ]
+          .filter(Boolean)
+          .join("<br/>")
+      },
+    },
+    axisPointer: { link: [{ xAxisIndex: "all" }] },
+    grid: showVolume
+      ? [
+          { top: 34, left: 10, right: 18, height: "62%", containLabel: true },
+          { left: 10, right: 18, top: "77%", bottom: useZoom ? 38 : 10, containLabel: true },
+        ]
+      : { top: 34, left: 10, right: 18, bottom: useZoom ? 38 : 12, containLabel: true },
+    xAxis: showVolume
+      ? [
+          {
+            ...categoryAxis(
+              theme,
+              points.map((point) => point.trade_date),
+            ),
+            boundaryGap: true,
+            gridIndex: 0,
+          },
+          {
+            ...categoryAxis(
+              theme,
+              points.map((point) => point.trade_date),
+            ),
+            boundaryGap: true,
+            gridIndex: 1,
+            axisLabel: { show: false },
+          },
+        ]
+      : {
+          ...categoryAxis(
+            theme,
+            points.map((point) => point.trade_date),
+          ),
+          boundaryGap: true,
+        },
+    yAxis: showVolume
+      ? [
+          { ...valueAxis(theme), scale: true, gridIndex: 0 },
+          { ...valueAxis(theme), gridIndex: 1, splitNumber: 2, axisLabel: { color: theme.palette.axis, fontSize: 11, formatter: (value: number) => formatAdminAxisNumber(value) } },
+        ]
+      : { ...valueAxis(theme), scale: true },
+    dataZoom: useZoom
+      ? [
+          { type: "inside", xAxisIndex: showVolume ? [0, 1] : [0], start: 0, end: 100 },
+          { type: "slider", xAxisIndex: showVolume ? [0, 1] : [0], height: 16, bottom: 0, borderColor: theme.palette.grid, fillerColor: `${theme.palette.carbon}1f` },
+        ]
+      : undefined,
+    series: volumeSeries ? [priceSeries, movingAverageSeries, volumeSeries] : [priceSeries, movingAverageSeries],
+  })
+}
+
+export function createTargetPathChartOption(
+  theme: AdminChartTheme,
+  points: AdminTargetPathPoint[],
+  config: { unit?: string; baselineYear?: number; reportingYear?: number; targetYear?: number } = {},
+): EChartsOption | undefined {
+  if (points.length === 0) return undefined
+  const years = points.map((point) => point.period)
+  const markerYears: Array<{ name: string; xAxis: string }> = [
+    config.baselineYear ? { name: "基准年", xAxis: String(config.baselineYear) } : null,
+    config.reportingYear ? { name: "报告年", xAxis: String(config.reportingYear) } : null,
+    config.targetYear ? { name: "目标年", xAxis: String(config.targetYear) } : null,
+  ].filter((item): item is { name: string; xAxis: string } => item !== null)
+  const series: SeriesOption[] = [
+    {
+      type: "line",
+      name: "年度实际",
+      smooth: 0.22,
+      connectNulls: false,
+      showSymbol: true,
+      symbol: "circle",
+      symbolSize: 7,
+      lineStyle: { width: 2.5, color: theme.palette.carbon },
+      itemStyle: { color: theme.palette.carbon, borderColor: theme.palette.panel, borderWidth: 2 },
+      data: points.map((point) => (Number.isFinite(point.actual) ? point.actual : null)),
+      markLine: markerYears.length
+        ? {
+            silent: true,
+            symbol: ["none", "none"],
+            label: { color: theme.palette.axis, fontSize: 10, formatter: "{b}" },
+            lineStyle: { color: theme.palette.grid, type: "dashed", width: 1 },
+            data: markerYears,
+          }
+        : undefined,
+    },
+    {
+      type: "line",
+      name: "目标年度化路径",
+      smooth: false,
+      connectNulls: false,
+      showSymbol: false,
+      lineStyle: { width: 2, color: theme.palette.scope2, type: "dashed" },
+      itemStyle: { color: theme.palette.scope2 },
+      data: points.map((point) => (Number.isFinite(point.reference) ? point.reference : null)),
+    },
+  ]
+  if (points.some((point) => Number.isFinite(point.forecast))) {
+    series.push({
+      type: "line",
+      name: "年度预测",
+      smooth: false,
+      connectNulls: false,
+      showSymbol: false,
+      lineStyle: { width: 2, color: theme.palette.cost, type: "dotted" },
+      itemStyle: { color: theme.palette.cost },
+      data: points.map((point) => (Number.isFinite(point.forecast) ? point.forecast : null)),
+    })
+  }
+  return createAdminChartOption(theme, {
+    xAxis: { ...categoryAxis(theme, years), boundaryGap: false },
+    yAxis: valueAxis(theme, config.unit),
+    series,
+  })
+}
+
+export function createReadinessMatrixOption(theme: AdminChartTheme, items: AdminReadinessMatrixItem[]): EChartsOption | undefined {
+  if (items.length === 0) return undefined
+  const domains = [...new Set(items.map((item) => item.domain))]
+  const dimensions = [...new Set(items.map((item) => item.dimension))]
+  const statusValues: Record<AdminReadinessStatus, number> = { blocked: 0, missing: 1, partial: 2, complete: 3, not_applicable: 4 }
+  const statusLabels: Record<AdminReadinessStatus, string> = { blocked: "阻塞", missing: "缺失", partial: "部分", complete: "完整", not_applicable: "不适用" }
+  const data = items.map((item) => ({
+    value: [dimensions.indexOf(item.dimension), domains.indexOf(item.domain), statusValues[item.status]],
+    status: item.status,
+    detail: item.detail,
+  }))
+  return createAdminChartOption(theme, {
+    tooltip: {
+      trigger: "item",
+      formatter: (params: unknown) => {
+        const param = chartParamRecord(params)
+        const item = chartParamRecord(param.data)
+        const value = Array.isArray(item.value) ? item.value : []
+        const status = String(item.status ?? "missing") as AdminReadinessStatus
+        return `${domains[Number(value[1] ?? 0)] ?? ""}<br/>${dimensions[Number(value[0] ?? 0)] ?? ""}：${statusLabels[status]}${item.detail ? `<br/>${String(item.detail)}` : ""}`
+      },
+    },
+    grid: { top: 12, left: 12, right: 16, bottom: 42, containLabel: true },
+    xAxis: { ...categoryAxis(theme, dimensions), splitArea: { show: true, areaStyle: { color: [theme.palette.panel, theme.palette.gridSubtle] } } },
+    yAxis: { ...categoryAxis(theme, domains), inverse: true, splitArea: { show: true, areaStyle: { color: [theme.palette.panel, theme.palette.gridSubtle] } } },
+    visualMap: {
+      type: "piecewise",
+      orient: "horizontal",
+      left: "center",
+      bottom: 0,
+      itemWidth: 10,
+      itemHeight: 8,
+      textStyle: { color: theme.palette.label, fontSize: 10 },
+      pieces: [
+        { value: 3, label: "完整", color: theme.palette.success },
+        { value: 2, label: "部分", color: theme.palette.warning },
+        { value: 1, label: "缺失", color: theme.palette.muted },
+        { value: 0, label: "阻塞", color: theme.palette.danger },
+        { value: 4, label: "不适用", color: theme.palette.grid },
+      ],
+    },
+    series: [
+      {
+        type: "heatmap",
+        data,
+        label: {
+          show: true,
+          color: theme.palette.panel,
+          fontSize: 10,
+          fontWeight: 700,
+          formatter: (params: unknown) => {
+            const item = chartParamRecord(chartParamRecord(params).data)
+            const status = String(item.status ?? "missing") as AdminReadinessStatus
+            return statusLabels[status]
+          },
+        },
+        itemStyle: { borderColor: theme.palette.panel, borderWidth: 3, borderRadius: 5 },
+        emphasis: { itemStyle: { borderColor: theme.palette.text, borderWidth: 1 } },
+      },
+    ],
+  })
+}
+
+export function createBulletProgressChartOption(
+  theme: AdminChartTheme,
+  segments: AdminBulletSegment[],
+  config: { target?: number; targetLabel?: string; max?: number; unit?: string; label?: string } = {},
+): EChartsOption | undefined {
+  const usable = segments.filter((segment) => Number.isFinite(segment.value) && segment.value >= 0)
+  if (usable.length === 0) return undefined
+  const total = usable.reduce((sum, segment) => sum + segment.value, 0)
+  const max = Math.max(config.max ?? 0, config.target ?? 0, total, 1)
+  return createAdminChartOption(theme, {
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      valueFormatter: (value: unknown) => `${formatAdminChartNumber(Number(value), 2)}${config.unit ? ` ${config.unit}` : ""}`,
+    },
+    grid: { top: 34, left: 10, right: 28, bottom: 12, containLabel: true },
+    xAxis: {
+      ...valueAxis(theme),
+      max: niceAdminAxisMaximum(max * 1.04),
+      axisLabel: { color: theme.palette.axis, fontSize: 11, margin: 10, formatter: (value: number) => formatAdminAxisNumber(value) },
+    },
+    yAxis: { ...categoryAxis(theme, [config.label ?? "进展"]), axisLabel: { color: theme.palette.label, width: 96, overflow: "truncate" } },
+    series: usable.map<SeriesOption>((segment, index) => ({
+      type: "bar",
+      name: segment.name,
+      stack: "coverage",
+      barWidth: 26,
+      data: [segment.value],
+      itemStyle: { color: getAdminChartColor(theme, segment.colorKey, index), borderRadius: index === 0 ? [5, 0, 0, 5] : index === usable.length - 1 ? [0, 5, 5, 0] : 0 },
+      markLine:
+        index === 0 && config.target !== undefined
+          ? {
+              silent: true,
+              symbol: ["none", "none"],
+              lineStyle: { color: theme.palette.text, width: 1.5 },
+              label: { color: theme.palette.label, formatter: config.targetLabel ?? `目标 ${formatAdminChartNumber(config.target, 1)}${config.unit ?? ""}` },
+              data: [{ xAxis: config.target }],
+            }
+          : undefined,
+    })),
+  })
+}
+
+export function createMarketPriceVolumeChartOption(
+  theme: AdminChartTheme,
+  points: AdminMarketPriceVolumePoint[],
+  config: { priceUnit?: string; volumeUnit?: string; priceLabel?: string } = {},
+): EChartsOption | undefined {
+  if (points.length === 0) return undefined
+  const useZoom = points.length > 16
+  return createAdminChartOption(theme, {
+    xAxis: {
+      ...categoryAxis(
+        theme,
+        points.map((point) => point.period),
+      ),
+      boundaryGap: true,
+    },
+    yAxis: [valueAxis(theme, config.volumeUnit), { ...valueAxis(theme, config.priceUnit), scale: true, splitLine: { show: false } }],
+    dataZoom: useZoom
+      ? [
+          { type: "inside", start: 0, end: 100 },
+          { type: "slider", height: 16, bottom: 0, borderColor: theme.palette.grid, fillerColor: `${theme.palette.carbon}1f` },
+        ]
+      : undefined,
+    grid: { top: 34, left: 10, right: 18, bottom: useZoom ? 42 : 12, containLabel: true },
+    series: [
+      {
+        type: "bar",
+        name: "成交量",
+        data: points.map((point) => point.volume ?? 0),
+        barMaxWidth: 14,
+        itemStyle: { color: theme.palette.neutral, opacity: 0.34, borderRadius: [4, 4, 0, 0] },
+      },
+      {
+        type: "line",
+        name: config.priceLabel ?? "价格",
+        yAxisIndex: 1,
+        smooth: false,
+        connectNulls: false,
+        showSymbol: true,
+        symbolSize: 6,
+        data: points.map((point) => point.price),
+        lineStyle: { color: theme.palette.carbon, width: 2.4 },
+        itemStyle: { color: theme.palette.carbon, borderColor: theme.palette.panel, borderWidth: 1.5 },
+      },
+    ],
+  })
+}
+
+export function createTornadoChartOption(theme: AdminChartTheme, items: AdminTornadoItem[], config: { unit?: string } = {}): EChartsOption | undefined {
+  if (items.length === 0) return undefined
+  return createAdminChartOption(theme, {
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      valueFormatter: (value: unknown) => `${formatAdminChartNumber(Number(value), 2)}${config.unit ? ` ${config.unit}` : ""}`,
+    },
+    grid: { top: 16, left: 12, right: 24, bottom: 10, containLabel: true },
+    xAxis: { ...valueAxis(theme, config.unit), axisLabel: { color: theme.palette.axis, formatter: (value: number) => formatAdminChartNumber(Math.abs(value), 0) } },
+    yAxis: {
+      ...categoryAxis(
+        theme,
+        items.map((item) => item.name),
+      ),
+      inverse: true,
+    },
+    series: [
+      {
+        type: "bar",
+        name: "下行情景",
+        stack: "impact",
+        data: items.map((item) => -Math.abs(item.downside)),
+        itemStyle: { color: theme.palette.success, borderRadius: [5, 0, 0, 5] },
+        barMaxWidth: 18,
+      },
+      {
+        type: "bar",
+        name: "上行情景",
+        stack: "impact",
+        data: items.map((item) => Math.abs(item.upside)),
+        itemStyle: { color: theme.palette.warning, borderRadius: [0, 5, 5, 0] },
+        barMaxWidth: 18,
+      },
+    ],
   })
 }

@@ -1,6 +1,16 @@
 import type { EChartsOption } from "echarts"
-import { BarChart, CandlestickChart, GaugeChart, LineChart, PieChart, SankeyChart } from "echarts/charts"
-import { GridComponent, LegendComponent, TitleComponent, TooltipComponent } from "echarts/components"
+import { BarChart, CandlestickChart, CustomChart, GaugeChart, HeatmapChart, LineChart, PieChart, SankeyChart, ScatterChart } from "echarts/charts"
+import {
+  AxisPointerComponent,
+  DataZoomComponent,
+  GridComponent,
+  LegendComponent,
+  MarkAreaComponent,
+  MarkLineComponent,
+  TitleComponent,
+  TooltipComponent,
+  VisualMapComponent,
+} from "echarts/components"
 import * as echarts from "echarts/core"
 import { CanvasRenderer } from "echarts/renderers"
 import ReactEChartsCore from "echarts-for-react/lib/core"
@@ -10,7 +20,27 @@ import { AdminEmptyState } from "@/components/admin-ui/empty-state"
 import { AdminPanel } from "@/components/admin-ui/section"
 import { cn } from "@/lib/utils"
 
-echarts.use([LineChart, BarChart, PieChart, GaugeChart, SankeyChart, CandlestickChart, GridComponent, LegendComponent, TitleComponent, TooltipComponent, CanvasRenderer])
+echarts.use([
+  LineChart,
+  BarChart,
+  PieChart,
+  GaugeChart,
+  SankeyChart,
+  CandlestickChart,
+  CustomChart,
+  HeatmapChart,
+  ScatterChart,
+  AxisPointerComponent,
+  DataZoomComponent,
+  GridComponent,
+  LegendComponent,
+  MarkAreaComponent,
+  MarkLineComponent,
+  TitleComponent,
+  TooltipComponent,
+  VisualMapComponent,
+  CanvasRenderer,
+])
 
 type ChartPanelProps = {
   title: React.ReactNode
