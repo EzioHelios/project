@@ -437,6 +437,7 @@ class CarbonVerificationController(Controller):
                 job_id=job.id,
                 team_id=str(job.team_id),
                 key=f"carbon-verification-export:{job.team_id}:{job.id}",
+                timeout=180,
             )
             payload = await usecase.get_export_job(job.id)
         except ValueError as exc:
