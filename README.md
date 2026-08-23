@@ -167,10 +167,11 @@ cat /path/to/db_xtck_20260203.sql | docker exec -i fullstack-spa-db-1 psql -U ap
 
 OLD_DB_URL='postgresql+psycopg://app:app@localhost:18102/legacy_xtck' \
 NEW_DB_URL='postgresql+psycopg://app:app@localhost:18102/app' \
+TARGET_TEAM_SLUG='default-tenant' \
 uv run python tools/legacy_migration/migrate_all.py
 ```
 
-注意：旧库部分表使用字符串业务主键，例如 `P1/P2` 作为监控区域编号，而新库使用 bigint 主键。直接拷贝时可能需要额外做 ID 映射。
+迁移入口只读旧库：区域和设备按业务编码进行租户内幂等映射，累计电表读数直接写入 `MeterReadingFact`；若源库包含旧 Scope 台账，则规范化为 `GhgActivityRecord`，随后通过新盘查用例生成参数、组织边界、计算运行和报告。迁移按来源表和来源 ID 幂等更新，不再清空目标表，也不再创建旧 Scope 表旁路。
 
 ## 目录结构
 
