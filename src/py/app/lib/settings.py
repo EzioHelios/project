@@ -198,6 +198,8 @@ class SaqSettings:
         """
         from app.domain.accounts import jobs as account_jobs
         from app.domain.carbon import jobs as carbon_jobs
+        from app.domain.carbon_verification import jobs as carbon_verification_jobs
+        from app.domain.decarbonization import jobs as decarbonization_jobs
         from app.domain.iot_ingestion import infrastructure as iot_infrastructure
         from app.domain.iot_ingestion import jobs as iot_jobs
         from app.domain.microgrid import jobs as microgrid_jobs
@@ -219,8 +221,8 @@ class SaqSettings:
                         carbon_jobs.pull_yunji_data,
                         carbon_jobs.sync_hw_status,
                         carbon_jobs.pull_hw_data,
-                        carbon_jobs.execute_day_alarm_scan,
-                        carbon_jobs.execute_video_alarm_scan,
+                        carbon_verification_jobs.run_carbon_verification_export,
+                        decarbonization_jobs.refresh_reduction_project_risks,
                         microgrid_jobs.run_microgrid_forecast_cycle,
                         microgrid_jobs.run_microgrid_optimization_cycle,
                         microgrid_jobs.refresh_microgrid_load_models,
@@ -261,17 +263,10 @@ class SaqSettings:
                             cron="0 1 * * *",  # 每天凌晨1点拉取红外
                             timeout=1200,
                         ),
-                        # Carbon Jobs - Alarm Scan (Daily at 2 AM)
                         CronJob(
-                            function=carbon_jobs.execute_day_alarm_scan,
-                            cron="0 2 * * *",
+                            function=decarbonization_jobs.refresh_reduction_project_risks,
+                            cron="15 3 * * *",
                             timeout=600,
-                        ),
-                        # Carbon Jobs - Video Alarm Simulation (Hourly between 9-18)
-                        CronJob(
-                            function=carbon_jobs.execute_video_alarm_scan,
-                            cron="0 9-18 * * *",
-                            timeout=300,
                         ),
                         CronJob(
                             function=microgrid_jobs.run_microgrid_forecast_cycle,

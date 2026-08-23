@@ -19,6 +19,7 @@ from app.domain.ghg_inventory.models import (
     GhgEvidenceLink,
     GhgImportBatch,
     GhgParameterAssignment,
+    GhgReportingProfile,
 )
 
 if TYPE_CHECKING:
@@ -217,9 +218,9 @@ class GhgInventoryQueryService:
         return {
             "inventoryCode": inventory_code,
             "runCode": run.run_code if run else None,
-            "totalCo2eKg": str(total),
-            "allocatedCo2eKg": str(allocated),
-            "unallocatedCo2eKg": str(unallocated),
+            "totalCo2EKg": str(total),
+            "allocatedCo2EKg": str(allocated),
+            "unallocatedCo2EKg": str(unallocated),
             "coveragePct": str(coverage.quantize(Decimal("0.01"))),
             "items": [
                 {
@@ -228,8 +229,8 @@ class GhgInventoryQueryService:
                     "areaName": area.name or area.code,
                     "parentId": area.parent_id,
                     "level": area.level or 0,
-                    "directCo2eKg": str(direct.get(area.id, Decimal(0))),
-                    "rolledUpCo2eKg": str(rolled.get(area.id, Decimal(0))),
+                    "directCo2EKg": str(direct.get(area.id, Decimal(0))),
+                    "rolledUpCo2EKg": str(rolled.get(area.id, Decimal(0))),
                     "activityCount": len(activity_ids.get(area.id, set())),
                     "equipmentCount": len(equipment_ids.get(area.id, set())),
                 }
@@ -275,6 +276,7 @@ class GhgInventoryQueryService:
         if run is None:
             msg = "核算运行不存在"
             raise ValueError(msg)
+        profile = await self.session.get(GhgReportingProfile, run.reporting_profile_id)
         results = list(
             (
                 await self.session.execute(
@@ -308,8 +310,18 @@ class GhgInventoryQueryService:
             "runCode": run.run_code,
             "inventoryCode": run.inventory_code,
             "status": run.status,
-            "totalCo2eKg": str(run.total_co2e_kg or 0),
+            "totalCo2EKg": str(run.total_co2e_kg or 0),
+            "reportingOrgId": run.reporting_org_id,
+            "reportingPeriodId": run.reporting_period_id,
+            "organizationBoundaryId": run.organization_boundary_id,
+            "reportingProfileCode": profile.code if profile else "",
+            "reportingProfileName": profile.name if profile else "",
+            "defaultScope2Method": run.default_scope2_method,
             "inputSnapshot": run.input_snapshot,
+            "summarySnapshot": run.summary_snapshot,
+            "qualitySnapshot": run.quality_snapshot,
+            "startedAt": run.started_at.isoformat(),
+            "completedAt": run.completed_at.isoformat() if run.completed_at else None,
             "results": [
                 {
                     "recordCode": activity.record_code,

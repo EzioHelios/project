@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Integer, func, select
 
@@ -15,6 +15,8 @@ from app.domain.ghg_inventory.models import (
     GhgActivityRecord,
     GhgCalculationRun,
     GhgEmissionSource,
+    GhgInventoryReport,
+    GhgInventoryReportReview,
     GhgParameterValue,
 )
 from app.domain.ghg_inventory.usecases.allocations import ReplaceActivityAllocations
@@ -37,6 +39,7 @@ class TenantInventoryCompletionResult:
     allocations: int
     parameter_values: int
     calculation_runs: int
+    inventory_reports: int
 
 
 class CompleteWarehouseTenantInventory:
@@ -94,6 +97,7 @@ class CompleteWarehouseTenantInventory:
         await self._ensure_calculation_parameters(activities)
         await self.session.commit()
         calculation_runs = await self._ensure_calculation_runs(activities, periods)
+        inventory_reports = await self._ensure_inventory_reports()
         return TenantInventoryCompletionResult(
             reporting_periods=len(periods),
             boundaries=len(boundaries),
@@ -104,7 +108,70 @@ class CompleteWarehouseTenantInventory:
             allocations=int(await self.session.scalar(select(func.count()).select_from(GhgActivityAllocation)) or 0),
             parameter_values=int(await self.session.scalar(select(func.count()).select_from(GhgParameterValue)) or 0),
             calculation_runs=calculation_runs,
+            inventory_reports=inventory_reports,
         )
+
+    async def _ensure_inventory_reports(self) -> int:
+        runs = list(
+            (
+                await self.session.scalars(
+                    select(GhgCalculationRun)
+                    .where(GhgCalculationRun.status == "completed")
+                    .order_by(GhgCalculationRun.completed_at, GhgCalculationRun.id)
+                )
+            ).all()
+        )
+        for run in runs:
+            if not run.reporting_org_id or not run.reporting_period_id or not run.organization_boundary_id:
+                continue
+            period = await self.session.get(m.ReportingPeriod, run.reporting_period_id)
+            if period is None:
+                continue
+            report_code = f"WAREHOUSE-GHG-{period.period_end.year}"
+            report = await self.session.scalar(
+                select(GhgInventoryReport).where(
+                    GhgInventoryReport.report_code == report_code,
+                    GhgInventoryReport.status == "published",
+                )
+            )
+            if report is not None:
+                continue
+            report = GhgInventoryReport(
+                report_code=report_code,
+                version=1,
+                title=f"{period.period_end.year}年度组织温室气体盘查报告",
+                inventory_code=run.inventory_code,
+                run_id=run.id,
+                reporting_org_id=run.reporting_org_id,
+                reporting_period_id=run.reporting_period_id,
+                organization_boundary_id=run.organization_boundary_id,
+                reporting_profile_id=run.reporting_profile_id,
+                status="published",
+                content_snapshot={"tenantDatasetSource": self.SOURCE_NAME},
+                metrics_snapshot=dict(run.summary_snapshot or {}),
+                evidence_snapshot=dict(run.quality_snapshot or {}),
+                change_summary="租户完整组织温室气体盘查数据集",
+                submitted_by="system_dataset",
+                submitted_at=datetime.now().astimezone(),
+                approved_by="system_dataset",
+                approved_at=datetime.now().astimezone(),
+                published_at=datetime.now().astimezone(),
+            )
+            self.session.add(report)
+            await self.session.flush()
+            self.session.add(
+                GhgInventoryReportReview(
+                    report_id=report.id,
+                    action="published",
+                    from_status="approved",
+                    to_status="published",
+                    actor="system_dataset",
+                    comment=self.SOURCE_NAME,
+                    acted_at=datetime.now().astimezone(),
+                )
+            )
+        await self.session.commit()
+        return int(await self.session.scalar(select(func.count()).select_from(GhgInventoryReport)) or 0)
 
     async def _ensure_calculation_parameters(self, activities: list[GhgActivityRecord]) -> None:
         factors = {
@@ -116,7 +183,7 @@ class CompleteWarehouseTenantInventory:
             ).all()
         }
         for activity in activities:
-            parameter = await self._parameter_spec(activity, factors)
+            parameter = self._parameter_spec(activity, factors)
             method_code, parameter_code, parameter_name, factor, source_payload = parameter
             parameter_set_code = f"{activity.record_code}-PS1"
             value_code = f"{activity.inventory_code}:{parameter_set_code}:{parameter_code}"
@@ -153,35 +220,23 @@ class CompleteWarehouseTenantInventory:
             value.status = "active"
         await self.session.flush()
 
-    async def _parameter_spec(  # noqa: PLR0911 - each supported category has an explicit parameter mapping
+    def _parameter_spec(  # noqa: PLR0911 - each supported category has an explicit parameter mapping
         self,
         activity: GhgActivityRecord,
         factors: dict[str, m.EmissionFactor],
     ) -> tuple[str, str, str, dict[str, Any], dict[str, Any]]:
         category = activity.iso_category_code
         if category == "1.1":
-            source = await self.session.scalar(
-                select(m.Scope1StationaryCombustion)
-                .where(m.Scope1StationaryCombustion.id == activity.source_record_id)
-                .execution_options(include_reference_records=True)
+            material = str(
+                activity.source_payload.get("fuel_type")
+                or ("natural_gas" if activity.activity_unit == "m³" else "diesel")
             )
-            material = source.fuel_type if source else ("natural_gas" if activity.activity_unit == "m³" else "diesel")
             return self._published_factor_spec(activity, factors, material, "F02_EF", "EMISSION_FACTOR", "排放因子")
         if category == "1.2":
-            source = await self.session.scalar(
-                select(m.Scope1MobileCombustion)
-                .where(m.Scope1MobileCombustion.id == activity.source_record_id)
-                .execution_options(include_reference_records=True)
-            )
-            material = source.fuel_type if source else "diesel"
+            material = str(activity.source_payload.get("fuel_type") or "diesel")
             return self._published_factor_spec(activity, factors, material, "F02_EF", "EMISSION_FACTOR", "排放因子")
         if category == "1.4":
-            source = await self.session.scalar(
-                select(m.Scope1RefrigerantLeak)
-                .where(m.Scope1RefrigerantLeak.id == activity.source_record_id)
-                .execution_options(include_reference_records=True)
-            )
-            material = source.refrigerant_type if source else "r410a"
+            material = str(activity.source_payload.get("refrigerant_type") or "r410a")
             assumption = material not in factors
             factor_spec = self._factor_payload(factors["r410a"], material_override=material)
             if assumption:
@@ -202,36 +257,19 @@ class CompleteWarehouseTenantInventory:
                 payload={"scope2_method": "location"},
             )
         if category == "2.2":
-            source = await self.session.scalar(
-                select(m.Scope2PurchasedEnergy)
-                .where(m.Scope2PurchasedEnergy.id == activity.source_record_id)
-                .execution_options(include_reference_records=True)
-            )
-            computed_co2e = (
-                cast("Decimal | None", source.computed_co2e)  # pyright: ignore[reportUnknownMemberType]
-                if source
-                else None
-            )
-            source_activity = (
-                cast("Decimal | None", source.activity_amount)  # pyright: ignore[reportUnknownMemberType]
-                if source
-                else None
-            )
-            factor_value = (
-                computed_co2e / source_activity if computed_co2e is not None and source_activity else Decimal(120)
-            )
+            factor_value = Decimal(str(activity.source_payload.get("factor_value") or 120))
             return (
                 "F08_PURCHASED_ENERGY",
                 "ENERGY_FACTOR",
                 "购入蒸汽排放因子",
                 {
                     "value": factor_value,
-                    "unit": source.factor_unit or "kgCO2e/t" if source else "kgCO2e/t",
+                    "unit": str(activity.source_payload.get("factor_unit") or "kgCO2e/t"),
                     "source_mode": "custom_approved",
-                    "source_name": source.factor_source or "企业批准蒸汽排放因子" if source else "企业批准蒸汽排放因子",
-                    "source_version": str(source.factor_year) if source and source.factor_year else "2026",
-                    "standard_code": source.standard_code if source else None,
-                    "reference_year": source.factor_year if source else 2026,
+                    "source_name": str(activity.source_payload.get("factor_source") or "企业批准蒸汽排放因子"),
+                    "source_version": str(activity.source_payload.get("factor_year") or "2026"),
+                    "standard_code": activity.source_payload.get("standard_code"),
+                    "reference_year": int(activity.source_payload.get("factor_year") or 2026),
                     "geography": "企业供应商",
                     "material": "purchased_steam",
                     "quality_grade": "C",
@@ -239,15 +277,10 @@ class CompleteWarehouseTenantInventory:
                 {"scope2_method": "location", "energy_type": "purchased_steam"},
             )
         if category == "3.1":
-            source = await self.session.scalar(
-                select(m.Scope3ThirdPartyTransport)
-                .where(m.Scope3ThirdPartyTransport.id == activity.source_record_id)
-                .execution_options(include_reference_records=True)
-            )
-            material = source.vehicle_type if source else "transport_heavy_truck"
+            material = str(activity.source_payload.get("vehicle_type") or "transport_heavy_truck")
             payload = {
-                "origin": source.origin if source else None,
-                "destination": source.destination if source else None,
+                "origin": activity.source_payload.get("origin"),
+                "destination": activity.source_payload.get("destination"),
                 "vehicle_type": material,
             }
             return self._published_factor_spec(
@@ -260,12 +293,7 @@ class CompleteWarehouseTenantInventory:
                 payload=payload,
             )
         if category == "4.4":
-            source = await self.session.scalar(
-                select(m.Scope3WasteDisposal)
-                .where(m.Scope3WasteDisposal.id == activity.source_record_id)
-                .execution_options(include_reference_records=True)
-            )
-            material = source.category if source else "waste_municipal_incineration"
+            material = str(activity.source_payload.get("waste_type") or "waste_municipal_incineration")
             assumption = material not in factors
             factor_spec = self._factor_payload(factors["waste_municipal_incineration"], material_override=material)
             if assumption:
@@ -297,9 +325,8 @@ class CompleteWarehouseTenantInventory:
 
     @staticmethod
     def _factor_payload(factor: m.EmissionFactor, *, material_override: str | None = None) -> dict[str, Any]:
-        factor_value = cast("Decimal", factor.factor_value)  # pyright: ignore[reportUnknownMemberType]
         return {
-            "value": factor_value,
+            "value": factor.factor_value,
             "unit": factor.factor_unit,
             "source_mode": "authority_published" if "NCSC" in factor.source or "IPCC" in factor.source else "library",
             "source_name": factor.source,
@@ -433,7 +460,11 @@ class CompleteWarehouseTenantInventory:
             boundary_type="organization",
             boundary_method="operational_control",
             operational_boundary={
+                "schemaVersion": "organization-boundary-v1",
+                "scopes": ["scope1", "scope2", "scope3"],
+                "scope2Methods": ["location", "market"],
                 "isoCategories": ["1", "2", "3", "4", "5", "6"],
+                "scope3Categories": [],
                 "resourceBinding": "area_equipment_allocation",
             },
             version=version,

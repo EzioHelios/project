@@ -11,25 +11,39 @@ from app.lib.tenancy import DEFAULT_TENANT_ID, TENANT_BYPASS_SESSION_KEY
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
+    from litestar import Litestar
     from sqlalchemy.ext.asyncio import AsyncSession
 
 pytestmark = pytest.mark.anyio
 
-# Endpoints backed by SQLAlchemy ORM models (work with test DB schema)
-CARBON_ORM_ENDPOINTS: list[str] = [
-    # Scope1/2/3 列表接口
+# Canonical organization-inventory and verification read surfaces.
+CANONICAL_CARBON_ENDPOINTS: list[str] = [
+    "/api/ghg-inventory/activities",
+    "/api/ghg-inventory/results",
+    "/api/ghg-inventory/analytics/overview",
+    "/api/carbon/verification/source-readiness",
+    "/api/carbon/verification/projects",
+    "/api/carbon/verification/evidence",
+    "/api/carbon/verification/issues",
+    "/api/carbon/factor-library/overview",
+]
+
+RETIRED_CARBON_ENDPOINTS: list[str] = [
     "/api/carbon/scope1-mobile-combustion",
     "/api/carbon/scope1-stationary-combustion",
     "/api/carbon/scope1-refrigerant-leak",
     "/api/carbon/scope2-electricity-bill",
     "/api/carbon/scope3-waste-disposal",
     "/api/carbon/scope3-third-party-transport",
-    # 统一待审核列表
     "/api/carbon/pending",
-    # 排放因子库
-    "/api/carbon/emission-factors",
-    # 审核日志
     "/api/carbon/audit-logs",
+    "/api/carbon/analytics/overview",
+    "/api/carbon/carbon-flow",
+    "/api/carbon/ledger",
+    "/api/energy-carbon/carbon/records",
+    "/api/energy-carbon/quality/summary",
+    "/api/energy-carbon/factors",
+    "/api/energy-carbon/admin/backfill/scope2",
 ]
 
 # Canonical metering read APIs replacing the legacy dashboard view endpoints.
@@ -66,13 +80,22 @@ async def _carbon_tenant_test_context(
         client.headers.update(superuser_token_headers)
 
 
-async def test_carbon_orm_endpoints_return_json(client: AsyncClient) -> None:
-    """连通性测试: ORM 端点不应返回 5xx。"""
-    for path in CARBON_ORM_ENDPOINTS:
+async def test_canonical_carbon_endpoints_are_registered(client: AsyncClient, app: Litestar) -> None:
+    """The canonical inventory and verification surfaces must remain registered."""
+    registered_paths = {route.path for route in app.routes}
+    for path in CANONICAL_CARBON_ENDPOINTS:
+        assert path in registered_paths, f"{path} is not registered"
         response = await client.get(path)
-        assert response.status_code < 500, f"{path} 返回 {response.status_code}"
-        if response.content:
-            _ = response.json()
+        assert response.status_code < 500, f"{path} returned {response.status_code}"
+
+
+async def test_retired_carbon_endpoints_are_not_registered(client: AsyncClient, app: Litestar) -> None:
+    """Legacy Scope tables and analytics must not remain available as a parallel API."""
+    registered_paths = {route.path for route in app.routes}
+    for path in RETIRED_CARBON_ENDPOINTS:
+        assert path not in registered_paths, f"{path} should not remain registered"
+        response = await client.get(path)
+        assert response.status_code == 404, f"{path} should not remain registered"
 
 
 async def test_metering_read_endpoints_return_json(client: AsyncClient) -> None:
@@ -82,8 +105,10 @@ async def test_metering_read_endpoints_return_json(client: AsyncClient) -> None:
         assert response.status_code < 500, f"{path} 返回 {response.status_code}"
 
 
-async def test_legacy_dashboard_endpoints_are_not_registered(client: AsyncClient) -> None:
+async def test_legacy_dashboard_endpoints_are_not_registered(client: AsyncClient, app: Litestar) -> None:
+    registered_paths = {route.path for route in app.routes}
     for path in LEGACY_DASHBOARD_ENDPOINTS:
+        assert path not in registered_paths, f"{path} should not remain registered"
         response = await client.get(path)
         assert response.status_code == 404, f"{path} should not remain registered"
 
@@ -164,6 +189,7 @@ async def test_monitor_equipment_create_preserves_asset_code(
     data = response.json()["data"]
     assert data["asset_code"] == "厂(场)内苏M00001"
     assert data["external_device_id"] == "FORK-001"
+
 
 async def test_device_point_duplicate_code_is_rejected(
     client: AsyncClient,
@@ -295,7 +321,9 @@ async def test_alarm_rule_and_event_status_flow(
     list_response = await client.get("/api/data/alarm-events", params={"status": "resolved"})
     assert list_response.status_code == 200
     items = list_response.json()["items"]
-    assert any(item["id"] == event.id and item["point_code"] == "soc" and item["alarm_level"] == "critical" for item in items)
+    assert any(
+        item["id"] == event.id and item["point_code"] == "soc" and item["alarm_level"] == "critical" for item in items
+    )
 
 
 async def test_master_data_area_tree_and_summary(
@@ -337,7 +365,9 @@ async def test_master_data_area_rejects_cycle_and_delete_with_children(
     superuser_token_headers: dict[str, str],
 ) -> None:
     parent = m.MonitorSector(code="TREE-P", name="父区域", area_type="warehouse", path="/1/100", level=1, sort_index=0)
-    child = m.MonitorSector(code="TREE-C", name="子区域", area_type="zone", path="/1/100/101", level=2, sort_index=0, parent=parent)
+    child = m.MonitorSector(
+        code="TREE-C", name="子区域", area_type="zone", path="/1/100/101", level=2, sort_index=0, parent=parent
+    )
     session.add(parent)
     session.add(child)
     await session.commit()
@@ -362,8 +392,18 @@ async def test_master_data_devices_support_tree_filters_and_detail(
     session: AsyncSession,
     superuser_token_headers: dict[str, str],
 ) -> None:
-    warehouse = m.MonitorSector(code="FILTER-WH", name="过滤仓", area_type="warehouse", path="/900/901", level=1, sort_index=0)
-    zone = m.MonitorSector(code="FILTER-ZONE", name="过滤库区", area_type="zone", path="/900/901/902", level=2, sort_index=0, parent=warehouse)
+    warehouse = m.MonitorSector(
+        code="FILTER-WH", name="过滤仓", area_type="warehouse", path="/900/901", level=1, sort_index=0
+    )
+    zone = m.MonitorSector(
+        code="FILTER-ZONE",
+        name="过滤库区",
+        area_type="zone",
+        path="/900/901/902",
+        level=2,
+        sort_index=0,
+        parent=warehouse,
+    )
     device_type_parent = m.DeviceType(code="power", name="电力设备", is_enabled=True)
     device_type_child = m.DeviceType(code="sub-meter", name="回路电表", is_enabled=True, parent=device_type_parent)
     session.add_all([warehouse, zone, device_type_parent, device_type_child])
@@ -395,7 +435,9 @@ async def test_master_data_devices_support_tree_filters_and_detail(
     assert create_child.status_code == 201
     child_id = create_child.json()["data"]["id"]
 
-    list_response = await client.get("/api/master-data/devices", params={"area_id": warehouse.id, "device_type_id": device_type_parent.id})
+    list_response = await client.get(
+        "/api/master-data/devices", params={"area_id": warehouse.id, "device_type_id": device_type_parent.id}
+    )
     assert list_response.status_code == 200
     items = list_response.json()["items"]
     assert any(item["id"] == child_id for item in items)
@@ -412,14 +454,18 @@ async def test_master_data_device_delete_rejects_children(
     session: AsyncSession,
     superuser_token_headers: dict[str, str],
 ) -> None:
-    area = m.MonitorSector(code="DEL-WH", name="待删仓", area_type="warehouse", path="/1000/1001", level=1, sort_index=0)
+    area = m.MonitorSector(
+        code="DEL-WH", name="待删仓", area_type="warehouse", path="/1000/1001", level=1, sort_index=0
+    )
     session.add(area)
     await session.commit()
     await session.refresh(area)
     await client.get("/api/data/device-types")
 
     parent = m.MonitorEquipment(code="PARENT-DEL", name="父设备", sector_id=area.id, device_type_id=1)
-    child = m.MonitorEquipment(code="CHILD-DEL", name="子设备", sector_id=area.id, device_type_id=1, parent_device=parent)
+    child = m.MonitorEquipment(
+        code="CHILD-DEL", name="子设备", sector_id=area.id, device_type_id=1, parent_device=parent
+    )
     session.add_all([parent, child])
     await session.commit()
     await session.refresh(parent)

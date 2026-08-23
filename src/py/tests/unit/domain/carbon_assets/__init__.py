@@ -1,0 +1,1 @@
+"""Carbon asset domain tests."""

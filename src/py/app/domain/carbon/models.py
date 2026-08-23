@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-# ruff: noqa: RUF002, RUF003, TC003
-from datetime import date, datetime, time
+# ruff: noqa: RUF002, RUF003
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from typing import Any
-from uuid import UUID
 
 from advanced_alchemy.base import BigIntAuditBase, BigIntBase
 from sqlalchemy import (
@@ -26,6 +25,11 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.lib.tenancy import TeamScopedMixin
+
+
+def utc_now_naive() -> datetime:
+    """Return naive UTC for legacy timestamp-without-time-zone columns."""
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class DataFeatureMixin:
@@ -58,7 +62,7 @@ class EnterpriseInfo(TeamScopedMixin, BigIntBase):
     store_area: Mapped[float | None] = mapped_column(Float)
     green_area: Mapped[float | None] = mapped_column(Float)
     location: Mapped[str | None] = mapped_column(String(50))
-    other_info: Mapped[dict | None] = mapped_column(comment="其他信息")
+    other_info: Mapped[dict[str, Any] | None] = mapped_column(comment="其他信息")
 
 
 class EmployeeCommute(TeamScopedMixin, BigIntBase):
@@ -608,7 +612,7 @@ class InMoney(TeamScopedMixin, BigIntBase):
     shdj: Mapped[float | None] = mapped_column(Float)
     shje: Mapped[float | None] = mapped_column(Float)
     ckmc: Mapped[str | None] = mapped_column(String(50))
-    add_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    add_time: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
 
 
 class OutMoney(TeamScopedMixin, BigIntBase):
@@ -631,7 +635,7 @@ class OutMoney(TeamScopedMixin, BigIntBase):
     gc: Mapped[str | None] = mapped_column(String(100))
     lldh: Mapped[str | None] = mapped_column(String(15))
     ckdd: Mapped[str | None] = mapped_column(String(100))
-    add_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    add_time: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
 
 
 class ProductionProduct(TeamScopedMixin, BigIntAuditBase):
@@ -932,7 +936,7 @@ class ProductFootprintResult(TeamScopedMixin, BigIntAuditBase):
     unit: Mapped[str] = mapped_column(String(32), default="kgCO2e")
     footprint_per_declared_unit: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     result_status: Mapped[str] = mapped_column(String(32), default="calculated", index=True)
-    calculated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    calculated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
     inventory_count: Mapped[int] = mapped_column(Integer, default=0)
     missing_factor_count: Mapped[int] = mapped_column(Integer, default=0)
     stage_payload: Mapped[list | None] = mapped_column(JSON)
@@ -1134,7 +1138,7 @@ class SupplierReviewDecision(TeamScopedMixin, BigIntAuditBase):
     decision: Mapped[str] = mapped_column(String(24), index=True)
     reason: Mapped[str | None] = mapped_column(Text)
     reviewed_by: Mapped[str | None] = mapped_column(String(128))
-    decided_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    decided_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
 
     task: Mapped[SupplierDisclosureTask] = relationship(back_populates="review_decisions", lazy="selectin")
 
@@ -1284,7 +1288,7 @@ class VideoMonitor(TeamScopedMixin, BigIntBase):
     install_time: Mapped[str | None] = mapped_column(String(30))
     install_x: Mapped[float | None] = mapped_column(Float)
     install_y: Mapped[float | None] = mapped_column(Float)
-    add_time: Mapped[datetime | None] = mapped_column(DateTime, default=datetime.utcnow)
+    add_time: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now_naive)
 
 
 class ApiResultKeyMapping(BigIntBase):
@@ -1352,7 +1356,7 @@ class AlarmEvent(TeamScopedMixin, BigIntBase):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime)
     handled_by: Mapped[str | None] = mapped_column(String(64))
     handle_note: Mapped[str | None] = mapped_column(Text)
-    add_time: Mapped[datetime | None] = mapped_column(DateTime, default=datetime.utcnow)
+    add_time: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now_naive)
     is_handle: Mapped[bool | None] = mapped_column(Boolean, default=False)
 
 
@@ -1368,7 +1372,7 @@ class VedioAlarmEvent(TeamScopedMixin, BigIntBase):
         ForeignKey("dataapp_videomonitor.id", ondelete="SET NULL"),
         index=True,
     )
-    add_time: Mapped[datetime | None] = mapped_column(DateTime, default=datetime.utcnow)
+    add_time: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now_naive)
     is_handle: Mapped[bool | None] = mapped_column(Boolean, default=False)
 
 
@@ -1383,142 +1387,6 @@ class EnergyStorageValue(TeamScopedMixin, BigIntBase):
     ratio1: Mapped[float | None] = mapped_column(Float, default=0.5)
     cn2: Mapped[float | None] = mapped_column(Float, default=50)
     ratio2: Mapped[float | None] = mapped_column(Float, default=0.5)
-
-
-class CarbonAuditBase(TeamScopedMixin, BigIntAuditBase, DataFeatureMixin):
-    """碳排放业务记录基类。"""
-
-    __abstract__ = True
-    __formal_record_scoped__ = True
-
-    status: Mapped[str] = mapped_column(String(20), default="draft")
-    creator_id: Mapped[int | None] = mapped_column(ForeignKey("user_account.id", ondelete="SET NULL"), index=True)
-    approver_id: Mapped[int | None] = mapped_column(ForeignKey("user_account.id", ondelete="SET NULL"), index=True)
-    approved_at: Mapped[datetime | None] = mapped_column(DateTime)
-    reject_reason: Mapped[str | None] = mapped_column(Text)
-
-
-class Scope1MobileCombustion(CarbonAuditBase):
-    """Scope1 移动源燃烧（自有车辆/叉车）。"""
-
-    __tablename__ = "dataapp_scope1mobilecombustion"
-    __table_args__ = (
-        UniqueConstraint("team_id", "source_record_no", "source_version", name="uq_scope1_mobile_source_version"),
-    )
-
-    record_date: Mapped[date] = mapped_column(Date)
-    asset_id: Mapped[str | None] = mapped_column(String(64))
-    asset_name: Mapped[str | None] = mapped_column(String(64))
-    fuel_type: Mapped[str] = mapped_column(String(16))
-    amount: Mapped[Numeric] = mapped_column(Numeric(12, 4))
-    unit: Mapped[str] = mapped_column(String(5))
-    mileage_km: Mapped[Numeric | None] = mapped_column(Numeric(10, 2))
-    work_hours: Mapped[Numeric | None] = mapped_column(Numeric(10, 2))
-    attachment: Mapped[str | None] = mapped_column(String(255))
-    remark: Mapped[str | None] = mapped_column(Text)
-
-
-class Scope1StationaryCombustion(CarbonAuditBase):
-    """Scope1 固定源燃烧（食堂/锅炉/发电机等）。"""
-
-    __tablename__ = "dataapp_scope1stationarycombustion"
-    __table_args__ = (
-        UniqueConstraint("team_id", "source_record_no", "source_version", name="uq_scope1_stationary_source_version"),
-    )
-
-    facility_name: Mapped[str] = mapped_column(String(64))
-    period_start: Mapped[date] = mapped_column(Date)
-    period_end: Mapped[date] = mapped_column(Date)
-    fuel_type: Mapped[str] = mapped_column(String(16))
-    amount: Mapped[Numeric] = mapped_column(Numeric(12, 4))
-    unit: Mapped[str] = mapped_column(String(5))
-    meter_reading_start: Mapped[Numeric | None] = mapped_column(Numeric(14, 4))
-    meter_reading_end: Mapped[Numeric | None] = mapped_column(Numeric(14, 4))
-    attachment: Mapped[str | None] = mapped_column(String(255))
-    remark: Mapped[str | None] = mapped_column(Text)
-
-
-class Scope1RefrigerantLeak(CarbonAuditBase):
-    """Scope1 逸散排放（制冷剂填充/泄漏）。"""
-
-    __tablename__ = "dataapp_scope1refrigerantleak"
-    __table_args__ = (
-        UniqueConstraint("team_id", "source_record_no", "source_version", name="uq_scope1_refrigerant_source_version"),
-    )
-
-    device_id: Mapped[str | None] = mapped_column(String(64))
-    device_name: Mapped[str | None] = mapped_column(String(64))
-    fill_date: Mapped[date] = mapped_column(Date)
-    refrigerant_type: Mapped[str] = mapped_column(String(32))
-    amount_kg: Mapped[Numeric] = mapped_column(Numeric(12, 4))
-    leak_type: Mapped[str] = mapped_column(String(16))
-    attachment: Mapped[str | None] = mapped_column(String(255))
-    remark: Mapped[str | None] = mapped_column(Text)
-
-
-class Scope2ElectricityBill(CarbonAuditBase):
-    """Scope2 电费账单（用于校准/补全电力数据）。"""
-
-    __tablename__ = "dataapp_scope2electricitybill"
-    __table_args__ = (
-        UniqueConstraint("team_id", "source_record_no", "source_version", name="uq_scope2_bill_source_version"),
-    )
-
-    account_number: Mapped[str] = mapped_column(String(64))
-    billing_month: Mapped[str] = mapped_column(String(7))
-    total_kwh: Mapped[Decimal] = mapped_column(Numeric(16, 4))
-    peak_kwh: Mapped[Decimal | None] = mapped_column(Numeric(16, 4))
-    flat_kwh: Mapped[Decimal | None] = mapped_column(Numeric(16, 4))
-    valley_kwh: Mapped[Decimal | None] = mapped_column(Numeric(16, 4))
-    amount_cny: Mapped[Numeric | None] = mapped_column(Numeric(16, 2))
-    attachment: Mapped[str | None] = mapped_column(String(255))
-    remark: Mapped[str | None] = mapped_column(Text)
-    calc_status: Mapped[str] = mapped_column(String(24), default="ready", index=True)
-    factor_source: Mapped[str | None] = mapped_column(String(128))
-    factor_year: Mapped[int | None] = mapped_column(Integer)
-    factor_unit: Mapped[str | None] = mapped_column(String(32))
-    activity_amount: Mapped[Numeric | None] = mapped_column(Numeric(16, 4))
-    activity_unit: Mapped[str | None] = mapped_column(String(16))
-    computed_co2e: Mapped[Numeric | None] = mapped_column(Numeric(18, 6))
-    computation_note: Mapped[str | None] = mapped_column(Text)
-
-
-class Scope2PurchasedEnergy(CarbonAuditBase):
-    """Scope2 外购热力、蒸汽、冷量。"""
-
-    __tablename__ = "dataapp_scope2purchasedenergy"
-    __table_args__ = (
-        UniqueConstraint("team_id", "source_record_no", "source_version", name="uq_scope2_purchased_source_version"),
-        Index("ix_scope2_purchased_energy_team_period", "team_id", "period_start", "period_end"),
-        Index("ix_scope2_purchased_energy_team_type", "team_id", "energy_type_code"),
-    )
-
-    energy_type_code: Mapped[str] = mapped_column(String(32), index=True)
-    energy_type_name: Mapped[str | None] = mapped_column(String(64))
-    supplier_name: Mapped[str | None] = mapped_column(String(128))
-    period_start: Mapped[date] = mapped_column(Date)
-    period_end: Mapped[date] = mapped_column(Date)
-    amount: Mapped[Numeric] = mapped_column(Numeric(16, 4))
-    unit: Mapped[str] = mapped_column(String(16))
-    standard_amount: Mapped[Numeric | None] = mapped_column(Numeric(18, 6))
-    standard_unit: Mapped[str | None] = mapped_column(String(16))
-    tce_amount: Mapped[Numeric | None] = mapped_column(Numeric(18, 6))
-    amount_cny: Mapped[Numeric | None] = mapped_column(Numeric(16, 2))
-    area_id: Mapped[str | None] = mapped_column(String(20), index=True)
-    area_name: Mapped[str | None] = mapped_column(String(50))
-    facility_name: Mapped[str | None] = mapped_column(String(128))
-    attachment: Mapped[str | None] = mapped_column(String(255))
-    remark: Mapped[str | None] = mapped_column(Text)
-    calc_status: Mapped[str] = mapped_column(String(24), default="ready", index=True)
-    factor_source: Mapped[str | None] = mapped_column(String(128))
-    factor_year: Mapped[int | None] = mapped_column(Integer)
-    factor_unit: Mapped[str | None] = mapped_column(String(32))
-    activity_amount: Mapped[Numeric | None] = mapped_column(Numeric(16, 4))
-    activity_unit: Mapped[str | None] = mapped_column(String(16))
-    computed_co2e: Mapped[Numeric | None] = mapped_column(Numeric(18, 6))
-    computation_note: Mapped[str | None] = mapped_column(Text)
-    standard_code: Mapped[str | None] = mapped_column(String(64))
-    conversion_factor_source: Mapped[str | None] = mapped_column(String(255))
 
 
 class Scope2MeterAggregate(TeamScopedMixin, BigIntAuditBase):
@@ -1565,9 +1433,9 @@ class Scope2MeterAggregate(TeamScopedMixin, BigIntAuditBase):
     factor_source: Mapped[str | None] = mapped_column(String(128))
     factor_year: Mapped[int | None] = mapped_column(Integer)
     factor_unit: Mapped[str | None] = mapped_column(String(32))
-    activity_amount: Mapped[Numeric | None] = mapped_column(Numeric(16, 4))
+    activity_amount: Mapped[Decimal | None] = mapped_column(Numeric(16, 4))
     activity_unit: Mapped[str | None] = mapped_column(String(16))
-    computed_co2e: Mapped[Numeric | None] = mapped_column(Numeric(18, 6))
+    computed_co2e: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     computation_note: Mapped[str | None] = mapped_column(Text)
     aggregation_note: Mapped[str | None] = mapped_column(Text)
     projection_run_id: Mapped[int | None] = mapped_column(
@@ -1584,42 +1452,6 @@ class Scope2MeterAggregate(TeamScopedMixin, BigIntAuditBase):
     source_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 
 
-class Scope3WasteDisposal(CarbonAuditBase):
-    """Scope3 废弃物处理。"""
-
-    __tablename__ = "dataapp_scope3wastedisposal"
-    __table_args__ = (
-        UniqueConstraint("team_id", "source_record_no", "source_version", name="uq_scope3_waste_source_version"),
-    )
-
-    date: Mapped[date] = mapped_column(Date)
-    category: Mapped[str] = mapped_column(String(32))
-    weight_ton: Mapped[Numeric] = mapped_column(Numeric(12, 4))
-    treatment_method: Mapped[str] = mapped_column(String(16))
-    vendor_name: Mapped[str | None] = mapped_column(String(128))
-    attachment: Mapped[str | None] = mapped_column(String(255))
-    remark: Mapped[str | None] = mapped_column(Text)
-
-
-class Scope3ThirdPartyTransport(CarbonAuditBase):
-    """Scope3 外购运输（外包车队）。"""
-
-    __tablename__ = "dataapp_scope3thirdpartytransport"
-    __table_args__ = (
-        UniqueConstraint("team_id", "source_record_no", "source_version", name="uq_scope3_transport_source_version"),
-    )
-
-    waybill_no: Mapped[str] = mapped_column(String(64))
-    origin: Mapped[str] = mapped_column(String(128))
-    destination: Mapped[str] = mapped_column(String(128))
-    vehicle_type: Mapped[str] = mapped_column(String(32))
-    distance_km: Mapped[Numeric] = mapped_column(Numeric(12, 2))
-    load_ton: Mapped[Numeric] = mapped_column(Numeric(12, 4))
-    fuel_amount: Mapped[Numeric | None] = mapped_column(Numeric(12, 4))
-    attachment: Mapped[str | None] = mapped_column(String(255))
-    remark: Mapped[str | None] = mapped_column(Text)
-
-
 class EmissionFactor(BigIntAuditBase):
     """排放因子库（对应 Django dataapp.EmissionFactor）。"""
 
@@ -1629,7 +1461,7 @@ class EmissionFactor(BigIntAuditBase):
     category: Mapped[str] = mapped_column(String(20))
     sub_category: Mapped[str] = mapped_column(String(64))
     unit: Mapped[str] = mapped_column(String(20))
-    factor_value: Mapped[Numeric] = mapped_column(Numeric(18, 8))
+    factor_value: Mapped[Decimal] = mapped_column(Numeric(18, 8))
     factor_unit: Mapped[str] = mapped_column(String(32), default="kgCO2e")
     year: Mapped[int] = mapped_column(Integer)
     source: Mapped[str] = mapped_column(String(128))
@@ -1675,7 +1507,7 @@ class CarbonFactorImportBatch(BigIntAuditBase):
     detail_count: Mapped[int] = mapped_column(Integer, default=0)
     failure_count: Mapped[int] = mapped_column(Integer, default=0)
     xlsx_count: Mapped[int] = mapped_column(Integer, default=0)
-    manifest_payload: Mapped[dict | None] = mapped_column(JSON)
+    manifest_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 
 
 class CarbonFactorLibrary(BigIntAuditBase):
@@ -1753,99 +1585,6 @@ class CarbonFactorRawRecord(BigIntAuditBase):
     raw_payload: Mapped[dict | None] = mapped_column(JSON)
 
 
-class CarbonAccountingBatch(TeamScopedMixin, BigIntAuditBase):
-    """Organization-carbon accounting batch bound to one reporting boundary."""
-
-    __tablename__ = "carbon_accounting_batch"
-    __table_args__ = (
-        UniqueConstraint("team_id", "batch_no", name="uq_carbon_accounting_batch_team_no"),
-        Index("ix_carbon_accounting_batch_boundary", "team_id", "boundary_id", "status"),
-        Index("ix_carbon_accounting_batch_period", "team_id", "reporting_org_id", "period_id"),
-    )
-
-    batch_no: Mapped[str] = mapped_column(String(64), index=True)
-    batch_name: Mapped[str] = mapped_column(String(128))
-    reporting_org_id: Mapped[int] = mapped_column(
-        ForeignKey("carbon_reporting_organization.id", ondelete="CASCADE"), index=True
-    )
-    period_id: Mapped[int] = mapped_column(ForeignKey("carbon_reporting_period.id", ondelete="CASCADE"), index=True)
-    boundary_id: Mapped[int] = mapped_column(
-        ForeignKey("carbon_organization_boundary.id", ondelete="CASCADE"), index=True
-    )
-    parent_batch_id: Mapped[int | None] = mapped_column(
-        ForeignKey("carbon_accounting_batch.id", ondelete="SET NULL"), index=True
-    )
-    revision_no: Mapped[int] = mapped_column(Integer, default=1)
-    revision_reason: Mapped[str | None] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
-    inventory_status: Mapped[str] = mapped_column(String(24), default="empty", index=True)
-    standard_code: Mapped[str | None] = mapped_column(String(64))
-    source_name: Mapped[str | None] = mapped_column(String(128))
-    total_co2e: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
-    record_count: Mapped[int] = mapped_column(Integer, default=0)
-    included_record_count: Mapped[int] = mapped_column(Integer, default=0)
-    missing_result_count: Mapped[int] = mapped_column(Integer, default=0)
-    inventory_payload: Mapped[dict | None] = mapped_column(JSON)
-    rebuilt_at: Mapped[datetime | None] = mapped_column(DateTime)
-    locked_at: Mapped[datetime | None] = mapped_column(DateTime)
-    remark: Mapped[str | None] = mapped_column(Text)
-
-    boundary: Mapped[OrganizationBoundary] = relationship(lazy="selectin")
-    organization: Mapped[ReportingOrganization] = relationship(lazy="selectin")
-    period: Mapped[ReportingPeriod] = relationship(lazy="selectin")
-    parent_batch: Mapped[CarbonAccountingBatch | None] = relationship(
-        "CarbonAccountingBatch",
-        remote_side="CarbonAccountingBatch.id",
-        back_populates="revision_batches",
-        lazy="selectin",
-    )
-    revision_batches: Mapped[list[CarbonAccountingBatch]] = relationship(
-        "CarbonAccountingBatch",
-        back_populates="parent_batch",
-        lazy="selectin",
-    )
-    items: Mapped[list[CarbonEmissionInventoryItem]] = relationship(
-        back_populates="batch",
-        cascade="all, delete-orphan",
-        lazy="selectin",
-    )
-
-
-class CarbonEmissionInventoryItem(TeamScopedMixin, BigIntAuditBase):
-    """Snapshot row in an organization-carbon emission inventory."""
-
-    __tablename__ = "carbon_emission_inventory_item"
-    __table_args__ = (
-        UniqueConstraint(
-            "team_id", "batch_id", "record_type", "record_id", name="uq_carbon_inventory_item_batch_record"
-        ),
-        Index("ix_carbon_inventory_item_batch_scope", "team_id", "batch_id", "scope"),
-        Index("ix_carbon_inventory_item_record", "team_id", "record_type", "record_id"),
-    )
-
-    batch_id: Mapped[int] = mapped_column(ForeignKey("carbon_accounting_batch.id", ondelete="CASCADE"), index=True)
-    record_type: Mapped[str] = mapped_column(String(64), index=True)
-    record_id: Mapped[int] = mapped_column(Integer, index=True)
-    scope: Mapped[str] = mapped_column(String(16), index=True)
-    record_label: Mapped[str] = mapped_column(String(64))
-    display_name: Mapped[str | None] = mapped_column(String(255))
-    period: Mapped[str | None] = mapped_column(String(16), index=True)
-    source_kind: Mapped[str | None] = mapped_column(String(32), index=True)
-    activity_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
-    activity_unit: Mapped[str | None] = mapped_column(String(32))
-    computed_co2e: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
-    factor_source: Mapped[str | None] = mapped_column(String(255))
-    factor_year: Mapped[int | None] = mapped_column(Integer)
-    factor_unit: Mapped[str | None] = mapped_column(String(32))
-    calc_status: Mapped[str | None] = mapped_column(String(24), index=True)
-    quality_status: Mapped[str] = mapped_column(String(24), default="ready", index=True)
-    included: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
-    exclusion_reason: Mapped[str | None] = mapped_column(Text)
-    source_payload: Mapped[dict | None] = mapped_column(JSON)
-
-    batch: Mapped[CarbonAccountingBatch] = relationship(back_populates="items", lazy="selectin")
-
-
 class CarbonVerificationExportJob(TeamScopedMixin, BigIntAuditBase):
     """Carbon verification report/material package export job."""
 
@@ -1872,7 +1611,7 @@ class CarbonVerificationExportJob(TeamScopedMixin, BigIntAuditBase):
     file_path: Mapped[str | None] = mapped_column(String(512))
     file_sha256: Mapped[str | None] = mapped_column(String(64))
     file_size_bytes: Mapped[int | None] = mapped_column(Integer)
-    manifest_payload: Mapped[dict | None] = mapped_column(JSON)
+    manifest_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     error_message: Mapped[str | None] = mapped_column(Text)
     requested_by: Mapped[str | None] = mapped_column(String(128))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
@@ -1934,6 +1673,7 @@ class CarbonVerificationFinding(TeamScopedMixin, BigIntAuditBase):
     action_required: Mapped[str | None] = mapped_column(Text)
     record_type: Mapped[str | None] = mapped_column(String(128), index=True)
     record_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    record_code: Mapped[str | None] = mapped_column(String(96), index=True)
     scope: Mapped[str | None] = mapped_column(String(16), index=True)
     display_name: Mapped[str | None] = mapped_column(String(255))
     period: Mapped[str | None] = mapped_column(String(16), index=True)
@@ -1951,49 +1691,6 @@ class CarbonVerificationFinding(TeamScopedMixin, BigIntAuditBase):
     remark: Mapped[str | None] = mapped_column(Text)
 
     project: Mapped[CarbonVerificationProject | None] = relationship(back_populates="findings", lazy="selectin")
-
-
-class CarbonVerificationAttachment(TeamScopedMixin, BigIntAuditBase):
-    """Verification material attachment metadata owned by carbon verification."""
-
-    __tablename__ = "carbon_verification_attachment"
-    __table_args__ = (
-        UniqueConstraint("team_id", "attachment_no", name="uq_carbon_verification_attachment_team_no"),
-        Index("ix_carbon_verification_attachment_source", "team_id", "source_object_type", "source_object_id"),
-        Index("ix_carbon_verification_attachment_team_status_group", "team_id", "status", "material_group"),
-        Index("ix_carbon_verification_attachment_sha", "team_id", "sha256"),
-    )
-
-    attachment_no: Mapped[str] = mapped_column(String(64), index=True)
-    project_id: Mapped[int | None] = mapped_column(
-        ForeignKey("carbon_verification_project.id", ondelete="SET NULL"), index=True
-    )
-    material_group: Mapped[str] = mapped_column(String(64), default="evidence", index=True)
-    attachment_type: Mapped[str] = mapped_column(String(64), default="supporting_document", index=True)
-    title: Mapped[str] = mapped_column(String(255))
-    source_object_type: Mapped[str] = mapped_column(String(128), index=True)
-    source_object_id: Mapped[int | None] = mapped_column(Integer, index=True)
-    source_object_label: Mapped[str | None] = mapped_column(String(255))
-    source_scope: Mapped[str | None] = mapped_column(String(16), index=True)
-    source_period: Mapped[str | None] = mapped_column(String(16), index=True)
-    file_name: Mapped[str | None] = mapped_column(String(255))
-    file_path: Mapped[str | None] = mapped_column(String(512))
-    content_type: Mapped[str | None] = mapped_column(String(128))
-    file_size_bytes: Mapped[int | None] = mapped_column(Integer)
-    sha256: Mapped[str | None] = mapped_column(String(64), index=True)
-    version_no: Mapped[int] = mapped_column(Integer, default=1)
-    status: Mapped[str] = mapped_column(String(24), default="pending_upload", index=True)
-    uploaded_by: Mapped[str | None] = mapped_column(String(128))
-    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime)
-    reviewed_by: Mapped[str | None] = mapped_column(String(128))
-    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime)
-    source_name: Mapped[str | None] = mapped_column(String(128))
-    standard_code: Mapped[str | None] = mapped_column(String(64))
-    confidence_level: Mapped[str | None] = mapped_column(String(16))
-    ocr_payload: Mapped[dict | None] = mapped_column(JSON)
-    remark: Mapped[str | None] = mapped_column(Text)
-
-    project: Mapped[CarbonVerificationProject | None] = relationship(back_populates="attachments", lazy="selectin")
 
 
 class CarbonVerificationTemplateVersion(TeamScopedMixin, BigIntAuditBase):
@@ -2036,7 +1733,8 @@ class CarbonVerificationProject(TeamScopedMixin, BigIntAuditBase):
         UniqueConstraint("team_id", "project_no", name="uq_carbon_verification_project_team_no"),
         Index("ix_carbon_verification_project_team_status_type", "team_id", "status", "project_type"),
         Index("ix_carbon_verification_project_scope", "team_id", "reporting_org_id", "period_id", "boundary_id"),
-        Index("ix_carbon_verification_project_batch", "team_id", "accounting_batch_id", "status"),
+        Index("ix_carbon_verification_project_report", "team_id", "inventory_report_id", "status"),
+        Index("ix_carbon_verification_project_run", "team_id", "calculation_run_id", "status"),
     )
 
     project_no: Mapped[str] = mapped_column(String(64), index=True)
@@ -2051,8 +1749,11 @@ class CarbonVerificationProject(TeamScopedMixin, BigIntAuditBase):
     boundary_id: Mapped[int | None] = mapped_column(
         ForeignKey("carbon_organization_boundary.id", ondelete="SET NULL"), index=True
     )
-    accounting_batch_id: Mapped[int | None] = mapped_column(
-        ForeignKey("carbon_accounting_batch.id", ondelete="SET NULL"), index=True
+    inventory_report_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ghg_inventory_report.id", ondelete="RESTRICT"), index=True
+    )
+    calculation_run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ghg_calculation_run.id", ondelete="RESTRICT"), index=True
     )
     template_version_id: Mapped[int | None] = mapped_column(
         ForeignKey("carbon_verification_template_version.id", ondelete="SET NULL"),
@@ -2067,6 +1768,13 @@ class CarbonVerificationProject(TeamScopedMixin, BigIntAuditBase):
     lead_reviewer: Mapped[str | None] = mapped_column(String(128))
     responsible_person: Mapped[str | None] = mapped_column(String(128))
     verifier_org: Mapped[str | None] = mapped_column(String(128))
+    assurance_level: Mapped[str] = mapped_column(String(24), default="internal_review", index=True)
+    materiality_threshold_pct: Mapped[Decimal | None] = mapped_column(Numeric(7, 4))
+    verification_basis: Mapped[str | None] = mapped_column(String(255))
+    sampling_strategy: Mapped[str | None] = mapped_column(Text)
+    site_visit_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    site_visit_status: Mapped[str] = mapped_column(String(24), default="not_planned", index=True)
+    conclusion_status: Mapped[str] = mapped_column(String(24), default="pending", index=True)
     readiness_status: Mapped[str] = mapped_column(String(24), default="empty", index=True)
     conclusion: Mapped[str | None] = mapped_column(Text)
     scope_description: Mapped[str | None] = mapped_column(Text)
@@ -2079,236 +1787,13 @@ class CarbonVerificationProject(TeamScopedMixin, BigIntAuditBase):
     organization: Mapped[ReportingOrganization | None] = relationship(lazy="selectin")
     period: Mapped[ReportingPeriod | None] = relationship(lazy="selectin")
     boundary: Mapped[OrganizationBoundary | None] = relationship(lazy="selectin")
-    accounting_batch: Mapped[CarbonAccountingBatch | None] = relationship(lazy="selectin")
+    inventory_report: Mapped[Any | None] = relationship("GhgInventoryReport", lazy="selectin")
+    calculation_run: Mapped[Any | None] = relationship("GhgCalculationRun", lazy="selectin")
     template_version: Mapped[CarbonVerificationTemplateVersion | None] = relationship(
         back_populates="projects", lazy="selectin"
     )
-    attachments: Mapped[list[CarbonVerificationAttachment]] = relationship(back_populates="project", lazy="selectin")
     findings: Mapped[list[CarbonVerificationFinding]] = relationship(back_populates="project", lazy="selectin")
     export_jobs: Mapped[list[CarbonVerificationExportJob]] = relationship(back_populates="project", lazy="selectin")
-
-
-class CarbonCompliancePeriod(TeamScopedMixin, BigIntAuditBase):
-    """Carbon market compliance period bound to an organization inventory."""
-
-    __tablename__ = "carbon_compliance_period"
-    __table_args__ = (
-        UniqueConstraint("team_id", "period_code", name="uq_carbon_compliance_period_team_code"),
-        Index("ix_carbon_compliance_period_team_status_market", "team_id", "status", "market"),
-        Index("ix_carbon_compliance_period_range", "team_id", "period_start", "period_end"),
-    )
-
-    period_code: Mapped[str] = mapped_column(String(64), index=True)
-    period_name: Mapped[str] = mapped_column(String(128))
-    market: Mapped[str] = mapped_column(String(64), default="national", index=True)
-    period_start: Mapped[date] = mapped_column(Date, index=True)
-    period_end: Mapped[date] = mapped_column(Date, index=True)
-    surrender_due_date: Mapped[date | None] = mapped_column(Date)
-    boundary_id: Mapped[int | None] = mapped_column(
-        ForeignKey("carbon_organization_boundary.id", ondelete="SET NULL"), index=True
-    )
-    accounting_batch_id: Mapped[int | None] = mapped_column(
-        ForeignKey("carbon_accounting_batch.id", ondelete="SET NULL"), index=True
-    )
-    status: Mapped[str] = mapped_column(String(24), default="open", index=True)
-    risk_threshold_yellow: Mapped[Decimal] = mapped_column(Numeric(8, 4), default=Decimal("0.0300"))
-    risk_threshold_orange: Mapped[Decimal] = mapped_column(Numeric(8, 4), default=Decimal("0.0800"))
-    risk_threshold_red: Mapped[Decimal] = mapped_column(Numeric(8, 4), default=Decimal("0.1500"))
-    source_name: Mapped[str | None] = mapped_column(String(128))
-    standard_code: Mapped[str | None] = mapped_column(String(64))
-    confidence_level: Mapped[str | None] = mapped_column(String(16))
-    remark: Mapped[str | None] = mapped_column(Text)
-
-    boundary: Mapped[OrganizationBoundary | None] = relationship(lazy="selectin")
-    accounting_batch: Mapped[CarbonAccountingBatch | None] = relationship(lazy="selectin")
-    allowances: Mapped[list[CarbonQuotaAllocation]] = relationship(back_populates="period", lazy="selectin")
-    surrenders: Mapped[list[CarbonSurrenderRecord]] = relationship(back_populates="period", lazy="selectin")
-    forecast_scenarios: Mapped[list[CarbonAssetForecastScenario]] = relationship(
-        back_populates="period", lazy="selectin"
-    )
-
-
-class CarbonAssetAccount(TeamScopedMixin, BigIntAuditBase):
-    """Registry or internal ledger account for quota, credit, CCER, or green certificate assets."""
-
-    __tablename__ = "carbon_asset_account"
-    __table_args__ = (
-        UniqueConstraint("team_id", "account_code", name="uq_carbon_asset_account_team_code"),
-        Index("ix_carbon_asset_account_type_status", "team_id", "asset_type", "status"),
-        Index("ix_carbon_asset_account_team_market", "team_id", "market"),
-    )
-
-    account_code: Mapped[str] = mapped_column(String(64), index=True)
-    account_name: Mapped[str] = mapped_column(String(128))
-    asset_type: Mapped[str] = mapped_column(String(32), index=True)
-    market: Mapped[str] = mapped_column(String(64), default="national", index=True)
-    currency: Mapped[str] = mapped_column(String(16), default="CNY")
-    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
-    registry_account_no: Mapped[str | None] = mapped_column(String(128))
-    owner_name: Mapped[str | None] = mapped_column(String(128))
-    source_name: Mapped[str | None] = mapped_column(String(128))
-    standard_code: Mapped[str | None] = mapped_column(String(64))
-    remark: Mapped[str | None] = mapped_column(Text)
-
-    allowances: Mapped[list[CarbonQuotaAllocation]] = relationship(back_populates="account", lazy="selectin")
-    credits: Mapped[list[CarbonCreditHolding]] = relationship(back_populates="account", lazy="selectin")
-
-
-class CarbonQuotaAllocation(TeamScopedMixin, BigIntAuditBase):
-    """Quota allocation and usable balance in a compliance period."""
-
-    __tablename__ = "carbon_quota_allocation"
-    __table_args__ = (
-        UniqueConstraint("team_id", "allocation_no", name="uq_carbon_quota_allocation_team_no"),
-        Index("ix_carbon_quota_allocation_period", "team_id", "period_id", "quota_type"),
-        Index("ix_carbon_quota_allocation_account", "team_id", "account_id"),
-    )
-
-    period_id: Mapped[int] = mapped_column(ForeignKey("carbon_compliance_period.id", ondelete="CASCADE"), index=True)
-    account_id: Mapped[int] = mapped_column(ForeignKey("carbon_asset_account.id", ondelete="CASCADE"), index=True)
-    allocation_no: Mapped[str] = mapped_column(String(64), index=True)
-    quota_type: Mapped[str] = mapped_column(String(32), default="CEA", index=True)
-    allocated_amount: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-    adjustment_amount: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-    used_amount: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-    frozen_amount: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-    unit: Mapped[str] = mapped_column(String(32), default="tCO2e")
-    valid_from: Mapped[date | None] = mapped_column(Date)
-    valid_to: Mapped[date | None] = mapped_column(Date)
-    source_name: Mapped[str | None] = mapped_column(String(128))
-    standard_code: Mapped[str | None] = mapped_column(String(64))
-    remark: Mapped[str | None] = mapped_column(Text)
-
-    period: Mapped[CarbonCompliancePeriod] = relationship(back_populates="allowances", lazy="selectin")
-    account: Mapped[CarbonAssetAccount] = relationship(back_populates="allowances", lazy="selectin")
-
-
-class CarbonCreditHolding(TeamScopedMixin, BigIntAuditBase):
-    """CCER, green certificate, or other carbon credit holding."""
-
-    __tablename__ = "carbon_credit_holding"
-    __table_args__ = (
-        UniqueConstraint("team_id", "holding_no", name="uq_carbon_credit_holding_team_no"),
-        Index("ix_carbon_credit_holding_account", "team_id", "account_id", "credit_type"),
-        Index("ix_carbon_credit_holding_team_status", "team_id", "status"),
-    )
-
-    account_id: Mapped[int] = mapped_column(ForeignKey("carbon_asset_account.id", ondelete="CASCADE"), index=True)
-    holding_no: Mapped[str] = mapped_column(String(64), index=True)
-    credit_type: Mapped[str] = mapped_column(String(32), index=True)
-    project_code: Mapped[str | None] = mapped_column(String(64), index=True)
-    project_name: Mapped[str | None] = mapped_column(String(128))
-    registry: Mapped[str | None] = mapped_column(String(128))
-    vintage_year: Mapped[int | None] = mapped_column(Integer, index=True)
-    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-    used_quantity: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-    frozen_quantity: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-    unit: Mapped[str] = mapped_column(String(32), default="tCO2e")
-    market_price: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
-    currency: Mapped[str] = mapped_column(String(16), default="CNY")
-    valid_from: Mapped[date | None] = mapped_column(Date)
-    valid_to: Mapped[date | None] = mapped_column(Date)
-    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
-    source_name: Mapped[str | None] = mapped_column(String(128))
-    standard_code: Mapped[str | None] = mapped_column(String(64))
-    remark: Mapped[str | None] = mapped_column(Text)
-
-    account: Mapped[CarbonAssetAccount] = relationship(back_populates="credits", lazy="selectin")
-
-
-class CarbonAssetTransaction(TeamScopedMixin, BigIntAuditBase):
-    """Carbon asset transaction or transaction simulation record."""
-
-    __tablename__ = "carbon_asset_transaction"
-    __table_args__ = (
-        UniqueConstraint("team_id", "transaction_no", name="uq_carbon_asset_transaction_team_no"),
-        Index("ix_carbon_asset_transaction_account", "team_id", "account_id", "asset_type"),
-        Index("ix_carbon_asset_transaction_date", "team_id", "trade_date", "status"),
-    )
-
-    account_id: Mapped[int] = mapped_column(ForeignKey("carbon_asset_account.id", ondelete="CASCADE"), index=True)
-    transaction_no: Mapped[str] = mapped_column(String(64), index=True)
-    asset_type: Mapped[str] = mapped_column(String(32), index=True)
-    transaction_type: Mapped[str] = mapped_column(String(32), index=True)
-    amount: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-    unit_price: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-    currency: Mapped[str] = mapped_column(String(16), default="CNY")
-    fee_rate: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=Decimal(0))
-    tax_rate: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=Decimal(0))
-    trade_date: Mapped[date | None] = mapped_column(Date, index=True)
-    counterparty: Mapped[str | None] = mapped_column(String(128))
-    status: Mapped[str] = mapped_column(String(24), default="simulated", index=True)
-    scenario_payload: Mapped[dict | None] = mapped_column(JSON)
-    source_name: Mapped[str | None] = mapped_column(String(128))
-    remark: Mapped[str | None] = mapped_column(Text)
-
-    account: Mapped[CarbonAssetAccount] = relationship(lazy="selectin")
-
-
-class CarbonSurrenderRecord(TeamScopedMixin, BigIntAuditBase):
-    """Surrender, cancellation, or offset use record for compliance."""
-
-    __tablename__ = "carbon_surrender_record"
-    __table_args__ = (
-        UniqueConstraint("team_id", "surrender_no", name="uq_carbon_surrender_record_team_no"),
-        Index("ix_carbon_surrender_record_period", "team_id", "period_id", "asset_type"),
-        Index("ix_carbon_surrender_record_team_status", "team_id", "status"),
-    )
-
-    period_id: Mapped[int] = mapped_column(ForeignKey("carbon_compliance_period.id", ondelete="CASCADE"), index=True)
-    account_id: Mapped[int] = mapped_column(ForeignKey("carbon_asset_account.id", ondelete="CASCADE"), index=True)
-    surrender_no: Mapped[str] = mapped_column(String(64), index=True)
-    asset_type: Mapped[str] = mapped_column(String(32), index=True)
-    quota_allocation_id: Mapped[int | None] = mapped_column(
-        ForeignKey("carbon_quota_allocation.id", ondelete="SET NULL"), index=True
-    )
-    credit_holding_id: Mapped[int | None] = mapped_column(
-        ForeignKey("carbon_credit_holding.id", ondelete="SET NULL"), index=True
-    )
-    amount: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-    unit: Mapped[str] = mapped_column(String(32), default="tCO2e")
-    status: Mapped[str] = mapped_column(String(24), default="completed", index=True)
-    surrendered_at: Mapped[datetime | None] = mapped_column(DateTime)
-    purpose: Mapped[str] = mapped_column(String(64), default="compliance")
-    source_name: Mapped[str | None] = mapped_column(String(128))
-    remark: Mapped[str | None] = mapped_column(Text)
-
-    period: Mapped[CarbonCompliancePeriod] = relationship(back_populates="surrenders", lazy="selectin")
-    account: Mapped[CarbonAssetAccount] = relationship(lazy="selectin")
-    quota_allocation: Mapped[CarbonQuotaAllocation | None] = relationship(lazy="selectin")
-    credit_holding: Mapped[CarbonCreditHolding | None] = relationship(lazy="selectin")
-
-
-class CarbonAssetForecastScenario(TeamScopedMixin, BigIntAuditBase):
-    """Enterprise assumption scenario for rolling carbon asset compliance forecasts."""
-
-    __tablename__ = "carbon_asset_forecast_scenario"
-    __table_args__ = (
-        UniqueConstraint("team_id", "scenario_code", name="uq_carbon_asset_forecast_scenario_team_code"),
-        Index("ix_carbon_asset_forecast_scenario_period", "team_id", "period_id", "status"),
-        Index("ix_carbon_asset_forecast_scenario_team_status_end", "team_id", "status", "forecast_end"),
-    )
-
-    period_id: Mapped[int] = mapped_column(ForeignKey("carbon_compliance_period.id", ondelete="CASCADE"), index=True)
-    scenario_code: Mapped[str] = mapped_column(String(64), index=True)
-    scenario_name: Mapped[str] = mapped_column(String(128))
-    base_year: Mapped[int | None] = mapped_column(Integer, index=True)
-    forecast_start: Mapped[date | None] = mapped_column(Date)
-    forecast_end: Mapped[date | None] = mapped_column(Date, index=True)
-    emission_growth_rate: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=Decimal(0))
-    planned_reduction: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-    planned_allowance_purchase: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-    planned_credit_purchase: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-    planned_surrender: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-    allowance_price: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-    credit_price: Mapped[Decimal] = mapped_column(Numeric(18, 6), default=Decimal(0))
-    currency: Mapped[str] = mapped_column(String(16), default="CNY")
-    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
-    source_name: Mapped[str | None] = mapped_column(String(128))
-    confidence_level: Mapped[str | None] = mapped_column(String(16))
-    remark: Mapped[str | None] = mapped_column(Text)
-
-    period: Mapped[CarbonCompliancePeriod] = relationship(back_populates="forecast_scenarios", lazy="selectin")
 
 
 class ReportingOrganization(TeamScopedMixin, BigIntAuditBase):
@@ -2387,7 +1872,7 @@ class OrganizationBoundary(TeamScopedMixin, BigIntAuditBase):
     boundary_name: Mapped[str] = mapped_column(String(128))
     boundary_type: Mapped[str] = mapped_column(String(32), default="organization", index=True)
     boundary_method: Mapped[str] = mapped_column(String(32), default="operational_control", index=True)
-    operational_boundary: Mapped[dict | None] = mapped_column(JSON)
+    operational_boundary: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     version: Mapped[int] = mapped_column(Integer, default=1)
     status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
     published_at: Mapped[datetime | None] = mapped_column(DateTime)
@@ -2433,16 +1918,3 @@ class BoundaryFacility(TeamScopedMixin, BigIntAuditBase):
     remark: Mapped[str | None] = mapped_column(Text)
 
     boundary: Mapped[OrganizationBoundary] = relationship(back_populates="facilities", lazy="selectin")
-
-
-class CarbonAuditLog(TeamScopedMixin, BigIntBase):
-    """审核操作日志（对应 Django dataapp.AuditLog，表名与 Django 一致）。"""
-
-    __tablename__ = "dataapp_carbonauditlog"
-
-    record_type: Mapped[str] = mapped_column(String(64))
-    record_id: Mapped[int] = mapped_column(Integer)
-    action: Mapped[str] = mapped_column(String(16))
-    operator_id: Mapped[UUID | None] = mapped_column(ForeignKey("user_account.id", ondelete="SET NULL"), index=True)
-    comment: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

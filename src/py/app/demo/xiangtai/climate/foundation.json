@@ -1,0 +1,46 @@
+{
+  "schema_version": "climate-profile-v1",
+  "code": "foundation",
+  "name": "基础建设期",
+  "description": "已有组织碳盘查，但目标覆盖、风险治理和可再生电力凭证仍需完善。",
+  "sbti": {
+    "baseline_year": 2024,
+    "baseline_multiplier": 1.05,
+    "target_year": 2030,
+    "reduction_pct": 25.0,
+    "scope12_coverage_pct": 85.0,
+    "scope3_coverage_pct": 30.0,
+    "scope2_method": "location"
+  },
+  "cdp": {
+    "status": "preparing",
+    "owner_name": "可持续发展专员",
+    "domain_statuses": {
+      "governance": true,
+      "risks": false,
+      "strategy": false,
+      "targets": false
+    }
+  },
+  "re100": {
+    "electricity_data_year": 2025,
+    "target_year": 2030,
+    "target_pct": 100.0,
+    "claims": [
+      {
+        "source_type": "green_power",
+        "share_pct": 15.0,
+        "technology": "wind_solar_mix",
+        "ownership_status": "retired",
+        "evidence_reference": "EVIDENCE-DEMO-XT-GREEN-POWER-2025"
+      },
+      {
+        "source_type": "certificate",
+        "share_pct": 20.0,
+        "technology": "solar",
+        "ownership_status": "held",
+        "evidence_reference": null
+      }
+    ]
+  }
+}

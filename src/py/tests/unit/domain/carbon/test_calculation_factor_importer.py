@@ -14,6 +14,6 @@ def test_load_checklist_rows_parses_template() -> None:
     assert first.scope == "scope1"
     assert first.category == "fuel"
     assert first.sub_category == "diesel"
-    assert first.factor_value is None
+    assert str(first.factor_value) == "2.65"
     assert first.projection_status == "derived"
-    assert first.is_active is False
+    assert first.is_active is True

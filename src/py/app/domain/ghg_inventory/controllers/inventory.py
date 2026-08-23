@@ -20,12 +20,14 @@ from app.domain.ghg_inventory.domain.catalog import (
     method_payload,
 )
 from app.domain.ghg_inventory.infrastructure.workbook import TEMPLATE_VERSION, build_template_bytes
+from app.domain.ghg_inventory.queries.analytics import GhgAnalyticsQueryService
 from app.domain.ghg_inventory.queries.inventory import GhgInventoryQueryService
 from app.domain.ghg_inventory.schemas import (
-    CalculationRunRequest,
     GhgActivityAllocationListResponse,
     GhgActivityListResponse,
     GhgAreaSummaryResponse,
+    GhgCalculationRunListResponse,
+    GhgCalculationRunRequest,
     GhgCalculationRunResponse,
     GhgCatalogResponse,
     GhgImportBatchListResponse,
@@ -88,6 +90,7 @@ class GhgInventoryController(Controller):
                         "id": row.id,
                         "code": row.code,
                         "name": row.name,
+                        "reportingOrgId": row.reporting_org_id,
                         "organizationCode": row.organization.code,
                         "periodStart": row.period_start.isoformat(),
                         "periodEnd": row.period_end.isoformat(),
@@ -96,7 +99,7 @@ class GhgInventoryController(Controller):
                     for row in periods
                 ],
                 "organizations": [
-                    {"code": row.code, "name": row.name, "organizationType": row.organization_type}
+                    {"id": row.id, "code": row.code, "name": row.name, "organizationType": row.organization_type}
                     for row in organizations
                 ],
                 "areas": [
@@ -299,17 +302,49 @@ class GhgInventoryController(Controller):
         rows = await GhgInventoryQueryService(db_session).import_batches(limit=min(max(limit, 1), 100))
         return msgspec.convert({"items": rows, "total": len(rows)}, type=GhgImportBatchListResponse)
 
+    @get(
+        "/calculation-runs",
+        operation_id="GhgInventoryListCalculationRuns",
+        guards=[requires_permission("carbon.inventory.view")],
+    )
+    async def calculation_runs(
+        self,
+        db_session: AsyncSession,
+        inventory_code: str | None = None,
+        reporting_org_id: int | None = None,
+        reporting_period_id: int | None = None,
+        organization_boundary_id: int | None = None,
+        status: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> GhgCalculationRunListResponse:
+        payload = await GhgAnalyticsQueryService(db_session).calculation_runs(
+            inventory_code=inventory_code,
+            reporting_org_id=reporting_org_id,
+            reporting_period_id=reporting_period_id,
+            organization_boundary_id=organization_boundary_id,
+            status=status,
+            limit=min(max(limit, 1), 200),
+            offset=max(offset, 0),
+        )
+        return msgspec.convert(payload, type=GhgCalculationRunListResponse)
+
     @post(
         "/calculation-runs",
         operation_id="GhgInventoryRunCalculation",
         guards=[requires_permission("carbon.inventory.calculate")],
     )
-    async def run_calculation(self, db_session: AsyncSession, data: CalculationRunRequest) -> GhgCalculationRunResponse:
+    async def run_calculation(
+        self, db_session: AsyncSession, data: GhgCalculationRunRequest
+    ) -> GhgCalculationRunResponse:
         try:
             run = await RunInventoryCalculation(db_session).execute(
                 inventory_code=data.inventory_code,
                 reporting_profile_code=data.reporting_profile_code,
                 reporting_period_id=data.reporting_period_id,
+                reporting_org_id=data.reporting_org_id,
+                organization_boundary_id=data.organization_boundary_id,
+                default_scope2_method=data.default_scope2_method,
             )
         except ValueError as exc:
             raise ClientException(status_code=422, detail=str(exc)) from exc

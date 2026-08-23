@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import func, select
 
 from app.db import models as m
-from app.domain.carbon.emission_calculator import compute_emission_result
 from app.lib.tenancy import TENANT_ID_SESSION_KEY
 
 if TYPE_CHECKING:
@@ -560,15 +559,6 @@ class ElectricityProjectionUseCase:
             previous_current = next((row for row in previous_rows if row.is_current), None)
             if previous_current is not None:
                 previous_current.is_current = False
-            computation = await compute_emission_result(
-                self.session,
-                "scope2",
-                "electricity",
-                "grid_electricity",
-                total_kwh,
-                "kWh",
-                int(billing_month[:4]),
-            )
             snapshot = {
                 "projection_run_id": run.id,
                 "boundary_code": boundary.code if boundary else None,
@@ -588,14 +578,14 @@ class ElectricityProjectionUseCase:
                 end_total_energy=last.fact.normalized_value,
                 total_kwh=total_kwh,
                 status="provisional",
-                calc_status="ready" if computation else "missing_factor",
-                factor_source=computation.factor_source if computation else None,
-                factor_year=computation.factor_year if computation else int(billing_month[:4]),
-                factor_unit=computation.factor_unit if computation else None,
+                calc_status="not_applicable",
+                factor_source=None,
+                factor_year=None,
+                factor_unit=None,
                 activity_amount=total_kwh,
                 activity_unit="kWh",
-                computed_co2e=computation.co2e if computation else None,
-                computation_note="按当前月度计量投影计算。" if computation else "当前未匹配到有效电力排放因子。",
+                computed_co2e=None,
+                computation_note="组织温室气体排放由统一盘查运行计算。",
                 aggregation_note=None,
                 projection_run_id=run.id,
                 measurement_boundary_id=boundary.id if boundary else None,
@@ -628,7 +618,7 @@ async def reconcile_scope2_electricity(
     projection_run_id: int | None = None,
     auto_commit: bool = True,
 ) -> m.Scope2ElectricityReconciliation:
-    """Prefer approved operational bills over meter totals without double counting."""
+    """Prefer approved canonical inventory electricity activity over meter totals."""
     tenant_id = session.info.get(TENANT_ID_SESSION_KEY)
     if tenant_id is None:
         msg = "Scope 2 reconciliation requires an active tenant"
@@ -639,31 +629,46 @@ async def reconcile_scope2_electricity(
             await session.scalars(
                 select(m.Scope2MeterAggregate).where(
                     m.Scope2MeterAggregate.billing_month == billing_month,
-                    m.Scope2MeterAggregate.calc_status.in_(["ready", "missing_factor"]),
                     m.Scope2MeterAggregate.total_kwh.is_not(None),
                 )
             )
         ).all()
     )
     meter_total = sum((Decimal(str(row.total_kwh or 0)) for row in aggregate_rows), Decimal(0))
-    bill_rows: list[m.Scope2ElectricityBill] = list(
+    month_start = date.fromisoformat(f"{billing_month}-01")
+    month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+    activity_rows: list[m.GhgActivityRecord] = list(
         (
             await session.scalars(
-                select(m.Scope2ElectricityBill).where(
-                    m.Scope2ElectricityBill.billing_month == billing_month,
-                    m.Scope2ElectricityBill.status == "approved",
+                select(m.GhgActivityRecord).where(
+                    m.GhgActivityRecord.ghg_scope == "scope2",
+                    m.GhgActivityRecord.status == "approved",
+                    m.GhgActivityRecord.boundary_status == "included",
+                    m.GhgActivityRecord.activity_unit.in_(["kWh", "MWh"]),
+                    m.GhgActivityRecord.period_start <= month_end,
+                    m.GhgActivityRecord.period_end >= month_start,
                 )
             )
         ).all()
     )
-    bill_total = sum((Decimal(str(row.total_kwh)) for row in bill_rows), Decimal(0)) if bill_rows else None
+    bill_total = (
+        sum(
+            (
+                Decimal(str(row.activity_amount)) * (Decimal(1000) if row.activity_unit == "MWh" else Decimal(1))
+                for row in activity_rows
+            ),
+            Decimal(0),
+        )
+        if activity_rows
+        else None
+    )
     organization_total = bill_total if bill_total is not None else meter_total
     allocated = min(meter_total, organization_total)
     unallocated = max(organization_total - allocated, Decimal(0))
-    source_priority = "electricity_bill" if bill_rows else "meter_aggregate"
+    source_priority = "ghg_activity" if activity_rows else "meter_aggregate"
     snapshot = {
         "aggregate_ids": sorted(row.id for row in aggregate_rows),
-        "bill_ids": sorted(row.id for row in bill_rows),
+        "activity_ids": sorted(row.id for row in activity_rows),
         "source_priority": source_priority,
     }
     snapshot["digest"] = hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest()
@@ -689,7 +694,7 @@ async def reconcile_scope2_electricity(
         team_id=tenant_id,
         billing_month=billing_month,
         projection_run_id=projection_run_id,
-        electricity_bill_id=bill_rows[0].id if len(bill_rows) == 1 else None,
+        activity_record_id=activity_rows[0].id if len(activity_rows) == 1 else None,
         source_priority=source_priority,
         organization_total_kwh=organization_total,
         meter_total_kwh=meter_total,

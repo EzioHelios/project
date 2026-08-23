@@ -5,11 +5,12 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.domain.carbon import bigscreen_schemas as bs
 from app.domain.carbon import models as m
+from app.domain.ghg_inventory import models as ghg
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,18 +54,33 @@ def _month_period(value: str | None) -> str:
     return value.replace("-", ".")
 
 
-async def _sum_first_available(
-    session: AsyncSession,
-    model: type[Any],
-    field_names: tuple[str, ...],
-) -> float:
-    for field_name in field_names:
-        column = getattr(model, field_name, None)
-        if column is None:
-            continue
-        result = await session.execute(select(func.sum(column)))
-        return _to_float(result.scalar_one())
-    return 0.0
+async def _canonical_monthly_carbon(session: AsyncSession) -> dict[str, float]:
+    run = await session.scalar(
+        select(ghg.GhgCalculationRun)
+        .where(ghg.GhgCalculationRun.status == "completed")
+        .order_by(ghg.GhgCalculationRun.completed_at.desc().nullslast(), ghg.GhgCalculationRun.id.desc())
+        .limit(1)
+    )
+    if run is None:
+        return {}
+    period = func.to_char(ghg.GhgActivityRecord.period_start, "YYYY-MM")
+    rows = (
+        await session.execute(
+            select(period, func.sum(ghg.GhgCalculationResult.co2e_kg))
+            .join(ghg.GhgActivityRecord, ghg.GhgActivityRecord.id == ghg.GhgCalculationResult.activity_id)
+            .where(
+                ghg.GhgCalculationResult.run_id == run.id,
+                ghg.GhgCalculationResult.result_kind == "emission",
+                or_(
+                    ghg.GhgCalculationResult.ghg_scope != "scope2",
+                    ghg.GhgCalculationResult.scope2_method == run.default_scope2_method,
+                ),
+            )
+            .group_by(period)
+            .order_by(period)
+        )
+    ).all()
+    return {str(month): _to_float(value) for month, value in rows}
 
 
 @dataclass(slots=True)
@@ -97,17 +113,23 @@ class BigscreenIntroService:
 
     async def build(self) -> bs.BigscreenIntroPayload:
         enterprise = (
-            await self.session.execute(select(m.EnterpriseInfo).order_by(m.EnterpriseInfo.id.desc()).limit(1))
-        ).scalars().first()
+            (await self.session.execute(select(m.EnterpriseInfo).order_by(m.EnterpriseInfo.id.desc()).limit(1)))
+            .scalars()
+            .first()
+        )
         sectors = (
-            await self.session.execute(
-                select(m.MonitorSector)
-                .options(selectinload(m.MonitorSector.photos))
-                .where(m.MonitorSector.is_enable.is_(True))
-                .order_by(m.MonitorSector.id.asc())
-                .limit(9)
+            (
+                await self.session.execute(
+                    select(m.MonitorSector)
+                    .options(selectinload(m.MonitorSector.photos))
+                    .where(m.MonitorSector.is_enable.is_(True))
+                    .order_by(m.MonitorSector.id.asc())
+                    .limit(9)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         photos: list[bs.BigscreenMediaItem] = []
         for sector in sectors:
@@ -141,13 +163,21 @@ class BigscreenIntroService:
         )
 
         company_facts = [
-            bs.BigscreenInfoItem(label="企业名称", value=_safe_text(enterprise.name if enterprise else None, self.meta.title)),
+            bs.BigscreenInfoItem(
+                label="企业名称", value=_safe_text(enterprise.name if enterprise else None, self.meta.title)
+            ),
             bs.BigscreenInfoItem(label="所属单位", value=_safe_text(enterprise.belong_unit if enterprise else None)),
             bs.BigscreenInfoItem(label="行业方向", value=_safe_text(enterprise.industry if enterprise else None)),
             bs.BigscreenInfoItem(label="所在区域", value=_safe_text(enterprise.location if enterprise else None)),
-            bs.BigscreenInfoItem(label="员工规模", value=_safe_text(enterprise.people_count if enterprise else None, "0")),
-            bs.BigscreenInfoItem(label="仓储面积", value=f"{_to_float(enterprise.store_area if enterprise else None):,.0f} m2"),
-            bs.BigscreenInfoItem(label="园区面积", value=f"{_to_float(enterprise.park_area if enterprise else None):,.0f} m2"),
+            bs.BigscreenInfoItem(
+                label="员工规模", value=_safe_text(enterprise.people_count if enterprise else None, "0")
+            ),
+            bs.BigscreenInfoItem(
+                label="仓储面积", value=f"{_to_float(enterprise.store_area if enterprise else None):,.0f} m2"
+            ),
+            bs.BigscreenInfoItem(
+                label="园区面积", value=f"{_to_float(enterprise.park_area if enterprise else None):,.0f} m2"
+            ),
             bs.BigscreenInfoItem(label="统一信用代码", value=_safe_text(enterprise.unify_code if enterprise else None)),
         ]
 
@@ -172,33 +202,38 @@ class BigscreenOverviewService:
                 select(
                     m.Scope2MeterAggregate.billing_month,
                     func.sum(m.Scope2MeterAggregate.total_kwh),
-                    func.sum(m.Scope2MeterAggregate.computed_co2e),
                 )
                 .group_by(m.Scope2MeterAggregate.billing_month)
                 .order_by(m.Scope2MeterAggregate.billing_month.asc())
             )
         ).all()
+        monthly_carbon = await _canonical_monthly_carbon(self.session)
 
         latest_month = monthly_rows[-1][0] if monthly_rows else None
         latest_energy = _to_float(monthly_rows[-1][1]) if monthly_rows else 0
         prev_energy = _to_float(monthly_rows[-2][1]) if len(monthly_rows) > 1 else 0
-        latest_carbon = _to_float(monthly_rows[-1][2]) if monthly_rows else 0
-        prev_carbon = _to_float(monthly_rows[-2][2]) if len(monthly_rows) > 1 else 0
+        latest_carbon = monthly_carbon.get(str(latest_month), 0.0) if latest_month else 0.0
+        previous_month = str(monthly_rows[-2][0]) if len(monthly_rows) > 1 else None
+        prev_carbon = monthly_carbon.get(previous_month, 0.0) if previous_month else 0.0
         current_year = (latest_month or datetime.now(UTC).strftime("%Y-%m"))[:4]
         year_rows = [row for row in monthly_rows if row[0] and row[0].startswith(current_year)]
         ytd_energy = sum(_to_float(row[1]) for row in year_rows)
-        ytd_carbon = sum(_to_float(row[2]) for row in year_rows)
+        ytd_carbon = sum(value for month, value in monthly_carbon.items() if month.startswith(current_year))
 
-        active_meter_count = int(
-            (
-                await self.session.execute(
-                    select(func.count(func.distinct(m.Scope2MeterAggregate.ammeter_id))).where(
-                        m.Scope2MeterAggregate.billing_month == latest_month
+        active_meter_count = (
+            int(
+                (
+                    await self.session.execute(
+                        select(func.count(func.distinct(m.Scope2MeterAggregate.ammeter_id))).where(
+                            m.Scope2MeterAggregate.billing_month == latest_month
+                        )
                     )
-                )
-            ).scalar_one()
-            or 0
-        ) if latest_month else 0
+                ).scalar_one()
+                or 0
+            )
+            if latest_month
+            else 0
+        )
         area_count = int(
             (
                 await self.session.execute(
@@ -212,15 +247,15 @@ class BigscreenOverviewService:
             bs.BigscreenTrendPoint(
                 period=_month_period(row[0]),
                 energy_kwh=_to_float(row[1]),
-                carbon_co2e=_to_float(row[2]),
+                carbon_co2e=monthly_carbon.get(str(row[0]), 0.0),
                 value=_to_float(row[1]),
             )
             for row in monthly_rows[-12:]
         ]
 
-        by_area_rows = []
+        by_area_rows: list[tuple[str | None, Decimal | None]] = []
         if latest_month:
-            by_area_rows = (
+            raw_by_area_rows = (
                 await self.session.execute(
                     select(m.Scope2MeterAggregate.area_name, func.sum(m.Scope2MeterAggregate.total_kwh))
                     .where(m.Scope2MeterAggregate.billing_month == latest_month)
@@ -228,24 +263,39 @@ class BigscreenOverviewService:
                     .order_by(func.sum(m.Scope2MeterAggregate.total_kwh).desc())
                 )
             ).all()
+            by_area_rows = [(row[0], row[1]) for row in raw_by_area_rows]
 
         flow_nodes = [bs.BigscreenFlowNode(id="grid", name="外部购电", category="source")]
         flow_links: list[bs.BigscreenFlowLink] = []
         for index, row in enumerate(by_area_rows[:6], start=1):
             node_id = f"area-{index}"
             flow_nodes.append(
-                bs.BigscreenFlowNode(id=node_id, name=_safe_text(row[0], f"区域 {index}"), category="area", value=_to_float(row[1]))
+                bs.BigscreenFlowNode(
+                    id=node_id, name=_safe_text(row[0], f"区域 {index}"), category="area", value=_to_float(row[1])
+                )
             )
             flow_links.append(bs.BigscreenFlowLink(source="grid", target=node_id, value=_to_float(row[1])))
 
         return bs.BigscreenOverviewPayload(
             energy_kpis=[
-                bs.BigscreenMetric(id="month-energy", label="最新账期用电", value=round(latest_energy, 2), unit="kWh", ratio=_percent_change(latest_energy, prev_energy)),
+                bs.BigscreenMetric(
+                    id="month-energy",
+                    label="最新账期用电",
+                    value=round(latest_energy, 2),
+                    unit="kWh",
+                    ratio=_percent_change(latest_energy, prev_energy),
+                ),
                 bs.BigscreenMetric(id="ytd-energy", label="本年累计用电", value=round(ytd_energy, 2), unit="kWh"),
                 bs.BigscreenMetric(id="active-meters", label="活跃电表", value=active_meter_count, unit="台"),
             ],
             carbon_kpis=[
-                bs.BigscreenMetric(id="month-carbon", label="最新账期碳排", value=round(latest_carbon, 2), unit="kgCO2e", ratio=_percent_change(latest_carbon, prev_carbon)),
+                bs.BigscreenMetric(
+                    id="month-carbon",
+                    label="最新账期碳排",
+                    value=round(latest_carbon, 2),
+                    unit="kgCO2e",
+                    ratio=_percent_change(latest_carbon, prev_carbon),
+                ),
                 bs.BigscreenMetric(id="ytd-carbon", label="本年累计碳排", value=round(ytd_carbon, 2), unit="kgCO2e"),
                 bs.BigscreenMetric(id="area-count", label="在线区域", value=area_count, unit="个"),
             ],
@@ -253,7 +303,10 @@ class BigscreenOverviewService:
             production_trend=trend_points,
             filters={
                 "months": [{"label": _month_period(row[0]), "value": row[0]} for row in monthly_rows[-12:]],
-                "areas": [{"label": _safe_text(row[0], "未分区"), "value": _safe_text(row[0], "unknown")} for row in by_area_rows[:8]],
+                "areas": [
+                    {"label": _safe_text(row[0], "未分区"), "value": _safe_text(row[0], "unknown")}
+                    for row in by_area_rows[:8]
+                ],
             },
         )
 
@@ -268,18 +321,18 @@ class BigscreenPowerService:
                 select(
                     m.Scope2MeterAggregate.billing_month,
                     func.sum(m.Scope2MeterAggregate.total_kwh),
-                    func.sum(m.Scope2MeterAggregate.computed_co2e),
                 )
                 .group_by(m.Scope2MeterAggregate.billing_month)
                 .order_by(m.Scope2MeterAggregate.billing_month.asc())
             )
         ).all()
+        monthly_carbon = await _canonical_monthly_carbon(self.session)
         latest_month = monthly_rows[-1][0] if monthly_rows else None
 
-        structure_rows = []
-        ranking_rows = []
+        structure_rows: list[tuple[str | None, Decimal | None]] = []
+        ranking_rows: list[tuple[str | None, Decimal | None]] = []
         if latest_month:
-            structure_rows = (
+            raw_structure_rows = (
                 await self.session.execute(
                     select(m.Scope2MeterAggregate.area_name, func.sum(m.Scope2MeterAggregate.total_kwh))
                     .where(m.Scope2MeterAggregate.billing_month == latest_month)
@@ -287,7 +340,8 @@ class BigscreenPowerService:
                     .order_by(func.sum(m.Scope2MeterAggregate.total_kwh).desc())
                 )
             ).all()
-            ranking_rows = (
+            structure_rows = [(row[0], row[1]) for row in raw_structure_rows]
+            raw_ranking_rows = (
                 await self.session.execute(
                     select(m.Scope2MeterAggregate.ammeter_name, func.sum(m.Scope2MeterAggregate.total_kwh))
                     .where(m.Scope2MeterAggregate.billing_month == latest_month)
@@ -295,14 +349,19 @@ class BigscreenPowerService:
                     .order_by(func.sum(m.Scope2MeterAggregate.total_kwh).desc())
                 )
             ).all()
+            ranking_rows = [(row[0], row[1]) for row in raw_ranking_rows]
 
         latest_alerts = (
-            await self.session.execute(
-                select(m.AlarmEvent)
-                .order_by(m.AlarmEvent.event_time.desc().nullslast(), m.AlarmEvent.id.desc())
-                .limit(6)
+            (
+                await self.session.execute(
+                    select(m.AlarmEvent)
+                    .order_by(m.AlarmEvent.event_time.desc().nullslast(), m.AlarmEvent.id.desc())
+                    .limit(6)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         device_online = int(
             (
@@ -318,7 +377,7 @@ class BigscreenPowerService:
             bs.BigscreenTrendPoint(
                 period=_month_period(row[0]),
                 energy_kwh=_to_float(row[1]),
-                carbon_co2e=_to_float(row[2]),
+                carbon_co2e=monthly_carbon.get(str(row[0]), 0.0),
                 value=_to_float(row[1]),
             )
             for row in monthly_rows[-12:]
@@ -328,7 +387,11 @@ class BigscreenPowerService:
         flow_links: list[bs.BigscreenFlowLink] = []
         for index, row in enumerate(structure_rows[:6], start=1):
             node_id = f"power-area-{index}"
-            flow_nodes.append(bs.BigscreenFlowNode(id=node_id, name=_safe_text(row[0], f"区域 {index}"), value=_to_float(row[1]), category="area"))
+            flow_nodes.append(
+                bs.BigscreenFlowNode(
+                    id=node_id, name=_safe_text(row[0], f"区域 {index}"), value=_to_float(row[1]), category="area"
+                )
+            )
             flow_links.append(bs.BigscreenFlowLink(source="source", target=node_id, value=_to_float(row[1])))
 
         return bs.BigscreenPowerPayload(
@@ -355,7 +418,12 @@ class BigscreenPowerService:
             hero_metrics=[
                 bs.BigscreenMetric(id="power-online", label="在线终端", value=device_online, unit="台"),
                 bs.BigscreenMetric(id="power-total", label="终端总量", value=device_total, unit="台"),
-                bs.BigscreenMetric(id="power-latest", label="最新账期总电量", value=round(_to_float(monthly_rows[-1][1]) if monthly_rows else 0, 2), unit="kWh"),
+                bs.BigscreenMetric(
+                    id="power-latest",
+                    label="最新账期总电量",
+                    value=round(_to_float(monthly_rows[-1][1]) if monthly_rows else 0, 2),
+                    unit="kWh",
+                ),
             ],
         )
 
@@ -365,87 +433,112 @@ class BigscreenCarbonService:
     session: AsyncSession
 
     async def build(self) -> bs.BigscreenCarbonPayload:
-        scope1_mobile = await _sum_first_available(self.session, m.Scope1MobileCombustion, ("computed_co2e", "amount"))
-        scope1_stationary = await _sum_first_available(
-            self.session,
-            m.Scope1StationaryCombustion,
-            ("computed_co2e", "amount"),
+        run = await self.session.scalar(
+            select(ghg.GhgCalculationRun)
+            .join(ghg.GhgInventoryReport, ghg.GhgInventoryReport.run_id == ghg.GhgCalculationRun.id)
+            .where(ghg.GhgInventoryReport.status == "published", ghg.GhgCalculationRun.status == "completed")
+            .order_by(ghg.GhgInventoryReport.published_at.desc().nullslast(), ghg.GhgInventoryReport.id.desc())
+            .limit(1)
         )
-        scope1_refrigerant = await _sum_first_available(
-            self.session,
-            m.Scope1RefrigerantLeak,
-            ("computed_co2e", "amount_kg"),
-        )
-        scope2_meter = await _sum_first_available(self.session, m.Scope2MeterAggregate, ("computed_co2e", "total_kwh"))
-        scope2_bill = await _sum_first_available(
-            self.session,
-            m.Scope2ElectricityBill,
-            ("computed_co2e", "total_kwh"),
-        )
-        scope3_waste = await _sum_first_available(
-            self.session,
-            m.Scope3WasteDisposal,
-            ("computed_co2e", "weight_ton"),
-        )
-        scope3_transport = await _sum_first_available(
-            self.session,
-            m.Scope3ThirdPartyTransport,
-            ("computed_co2e", "fuel_amount", "load_ton"),
-        )
+        if run is None:
+            run = await self.session.scalar(
+                select(ghg.GhgCalculationRun)
+                .where(ghg.GhgCalculationRun.status == "completed")
+                .order_by(ghg.GhgCalculationRun.completed_at.desc().nullslast(), ghg.GhgCalculationRun.id.desc())
+                .limit(1)
+            )
 
-        scope1_total = scope1_mobile + scope1_stationary + scope1_refrigerant
-        scope2_total = scope2_meter if scope2_meter > 0 else scope2_bill
-        scope3_total = scope3_waste + scope3_transport
+        category_values: dict[tuple[str, str], float] = {}
+        if run is not None:
+            result_rows = (
+                await self.session.execute(
+                    select(
+                        ghg.GhgCalculationResult.ghg_scope,
+                        ghg.GhgCalculationResult.iso_category_code,
+                        func.sum(ghg.GhgCalculationResult.co2e_kg),
+                    )
+                    .where(
+                        ghg.GhgCalculationResult.run_id == run.id,
+                        ghg.GhgCalculationResult.result_kind == "emission",
+                        or_(
+                            ghg.GhgCalculationResult.ghg_scope != "scope2",
+                            ghg.GhgCalculationResult.scope2_method == run.default_scope2_method,
+                        ),
+                    )
+                    .group_by(
+                        ghg.GhgCalculationResult.ghg_scope,
+                        ghg.GhgCalculationResult.iso_category_code,
+                    )
+                )
+            ).all()
+            category_values = {(str(scope), str(category)): _to_float(value) for scope, category, value in result_rows}
+
+        scope_values = {
+            scope: sum(value for (row_scope, _), value in category_values.items() if row_scope == scope)
+            for scope in ("scope1", "scope2", "scope3")
+        }
+        scope1_total = scope_values["scope1"]
+        scope2_total = scope_values["scope2"]
+        scope3_total = scope_values["scope3"]
 
         latest_alerts = (
-            await self.session.execute(
-                select(m.AlarmEvent)
-                .where(m.AlarmEvent.event_type == CARBON_ALERT_EVENT_TYPE)
-                .order_by(m.AlarmEvent.event_time.desc().nullslast(), m.AlarmEvent.id.desc())
-                .limit(6)
+            (
+                await self.session.execute(
+                    select(m.AlarmEvent)
+                    .where(m.AlarmEvent.event_type == CARBON_ALERT_EVENT_TYPE)
+                    .order_by(m.AlarmEvent.event_time.desc().nullslast(), m.AlarmEvent.id.desc())
+                    .limit(6)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         factor_rows = (
             await self.session.execute(
                 select(m.EmissionFactor.year, func.avg(m.EmissionFactor.factor_value))
-                .where(m.EmissionFactor.scope == "scope2", m.EmissionFactor.category == "electricity", m.EmissionFactor.is_active.is_(True))
+                .where(
+                    m.EmissionFactor.scope == "scope2",
+                    m.EmissionFactor.category == "electricity",
+                    m.EmissionFactor.is_active.is_(True),
+                )
                 .group_by(m.EmissionFactor.year)
                 .order_by(m.EmissionFactor.year.asc())
             )
         ).all()
 
         nodes = [
-            bs.BigscreenFlowNode(id="root", name="总碳排", value=scope1_total + scope2_total + scope3_total, category="root"),
+            bs.BigscreenFlowNode(
+                id="root", name="总碳排", value=scope1_total + scope2_total + scope3_total, category="root"
+            ),
             bs.BigscreenFlowNode(id="scope1", name="范围1", value=scope1_total, category="scope"),
             bs.BigscreenFlowNode(id="scope2", name="范围2", value=scope2_total, category="scope"),
             bs.BigscreenFlowNode(id="scope3", name="范围3", value=scope3_total, category="scope"),
-            bs.BigscreenFlowNode(id="mobile", name="移动源", value=scope1_mobile, category="activity"),
-            bs.BigscreenFlowNode(id="stationary", name="固定源", value=scope1_stationary, category="activity"),
-            bs.BigscreenFlowNode(id="refrigerant", name="制冷剂", value=scope1_refrigerant, category="activity"),
-            bs.BigscreenFlowNode(id="electricity", name="购入电力", value=scope2_total, category="activity"),
-            bs.BigscreenFlowNode(id="waste", name="废弃物", value=scope3_waste, category="activity"),
-            bs.BigscreenFlowNode(id="transport", name="运输", value=scope3_transport, category="activity"),
         ]
         links = [
             bs.BigscreenFlowLink(source="root", target="scope1", value=scope1_total),
             bs.BigscreenFlowLink(source="root", target="scope2", value=scope2_total),
             bs.BigscreenFlowLink(source="root", target="scope3", value=scope3_total),
-            bs.BigscreenFlowLink(source="scope1", target="mobile", value=scope1_mobile),
-            bs.BigscreenFlowLink(source="scope1", target="stationary", value=scope1_stationary),
-            bs.BigscreenFlowLink(source="scope1", target="refrigerant", value=scope1_refrigerant),
-            bs.BigscreenFlowLink(source="scope2", target="electricity", value=scope2_total),
-            bs.BigscreenFlowLink(source="scope3", target="waste", value=scope3_waste),
-            bs.BigscreenFlowLink(source="scope3", target="transport", value=scope3_transport),
         ]
-
-        commentary: list[str] = []
-        if scope2_total > 0:
-            commentary.append("范围2 仍然是当前大屏最稳定, 可追踪的主碳源, 适合作为首版经营展示主轴。")
-        if scope1_total == 0 and scope3_total == 0:
-            commentary.append("范围1与范围3 当前数据覆盖有限, 页面会如实展示为空或低值, 不使用演示值填充。")
-        if not factor_rows:
-            commentary.append("当前库内没有可直接用于碳价走势的正式数据, 首版图表保留空态。")
+        category_labels = {
+            "1.1": "直接排放",
+            "2.1": "输入能源间接排放",
+            "3.1": "运输间接排放",
+            "4.1": "使用产品间接排放",
+            "5.1": "产品使用间接排放",
+            "6.1": "其他间接排放",
+        }
+        for (scope, category_code), value in sorted(category_values.items()):
+            node_id = f"category-{category_code}"
+            nodes.append(
+                bs.BigscreenFlowNode(
+                    id=node_id,
+                    name=category_labels.get(category_code, category_code),
+                    value=value,
+                    category="activity",
+                )
+            )
+            links.append(bs.BigscreenFlowLink(source=scope, target=node_id, value=value))
 
         return bs.BigscreenCarbonPayload(
             carbon_compare=[
@@ -470,12 +563,19 @@ class BigscreenCarbonService:
                 for item in latest_alerts
             ],
             carbon_price_trend=[
-                bs.BigscreenTrendPoint(period=str(row[0]), carbon_co2e=round(_to_float(row[1]), 4), value=round(_to_float(row[1]), 4))
+                bs.BigscreenTrendPoint(
+                    period=str(row[0]), carbon_co2e=round(_to_float(row[1]), 4), value=round(_to_float(row[1]), 4)
+                )
                 for row in factor_rows
             ],
-            commentary=commentary,
+            commentary=[],
             hero_metrics=[
-                bs.BigscreenMetric(id="carbon-total", label="总碳排", value=round(scope1_total + scope2_total + scope3_total, 2), unit="kgCO2e"),
+                bs.BigscreenMetric(
+                    id="carbon-total",
+                    label="总碳排",
+                    value=round(scope1_total + scope2_total + scope3_total, 2),
+                    unit="kgCO2e",
+                ),
                 bs.BigscreenMetric(id="carbon-scope2", label="范围2占比", value=round(scope2_total, 2), unit="kgCO2e"),
                 bs.BigscreenMetric(id="carbon-factors", label="有效电力因子年份", value=len(factor_rows), unit="个"),
             ],

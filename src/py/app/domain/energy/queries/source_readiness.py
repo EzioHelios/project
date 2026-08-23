@@ -34,14 +34,14 @@ class EnergySourceReadinessQueryService:
                         ) as energy_interval_count,
                         (
                             select count(*)::int
-                            from dataapp_scope1stationarycombustion
-                            where team_id = :team_id and status = 'approved' and record_usage <> 'reference'
-                        ) as scope1_stationary_count,
+                            from ghg_activity_record
+                            where team_id = :team_id and status = 'approved' and ghg_scope = 'scope1'
+                        ) as scope1_activity_count,
                         (
                             select count(*)::int
-                            from dataapp_scope2electricitybill
-                            where team_id = :team_id and status = 'approved' and record_usage <> 'reference'
-                        ) as scope2_electricity_count,
+                            from ghg_activity_record
+                            where team_id = :team_id and status = 'approved' and ghg_scope = 'scope2'
+                        ) as scope2_activity_count,
                         (
                             select count(*)::int
                             from dataapp_productionoutputfact
@@ -57,20 +57,22 @@ class EnergySourceReadinessQueryService:
         )
         counts = jsonable_mapping(dict(row))
         energy_interval_count = int(counts["energy_interval_count"] or 0)
-        scope1_stationary_count = int(counts["scope1_stationary_count"] or 0)
-        scope2_electricity_count = int(counts["scope2_electricity_count"] or 0)
+        scope1_activity_count = int(counts["scope1_activity_count"] or 0)
+        scope2_activity_count = int(counts["scope2_activity_count"] or 0)
         production_output_count = int(counts["production_output_count"] or 0)
-        scope_count = scope1_stationary_count + scope2_electricity_count
+        inventory_activity_count = scope1_activity_count + scope2_activity_count
 
         analysis_status = "ready" if energy_interval_count > 0 else "source_missing"
         production_status = "ready" if production_output_count > 0 else "source_missing"
-        accounting_energy_status = "ready" if scope_count > 0 else "source_missing"
-        operations_status = "ready" if energy_interval_count > 0 else "partial" if scope_count > 0 else "source_missing"
+        inventory_energy_status = "ready" if inventory_activity_count > 0 else "source_missing"
+        operations_status = (
+            "ready" if energy_interval_count > 0 else "partial" if inventory_activity_count > 0 else "source_missing"
+        )
         planning_status = (
             "ready"
             if energy_interval_count > 0 and production_output_count > 0
             else "partial"
-            if energy_interval_count > 0 or production_output_count > 0 or scope_count > 0
+            if energy_interval_count > 0 or production_output_count > 0 or inventory_activity_count > 0
             else "source_missing"
         )
 
@@ -85,7 +87,7 @@ class EnergySourceReadinessQueryService:
                 "production_denominator": production_status,
                 "budget_planning": planning_status,
                 "benchmarking": planning_status,
-                "carbon_accounting_energy": accounting_energy_status,
+                "ghg_inventory_energy": inventory_energy_status,
             },
             "items": [
                 {
@@ -95,16 +97,16 @@ class EnergySourceReadinessQueryService:
                     "status": analysis_status,
                 },
                 {
-                    "key": "scope1_stationary_combustion",
-                    "label": "Scope1 固定燃烧",
-                    "count": scope1_stationary_count,
-                    "status": "ready" if scope1_stationary_count else "source_missing",
+                    "key": "scope1_activities",
+                    "label": "Scope 1 活动数据",
+                    "count": scope1_activity_count,
+                    "status": "ready" if scope1_activity_count else "source_missing",
                 },
                 {
-                    "key": "scope2_electricity_bills",
-                    "label": "Scope2 电力账单",
-                    "count": scope2_electricity_count,
-                    "status": "ready" if scope2_electricity_count else "source_missing",
+                    "key": "scope2_activities",
+                    "label": "Scope 2 活动数据",
+                    "count": scope2_activity_count,
+                    "status": "ready" if scope2_activity_count else "source_missing",
                 },
                 {
                     "key": "production_output_facts",
@@ -120,8 +122,8 @@ def _empty_summary() -> dict[str, Any]:
     return {
         "counts": {
             "energy_interval_count": 0,
-            "scope1_stationary_count": 0,
-            "scope2_electricity_count": 0,
+            "scope1_activity_count": 0,
+            "scope2_activity_count": 0,
             "production_output_count": 0,
         },
         "statuses": {
@@ -133,12 +135,12 @@ def _empty_summary() -> dict[str, Any]:
             "production_denominator": "source_missing",
             "budget_planning": "source_missing",
             "benchmarking": "source_missing",
-            "carbon_accounting_energy": "source_missing",
+            "ghg_inventory_energy": "source_missing",
         },
         "items": [
             {"key": "energy_interval_facts", "label": "能源计量事实", "count": 0, "status": "source_missing"},
-            {"key": "scope1_stationary_combustion", "label": "Scope1 固定燃烧", "count": 0, "status": "source_missing"},
-            {"key": "scope2_electricity_bills", "label": "Scope2 电力账单", "count": 0, "status": "source_missing"},
+            {"key": "scope1_activities", "label": "Scope 1 活动数据", "count": 0, "status": "source_missing"},
+            {"key": "scope2_activities", "label": "Scope 2 活动数据", "count": 0, "status": "source_missing"},
             {"key": "production_output_facts", "label": "产量分母事实", "count": 0, "status": "source_missing"},
         ],
     }

@@ -1,2 +1,1 @@
 """Carbon verification domain policies."""
-

@@ -1,1 +1,0 @@
-"""Carbon accounting bounded context."""

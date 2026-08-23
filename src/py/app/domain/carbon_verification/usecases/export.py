@@ -9,14 +9,19 @@ import zipfile
 from datetime import UTC
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import unquote, urlparse
 
 from sqlalchemy import select
 
 from app.db import models as m
-from app.domain.carbon_verification.queries.verification import CarbonVerificationQueryService, VerificationQuery
-from app.domain.carbon_verification.usecases.report_renderer import RenderedReportFile, ReportDocumentRenderer
+from app.domain.carbon_verification.infrastructure.report_renderer import RenderedReportFile, ReportDocumentRenderer
+from app.domain.carbon_verification.queries.canonical import (
+    CanonicalVerificationQueryService as CarbonVerificationQueryService,
+)
+from app.domain.carbon_verification.queries.canonical import (
+    VerificationQuery,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,31 +38,36 @@ class CarbonVerificationExportUseCase:
         self._session = session
 
     async def create_export_job(self, data: dict[str, Any]) -> m.CarbonVerificationExportJob:
+        """Validate and persist a queued export without performing file I/O."""
         export_type = str(data.get("export_type") or "material_package")
+        if export_type not in {"organization_report", "material_package"}:
+            msg = "不支持的导出类型"
+            raise ValueError(msg)
         requested_by = _str_or_none(data.get("requested_by"))
         project_id = _int_or_none(data.get("project_id"))
         project = None
         if project_id is not None:
             project = await self._get_project_or_raise(project_id)
-            if project.accounting_batch_id is None:
-                msg = "核查项目未绑定组织排放清单批次"
+            if project.inventory_report_id is None or project.calculation_run_id is None:
+                msg = "核查项目未绑定已发布盘查报告"
                 raise ValueError(msg)
-            batch = await self._session.get(m.CarbonAccountingBatch, project.accounting_batch_id)
-            if batch is None:
-                msg = "核查项目绑定的组织排放清单批次不存在"
+            report = await self._session.get(m.GhgInventoryReport, project.inventory_report_id)
+            if report is None:
+                msg = "核查项目绑定的盘查报告不存在"
                 raise ValueError(msg)
-            if batch.status != "locked" or batch.inventory_status != "locked":
-                msg = "核查项目绑定的组织排放清单尚未锁定"
+            if report.status != "published":
+                msg = "核查项目绑定的盘查报告尚未发布"
                 raise ValueError(msg)
         query = _query_from_data(data, project=project)
         job_no = _job_no(query, export_type)
-        query_service = CarbonVerificationQueryService(self._session)
-        report = await query_service.report_context(query)
-        package = await query_service.material_package(query)
-        evidence = await query_service.evidence_manifest(query)
-        issues = await query_service.issues(query)
-        audit_trail = await query_service.audit_trail(query)
-
+        request_snapshot = {
+            "year": query.year,
+            "status": query.status,
+            "scope": query.scope,
+            "project_id": project_id,
+            "limit": query.limit,
+            "offset": query.offset,
+        }
         job = m.CarbonVerificationExportJob(
             job_no=job_no,
             project_id=project_id,
@@ -65,24 +75,63 @@ class CarbonVerificationExportUseCase:
             report_year=query.year,
             scope_filter=query.scope,
             status_filter=query.status,
-            status="running",
-            template_name=report["template"].get("name"),
-            template_path=report["template"].get("path"),
-            standard_name=report["standard"].get("name"),
-            standard_code=report["standard"].get("code"),
+            status="queued",
+            manifest_payload={"request": request_snapshot},
             requested_by=requested_by,
         )
         self._session.add(job)
-        await self._session.flush()
+        await self._session.commit()
+        await self._session.refresh(job)
+        return job
+
+    async def render_export_job(self, job_id: int) -> m.CarbonVerificationExportJob:  # noqa: PLR0915
+        """Render one queued export from its frozen request snapshot."""
+        job = await self._session.get(m.CarbonVerificationExportJob, job_id)
+        if job is None:
+            msg = "导出任务不存在"
+            raise ValueError(msg)
+        if job.status == "completed":
+            return job
+        manifest_payload = cast("object", job.manifest_payload)
+        request_snapshot = _mapping(_mapping(manifest_payload).get("request"))
+        project = await self._get_project_or_raise(job.project_id) if job.project_id is not None else None
+        query = _query_from_data(request_snapshot, project=project)
+        export_type = job.export_type
+        job.status = "running"
+        job.error_message = None
+        await self._session.commit()
+
+        query_service = CarbonVerificationQueryService(self._session)
+        report = await query_service.report_context(query)
+        package = await query_service.material_package(query)
+        evidence = await query_service.evidence_manifest(query)
+        issues = await query_service.issues(query)
+        audit_trail = await query_service.audit_trail(query)
+        formal_readiness = _mapping(report.get("formal_readiness"))
+        if export_type == "organization_report" and formal_readiness.get("status") != "ready":
+            checks_value = formal_readiness.get("checks")
+            checks = cast("list[dict[str, Any]]", checks_value) if isinstance(checks_value, list) else []
+            blocked = [str(item.get("label")) for item in checks if item.get("status") == "blocked"]
+            msg = f"正式盘查报告尚未就绪: {'、'.join(blocked) or '存在未满足的导出条件'}"
+            raise ValueError(msg)
+        job.template_name = report["template"].get("name")
+        job.template_path = report["template"].get("path")
+        job.standard_name = report["standard"].get("name")
+        job.standard_code = report["standard"].get("code")
 
         try:
-            export_dir = EXPORT_ROOT / job_no
-            rendered_files = ReportDocumentRenderer(
-                template_path=Path(str(report["template"].get("path") or "")),
-                output_dir=export_dir / "rendered",
-            ).render(report)
+            export_dir = EXPORT_ROOT / job.job_no
+            rendered_files = (
+                ReportDocumentRenderer(
+                    template_path=Path(str(report["template"].get("path") or "")),
+                    output_dir=export_dir / "rendered",
+                ).render(report)
+                if formal_readiness.get("status") == "ready"
+                else []
+            )
             archive_path, archive_files, manifest_payload = _write_export_archive(
-                job_no=job_no,
+                job_no=job.job_no,
+                export_type=export_type,
                 report=report,
                 package=package,
                 evidence=evidence,
@@ -94,7 +143,7 @@ class CarbonVerificationExportUseCase:
             job.file_path = str(archive_path)
             job.file_sha256 = archive_sha256
             job.file_size_bytes = archive_path.stat().st_size
-            job.manifest_payload = manifest_payload
+            job.manifest_payload = {"request": request_snapshot, "result": manifest_payload}
             job.status = "completed"
             job.completed_at = _utc_now_naive()
             for item in archive_files:
@@ -114,14 +163,16 @@ class CarbonVerificationExportUseCase:
             job.error_message = str(exc)
             job.completed_at = _utc_now_naive()
             await self._session.commit()
-            msg = "核查材料包导出失败"
+            msg = "盘查报告导出失败" if export_type == "organization_report" else "核查材料包导出失败"
             raise ValueError(msg) from exc
 
         await self._session.commit()
         await self._session.refresh(job)
         return job
 
-    async def list_export_jobs(self, *, project_id: int | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+    async def list_export_jobs(
+        self, *, project_id: int | None = None, limit: int = 50, offset: int = 0
+    ) -> dict[str, Any]:
         stmt = select(m.CarbonVerificationExportJob).order_by(m.CarbonVerificationExportJob.id.desc())
         count_stmt = select(m.CarbonVerificationExportJob.id)
         if project_id is not None:
@@ -129,7 +180,12 @@ class CarbonVerificationExportUseCase:
             count_stmt = count_stmt.where(m.CarbonVerificationExportJob.project_id == project_id)
         rows = (await self._session.execute(stmt.limit(_limit(limit)).offset(max(0, offset)))).scalars().all()
         total = len((await self._session.execute(count_stmt)).scalars().all())
-        return {"items": [_job_payload(row) for row in rows], "total": total, "limit": _limit(limit), "offset": max(0, offset)}
+        return {
+            "items": [_job_payload(row) for row in rows],
+            "total": total,
+            "limit": _limit(limit),
+            "offset": max(0, offset),
+        }
 
     async def get_export_job(self, job_id: int) -> dict[str, Any]:
         job = await self._session.get(m.CarbonVerificationExportJob, job_id)
@@ -163,7 +219,6 @@ def _query_from_data(data: dict[str, Any], *, project: m.CarbonVerificationProje
         status=_str_or_none(data.get("status")),
         scope=_str_or_none(data.get("scope")),
         project_id=project.id if project else _int_or_none(data.get("project_id")),
-        accounting_batch_id=project.accounting_batch_id if project else _int_or_none(data.get("accounting_batch_id")),
         limit=max(1, min(_int_or_none(data.get("limit")) or 500, 500)),
         offset=max(0, _int_or_none(data.get("offset")) or 0),
     )
@@ -172,6 +227,7 @@ def _query_from_data(data: dict[str, Any], *, project: m.CarbonVerificationProje
 def _write_export_archive(
     *,
     job_no: str,
+    export_type: str,
     report: dict[str, Any],
     package: dict[str, Any],
     evidence: dict[str, Any],
@@ -182,14 +238,17 @@ def _write_export_archive(
     export_dir = EXPORT_ROOT / job_no
     export_dir.mkdir(parents=True, exist_ok=True)
     archive_path = export_dir / f"{job_no}.zip"
-    files = {
-        "report/report-context.json": report,
-        "data/activity-data.csv": _csv_bytes(report.get("activity_data", [])),
-        "data/factor-parameters.csv": _csv_bytes(report.get("factor_parameters", [])),
-        "evidence/evidence-manifest.csv": _csv_bytes(evidence.get("items", [])),
-        "quality/issues.csv": _csv_bytes(issues.get("items", [])),
-        "audit/audit-trail.csv": _csv_bytes(audit_trail.get("items", [])),
-    }
+    files: dict[str, Any] = {"report/report-context.json": report}
+    if export_type == "material_package":
+        files.update(
+            {
+                "data/activity-data.csv": _csv_bytes(report.get("activity_data", [])),
+                "data/factor-parameters.csv": _csv_bytes(report.get("factor_parameters", [])),
+                "evidence/evidence-manifest.csv": _csv_bytes(evidence.get("items", [])),
+                "quality/issues.csv": _csv_bytes(issues.get("items", [])),
+                "audit/audit-trail.csv": _csv_bytes(audit_trail.get("items", [])),
+            }
+        )
     archive_files: list[dict[str, Any]] = []
     evidence_files: list[dict[str, Any]] = []
     with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
@@ -218,14 +277,18 @@ def _write_export_archive(
                     "sha256": hashlib.sha256(payload).hexdigest(),
                 }
             )
-        evidence_files = _write_evidence_originals(
-            archive=archive,
-            evidence_items=evidence.get("items", []),
-            archive_files=archive_files,
-            year=str(report.get("reporting_period", {}).get("year") or package.get("filters", {}).get("year") or "all"),
-        )
+        if export_type == "material_package":
+            evidence_files = _write_evidence_originals(
+                archive=archive,
+                evidence_items=evidence.get("items", []),
+                archive_files=archive_files,
+                year=str(
+                    report.get("reporting_period", {}).get("year") or package.get("filters", {}).get("year") or "all"
+                ),
+            )
         manifest_payload = {
             **package,
+            "export_type": export_type,
             "generated_at": _utc_now_naive().isoformat(),
             "exported_files": list(archive_files),
             "evidence_files": evidence_files,
@@ -268,7 +331,9 @@ def _write_evidence_originals(
             evidence_files.append(manifest_item)
             continue
         archive_path = _deduplicate_archive_path(
-            _evidence_archive_path(year=year, evidence_code=str(item.get("evidence_code") or "evidence"), file_path=file_path, item=item),
+            _evidence_archive_path(
+                year=year, evidence_code=str(item.get("evidence_code") or "evidence"), file_path=file_path, item=item
+            ),
             used_archive_paths,
         )
         used_archive_paths.add(archive_path)
@@ -278,7 +343,7 @@ def _write_evidence_originals(
         exported_file = {
             "file_type": "evidence_original",
             "path": archive_path,
-            "source_name": str(item.get("source") or "scope_record_attachments"),
+            "source_name": str(item.get("source") or "ghg_evidence"),
             "content_type": item.get("content_type") or _content_type_from_suffix(file_path),
             "size_bytes": size_bytes,
             "sha256": sha256,
@@ -305,7 +370,7 @@ def _evidence_file_manifest_item(item: dict[str, Any], *, source_path: str | Non
         "display_name": item.get("display_name"),
         "period": item.get("period"),
         "source_path": source_path,
-        "source": item.get("source") or "scope_record_attachments",
+        "source": item.get("source") or "ghg_evidence",
         "material_status": item.get("material_status"),
         "attachment_type": item.get("attachment_type"),
     }
@@ -347,7 +412,9 @@ def _deduplicate_archive_path(path: str, used_paths: set[str]) -> str:
 
 
 def _safe_archive_segment(value: str) -> str:
-    cleaned = "".join("_" if char in {"/", "\\"} or ord(char) < CONTROL_CHARACTER_LIMIT else char for char in value).strip(" .")
+    cleaned = "".join(
+        "_" if char in {"/", "\\"} or ord(char) < CONTROL_CHARACTER_LIMIT else char for char in value
+    ).strip(" .")
     return cleaned or "unknown"
 
 
@@ -422,7 +489,7 @@ def _sha256_file(path: Path) -> str:
 
 
 def _job_payload(job: m.CarbonVerificationExportJob, *, include_files: bool = False) -> dict[str, Any]:
-    payload = {
+    payload: dict[str, Any] = {
         "id": job.id,
         "job_no": job.job_no,
         "project_id": job.project_id,
@@ -457,8 +524,12 @@ def _job_payload(job: m.CarbonVerificationExportJob, *, include_files: bool = Fa
             }
             for item in job.files
         ]
-        payload["manifest"] = job.manifest_payload
+        payload["manifest"] = cast("Any", getattr(job, "manifest_payload", None))
     return payload
+
+
+def _mapping(value: Any) -> dict[str, Any]:
+    return cast("dict[str, Any]", value) if isinstance(value, dict) else {}
 
 
 def _job_no(query: VerificationQuery, export_type: str) -> str:
@@ -482,13 +553,13 @@ def _source_name(path: str) -> str:
     if path.startswith("report/"):
         return "carbon_verification.report_context"
     if path.startswith("data/"):
-        return "carbon_accounting"
+        return "ghg_inventory"
     if path.startswith("evidence/"):
-        return "scope_record_attachments"
+        return "ghg_evidence"
     if path.startswith("quality/"):
         return "carbon_verification.issues"
     if path.startswith("audit/"):
-        return "carbon_audit_log"
+        return "ghg_inventory_audit"
     return "carbon_verification"
 
 

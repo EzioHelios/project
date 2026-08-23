@@ -1,15 +1,13 @@
-"""红外采集 (HW) HTTP API 适配器 (Litestar版)
-"""
+"""Infrared-meter HTTP acquisition adapter."""
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from operator import itemgetter
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import models as m
 from app.domain.carbon.collectors.base import IDataCollector
@@ -21,12 +19,15 @@ from app.domain.metering.reading_facts import (
 )
 from app.lib.settings import get_settings
 
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
 class HwAdapter(IDataCollector):
-    """红外采集 HTTP 轮询适配器"""
+    """Poll infrared meters and persist canonical metering facts."""
 
     FIELD_MAPPING = {
         "3": "forward_active_total",
@@ -35,7 +36,7 @@ class HwAdapter(IDataCollector):
         "6": "reverse_reactive_total",
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.client = httpx.AsyncClient(
             base_url=settings.carbon.HW_API_HOST,
             headers={"Content-Type": "application/json"},
@@ -45,7 +46,7 @@ class HwAdapter(IDataCollector):
     async def connect(self) -> bool:
         return True
 
-    async def fetch_data(self, **kwargs) -> Any:
+    async def fetch_data(self, **kwargs: Any) -> Any:
         start_time = kwargs.get("start_time")
         end_time = kwargs.get("end_time")
 
@@ -61,14 +62,15 @@ class HwAdapter(IDataCollector):
             r.raise_for_status()
             result = r.json()
             result["_meta"] = {"start_time": start_time, "end_time": end_time}
-            return result
-        except Exception as e:
-            logger.error(f"红外：拉取数据异常: {e}")
+        except (httpx.HTTPError, ValueError, TypeError, KeyError):
+            logger.exception("红外采集拉取数据异常")
             return {"status": 0}
+        else:
+            return result
 
-    def normalize(self, raw: Any) -> list[dict]:
+    def normalize(self, raw: Any) -> list[dict[str, Any]]:
         if raw.get("status") != 1:
-            logger.error(f"红外：拉取失败，原因：{raw.get('msg')}")
+            logger.error("红外采集拉取失败, 原因: %s", raw.get("msg"))
             return []
         meta = raw.get("_meta", {})
         data_list = sorted(raw.get("data", []), key=itemgetter("mid", "fid"))
@@ -117,7 +119,7 @@ class HwAdapter(IDataCollector):
                 )
         return rows
 
-    async def save(self, db_session: AsyncSession, normalized_list: list[dict]) -> int:
+    async def save(self, db_session: AsyncSession, normalized_list: list[dict[str, Any]]) -> int:
         if not normalized_list:
             return 0
         try:
@@ -141,7 +143,7 @@ class HwAdapter(IDataCollector):
                 address = row.get("equipment_id")
                 equipment = equipment_by_address.get(address)
                 if equipment is None:
-                    logger.warning("红外：未找到平台设备，跳过电表 address=%s", address)
+                    logger.warning("红外采集未找到平台设备, 跳过电表 address=%s", address)
                     continue
                 reading_time = _parse_datetime(row.get("end_time") or row.get("start_time"))
                 if reading_time is None:
@@ -167,15 +169,16 @@ class HwAdapter(IDataCollector):
                     )
             inserted = await MeterReadingFactWriter(db_session).write_many(facts)
             await db_session.commit()
-            logger.info("红外：成功写入 %s 条规范读数", inserted)
-            return inserted
-        except Exception as e:
-            logger.error(f"红外：保存数据失败: {e}")
+            logger.info("红外采集成功写入 %s 条规范读数", inserted)
+        except (ValueError, TypeError, KeyError, ArithmeticError):
+            logger.exception("红外采集保存数据失败")
             await db_session.rollback()
             return 0
+        else:
+            return inserted
 
-    async def sync_device_status(self, db_session: AsyncSession):
-        """同步设备状态"""
+    async def sync_device_status(self, db_session: AsyncSession) -> None:
+        """Synchronize meter availability and relay status."""
         try:
             r = await self.client.get("/Api/Meter", params={"auth": settings.carbon.HW_AUTH_CODE})
             jo = r.json()
@@ -185,14 +188,14 @@ class HwAdapter(IDataCollector):
                     await db_session.execute(
                         m.MonitorEquipment.__table__.update()
                         .where(
-                            (m.MonitorEquipment.external_device_id == obj["address"]) |
-                            (m.MonitorEquipment.code == obj["address"])
+                            (m.MonitorEquipment.external_device_id == obj["address"])
+                            | (m.MonitorEquipment.code == obj["address"])
                         )
                         .values(status=status, trip_state=status)
                     )
                 await db_session.commit()
-        except Exception as e:
-            logger.error(f"红外：同步设备状态异常: {e}")
+        except (httpx.HTTPError, ValueError, TypeError, KeyError):
+            logger.exception("红外采集同步设备状态异常")
 
 
 def _parse_datetime(value: object) -> datetime | None:
@@ -203,7 +206,8 @@ def _parse_datetime(value: object) -> datetime | None:
         return None
     for pattern in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
         try:
-            return datetime.strptime(text, pattern)
+            return datetime.strptime(text, pattern).replace(tzinfo=UTC)
         except ValueError:
             continue
-    raise ValueError(f"红外时间格式无法识别: {value}")
+    msg = f"红外时间格式无法识别: {value}"
+    raise ValueError(msg)

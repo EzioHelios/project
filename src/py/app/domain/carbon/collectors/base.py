@@ -1,48 +1,38 @@
-"""采集适配器抽象基类 (IDataCollector)
-"""
+"""Abstract data-acquisition adapter contract."""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class IDataCollector(ABC):
-    """统一数据采集接口"""
+    """Uniform data-acquisition adapter interface."""
 
     @abstractmethod
     async def connect(self) -> bool:
-        """建立连接（如创建 HTTP session、连接 MQTT broker 等）。
-        返回 True 表示连接成功。
-        """
+        """Open the upstream connection and report whether it is ready."""
         ...
 
     @abstractmethod
-    async def fetch_data(self, **kwargs) -> Any:
-        """从数据源拉取原始数据。
-        返回原始接口响应（dict / list / bytes 等）。
-        """
+    async def fetch_data(self, **kwargs: Any) -> Any:
+        """Fetch one raw payload from the upstream data source."""
         ...
 
     @abstractmethod
-    def normalize(self, raw: Any) -> list[dict]:
-        """将原始响应标准化为我们内部格式的字典列表。
-        每个字典对应一条待入库记录的字段键值对。
-        """
+    def normalize(self, raw: Any) -> list[dict[str, Any]]:
+        """Normalize a raw payload into internal records."""
         ...
 
     @abstractmethod
-    async def save(self, db_session: AsyncSession, normalized_list: list[dict]) -> int:
-        """将标准化后的数据批量写入数据库。
-        返回写入条数。
-        """
+    async def save(self, db_session: AsyncSession, normalized_list: list[dict[str, Any]]) -> int:
+        """Persist normalized records and return the inserted count."""
         ...
 
-    async def fetch_and_save(self, db_session: AsyncSession, **kwargs) -> int:
-        """模板方法：fetch_data -> normalize -> save 一气呵成。
-        返回保存条数。
-        """
+    async def fetch_and_save(self, db_session: AsyncSession, **kwargs: Any) -> int:
+        """Fetch, normalize and persist one upstream payload."""
         await self.connect()
         raw = await self.fetch_data(**kwargs)
         normalized = self.normalize(raw)

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from sqlalchemy import func, select
 
 from app.db import models as m
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -16,7 +18,7 @@ class ProjectQuery:
     status: str | None = None
     reporting_org_id: int | None = None
     period_id: int | None = None
-    accounting_batch_id: int | None = None
+    inventory_report_id: int | None = None
     verification_year: int | None = None
     limit: int = 100
     offset: int = 0
@@ -41,19 +43,25 @@ class CarbonVerificationProjectQueryService:
         for condition in _conditions(query):
             stmt = stmt.where(condition)
             count_stmt = count_stmt.where(condition)
-        rows = (await self._session.execute(stmt.limit(_limit(query.limit)).offset(max(0, query.offset)))).scalars().all()
+        rows = (
+            (await self._session.execute(stmt.limit(_limit(query.limit)).offset(max(0, query.offset)))).scalars().all()
+        )
         total = int(await self._session.scalar(count_stmt) or 0)
         return {
             "items": [await self.project_payload(row) for row in rows],
             "total": total,
             "limit": _limit(query.limit),
             "offset": max(0, query.offset),
-            "summary": await self.summary(),
+            "summary": await self.summary(query),
             "filters": _filters(query),
         }
 
-    async def summary(self) -> dict[str, Any]:
-        rows = (await self._session.execute(select(m.CarbonVerificationProject))).scalars().all()
+    async def summary(self, query: ProjectQuery | None = None) -> dict[str, Any]:
+        stmt = select(m.CarbonVerificationProject)
+        if query is not None:
+            for condition in _conditions(query):
+                stmt = stmt.where(condition)
+        rows = list((await self._session.execute(stmt)).scalars().all())
         return {
             "total": len(rows),
             "by_status": _count_by(rows, "status"),
@@ -68,8 +76,10 @@ class CarbonVerificationProjectQueryService:
             m.CarbonVerificationFinding.project_id == row.id,
             m.CarbonVerificationFinding.status.in_(("open", "rectifying", "resolved")),
         )
-        attachment_count = await self._count(m.CarbonVerificationAttachment, m.CarbonVerificationAttachment.project_id == row.id)
-        export_count = await self._count(m.CarbonVerificationExportJob, m.CarbonVerificationExportJob.project_id == row.id)
+        evidence_count = await self._project_evidence_count(row)
+        export_count = await self._count(
+            m.CarbonVerificationExportJob, m.CarbonVerificationExportJob.project_id == row.id
+        )
         return {
             "id": row.id,
             "project_no": row.project_no,
@@ -86,13 +96,14 @@ class CarbonVerificationProjectQueryService:
             "boundary_id": row.boundary_id,
             "boundary_name": row.boundary.boundary_name if row.boundary else None,
             "boundary_no": row.boundary.boundary_no if row.boundary else None,
-            "accounting_batch_id": row.accounting_batch_id,
-            "batch_no": row.accounting_batch.batch_no if row.accounting_batch else None,
-            "batch_name": row.accounting_batch.batch_name if row.accounting_batch else None,
-            "batch_status": row.accounting_batch.status if row.accounting_batch else None,
-            "batch_inventory_status": row.accounting_batch.inventory_status if row.accounting_batch else None,
-            "batch_locked": _batch_locked(row.accounting_batch) if row.accounting_batch else False,
-            "batch_locked_at": row.accounting_batch.locked_at.isoformat() if row.accounting_batch and row.accounting_batch.locked_at else None,
+            "inventory_report_id": row.inventory_report_id,
+            "report_code": row.inventory_report.report_code if row.inventory_report else None,
+            "report_version": row.inventory_report.version if row.inventory_report else None,
+            "report_title": row.inventory_report.title if row.inventory_report else None,
+            "report_status": row.inventory_report.status if row.inventory_report else None,
+            "calculation_run_id": row.calculation_run_id,
+            "run_code": row.calculation_run.run_code if row.calculation_run else None,
+            "inventory_code": row.calculation_run.inventory_code if row.calculation_run else None,
             "template_version_id": row.template_version_id,
             "template_name": row.template_version.template_name if row.template_version else None,
             "template_version": row.template_version.version if row.template_version else None,
@@ -103,14 +114,23 @@ class CarbonVerificationProjectQueryService:
             "lead_reviewer": row.lead_reviewer,
             "responsible_person": row.responsible_person,
             "verifier_org": row.verifier_org,
+            "assurance_level": row.assurance_level,
+            "materiality_threshold_pct": (
+                str(row.materiality_threshold_pct) if row.materiality_threshold_pct is not None else None
+            ),
+            "verification_basis": row.verification_basis,
+            "sampling_strategy": row.sampling_strategy,
+            "site_visit_required": row.site_visit_required,
+            "site_visit_status": row.site_visit_status,
+            "conclusion_status": row.conclusion_status,
             "readiness_status": row.readiness_status,
             "conclusion": row.conclusion,
             "scope_description": row.scope_description,
-            "finding_summary": row.finding_summary,
+            "finding_summary": cast("dict[str, Any] | None", cast("Any", row).finding_summary),
             "artifact_counts": {
                 "finding_count": finding_count,
                 "open_finding_count": open_finding_count,
-                "attachment_count": attachment_count,
+                "evidence_count": evidence_count,
                 "export_count": export_count,
             },
             "source_name": row.source_name,
@@ -122,25 +142,55 @@ class CarbonVerificationProjectQueryService:
         }
 
     async def _count(self, model: type[Any], *conditions: Any) -> int:
-        return int((await self._session.execute(select(func.count()).select_from(model).where(*conditions))).scalar_one() or 0)
+        return int(
+            (await self._session.execute(select(func.count()).select_from(model).where(*conditions))).scalar_one() or 0
+        )
+
+    async def _project_evidence_count(self, row: m.CarbonVerificationProject) -> int:
+        project_links = int(
+            await self._session.scalar(
+                select(func.count(func.distinct(m.GhgEvidenceLink.evidence_id))).where(
+                    m.GhgEvidenceLink.record_type == "verification_project",
+                    m.GhgEvidenceLink.record_code == row.project_no,
+                )
+            )
+            or 0
+        )
+        if row.calculation_run is None:
+            return project_links
+        activity_codes = select(m.GhgActivityRecord.record_code).where(
+            m.GhgActivityRecord.inventory_code == row.calculation_run.inventory_code
+        )
+        activity_links = int(
+            await self._session.scalar(
+                select(func.count(func.distinct(m.GhgEvidenceLink.evidence_id))).where(
+                    m.GhgEvidenceLink.record_type == "activity",
+                    m.GhgEvidenceLink.record_code.in_(activity_codes),
+                )
+            )
+            or 0
+        )
+        return project_links + activity_links
 
 
 def _conditions(query: ProjectQuery) -> list[Any]:
-    conditions = []
-    if query.status and query.status != "all":
+    conditions: list[Any] = []
+    if query.status is None:
+        conditions.append(m.CarbonVerificationProject.status != "archived")
+    elif query.status != "all":
         conditions.append(m.CarbonVerificationProject.status == query.status)
     if query.reporting_org_id is not None:
         conditions.append(m.CarbonVerificationProject.reporting_org_id == query.reporting_org_id)
     if query.period_id is not None:
         conditions.append(m.CarbonVerificationProject.period_id == query.period_id)
-    if query.accounting_batch_id is not None:
-        conditions.append(m.CarbonVerificationProject.accounting_batch_id == query.accounting_batch_id)
+    if query.inventory_report_id is not None:
+        conditions.append(m.CarbonVerificationProject.inventory_report_id == query.inventory_report_id)
     if query.verification_year is not None:
         conditions.append(m.CarbonVerificationProject.verification_year == query.verification_year)
     return conditions
 
 
-def _count_by(rows: list[m.CarbonVerificationProject], attr: str) -> dict[str, int]:
+def _count_by(rows: Sequence[m.CarbonVerificationProject], attr: str) -> dict[str, int]:
     result: dict[str, int] = {}
     for row in rows:
         value = str(getattr(row, attr, None) or "unknown")
@@ -148,16 +198,12 @@ def _count_by(rows: list[m.CarbonVerificationProject], attr: str) -> dict[str, i
     return result
 
 
-def _batch_locked(batch: m.CarbonAccountingBatch) -> bool:
-    return batch.status == "locked" and batch.inventory_status == "locked"
-
-
 def _filters(query: ProjectQuery) -> dict[str, Any]:
     return {
         "status": query.status,
         "reporting_org_id": query.reporting_org_id,
         "period_id": query.period_id,
-        "accounting_batch_id": query.accounting_batch_id,
+        "inventory_report_id": query.inventory_report_id,
         "verification_year": query.verification_year,
         "limit": query.limit,
         "offset": query.offset,

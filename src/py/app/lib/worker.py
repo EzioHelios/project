@@ -37,6 +37,8 @@ def saq_worker_settings() -> dict[str, Any]:
     """Return the SAQ worker settings dict used by the standalone worker process."""
     from app.domain.accounts import jobs as account_jobs
     from app.domain.carbon import jobs as carbon_jobs
+    from app.domain.carbon_verification import jobs as carbon_verification_jobs
+    from app.domain.decarbonization import jobs as decarbonization_jobs
     from app.domain.iot_ingestion import infrastructure as iot_infrastructure
     from app.domain.iot_ingestion import jobs as iot_jobs
     from app.domain.microgrid import jobs as microgrid_jobs
@@ -62,8 +64,8 @@ def saq_worker_settings() -> dict[str, Any]:
             carbon_jobs.pull_yunji_data,
             carbon_jobs.sync_hw_status,
             carbon_jobs.pull_hw_data,
-            carbon_jobs.execute_day_alarm_scan,
-            carbon_jobs.execute_video_alarm_scan,
+            carbon_verification_jobs.run_carbon_verification_export,
+            decarbonization_jobs.refresh_reduction_project_risks,
             microgrid_jobs.run_microgrid_forecast_cycle,
             microgrid_jobs.run_microgrid_optimization_cycle,
             microgrid_jobs.refresh_microgrid_load_models,
@@ -85,8 +87,7 @@ def saq_worker_settings() -> dict[str, Any]:
             CronJob(carbon_jobs.sync_hw_status, "0 * * * *", timeout=300),
             CronJob(carbon_jobs.pull_yunji_data, "*/15 * * * *", timeout=600),
             CronJob(carbon_jobs.pull_hw_data, "0 1 * * *", timeout=1200),
-            CronJob(carbon_jobs.execute_day_alarm_scan, "0 2 * * *", timeout=600),
-            CronJob(carbon_jobs.execute_video_alarm_scan, "0 9-18 * * *", timeout=300),
+            CronJob(decarbonization_jobs.refresh_reduction_project_risks, "15 3 * * *", timeout=600),
             CronJob(microgrid_jobs.run_microgrid_forecast_cycle, "*/15 * * * *", timeout=600),
             CronJob(microgrid_jobs.run_microgrid_optimization_cycle, "2-59/15 * * * *", timeout=300),
             CronJob(microgrid_jobs.refresh_microgrid_load_models, "30 2 * * *", timeout=900),

@@ -1,0 +1,120 @@
+{
+  "schema_version": "verification-demo-v1",
+  "project_no": "XT-VER-2026-01",
+  "project_name": "2026年度组织温室气体盘查核查",
+  "project_type": "organization_inventory",
+  "assurance_level": "limited",
+  "materiality_threshold_pct": 5.0,
+  "verification_basis": "ISO 14064-3:2019",
+  "sampling_strategy": "按排放类别分层抽样，重点覆盖购入电力、燃料燃烧、制冷剂、运输和废弃物；高贡献类别全量复核。",
+  "site_visit_required": true,
+  "site_visit_status": "completed",
+  "conclusion_status": "draft",
+  "scope_description": "覆盖组织边界内Scope 1、Scope 2以及已纳入盘查的Scope 3活动数据、排放因子、计算结果和支持性证据。",
+  "evidence": [
+    {
+      "code": "EVD-XT-2026-BOUNDARY",
+      "file_name": "2026年度组织边界与核查范围说明.txt",
+      "document_type": "boundary_statement",
+      "content_type": "text/plain",
+      "evidence_role": "verification_scope",
+      "target_kind": "verification_project",
+      "iso_category_codes": [],
+      "review_status": "approved"
+    },
+    {
+      "code": "EVD-XT-2026-C11",
+      "file_name": "2026年度天然气结算及抄表台账.csv",
+      "document_type": "fuel_ledger",
+      "content_type": "text/csv",
+      "evidence_role": "activity_evidence",
+      "target_kind": "activity",
+      "iso_category_codes": ["1.1"],
+      "review_status": "approved"
+    },
+    {
+      "code": "EVD-XT-2026-C12",
+      "file_name": "2026年度叉车燃料领用台账.csv",
+      "document_type": "fuel_ledger",
+      "content_type": "text/csv",
+      "evidence_role": "activity_evidence",
+      "target_kind": "activity",
+      "iso_category_codes": ["1.2"],
+      "review_status": "approved"
+    },
+    {
+      "code": "EVD-XT-2026-C14",
+      "file_name": "2026年度制冷剂维护记录.csv",
+      "document_type": "maintenance_record",
+      "content_type": "text/csv",
+      "evidence_role": "activity_evidence",
+      "target_kind": "activity",
+      "iso_category_codes": ["1.4"],
+      "review_status": "approved"
+    },
+    {
+      "code": "EVD-XT-2026-C21",
+      "file_name": "2026年度购入电力计量结算台账.csv",
+      "document_type": "meter_and_invoice_ledger",
+      "content_type": "text/csv",
+      "evidence_role": "activity_evidence",
+      "target_kind": "activity",
+      "iso_category_codes": ["2.1"],
+      "review_status": "approved"
+    },
+    {
+      "code": "EVD-XT-2026-C22",
+      "file_name": "2026年度外购蒸汽结算台账.csv",
+      "document_type": "purchased_energy_ledger",
+      "content_type": "text/csv",
+      "evidence_role": "activity_evidence",
+      "target_kind": "activity",
+      "iso_category_codes": ["2.2"],
+      "review_status": "approved"
+    },
+    {
+      "code": "EVD-XT-2026-C31",
+      "file_name": "2026年度第三方运输对账台账.csv",
+      "document_type": "transport_ledger",
+      "content_type": "text/csv",
+      "evidence_role": "activity_evidence",
+      "target_kind": "activity",
+      "iso_category_codes": ["3.1"],
+      "review_status": "approved"
+    },
+    {
+      "code": "EVD-XT-2026-C44",
+      "file_name": "2026年度废弃物处置台账.csv",
+      "document_type": "waste_transfer_ledger",
+      "content_type": "text/csv",
+      "evidence_role": "activity_evidence",
+      "target_kind": "activity",
+      "iso_category_codes": ["4.4"],
+      "review_status": "pending"
+    }
+  ],
+  "findings": [
+    {
+      "finding_no": "XT-VF-2026-001",
+      "issue_type": "evidence_traceability",
+      "finding_type": "data_quality",
+      "severity": "medium",
+      "title": "补充废弃物处置台账复核信息",
+      "description": "废弃物处置台账已归集，仍需补充部分处置联单复核信息并确认接收单位。",
+      "action_required": "补充处置联单编号、接收单位和内部复核记录后提交复核。",
+      "iso_category_code": "4.4",
+      "status": "open"
+    },
+    {
+      "finding_no": "XT-VF-2026-002",
+      "issue_type": "sampling",
+      "finding_type": "verification_procedure",
+      "severity": "low",
+      "title": "确认第三方运输抽样口径",
+      "description": "已复核运输台账、承运商对账单和吨公里计算口径。",
+      "action_required": "保留抽样工作底稿并纳入核查材料包。",
+      "iso_category_code": "3.1",
+      "status": "closed"
+    }
+  ]
+}

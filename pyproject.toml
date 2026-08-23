@@ -28,6 +28,7 @@ dependencies = [
   "pyotp>=2.9.0",
   "qrcode[pil]>=7.4.0",
   "openpyxl>=3.1.5",
+  "python-docx>=1.1.2",
   "paho-mqtt>=2.1.0",
   "pyomo>=6.10.1",
   "highspy>=1.15.1",

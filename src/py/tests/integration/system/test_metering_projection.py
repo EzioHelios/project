@@ -142,27 +142,34 @@ async def test_projection_is_idempotent_and_bill_supersedes_meter_total(session)
     assert current_aggregate.total_kwh == Decimal(20)
 
     session.add(
-        m.Scope2ElectricityBill(
+        m.GhgActivityRecord(
+            record_code="ELEC-2026-05",
+            inventory_code="INV-2026",
+            organization_code="ORG-001",
+            facility_code="FAC-001",
+            source_code="PURCHASED-ELECTRICITY",
+            activity_code="ELECTRICITY-2026-05",
+            activity_name="2026年5月外购电力",
+            period_start=date(2026, 5, 1),
+            period_end=date(2026, 5, 31),
+            iso_category_code="2.1",
+            ghg_scope="scope2",
+            source_mechanism="purchased_energy",
+            value_chain_position="internal",
+            boundary_status="included",
+            activity_amount=Decimal(30),
+            activity_unit="kWh",
+            data_source_type="invoice",
+            measurement_method="electricity_bill",
+            quality_status="pass",
             status="approved",
-            data_source="electricity_bill",
-            collection_method="workbook",
-            confidence_level="confirmed",
-            data_year_type="calendar_year",
-            data_year=2026,
-            record_usage="operational",
-            source_record_no="BILL-2026-05",
-            source_version=1,
-            voucher_no="V-2026-05",
-            evidence_status="verified",
-            account_number="AF-001",
-            billing_month="2026-05",
-            total_kwh=Decimal(30),
+            source_system="xlsx_import",
         )
     )
     await session.commit()
     bill_reconciliation = await reconcile_scope2_electricity(session, "2026-05")
 
-    assert bill_reconciliation.source_priority == "electricity_bill"
+    assert bill_reconciliation.source_priority == "ghg_activity"
     assert bill_reconciliation.organization_total_kwh == Decimal(30)
     assert bill_reconciliation.allocated_kwh == Decimal(20)
     assert bill_reconciliation.unallocated_kwh == Decimal(10)
@@ -177,28 +184,13 @@ async def test_projection_is_idempotent_and_bill_supersedes_meter_total(session)
     assert sum(row.is_current for row in history) == 1
 
 
-async def test_formal_and_current_query_filters_hide_internal_history(session) -> None:
+async def test_current_query_filter_hides_energy_revision_history(session) -> None:
     team = m.Team(name="查询隔离租户", slug="query-filter-test")
     session.add(team)
     await session.flush()
     session.info[TENANT_ID_SESSION_KEY] = team.id
-    common = {
-        "status": "approved",
-        "data_source": "workbook",
-        "collection_method": "import",
-        "confidence_level": "confirmed",
-        "data_year_type": "calendar_year",
-        "data_year": 2026,
-        "source_version": 1,
-        "evidence_status": "verified",
-        "account_number": "ACC-001",
-        "billing_month": "2026-05",
-        "total_kwh": Decimal(10),
-    }
     session.add_all(
         [
-            m.Scope2ElectricityBill(**common, record_usage="operational", source_record_no="FORMAL"),
-            m.Scope2ElectricityBill(**common, record_usage="reference", source_record_no="INTERNAL"),
             m.EnergyIntervalFact(
                 source_system="projection",
                 source_record_id="meter:1:hour:2026-05-01T00:00:00",
@@ -225,10 +217,6 @@ async def test_formal_and_current_query_filters_hide_internal_history(session) -
     )
     await session.commit()
 
-    formal = (await session.scalars(select(m.Scope2ElectricityBill))).all()
-    all_bills = (
-        await session.scalars(select(m.Scope2ElectricityBill).execution_options(include_reference_records=True))
-    ).all()
     current_facts = (await session.scalars(select(m.EnergyIntervalFact))).all()
     all_facts = (
         await session.scalars(select(m.EnergyIntervalFact).execution_options(include_revision_history=True))
@@ -241,8 +229,6 @@ async def test_formal_and_current_query_filters_hide_internal_history(session) -
         )
     )
 
-    assert [row.source_record_no for row in formal] == ["FORMAL"]
-    assert len(all_bills) == 2
     assert [row.revision_no for row in current_facts] == [2]
     assert {row.revision_no for row in all_facts} == {1, 2}
     assert analysis["totals"]["total_energy"] == 10.0

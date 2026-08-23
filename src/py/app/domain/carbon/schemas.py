@@ -1,10 +1,4 @@
-"""
-碳管理领域的 API 模型（Pydantic / DTO）。
-
-说明：
-- 这里主要定义对外暴露给前端的响应结构
-- 字段保持与原 Django 接口返回尽量一致，便于前端平滑迁移
-"""
+"""Carbon operational-domain API models."""
 
 from __future__ import annotations
 
@@ -18,7 +12,7 @@ from app.utils.dto import config
 
 
 class EnterpriseInfoDTO(SQLAlchemyDTO[m.EnterpriseInfo]):
-    """企业信息 DTO，对应 Django EnterpriseInfoSerializer."""
+    """Enterprise information DTO."""
 
     config = config(backend="sqlalchemy")
 
@@ -95,50 +89,8 @@ class EnergyStorageValueDTO(SQLAlchemyDTO[m.EnergyStorageValue]):
     config = config(backend="sqlalchemy")
 
 
-class Scope1MobileCombustionDTO(SQLAlchemyDTO[m.Scope1MobileCombustion]):
-    """Scope1 移动源燃烧 DTO."""
-
-    config = config(backend="sqlalchemy")
-
-
-class Scope1StationaryCombustionDTO(SQLAlchemyDTO[m.Scope1StationaryCombustion]):
-    """Scope1 固定源燃烧 DTO."""
-
-    config = config(backend="sqlalchemy")
-
-
-class Scope1RefrigerantLeakDTO(SQLAlchemyDTO[m.Scope1RefrigerantLeak]):
-    """Scope1 逸散排放 DTO."""
-
-    config = config(backend="sqlalchemy")
-
-
-class Scope2ElectricityBillDTO(SQLAlchemyDTO[m.Scope2ElectricityBill]):
-    """Scope2 电费账单 DTO."""
-
-    config = config(backend="sqlalchemy")
-
-
-class Scope3WasteDisposalDTO(SQLAlchemyDTO[m.Scope3WasteDisposal]):
-    """Scope3 废弃物处理 DTO."""
-
-    config = config(backend="sqlalchemy")
-
-
-class Scope3ThirdPartyTransportDTO(SQLAlchemyDTO[m.Scope3ThirdPartyTransport]):
-    """Scope3 外购运输 DTO."""
-
-    config = config(backend="sqlalchemy")
-
-
 class EmissionFactorDTO(SQLAlchemyDTO[m.EmissionFactor]):
     """排放因子 DTO."""
-
-    config = config(backend="sqlalchemy")
-
-
-class CarbonAuditLogDTO(SQLAlchemyDTO[m.CarbonAuditLog]):
-    """审核操作日志 DTO."""
 
     config = config(backend="sqlalchemy")
 
@@ -154,9 +106,9 @@ class ApiResponse:
 
 @dataclass
 class Page1CkInformation(ApiResponse):
-    """态势总览：信息概况接口数据结构。"""
+    """Big-screen overview response."""
 
 
 @dataclass
 class Page1JcdwStatis(ApiResponse):
-    """态势总览：监测点位在线统计数据结构。"""
+    """Big-screen monitoring-point statistics response."""

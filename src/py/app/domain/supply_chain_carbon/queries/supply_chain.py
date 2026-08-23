@@ -31,7 +31,7 @@ class SupplyChainCarbonQueryService:
         self._session = session
 
     async def suppliers(self, query: SupplyChainCarbonQuery) -> dict[str, Any]:
-        conditions = []
+        conditions: list[Any] = []
         if query.status and query.status != "all":
             conditions.append(m.SupplyChainSupplier.status == query.status)
         if query.keyword:
@@ -44,7 +44,7 @@ class SupplyChainCarbonQueryService:
         return page
 
     async def sites(self, query: SupplyChainCarbonQuery) -> dict[str, Any]:
-        conditions = []
+        conditions: list[Any] = []
         if query.supplier_id is not None:
             conditions.append(m.SupplierSite.supplier_id == query.supplier_id)
         if query.status and query.status != "all":
@@ -53,7 +53,7 @@ class SupplyChainCarbonQueryService:
         return await self._page(stmt, query)
 
     async def tasks(self, query: SupplyChainCarbonQuery) -> dict[str, Any]:
-        conditions = []
+        conditions: list[Any] = []
         if query.supplier_id is not None:
             conditions.append(m.SupplierDisclosureTask.supplier_id == query.supplier_id)
         if query.status and query.status != "all":
@@ -70,7 +70,7 @@ class SupplyChainCarbonQueryService:
         return page
 
     async def data_items(self, query: SupplyChainCarbonQuery) -> dict[str, Any]:
-        conditions = []
+        conditions: list[Any] = []
         if query.task_id is not None:
             conditions.append(m.SupplierCarbonData.task_id == query.task_id)
         if query.supplier_id is not None:
@@ -83,7 +83,7 @@ class SupplyChainCarbonQueryService:
         return await self._page(stmt, query)
 
     async def evidence_items(self, query: SupplyChainCarbonQuery) -> dict[str, Any]:
-        conditions = []
+        conditions: list[Any] = []
         if query.task_id is not None:
             conditions.append(m.SupplierEvidence.task_id == query.task_id)
         if query.status and query.status != "all":
@@ -92,14 +92,14 @@ class SupplyChainCarbonQueryService:
         return await self._page(stmt, query)
 
     async def review_decisions(self, query: SupplyChainCarbonQuery) -> dict[str, Any]:
-        conditions = []
+        conditions: list[Any] = []
         if query.task_id is not None:
             conditions.append(m.SupplierReviewDecision.task_id == query.task_id)
         stmt = select(m.SupplierReviewDecision).where(*conditions).order_by(m.SupplierReviewDecision.id.desc())
         return await self._page(stmt, query)
 
     async def releases(self, query: SupplyChainCarbonQuery) -> dict[str, Any]:
-        conditions = []
+        conditions: list[Any] = []
         if query.task_id is not None:
             conditions.append(m.SupplierDisclosureRelease.task_id == query.task_id)
         if query.status and query.status != "all":
@@ -241,9 +241,17 @@ class SupplyChainCarbonQueryService:
 
     async def _page(self, stmt: Any, query: SupplyChainCarbonQuery, *, include_rows: bool = False) -> dict[str, Any]:
         total = int((await self._session.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one() or 0)
-        rows = (await self._session.execute(stmt.limit(_limit(query.limit)).offset(max(0, query.offset)))).scalars().all()
+        rows = list(
+            (await self._session.execute(stmt.limit(_limit(query.limit)).offset(max(0, query.offset)))).scalars().all()
+        )
         items = [model_to_dict(row) for row in rows]
-        page = {"items": items, "data": items, "total": total, "limit": _limit(query.limit), "offset": max(0, query.offset)}
+        page: dict[str, Any] = {
+            "items": items,
+            "data": items,
+            "total": total,
+            "limit": _limit(query.limit),
+            "offset": max(0, query.offset),
+        }
         if include_rows:
             page["_rows"] = rows
         return page

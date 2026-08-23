@@ -9,6 +9,7 @@ import msgspec
 from app.lib.schema import CamelizedBaseStruct
 
 MAX_WARNING_ACKNOWLEDGEMENT_LENGTH = 500
+MAX_REPORT_REVIEW_COMMENT_LENGTH = 1000
 
 
 class ImportContext(CamelizedBaseStruct, kw_only=True):
@@ -77,16 +78,22 @@ class WorkbookCommitRequest(CamelizedBaseStruct, kw_only=True):
             raise ValueError(msg)
 
 
-class CalculationRunRequest(CamelizedBaseStruct, kw_only=True):
+class GhgCalculationRunRequest(CamelizedBaseStruct, kw_only=True):
     """Create a reproducible calculation run for an inventory."""
 
     inventory_code: str
     reporting_profile_code: str
     reporting_period_id: int | None = None
+    reporting_org_id: int | None = None
+    organization_boundary_id: int | None = None
+    default_scope2_method: str = "location"
 
     def __post_init__(self) -> None:
         _bounded(self.inventory_code, "盘查任务编号", 96)
         _bounded(self.reporting_profile_code, "报告配置编号", 96)
+        if self.default_scope2_method not in {"location", "market"}:
+            msg = "Scope 2口径只能选择地点法或市场法"
+            raise ValueError(msg)
 
 
 class GhgActivityFieldResponse(CamelizedBaseStruct):
@@ -139,6 +146,7 @@ class GhgPeriodResponse(CamelizedBaseStruct):
     id: int
     code: str
     name: str
+    reporting_org_id: int
     organization_code: str
     period_start: str
     period_end: str
@@ -146,6 +154,7 @@ class GhgPeriodResponse(CamelizedBaseStruct):
 
 
 class GhgOrganizationResponse(CamelizedBaseStruct):
+    id: int
     code: str
     name: str
     organization_type: str
@@ -369,9 +378,330 @@ class GhgCalculationRunResponse(CamelizedBaseStruct):
     inventory_code: str
     status: str
     total_co2e_kg: str
+    reporting_org_id: int | None
+    reporting_period_id: int | None
+    organization_boundary_id: int | None
+    reporting_profile_code: str
+    reporting_profile_name: str
+    default_scope2_method: str
     input_snapshot: dict[str, Any]
+    summary_snapshot: dict[str, Any]
+    quality_snapshot: dict[str, Any]
+    started_at: str
+    completed_at: str | None
     results: list[dict[str, Any]]
     assignments: list[dict[str, Any]]
+
+
+class GhgCalculationRunListItemResponse(CamelizedBaseStruct):
+    run_code: str
+    inventory_code: str
+    status: str
+    reporting_org_id: int | None
+    reporting_org_name: str | None
+    reporting_period_id: int | None
+    reporting_period_name: str | None
+    organization_boundary_id: int | None
+    organization_boundary_name: str | None
+    reporting_profile_code: str
+    reporting_profile_name: str
+    default_scope2_method: str
+    total_co2e_kg: str | None
+    quality_status: str
+    started_at: str
+    completed_at: str | None
+
+
+class GhgCalculationRunListResponse(CamelizedBaseStruct):
+    items: list[GhgCalculationRunListItemResponse]
+    total: int
+
+
+class GhgAnalyticsBreakdownItemResponse(CamelizedBaseStruct):
+    code: str
+    name: str
+    value_co2e_kg: str
+    percentage: str
+    record_count: int
+    warning_count: int
+    evidence_coverage_pct: str
+
+
+class GhgBudgetTargetResponse(CamelizedBaseStruct):
+    plan_id: int
+    plan_name: str
+    target_scope: str
+    target_code: str | None
+    budget_co2e_tonnes: str
+    actual_co2e_tonnes: str | None
+    variance_co2e_tonnes: str | None
+    execution_rate_pct: str | None
+    status: str
+    reporting_period_name: str | None
+
+
+class GhgAnalyticsOverviewResponse(CamelizedBaseStruct):
+    run_code: str
+    inventory_code: str
+    status: str
+    reporting_org_id: int | None
+    reporting_org_name: str | None
+    reporting_period_id: int | None
+    reporting_period_name: str | None
+    organization_boundary_id: int | None
+    organization_boundary_name: str | None
+    reporting_profile_code: str
+    reporting_profile_name: str
+    scope2_method: str
+    scope2_available: bool
+    total_co2e_kg: str | None
+    activity_count: int
+    result_count: int
+    data_completeness_pct: str
+    allocation_coverage_pct: str
+    evidence_coverage_pct: str
+    quality_status: str
+    scope_breakdown: list[GhgAnalyticsBreakdownItemResponse]
+    iso_breakdown: list[GhgAnalyticsBreakdownItemResponse]
+    source_ranking: list[GhgAnalyticsBreakdownItemResponse]
+    area_ranking: list[GhgAnalyticsBreakdownItemResponse]
+    equipment_ranking: list[GhgAnalyticsBreakdownItemResponse]
+    budget_target: GhgBudgetTargetResponse | None
+    completed_at: str | None
+
+
+class GhgAnalyticsBreakdownResponse(CamelizedBaseStruct):
+    run_code: str
+    dimension: str
+    items: list[GhgAnalyticsBreakdownItemResponse]
+
+
+class GhgAnalyticsTrendPointResponse(CamelizedBaseStruct):
+    run_code: str
+    period_id: int | None
+    period_name: str
+    period_start: str | None
+    period_end: str | None
+    total_co2e_kg: str | None
+    scope1_co2e_kg: str
+    scope2_co2e_kg: str | None
+    scope3_co2e_kg: str
+    scope2_method: str
+    boundary_version: int | None
+
+
+class GhgAnalyticsTrendResponse(CamelizedBaseStruct):
+    items: list[GhgAnalyticsTrendPointResponse]
+    total: int
+    grain: str
+    current_total_co2e_kg: str
+    previous_total_co2e_kg: str | None
+    previous_change_co2e_kg: str | None
+    previous_change_pct: str | None
+    year_on_year_total_co2e_kg: str | None
+    year_on_year_change_co2e_kg: str | None
+    year_on_year_change_pct: str | None
+    trend_coverage_pct: str
+    excluded_cross_period_count: int
+    excluded_cross_period_co2e_kg: str
+
+
+class GhgFlowNodeResponse(CamelizedBaseStruct):
+    id: str
+    name: str
+    value: str
+    category: str
+    record_count: int
+    evidence_coverage_pct: str
+    drilldown: dict[str, Any]
+
+
+class GhgFlowLinkResponse(CamelizedBaseStruct):
+    source: str
+    target: str
+    value: str
+
+
+class GhgFlowPathResponse(CamelizedBaseStruct):
+    path: list[str]
+    value: str
+    record_count: int
+    drilldown: dict[str, Any]
+
+
+class GhgAnalyticsFlowResponse(CamelizedBaseStruct):
+    run_code: str
+    classification: str
+    scope2_method: str
+    total_co2e_kg: str | None
+    nodes: list[GhgFlowNodeResponse]
+    links: list[GhgFlowLinkResponse]
+    top_paths: list[GhgFlowPathResponse]
+
+
+class GhgResultListItemResponse(CamelizedBaseStruct):
+    record_code: str
+    activity_name: str
+    inventory_code: str
+    organization_code: str
+    facility_code: str
+    source_code: str
+    source_name: str
+    source_mechanism: str
+    period_start: str
+    period_end: str
+    iso_category_code: str
+    iso_category_name: str
+    ghg_scope: str
+    activity_amount: str
+    activity_unit: str
+    method_code: str
+    method_name: str
+    gas_code: str
+    co2e_kg: str
+    calculated_co2e_kg: str
+    attributed_co2e_kg: str
+    attribution_ratio: str
+    scope2_method: str
+    quality_status: str
+    evidence_count: int
+    allocation_status: str
+    area_names: list[str]
+    equipment_names: list[str]
+
+
+class GhgResultListResponse(CamelizedBaseStruct):
+    items: list[GhgResultListItemResponse]
+    total: int
+    limit: int
+    offset: int
+
+
+class GhgResultSummaryResponse(CamelizedBaseStruct):
+    run_code: str
+    scope2_method: str
+    total_co2e_kg: str | None
+    activity_count: int
+    result_count: int
+    missing_evidence_count: int
+    unallocated_count: int
+    scope_breakdown: list[GhgAnalyticsBreakdownItemResponse]
+    iso_breakdown: list[GhgAnalyticsBreakdownItemResponse]
+    source_breakdown: list[GhgAnalyticsBreakdownItemResponse]
+    area_breakdown: list[GhgAnalyticsBreakdownItemResponse]
+    equipment_breakdown: list[GhgAnalyticsBreakdownItemResponse]
+
+
+class GhgComparisonItemResponse(CamelizedBaseStruct):
+    run_code: str
+    reporting_period_name: str | None
+    organization_boundary_name: str | None
+    boundary_version: int | None
+    total_co2e_kg: str | None
+    scope_breakdown: list[GhgAnalyticsBreakdownItemResponse]
+    iso_breakdown: list[GhgAnalyticsBreakdownItemResponse]
+    area_breakdown: list[GhgAnalyticsBreakdownItemResponse]
+    equipment_breakdown: list[GhgAnalyticsBreakdownItemResponse]
+
+
+class GhgComparisonDeltaResponse(CamelizedBaseStruct):
+    from_run_code: str
+    to_run_code: str
+    change_co2e_kg: str
+    change_pct: str | None
+
+
+class GhgComparisonResponse(CamelizedBaseStruct):
+    scope2_method: str
+    items: list[GhgComparisonItemResponse]
+    deltas: list[GhgComparisonDeltaResponse]
+
+
+class GhgResultDetailResponse(CamelizedBaseStruct):
+    result: GhgResultListItemResponse
+    activity_details: dict[str, Any]
+    formula_snapshot: dict[str, Any]
+    assignments: list[dict[str, Any]]
+    allocations: list[dict[str, Any]]
+    evidence: list[dict[str, Any]]
+
+
+class GhgReadinessCheckResponse(CamelizedBaseStruct):
+    code: str
+    name: str
+    status: str
+    completed_count: int
+    total_count: int
+    coverage_pct: str
+    blocking_count: int
+
+
+class GhgInventoryReadinessResponse(CamelizedBaseStruct):
+    inventory_code: str
+    reporting_period_id: int | None
+    organization_boundary_id: int | None
+    ready_for_calculation: bool
+    activity_count: int
+    checks: list[GhgReadinessCheckResponse]
+    blocking_issues: list[str]
+    latest_run_code: str | None
+    latest_run_status: str | None
+
+
+class GhgInventoryReportCreateRequest(CamelizedBaseStruct, kw_only=True):
+    run_code: str
+    title: str
+    change_summary: str | None = None
+
+    def __post_init__(self) -> None:
+        _bounded(self.run_code, "核算运行编号", 96)
+        _bounded(self.title, "报告名称", 255)
+
+
+class GhgInventoryReportActionRequest(CamelizedBaseStruct, kw_only=True):
+    comment: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.comment is not None and len(self.comment) > MAX_REPORT_REVIEW_COMMENT_LENGTH:
+            msg = "审核意见不能超过1000字"
+            raise ValueError(msg)
+
+
+class GhgInventoryReportReviewResponse(CamelizedBaseStruct):
+    action: str
+    from_status: str
+    to_status: str
+    actor: str
+    comment: str | None
+    acted_at: str
+
+
+class GhgInventoryReportResponse(CamelizedBaseStruct):
+    id: int
+    report_code: str
+    version: int
+    title: str
+    inventory_code: str
+    run_code: str
+    reporting_org_id: int
+    reporting_period_id: int
+    organization_boundary_id: int
+    reporting_profile_code: str
+    status: str
+    metrics_snapshot: dict[str, Any]
+    evidence_snapshot: dict[str, Any]
+    change_summary: str | None
+    submitted_by: str | None
+    submitted_at: str | None
+    approved_by: str | None
+    approved_at: str | None
+    published_at: str | None
+    reviews: list[GhgInventoryReportReviewResponse]
+
+
+class GhgInventoryReportListResponse(CamelizedBaseStruct):
+    items: list[GhgInventoryReportResponse]
+    total: int
 
 
 class ActivityAllocationInput(CamelizedBaseStruct, kw_only=True):

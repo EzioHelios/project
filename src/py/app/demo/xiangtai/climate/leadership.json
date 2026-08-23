@@ -1,0 +1,46 @@
+{
+  "schema_version": "climate-profile-v1",
+  "code": "leadership",
+  "name": "领先实践期",
+  "description": "目标覆盖、披露治理和可再生电力属性均形成完整闭环。",
+  "sbti": {
+    "baseline_year": 2024,
+    "baseline_multiplier": 1.20,
+    "target_year": 2030,
+    "reduction_pct": 50.0,
+    "scope12_coverage_pct": 100.0,
+    "scope3_coverage_pct": 90.0,
+    "scope2_method": "market"
+  },
+  "cdp": {
+    "status": "ready_for_review",
+    "owner_name": "可持续发展负责人",
+    "domain_statuses": {
+      "governance": true,
+      "risks": true,
+      "strategy": true,
+      "targets": true
+    }
+  },
+  "re100": {
+    "electricity_data_year": 2025,
+    "target_year": 2030,
+    "target_pct": 100.0,
+    "claims": [
+      {
+        "source_type": "green_power",
+        "share_pct": 70.0,
+        "technology": "wind_solar_mix",
+        "ownership_status": "retired",
+        "evidence_reference": "EVIDENCE-DEMO-XT-GREEN-POWER-2025"
+      },
+      {
+        "source_type": "onsite_generation",
+        "share_pct": 30.0,
+        "technology": "solar",
+        "ownership_status": "allocated",
+        "evidence_reference": "EVIDENCE-DEMO-XT-PV-SELFUSE-2025"
+      }
+    ]
+  }
+}

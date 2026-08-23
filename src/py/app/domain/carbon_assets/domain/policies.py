@@ -1,193 +1,120 @@
+"""Pure rules for carbon asset accounting and compliance."""
+
 from __future__ import annotations
 
+# ruff: noqa: EM101, EM102, TRY003
+from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any
 
-ASSET_TYPES = {"quota", "ccer", "green_certificate", "carbon_credit"}
-ACCOUNT_STATUSES = {"active", "suspended", "closed"}
-PERIOD_STATUSES = {"open", "locked", "closed"}
-CREDIT_STATUSES = {"active", "expired", "used", "frozen"}
-TRANSACTION_TYPES = {"buy", "sell", "transfer", "offset"}
-SURRENDER_STATUSES = {"draft", "completed", "cancelled"}
-FORECAST_SCENARIO_STATUSES = {"draft", "active", "archived"}
-LOCKED_INVENTORY_STATUS = "locked"
-
-
-def validate_period_payload(payload: dict[str, Any]) -> None:
-    for key in ("period_code", "period_name", "period_start", "period_end"):
-        if payload.get(key) in (None, ""):
-            msg = f"{key} is required"
-            raise ValueError(msg)
-    if payload["period_end"] < payload["period_start"]:
-        msg = "履约周期结束日期不能早于开始日期"
-        raise ValueError(msg)
-    status = str(payload.get("status") or "open")
-    if status not in PERIOD_STATUSES:
-        msg = f"unsupported period status: {status}"
-        raise ValueError(msg)
+INSTRUMENT_CLASSES = {"CEA", "CCER", "GREEN_CERTIFICATE"}
+NATIVE_UNITS = {"CEA": "tCO2e", "CCER": "tCO2e", "GREEN_CERTIFICATE": "certificate"}
+COMPLIANCE_CLASSES = {"CEA", "CCER"}
+MOVEMENT_TYPES = {
+    "opening", "allocation", "issuance", "purchase", "sale", "transfer_in", "transfer_out",
+    "freeze", "unfreeze", "surrender", "offset", "consume", "expire", "reversal",
+}
+POSITIVE_MOVEMENTS = {"opening", "allocation", "issuance", "purchase", "transfer_in", "unfreeze"}
+NEGATIVE_MOVEMENTS = {"sale", "transfer_out", "freeze", "surrender", "offset", "consume", "expire"}
 
 
-def validate_account_payload(payload: dict[str, Any]) -> None:
-    for key in ("account_code", "account_name", "asset_type"):
-        if payload.get(key) in (None, ""):
-            msg = f"{key} is required"
-            raise ValueError(msg)
-    asset_type = str(payload.get("asset_type"))
-    if asset_type not in ASSET_TYPES:
-        msg = f"unsupported asset type: {asset_type}"
-        raise ValueError(msg)
-    status = str(payload.get("status") or "active")
-    if status not in ACCOUNT_STATUSES:
-        msg = f"unsupported account status: {status}"
-        raise ValueError(msg)
+@dataclass(frozen=True, slots=True)
+class CompliancePosition:
+    obligation_tco2e: Decimal
+    cea_available_tco2e: Decimal
+    ccer_available_tco2e: Decimal
+    ccer_limit_tco2e: Decimal
+    usable_ccer_tco2e: Decimal
+    covered_tco2e: Decimal
+    gap_tco2e: Decimal
 
 
-def validate_positive_amount(value: Decimal | None, field: str = "amount") -> None:
-    if value is None or value <= 0:
-        msg = f"{field} must be greater than 0"
-        raise ValueError(msg)
+def ensure_positive(value: Decimal, field: str) -> None:
+    if value <= 0:
+        raise ValueError(f"{field} must be greater than zero")
 
 
-def validate_non_negative_amount(value: Decimal | None, field: str = "amount") -> None:
-    if value is None or value < 0:
-        msg = f"{field} cannot be negative"
-        raise ValueError(msg)
+def ensure_nonnegative(value: Decimal, field: str) -> None:
+    if value < 0:
+        raise ValueError(f"{field} cannot be negative")
 
 
-def validate_forecast_payload(payload: dict[str, Any]) -> None:
-    for key in ("period_id", "scenario_code", "scenario_name"):
-        if payload.get(key) in (None, ""):
-            msg = f"{key} is required"
-            raise ValueError(msg)
-    status = str(payload.get("status") or "draft")
-    if status not in FORECAST_SCENARIO_STATUSES:
-        msg = f"unsupported forecast scenario status: {status}"
-        raise ValueError(msg)
-    if payload.get("forecast_start") and payload.get("forecast_end") and payload["forecast_end"] < payload["forecast_start"]:
-        msg = "预测结束日期不能早于开始日期"
-        raise ValueError(msg)
-    for field in (
-        "planned_reduction",
-        "planned_allowance_purchase",
-        "planned_credit_purchase",
-        "planned_surrender",
-        "allowance_price",
-        "credit_price",
-    ):
-        validate_non_negative_amount(_decimal(payload.get(field)), field)
+def validate_instrument(instrument_class: str, native_unit: str, compliance_eligible: bool) -> None:
+    if instrument_class not in INSTRUMENT_CLASSES:
+        raise ValueError("unsupported instrument class")
+    if native_unit != NATIVE_UNITS[instrument_class]:
+        raise ValueError(f"{instrument_class} must use {NATIVE_UNITS[instrument_class]}")
+    if compliance_eligible and instrument_class not in COMPLIANCE_CLASSES:
+        raise ValueError("green certificates cannot be compliance instruments")
 
 
-def forecast_position(
-    *,
-    verified_emission: Decimal,
-    allowance_available_value: Decimal,
-    credit_available_value: Decimal,
-    surrendered_amount: Decimal,
-    emission_growth_rate: Decimal | None,
-    planned_reduction: Decimal | None,
-    planned_allowance_purchase: Decimal | None,
-    planned_credit_purchase: Decimal | None,
-    planned_surrender: Decimal | None,
-    allowance_price: Decimal | None,
-    credit_price: Decimal | None,
-    yellow: Decimal | None,
-    orange: Decimal | None,
-    red: Decimal | None,
-) -> dict[str, Decimal | str]:
-    growth_rate = _decimal(emission_growth_rate)
-    forecast_emission = (verified_emission * (Decimal(1) + growth_rate)) - _decimal(planned_reduction)
-    if forecast_emission < 0:
-        forecast_emission = Decimal(0)
-    forecast_available_assets = allowance_available_value + credit_available_value + _decimal(planned_allowance_purchase) + _decimal(planned_credit_purchase)
-    forecast_surrendered = surrendered_amount + _decimal(planned_surrender)
-    net_position = forecast_available_assets + forecast_surrendered - forecast_emission
-    gap_amount = abs(net_position) if net_position < 0 else Decimal(0)
-    funding_need = (_decimal(planned_allowance_purchase) * _decimal(allowance_price)) + (_decimal(planned_credit_purchase) * _decimal(credit_price))
-    return {
-        "forecast_emission": forecast_emission.quantize(Decimal("0.000001")),
-        "forecast_available_assets": forecast_available_assets.quantize(Decimal("0.000001")),
-        "forecast_surrendered": forecast_surrendered.quantize(Decimal("0.000001")),
-        "forecast_net_position": net_position.quantize(Decimal("0.000001")),
-        "forecast_gap_amount": gap_amount.quantize(Decimal("0.000001")),
-        "forecast_gap_rate": (gap_amount / forecast_emission).quantize(Decimal("0.000001")) if forecast_emission > 0 else Decimal(0),
-        "funding_need": funding_need.quantize(Decimal("0.000001")),
-        "risk_level": compliance_risk_level(gap_amount, forecast_emission, yellow, orange, red),
-    }
+def validate_movement(movement_type: str, quantity_delta: Decimal, *, reversed_delta: Decimal | None = None) -> None:
+    if movement_type not in MOVEMENT_TYPES:
+        raise ValueError("unsupported movement type")
+    if quantity_delta == 0:
+        raise ValueError("quantity delta cannot be zero")
+    if movement_type in POSITIVE_MOVEMENTS and quantity_delta < 0:
+        raise ValueError("positive movement requires a positive quantity delta")
+    if movement_type in NEGATIVE_MOVEMENTS and quantity_delta > 0:
+        raise ValueError("outgoing movement requires a negative quantity delta")
+    if movement_type == "reversal":
+        if reversed_delta is None:
+            raise ValueError("reversal requires the original movement")
+        if quantity_delta != -reversed_delta:
+            raise ValueError("reversal quantity must exactly negate the original movement")
 
 
-def ensure_period_open(status: str) -> None:
-    if status == "closed":
-        msg = "已关闭履约周期不可新增资产或清缴记录"
-        raise ValueError(msg)
+def available_balance(issued_quantity: Decimal, movement_total: Decimal) -> Decimal:
+    balance = issued_quantity + movement_total
+    if balance < 0:
+        raise ValueError("movement would make the lot balance negative")
+    return balance
 
 
-def allowance_available(allocated: Decimal | None, adjustment: Decimal | None, used: Decimal | None, frozen: Decimal | None) -> Decimal:
-    return _decimal(allocated) + _decimal(adjustment) - _decimal(used) - _decimal(frozen)
+def validate_environmental_usage(instrument_class: str, purpose: str) -> None:
+    if purpose == "compliance":
+        raise ValueError("environmental attribute usage cannot be used for compliance surrender")
+    if instrument_class != "GREEN_CERTIFICATE":
+        raise ValueError("environmental attribute usage only accepts green certificate lots")
 
 
-def credit_available(quantity: Decimal | None, used: Decimal | None, frozen: Decimal | None) -> Decimal:
-    return _decimal(quantity) - _decimal(used) - _decimal(frozen)
+def validate_settlement_line(instrument_class: str, purpose: str) -> None:
+    expected = {"CEA": "surrender", "CCER": "offset"}.get(instrument_class)
+    if expected is None:
+        raise ValueError("green certificates cannot enter compliance settlement")
+    if purpose != expected:
+        raise ValueError(f"{instrument_class} settlement purpose must be {expected}")
 
 
-def compliance_risk_level(
-    gap_amount: Decimal,
-    verified_emission: Decimal,
-    yellow: Decimal | None,
-    orange: Decimal | None,
-    red: Decimal | None,
-) -> str:
-    if gap_amount <= 0:
-        return "low"
-    if verified_emission <= 0:
-        return "medium"
-    ratio = gap_amount / verified_emission
-    if ratio >= _decimal(red, Decimal("0.15")):
-        return "red"
-    if ratio >= _decimal(orange, Decimal("0.08")):
-        return "orange"
-    if ratio >= _decimal(yellow, Decimal("0.03")):
-        return "yellow"
-    return "low"
+def calculate_compliance_position(
+    *, obligation_tco2e: Decimal, cea_available_tco2e: Decimal, ccer_available_tco2e: Decimal,
+    max_offset_ratio: Decimal,
+) -> CompliancePosition:
+    if not Decimal(0) <= max_offset_ratio <= Decimal(1):
+        raise ValueError("max offset ratio must be between zero and one")
+    ccer_limit = obligation_tco2e * max_offset_ratio
+    usable_ccer = min(ccer_available_tco2e, ccer_limit)
+    covered = min(obligation_tco2e, cea_available_tco2e + usable_ccer)
+    return CompliancePosition(
+        obligation_tco2e=obligation_tco2e, cea_available_tco2e=cea_available_tco2e,
+        ccer_available_tco2e=ccer_available_tco2e, ccer_limit_tco2e=ccer_limit,
+        usable_ccer_tco2e=usable_ccer, covered_tco2e=covered,
+        gap_tco2e=max(Decimal(0), obligation_tco2e - covered),
+    )
 
 
-def inventory_position_status(*, has_batch: bool, is_locked: bool, has_total: bool) -> str:
-    """Return the carbon-assets data status for the bound accounting inventory."""
-    if not has_batch:
-        return "missing_batch"
-    if not is_locked:
-        return "unlocked_inventory"
-    if not has_total:
-        return "missing_inventory_total"
-    return LOCKED_INVENTORY_STATUS
-
-
-def simulate_transaction(
-    amount: Decimal,
-    unit_price: Decimal,
-    fee_rate: Decimal | None = None,
-    tax_rate: Decimal | None = None,
+def calculate_cost_result(
+    *, obligation_tco2e: Decimal, cea_balance_tco2e: Decimal, ccer_balance_tco2e: Decimal,
+    max_offset_ratio: Decimal, cea_price: Decimal, ccer_price: Decimal, safety_margin_ratio: Decimal,
 ) -> dict[str, Decimal]:
-    validate_positive_amount(amount)
-    validate_non_negative_amount(unit_price, "unit_price")
-    fee_rate = _decimal(fee_rate)
-    tax_rate = _decimal(tax_rate)
-    validate_non_negative_amount(fee_rate, "fee_rate")
-    validate_non_negative_amount(tax_rate, "tax_rate")
-    gross_amount = amount * unit_price
-    fee_amount = gross_amount * fee_rate
-    tax_amount = gross_amount * tax_rate
-    total_amount = gross_amount + fee_amount + tax_amount
-    unit_total_price = total_amount / amount if amount > 0 else Decimal(0)
+    target = obligation_tco2e * (Decimal(1) + safety_margin_ratio)
+    ccer_limit = obligation_tco2e * max_offset_ratio
+    ccer_used = min(ccer_balance_tco2e, ccer_limit, target)
+    cea_used = min(cea_balance_tco2e, max(Decimal(0), target - ccer_used))
+    shortage = max(Decimal(0), target - ccer_used - cea_used)
+    ccer_purchase = max(Decimal(0), min(ccer_limit - ccer_used, shortage))
+    cea_purchase = max(Decimal(0), shortage - ccer_purchase)
     return {
-        "gross_amount": gross_amount.quantize(Decimal("0.000001")),
-        "fee_amount": fee_amount.quantize(Decimal("0.000001")),
-        "tax_amount": tax_amount.quantize(Decimal("0.000001")),
-        "total_amount": total_amount.quantize(Decimal("0.000001")),
-        "unit_total_price": unit_total_price.quantize(Decimal("0.000001")),
+        "targetTco2e": target, "ceaUsedTco2e": cea_used, "ccerUsedTco2e": ccer_used,
+        "ceaPurchaseTco2e": cea_purchase, "ccerPurchaseTco2e": ccer_purchase,
+        "totalCostCny": cea_purchase * cea_price + ccer_purchase * ccer_price,
     }
-
-
-def _decimal(value: Decimal | None, default: Decimal | None = None) -> Decimal:
-    if value is None:
-        return default or Decimal(0)
-    return value

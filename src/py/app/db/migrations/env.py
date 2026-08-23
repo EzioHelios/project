@@ -13,7 +13,7 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import AsyncEngine, async_engine_from_config
 from sqlalchemy.sql.schema import SchemaItem
 
-import app.db.models
+import app.db.models  # noqa: F401  # Register every model with the metadata registry.
 
 if TYPE_CHECKING:
     from advanced_alchemy.alembic.commands import AlembicCommandConfig
@@ -30,10 +30,15 @@ if not hasattr(config, "db_url"):
         from app.lib.settings import get_settings
         settings = get_settings()
         config.db_url = settings.db.URL
-    except Exception:
+    except Exception:  # noqa: BLE001 - Alembic may run before application settings are importable.
         import os
         config.db_url = os.getenv("DATABASE_URL")
 writer = rewriter.Rewriter()
+
+# These tables are retained as read-only historical archives. They have no ORM
+# model and no application route, so Alembic must not interpret them as pending
+# destructive drops. ``ddl_version`` remains the only active migration ledger.
+UNMANAGED_ARCHIVE_TABLES = {"alembic_version", "dataapp_ammeterindexvalue"}
 
 
 def include_object(
@@ -64,7 +69,10 @@ def include_object(
     """
     return not (
         (name is not None and name.startswith("saq_"))
-        or (type_ == "table" and name in {"task_queue", "task_queue_stats", "task_queue_ddl_version"})
+        or (
+            type_ == "table"
+            and name in {"task_queue", "task_queue_stats", "task_queue_ddl_version", *UNMANAGED_ARCHIVE_TABLES}
+        )
         or (name is not None and name == "task_queue_lock_key_seq")
     )
 

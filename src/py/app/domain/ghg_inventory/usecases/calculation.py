@@ -8,8 +8,9 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
+from app.domain.carbon.models import OrganizationBoundary, ReportingPeriod
 from app.domain.ghg_inventory.domain.calculation import calculate
 from app.domain.ghg_inventory.models import (
     GhgActivityAllocation,
@@ -17,6 +18,7 @@ from app.domain.ghg_inventory.models import (
     GhgCalculationMethodDefinition,
     GhgCalculationResult,
     GhgCalculationRun,
+    GhgEvidenceLink,
     GhgMethodParameterDefinition,
     GhgParameterAssignment,
     GhgParameterValue,
@@ -34,14 +36,20 @@ class RunInventoryCalculation:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def execute(
+    async def execute(  # noqa: C901, PLR0915 - one transaction freezes and calculates the complete inventory
         self,
         *,
         inventory_code: str,
         reporting_profile_code: str,
         reporting_period_id: int | None,
+        reporting_org_id: int | None = None,
+        organization_boundary_id: int | None = None,
+        default_scope2_method: str = "location",
     ) -> GhgCalculationRun:
         require_session_tenant_id(self.session)
+        if default_scope2_method not in {"location", "market"}:
+            msg = "Scope 2口径只能选择地点法或市场法"
+            raise ValueError(msg)
         profile = await self.session.scalar(
             select(GhgReportingProfile)
             .where(GhgReportingProfile.code == reporting_profile_code, GhgReportingProfile.status == "published")
@@ -50,20 +58,64 @@ class RunInventoryCalculation:
         if profile is None:
             msg = "报告配置不存在或尚未发布"
             raise ValueError(msg)
-        activities = list(
-            (
-                await self.session.execute(
-                    select(GhgActivityRecord).where(
-                        GhgActivityRecord.inventory_code == inventory_code,
-                        GhgActivityRecord.boundary_status == "included",
-                        GhgActivityRecord.status == "approved",
-                    )
-                )
-            ).scalars()
-        )
+        period = None
+        if reporting_period_id is not None:
+            period = await self.session.scalar(select(ReportingPeriod).where(ReportingPeriod.id == reporting_period_id))
+            if period is None:
+                msg = "报告期间不存在"
+                raise ValueError(msg)
+            if reporting_org_id is not None and period.reporting_org_id != reporting_org_id:
+                msg = "报告期间不属于所选报告组织"
+                raise ValueError(msg)
+            reporting_org_id = period.reporting_org_id
+        boundary = None
+        if organization_boundary_id is not None:
+            boundary = await self.session.scalar(
+                select(OrganizationBoundary).where(OrganizationBoundary.id == organization_boundary_id)
+            )
+            if boundary is None:
+                msg = "组织边界不存在"
+                raise ValueError(msg)
+            if boundary.status != "published":
+                msg = "组织边界尚未发布"
+                raise ValueError(msg)
+            if reporting_org_id is not None and boundary.reporting_org_id != reporting_org_id:
+                msg = "组织边界不属于所选报告组织"
+                raise ValueError(msg)
+            if reporting_period_id is not None and boundary.period_id != reporting_period_id:
+                msg = "组织边界不属于所选报告期间"
+                raise ValueError(msg)
+            reporting_org_id = boundary.reporting_org_id
+            reporting_period_id = boundary.period_id
+        activity_filters = [
+            GhgActivityRecord.inventory_code == inventory_code,
+            GhgActivityRecord.boundary_status == "included",
+            GhgActivityRecord.status == "approved",
+        ]
+        if reporting_period_id is not None:
+            activity_filters.append(GhgActivityRecord.reporting_period_id == reporting_period_id)
+        if organization_boundary_id is not None:
+            activity_filters.append(GhgActivityRecord.organization_boundary_id == organization_boundary_id)
+        activities = list((await self.session.execute(select(GhgActivityRecord).where(*activity_filters))).scalars())
         if not activities:
             msg = "盘查任务没有可计算的已批准活动数据"
             raise ValueError(msg)
+        period_ids = {item.reporting_period_id for item in activities if item.reporting_period_id is not None}
+        boundary_ids = {
+            item.organization_boundary_id for item in activities if item.organization_boundary_id is not None
+        }
+        organization_codes = {item.organization_code for item in activities}
+        if reporting_period_id is None and len(period_ids) > 1:
+            msg = "盘查任务包含多个报告期间，请明确选择报告期间"
+            raise ValueError(msg)
+        if organization_boundary_id is None and len(boundary_ids) > 1:
+            msg = "盘查任务包含多个组织边界，请明确选择边界版本"
+            raise ValueError(msg)
+        reporting_period_id = reporting_period_id or next(iter(period_ids), None)
+        organization_boundary_id = organization_boundary_id or next(iter(boundary_ids), None)
+        if reporting_org_id is None and reporting_period_id is not None:
+            period = await self.session.scalar(select(ReportingPeriod).where(ReportingPeriod.id == reporting_period_id))
+            reporting_org_id = period.reporting_org_id if period else None
         activity_ids = [activity.id for activity in activities]
         allocations = list(
             (
@@ -95,7 +147,10 @@ class RunInventoryCalculation:
             run_code=f"CALC-{uuid4().hex[:16].upper()}",
             inventory_code=inventory_code,
             reporting_profile_id=profile.id,
+            reporting_org_id=reporting_org_id,
             reporting_period_id=reporting_period_id,
+            organization_boundary_id=organization_boundary_id,
+            default_scope2_method=default_scope2_method,
             status="running",
             input_snapshot={
                 "reportingProfile": {
@@ -103,6 +158,13 @@ class RunInventoryCalculation:
                     "version": profile.version,
                     "standardCode": profile.standard_code,
                     "standardVersion": profile.standard_version,
+                },
+                "context": {
+                    "reportingOrgId": reporting_org_id,
+                    "reportingPeriodId": reporting_period_id,
+                    "organizationBoundaryId": organization_boundary_id,
+                    "organizationCodes": sorted(organization_codes),
+                    "defaultScope2Method": default_scope2_method,
                 },
                 "activityCount": len(activities),
                 "allocationCount": len(allocations),
@@ -131,7 +193,7 @@ class RunInventoryCalculation:
         self.session.add(run)
         await self.session.flush()
 
-        total = Decimal(0)
+        calculated_results: list[GhgCalculationResult] = []
         failures: list[dict[str, str]] = []
         for activity in activities:
             try:
@@ -139,7 +201,7 @@ class RunInventoryCalculation:
             except ValueError as exc:
                 failures.append({"recordCode": activity.record_code, "reason": str(exc)})
                 continue
-            total += result.co2e_kg
+            calculated_results.append(result)
 
         if failures:
             run.status = "failed"
@@ -148,7 +210,31 @@ class RunInventoryCalculation:
             await self.session.commit()
             msg = f"{len(failures)} 条活动记录缺少有效方法或参数"
             raise ValueError(msg)
-        run.total_co2e_kg = total
+        evidence_record_count = int(
+            await self.session.scalar(
+                select(func.count(func.distinct(GhgEvidenceLink.record_code))).where(
+                    GhgEvidenceLink.record_type == "activity",
+                    GhgEvidenceLink.record_code.in_([item.record_code for item in activities]),
+                )
+            )
+            or 0
+        )
+        summary = _build_summary(calculated_results, default_scope2_method=default_scope2_method)
+        quality_counts = {
+            status: sum(1 for activity in activities if activity.quality_status == status)
+            for status in ("pass", "warning", "failed")
+        }
+        run.summary_snapshot = summary
+        run.quality_snapshot = {
+            "activityCount": len(activities),
+            "allocationCoveragePct": "100.00",
+            "evidenceRecordCount": evidence_record_count,
+            "evidenceCoveragePct": str(
+                (Decimal(evidence_record_count) / Decimal(len(activities)) * Decimal(100)).quantize(Decimal("0.01"))
+            ),
+            "qualityCounts": quality_counts,
+        }
+        run.total_co2e_kg = Decimal(str(summary["defaultTotalCo2eKg"]))
         run.status = "completed"
         run.completed_at = datetime.now().astimezone()
         await self.session.commit()
@@ -272,3 +358,45 @@ class RunInventoryCalculation:
         )
         self.session.add(result)
         return result
+
+
+def _build_summary(
+    results: list[GhgCalculationResult],
+    *,
+    default_scope2_method: str,
+) -> dict[str, Any]:
+    direct_and_value_chain = [result for result in results if result.ghg_scope != "scope2"]
+    scope2_common = [
+        result for result in results if result.ghg_scope == "scope2" and result.scope2_method == "not_applicable"
+    ]
+    scope2_location = [
+        result for result in results if result.ghg_scope == "scope2" and result.scope2_method == "location"
+    ]
+    scope2_market = [result for result in results if result.ghg_scope == "scope2" and result.scope2_method == "market"]
+    has_scope2 = any(result.ghg_scope == "scope2" for result in results)
+    location_available = not has_scope2 or bool(scope2_location or scope2_common)
+    market_available = not has_scope2 or bool(scope2_market or scope2_common)
+    base_total = sum((result.co2e_kg for result in direct_and_value_chain), Decimal(0))
+    location_total = base_total + sum((result.co2e_kg for result in scope2_common + scope2_location), Decimal(0))
+    market_total = base_total + sum((result.co2e_kg for result in scope2_common + scope2_market), Decimal(0))
+    selected_results = [
+        result
+        for result in results
+        if result.ghg_scope != "scope2" or result.scope2_method in {"not_applicable", default_scope2_method}
+    ]
+    scope_totals: dict[str, Decimal] = {}
+    iso_totals: dict[str, Decimal] = {}
+    for result in selected_results:
+        scope_totals[result.ghg_scope] = scope_totals.get(result.ghg_scope, Decimal(0)) + result.co2e_kg
+        iso_totals[result.iso_category_code] = iso_totals.get(result.iso_category_code, Decimal(0)) + result.co2e_kg
+    default_total = location_total if default_scope2_method == "location" else market_total
+    return {
+        "defaultScope2Method": default_scope2_method,
+        "defaultTotalCo2eKg": str(default_total),
+        "totalLocationCo2eKg": str(location_total) if location_available else None,
+        "totalMarketCo2eKg": str(market_total) if market_available else None,
+        "scope2LocationAvailable": location_available,
+        "scope2MarketAvailable": market_available,
+        "scopeTotals": {key: str(value) for key, value in sorted(scope_totals.items())},
+        "isoCategoryTotals": {key: str(value) for key, value in sorted(iso_totals.items())},
+    }

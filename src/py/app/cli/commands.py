@@ -20,9 +20,7 @@ from app.domain.accounts.services import RoleService, UserService
 from app.domain.carbon.calculation_factor_importer import import_calculation_factor_checklist
 from app.domain.carbon.energy_analysis_importer import seed_energy_analysis_data
 from app.domain.carbon.factor_importer import import_ncsc_factor_package
-from app.domain.carbon.mvp_data_importer import seed_carbon_mvp_data
 from app.domain.carbon.production_data_importer import import_wms_production_data
-from app.domain.carbon.real_company_package_importer import import_real_company_packages
 from app.domain.energy.benchmark_importer import seed_warehouse_energy_benchmark_data
 from app.domain.ghg_inventory.usecases.tenant_dataset import CompleteWarehouseTenantInventory
 from app.lib.deps import create_service_provider, provide_services
@@ -46,6 +44,55 @@ def carbon_management_group(_: dict[str, Any]) -> None:
 @click.pass_context
 def metering_management_group(_: dict[str, Any]) -> None:
     """Manage meter ingestion and migration operations."""
+
+
+@click.group(name="demo", invoke_without_command=False, help="Apply reusable cross-domain demo packages.")
+@click.pass_context
+def demo_management_group(_: dict[str, Any]) -> None:
+    """Manage versioned tenant demo packages."""
+
+
+@demo_management_group.command(name="apply", help="Apply one reusable demo package to its tenant.")
+@click.option("--team", "team_slug", type=click.STRING, required=True, help="Tenant team slug.")
+@click.option("--package", "package_code", type=click.Choice(["xiangtai"]), default="xiangtai", show_default=True)
+@click.option(
+    "--profile",
+    "profile_code",
+    type=click.Choice(["foundation", "transition", "leadership"]),
+    default="transition",
+    show_default=True,
+)
+def apply_demo_package_command(team_slug: str, package_code: str, profile_code: str) -> None:
+    """Apply a traceable and idempotent cross-domain demo package."""
+    from app.demo import ApplyDemoPackage
+    from app.domain.metering.legacy_migration import resolve_team_id
+
+    console = get_console()
+
+    async def _apply() -> None:
+        async with alchemy.get_session() as session:
+            session.info[TENANT_BYPASS_SESSION_KEY] = True
+            team_id = await resolve_team_id(session, team_slug)
+            await session.commit()
+            session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
+            session.info[TENANT_ID_SESSION_KEY] = team_id
+            result = await ApplyDemoPackage(session).execute(package_code=package_code, profile_code=profile_code)
+        console.print(
+            "[green]Applied reusable demo package[/green] "
+            f"package={result.package_code} profile={result.profile_code} team_id={result.team_id} "
+            f"reporting_year={result.reporting_year} inventory_activities={result.inventory_activities} "
+            f"inventory_runs={result.inventory_runs} verification_project_id={result.verification_project_id} "
+            f"verification_evidence={result.verification_evidence_files}/{result.verification_evidence_links} "
+            f"verification_findings={result.verification_findings} microgrid_site_id={result.microgrid_site_id} "
+            f"meter_bindings={result.microgrid_meter_bindings} forecast_run_id={result.forecast_run_id} "
+            f"optimization_run_id={result.optimization_run_id} "
+            f"reduction_projects={len(result.reduction_project_ids)} "
+            f"climate_programs={len(result.climate_program_ids)} "
+            f"electricity_mwh={result.renewable_electricity_mwh:.3f}"
+        )
+
+    console.rule("Apply reusable demo package.")
+    anyio.run(_apply)
 
 
 @metering_management_group.command(name="migrate-legacy", help="Resume legacy meter facts into the canonical table.")
@@ -311,14 +358,14 @@ def seed_admin() -> None:
 
 
 @carbon_management_group.command(name="import-ncsc-factors", help="Import an NCSC official factor package.")
-@click.argument("package_dir", type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path))
-def import_ncsc_factors(package_dir: Path) -> None:
+@click.argument("package_dir", type=click.Path(exists=True, file_okay=False, dir_okay=True))
+def import_ncsc_factors(package_dir: str) -> None:
     """Import NCSC factor package into the source-neutral factor asset library."""
     console = get_console()
 
     async def _import() -> None:
         async with alchemy.get_session() as session:
-            result = await import_ncsc_factor_package(session, package_dir)
+            result = await import_ncsc_factor_package(session, Path(package_dir))
         console.print(
             "[green]Imported factor package[/green] "
             f"snapshot={result.snapshot_id} source={result.source_system} "
@@ -335,14 +382,14 @@ def import_ncsc_factors(package_dir: Path) -> None:
     name="import-calculation-factor-checklist",
     help="Import a reusable calculation-factor checklist CSV into the calculation factor library.",
 )
-@click.argument("csv_path", type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path))
-def import_calculation_factor_checklist_command(csv_path: Path) -> None:
+@click.argument("csv_path", type=click.Path(exists=True, file_okay=True, dir_okay=False))
+def import_calculation_factor_checklist_command(csv_path: str) -> None:
     """Import a reusable calculation-factor checklist CSV."""
     console = get_console()
 
     async def _import() -> None:
         async with alchemy.get_session() as session:
-            result = await import_calculation_factor_checklist(session, csv_path)
+            result = await import_calculation_factor_checklist(session, Path(csv_path))
         console.print(
             "[green]Imported calculation factor checklist[/green] "
             f"imported={result.imported} updated={result.updated} "
@@ -386,58 +433,6 @@ def import_wms_production_data_command(team_slug: str, limit: int | None, dry_ru
         )
 
     console.rule("Generate WMS production data samples.")
-    anyio.run(_import)
-
-
-@carbon_management_group.command(
-    name="seed-carbon-mvp-data",
-    help="Generate a coherent MVP data set for carbon accounting, verification, PCF, supply chain, assets, and budget.",
-)
-def seed_carbon_mvp_data_command() -> None:
-    """Generate carbon-management MVP sample data."""
-    console = get_console()
-
-    async def _seed() -> None:
-        async with alchemy.get_session() as session:
-            result = await seed_carbon_mvp_data(session)
-        console.print(
-            "[green]Seeded carbon MVP data[/green] "
-            f"scope_records={result.scope_records} organizations={result.organizations} "
-            f"boundaries={result.boundaries} accounting_batches={result.accounting_batches} "
-            f"inventory_items={result.inventory_items} verification_projects={result.verification_projects} "
-            f"pcf_studies={result.pcf_studies} suppliers={result.suppliers} "
-            f"asset_periods={result.asset_periods} budget_plans={result.budget_plans}"
-        )
-
-    console.rule("Seed carbon-management MVP data.")
-    anyio.run(_seed)
-
-
-@carbon_management_group.command(
-    name="import-real-company-package",
-    help="Import standardized real-company validation package data into tenant-scoped energy-carbon tables.",
-)
-@click.argument("package_path", type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path))
-@click.option("--dry-run", is_flag=True, default=False, help="Parse and write in a transaction, then roll back.")
-def import_real_company_package_command(package_path: Path, dry_run: bool) -> None:
-    """Import one enterprise package, or every package under an enterprises directory."""
-    console = get_console()
-
-    async def _import() -> None:
-        async with alchemy.get_session() as session:
-            results = await import_real_company_packages(session, package_path, dry_run=dry_run)
-        for result in results:
-            imported = ", ".join(f"{name}={count}" for name, count in sorted(result.imported.items()))
-            skipped = ", ".join(f"{name}={count}" for name, count in sorted(result.skipped.items())) or "none"
-            missing_pages = "、".join(result.source_missing_pages) or "none"
-            console.print(
-                "[green]Imported real company package[/green] "
-                f"dry_run={result.dry_run} enterprise={result.enterprise_code} "
-                f"tenant={result.tenant_slug} team_id={result.team_id} "
-                f"imported=({imported}) skipped=({skipped}) source_missing_pages={missing_pages}"
-            )
-
-    console.rule("Import real-company energy-carbon validation package.")
     anyio.run(_import)
 
 
@@ -526,7 +521,8 @@ def complete_ghg_tenant_data_command(team_slug: str) -> None:
             f"periods={result.reporting_periods} boundaries={result.boundaries} devices={result.devices} "
             f"measurement_boundaries={result.measurement_boundaries} sources={result.emission_sources} "
             f"activities={result.activities} allocations={result.allocations} "
-            f"parameters={result.parameter_values} calculation_runs={result.calculation_runs}"
+            f"parameters={result.parameter_values} calculation_runs={result.calculation_runs} "
+            f"inventory_reports={result.inventory_reports}"
         )
 
     console.rule("Complete GHG tenant data.")

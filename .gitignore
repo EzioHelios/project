@@ -62,6 +62,7 @@ error_body.txt
 *_list.txt
 outputs/
 .exports/
+.storage/
 
 # Local real-company validation workspace and generated evidence
 tmp/real_company_validation/

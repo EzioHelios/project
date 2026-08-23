@@ -14,10 +14,10 @@ from advanced_alchemy.extensions.litestar.providers import (
     create_service_dependencies,
     create_service_provider,
 )
+from saq import Queue  # noqa: TC002
 
 if TYPE_CHECKING:
     from litestar.connection import ASGIConnection
-    from saq import Queue
     from sqlalchemy.ext.asyncio import AsyncSession
 
 __all__ = (

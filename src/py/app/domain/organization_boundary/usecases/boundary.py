@@ -3,9 +3,9 @@ from __future__ import annotations
 import datetime
 from datetime import UTC, date
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 
 from app.db import models as m
 from app.domain.organization_boundary.domain.policies import (
@@ -18,6 +18,8 @@ from app.domain.organization_boundary.domain.policies import (
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.domain.organization_boundary.schemas import BoundaryEquipmentSelection, SaveBoundarySelectionRequest
 
 
 ORG_FIELDS = {
@@ -78,6 +80,8 @@ FACILITY_FIELDS = {
 }
 DATE_FIELDS = {"period_start", "period_end", "valid_from", "valid_to"}
 DECIMAL_FIELDS = {"equity_share_pct"}
+MAX_SCOPE3_CATEGORY = 15
+ModelT = TypeVar("ModelT")
 
 
 class OrganizationBoundaryUseCase:
@@ -176,11 +180,184 @@ class OrganizationBoundaryUseCase:
         if not facilities:
             msg = "发布组织边界前至少需要一个纳入设施"
             raise ValueError(msg)
+        _validate_operational_boundary(obj.operational_boundary)
+        previous = (
+            await self._session.execute(
+                select(m.OrganizationBoundary).where(
+                    m.OrganizationBoundary.reporting_org_id == obj.reporting_org_id,
+                    m.OrganizationBoundary.period_id == obj.period_id,
+                    m.OrganizationBoundary.boundary_type == obj.boundary_type,
+                    m.OrganizationBoundary.status == "published",
+                    m.OrganizationBoundary.id != obj.id,
+                )
+            )
+        ).scalars().all()
+        for item in previous:
+            item.status = "superseded"
         obj.status = "published"
         obj.published_at = _utc_now_naive()
         await self._session.commit()
         await self._session.refresh(obj)
         return obj
+
+    async def create_working_copy(self, boundary_id: int) -> m.OrganizationBoundary:
+        """Return an existing draft or copy a published boundary into a new version."""
+        source = await self._get_or_raise(m.OrganizationBoundary, boundary_id, "组织边界不存在")
+        if source.status == "draft":
+            return source
+        existing = await self._session.scalar(
+            select(m.OrganizationBoundary)
+            .where(
+                m.OrganizationBoundary.reporting_org_id == source.reporting_org_id,
+                m.OrganizationBoundary.period_id == source.period_id,
+                m.OrganizationBoundary.boundary_type == source.boundary_type,
+                m.OrganizationBoundary.status == "draft",
+            )
+            .order_by(m.OrganizationBoundary.version.desc())
+            .limit(1)
+        )
+        if existing is not None:
+            return existing
+        latest_version = await self._session.scalar(
+            select(func.max(m.OrganizationBoundary.version)).where(
+                m.OrganizationBoundary.reporting_org_id == source.reporting_org_id,
+                m.OrganizationBoundary.period_id == source.period_id,
+                m.OrganizationBoundary.boundary_type == source.boundary_type,
+            )
+        )
+        next_version = int(latest_version or source.version) + 1
+        draft = m.OrganizationBoundary(
+            reporting_org_id=source.reporting_org_id,
+            period_id=source.period_id,
+            boundary_no=_next_boundary_no(source.boundary_no, next_version),
+            boundary_name=source.boundary_name,
+            boundary_type=source.boundary_type,
+            boundary_method=source.boundary_method,
+            operational_boundary=dict(source.operational_boundary or {}),
+            version=next_version,
+            status="draft",
+            source_name=source.source_name,
+            standard_code=source.standard_code,
+            confidence_level=source.confidence_level,
+            remark=source.remark,
+        )
+        self._session.add(draft)
+        await self._session.flush()
+        facilities = (
+            await self._session.execute(
+                select(m.BoundaryFacility).where(m.BoundaryFacility.boundary_id == source.id)
+            )
+        ).scalars().all()
+        for item in facilities:
+            self._session.add(
+                m.BoundaryFacility(
+                    boundary_id=draft.id,
+                    facility_type=item.facility_type,
+                    area_id=item.area_id,
+                    equipment_id=item.equipment_id,
+                    facility_code=item.facility_code,
+                    facility_name=item.facility_name,
+                    facility_role=item.facility_role,
+                    included=item.included,
+                    exclusion_reason=item.exclusion_reason,
+                    valid_from=item.valid_from,
+                    valid_to=item.valid_to,
+                    source_name=item.source_name,
+                    remark=item.remark,
+                )
+            )
+        await self._session.commit()
+        await self._session.refresh(draft)
+        return draft
+
+    async def save_selection(
+        self,
+        boundary_id: int,
+        data: SaveBoundarySelectionRequest,
+    ) -> m.OrganizationBoundary:
+        """Replace the resource and standards selection of one draft atomically."""
+        boundary = await self._get_or_raise(m.OrganizationBoundary, boundary_id, "组织边界不存在")
+        if boundary.status != "draft":
+            msg = "已发布边界不可修改, 请先创建工作草稿"
+            raise ValueError(msg)
+        operational_boundary = _operational_boundary_payload(data)
+        _validate_operational_boundary(operational_boundary)
+        if not any(area_item.included for area_item in data.areas) and not any(
+            equipment_item.included for equipment_item in data.equipment
+        ):
+            msg = "核算边界至少需要一个纳入区域或设备"
+            raise ValueError(msg)
+
+        areas: dict[int, m.MonitorSector] = {}
+        for area_item in data.areas:
+            area = await self._get_or_raise(m.MonitorSector, area_item.area_id, "区域不存在")
+            if not area_item.included and not str(area_item.exclusion_reason or "").strip():
+                msg = "排除区域必须填写排除原因"
+                raise ValueError(msg)
+            areas[area.id] = area
+
+        equipment_rows: list[tuple[BoundaryEquipmentSelection, m.MonitorEquipment, m.MonitorSector]] = []
+        for equipment_item in data.equipment:
+            equipment = await self._get_or_raise(m.MonitorEquipment, equipment_item.equipment_id, "设备不存在")
+            equipment_area = areas.get(equipment_item.area_id)
+            if equipment_area is None:
+                equipment_area = await self._get_or_raise(m.MonitorSector, equipment_item.area_id, "区域不存在")
+            if equipment.sector_id != equipment_area.id:
+                msg = "设备不属于所选区域"
+                raise ValueError(msg)
+            if not equipment_item.included and not str(equipment_item.exclusion_reason or "").strip():
+                msg = "排除设备必须填写排除原因"
+                raise ValueError(msg)
+            equipment_rows.append((equipment_item, equipment, equipment_area))
+
+        await self._session.execute(delete(m.BoundaryFacility).where(m.BoundaryFacility.boundary_id == boundary.id))
+        boundary.operational_boundary = operational_boundary
+        period = await self._get_or_raise(m.ReportingPeriod, boundary.period_id, "报告期不存在")
+        for area_item in data.areas:
+            area = areas[area_item.area_id]
+            self._session.add(
+                m.BoundaryFacility(
+                    boundary_id=boundary.id,
+                    facility_type="area",
+                    area_id=area.id,
+                    facility_code=area.code,
+                    facility_name=area.name or area.code,
+                    facility_role="operational_boundary",
+                    included=area_item.included,
+                    exclusion_reason=area_item.exclusion_reason,
+                    valid_from=period.period_start,
+                    valid_to=period.period_end,
+                    source_name="组织碳核算边界配置",
+                )
+            )
+        for equipment_item, equipment, area in equipment_rows:
+            self._session.add(
+                m.BoundaryFacility(
+                    boundary_id=boundary.id,
+                    facility_type="equipment",
+                    area_id=area.id,
+                    equipment_id=equipment.id,
+                    facility_code=equipment.code,
+                    facility_name=equipment.name or equipment.code,
+                    facility_role="operational_boundary",
+                    included=equipment_item.included,
+                    exclusion_reason=equipment_item.exclusion_reason,
+                    valid_from=period.period_start,
+                    valid_to=period.period_end,
+                    source_name="组织碳核算边界配置",
+                )
+            )
+        await self._session.commit()
+        await self._session.refresh(boundary)
+        return boundary
+
+    async def discard_draft(self, boundary_id: int) -> None:
+        boundary = await self._get_or_raise(m.OrganizationBoundary, boundary_id, "组织边界不存在")
+        if boundary.status != "draft":
+            msg = "只能放弃工作草稿"
+            raise ValueError(msg)
+        await self._session.delete(boundary)
+        await self._session.commit()
 
     async def create_source_facility(self, boundary_id: int) -> m.BoundaryFacility:
         boundary = await self._get_or_raise(m.OrganizationBoundary, boundary_id, "组织边界不存在")
@@ -251,7 +428,7 @@ class OrganizationBoundaryUseCase:
         await self._session.delete(obj)
         await self._session.commit()
 
-    async def _get_or_raise(self, model: type[Any], item_id: int, message: str) -> Any:
+    async def _get_or_raise(self, model: type[ModelT], item_id: int, message: str) -> ModelT:
         obj = await self._session.get(model, item_id)
         if obj is None:
             raise ValueError(message)
@@ -282,3 +459,51 @@ def _assign(obj: Any, payload: dict[str, Any]) -> None:
 
 def _utc_now_naive() -> datetime.datetime:
     return datetime.datetime.now(UTC).replace(tzinfo=None)
+
+
+def _next_boundary_no(current: str, version: int) -> str:
+    base = current.rsplit("-V", maxsplit=1)[0]
+    return f"{base}-V{version}"
+
+
+def _operational_boundary_payload(data: SaveBoundarySelectionRequest) -> dict[str, Any]:
+    selection = data.operational_boundary
+    return {
+        "schemaVersion": selection.schema_version,
+        "scopes": list(dict.fromkeys(selection.scopes)),
+        "scope2Methods": list(dict.fromkeys(selection.scope2_methods)),
+        "isoCategories": list(dict.fromkeys(selection.iso_categories)),
+        "scope3Categories": list(dict.fromkeys(selection.scope3_categories)),
+    }
+
+
+def _validate_operational_boundary(value: dict[str, Any] | None) -> None:
+    payload = value or {}
+    scopes = _string_values(payload.get("scopes"))
+    if not scopes:
+        msg = "核算边界至少需要一个Scope"
+        raise ValueError(msg)
+    if not scopes <= {"scope1", "scope2", "scope3"}:
+        msg = "Scope取值不支持"
+        raise ValueError(msg)
+    scope2_methods = _string_values(payload.get("scope2Methods"))
+    if not scope2_methods <= {"location", "market"}:
+        msg = "Scope 2方法取值不支持"
+        raise ValueError(msg)
+    if "scope2" in scopes and not scope2_methods:
+        msg = "选择Scope 2时至少需要一种核算方法"
+        raise ValueError(msg)
+    iso_categories = _string_values(payload.get("isoCategories"))
+    if not iso_categories <= {"1", "2", "3", "4", "5", "6"}:
+        msg = "ISO 14064-1类别取值不支持"
+        raise ValueError(msg)
+    raw_scope3_categories = payload.get("scope3Categories")
+    scope3_categories = cast("list[object]", raw_scope3_categories) if isinstance(raw_scope3_categories, list) else []
+    if any(not isinstance(item, int) or item < 1 or item > MAX_SCOPE3_CATEGORY for item in scope3_categories):
+        msg = "Scope 3类别取值应为1至15"
+        raise ValueError(msg)
+
+
+def _string_values(value: Any) -> set[str]:
+    items = cast("list[object]", value) if isinstance(value, list) else []
+    return {str(item) for item in items}

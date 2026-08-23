@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -128,3 +128,81 @@ async def test_ghg_source_and_allocation_are_tenant_isolated(session) -> None:
     allocations = (await session.scalars(select(m.GhgActivityAllocation))).all()
     assert [row.source_code for row in sources] == ["SOURCE-A"]
     assert [row.allocation_code for row in allocations] == ["A-RESOURCE-001"]
+
+
+async def test_inventory_reports_are_tenant_isolated(session) -> None:
+    team_a = m.Team(name="GHG Report Tenant A", slug="ghg-report-a")
+    team_b = m.Team(name="GHG Report Tenant B", slug="ghg-report-b")
+    profile = m.GhgReportingProfile(
+        code="REPORT-PROFILE",
+        name="组织盘查报告配置",
+        version="1",
+        standard_code="ISO 14064-1",
+        standard_version="2018",
+        effective_from=date(2026, 1, 1),
+    )
+    session.add_all([team_a, team_b, profile])
+    await session.flush()
+    session.info[TENANT_BYPASS_SESSION_KEY] = True
+
+    async def add_report(team: m.Team, suffix: str) -> None:
+        organization = m.ReportingOrganization(team_id=team.id, code=f"ORG-{suffix}", name=f"报告组织{suffix}")
+        session.add(organization)
+        await session.flush()
+        period = m.ReportingPeriod(
+            team_id=team.id,
+            reporting_org_id=organization.id,
+            code="2026",
+            name="2026年度",
+            period_start=date(2026, 1, 1),
+            period_end=date(2026, 12, 31),
+        )
+        session.add(period)
+        await session.flush()
+        boundary = m.OrganizationBoundary(
+            team_id=team.id,
+            reporting_org_id=organization.id,
+            period_id=period.id,
+            boundary_no=f"BOUNDARY-{suffix}",
+            boundary_name=f"组织边界{suffix}",
+            status="published",
+        )
+        session.add(boundary)
+        await session.flush()
+        run = m.GhgCalculationRun(
+            team_id=team.id,
+            run_code=f"RUN-{suffix}",
+            inventory_code="INV-2026",
+            reporting_profile_id=profile.id,
+            reporting_org_id=organization.id,
+            reporting_period_id=period.id,
+            organization_boundary_id=boundary.id,
+            status="completed",
+            started_at=datetime.now(UTC),
+            completed_at=datetime.now(UTC),
+        )
+        session.add(run)
+        await session.flush()
+        session.add(
+            m.GhgInventoryReport(
+                team_id=team.id,
+                report_code="ORG-GHG-REPORT",
+                version=1,
+                title=f"组织盘查报告{suffix}",
+                inventory_code="INV-2026",
+                run_id=run.id,
+                reporting_org_id=organization.id,
+                reporting_period_id=period.id,
+                organization_boundary_id=boundary.id,
+                reporting_profile_id=profile.id,
+            )
+        )
+
+    await add_report(team_a, "A")
+    await add_report(team_b, "B")
+    await session.commit()
+    session.info.clear()
+    session.info[TENANT_ID_SESSION_KEY] = team_a.id
+
+    reports = (await session.scalars(select(m.GhgInventoryReport))).all()
+    assert [row.title for row in reports] == ["组织盘查报告A"]

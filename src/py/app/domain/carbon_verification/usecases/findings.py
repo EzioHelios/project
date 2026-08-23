@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 from datetime import UTC
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from sqlalchemy import func, select
 
@@ -13,6 +13,7 @@ from app.domain.carbon_verification.domain.policies import (
     validate_finding_status,
     validate_finding_transition,
 )
+from app.domain.carbon_verification.usecases.projects import CarbonVerificationProjectUseCase
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,6 +30,7 @@ FINDING_FIELDS = {
     "action_required",
     "record_type",
     "record_id",
+    "record_code",
     "scope",
     "display_name",
     "period",
@@ -77,11 +79,15 @@ class CarbonVerificationFindingUseCase:
         self._session.add(finding)
         await self._session.commit()
         await self._session.refresh(finding)
+        if finding.project_id is not None:
+            await CarbonVerificationProjectUseCase(self._session).refresh_project_status(finding.project_id)
         return finding
 
     async def update_finding(self, finding_id: int, data: dict[str, Any]) -> m.CarbonVerificationFinding:
         finding = await self._get_or_raise(finding_id)
-        payload = _payload(data, FINDING_FIELDS - {"finding_no", "issue_type", "record_type", "record_id"})
+        payload = _payload(
+            data, FINDING_FIELDS - {"finding_no", "issue_type", "record_type", "record_id", "record_code"}
+        )
         if "severity" in payload:
             validate_finding_severity(str(payload["severity"]))
         if "status" in payload:
@@ -95,13 +101,16 @@ class CarbonVerificationFindingUseCase:
         _assign(finding, payload)
         await self._session.commit()
         await self._session.refresh(finding)
+        if finding.project_id is not None:
+            await CarbonVerificationProjectUseCase(self._session).refresh_project_status(finding.project_id)
         return finding
 
     async def _existing_open_finding(self, payload: dict[str, Any]) -> m.CarbonVerificationFinding | None:
         record_type = payload.get("record_type")
         record_id = payload.get("record_id")
+        record_code = payload.get("record_code")
         issue_type = payload.get("issue_type")
-        if not record_type or not record_id or not issue_type:
+        if not record_type or (not record_id and not record_code) or not issue_type:
             return None
         project_id = payload.get("project_id")
         project_condition = (
@@ -109,15 +118,19 @@ class CarbonVerificationFindingUseCase:
             if project_id is not None
             else m.CarbonVerificationFinding.project_id.is_(None)
         )
+        conditions = [
+            project_condition,
+            m.CarbonVerificationFinding.record_type == str(record_type),
+            m.CarbonVerificationFinding.issue_type == str(issue_type),
+            m.CarbonVerificationFinding.status != "closed",
+        ]
+        if record_code:
+            conditions.append(m.CarbonVerificationFinding.record_code == str(record_code))
+        else:
+            conditions.append(m.CarbonVerificationFinding.record_id == int(cast("str | int", record_id)))
         return await self._session.scalar(
             select(m.CarbonVerificationFinding)
-            .where(
-                project_condition,
-                m.CarbonVerificationFinding.record_type == str(record_type),
-                m.CarbonVerificationFinding.record_id == int(record_id),
-                m.CarbonVerificationFinding.issue_type == str(issue_type),
-                m.CarbonVerificationFinding.status != "closed",
-            )
+            .where(*conditions)
             .order_by(m.CarbonVerificationFinding.id.desc())
             .limit(1)
         )
@@ -176,9 +189,10 @@ def _utc_now_naive() -> datetime.datetime:
 
 def _jsonable(value: Any) -> Any:
     if isinstance(value, dict):
-        return {str(key): _jsonable(item) for key, item in value.items()}
+        mapping = cast("dict[object, object]", value)
+        return {str(key): _jsonable(item) for key, item in mapping.items()}
     if isinstance(value, list):
-        return [_jsonable(item) for item in value]
+        return [_jsonable(item) for item in cast("list[object]", value)]
     if isinstance(value, (datetime.date, datetime.datetime)):
         return value.isoformat()
     return value

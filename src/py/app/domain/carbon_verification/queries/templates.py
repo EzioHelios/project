@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import func, select
 
 from app.db import models as m
+from app.domain.carbon_verification.domain.regulatory_templates import descriptor_for_template
 from app.domain.carbon_verification.queries.verification_constants import (
     REPORT_STANDARD_CODE,
     REPORT_STANDARD_NAME,
@@ -39,7 +40,11 @@ class CarbonVerificationTemplateQueryService:
             raise ValueError(msg)
         return template_payload(row)
 
-    async def active_template(self) -> dict[str, Any]:
+    async def active_template(self, *, project_id: int | None = None) -> dict[str, Any]:
+        if project_id is not None:
+            project = await self._session.get(m.CarbonVerificationProject, project_id)
+            if project is not None and project.template_version is not None:
+                return template_payload(project.template_version)
         row = await self._active_row()
         if row is None:
             return default_template_payload()
@@ -54,7 +59,9 @@ class CarbonVerificationTemplateQueryService:
         for condition in _conditions(query):
             stmt = stmt.where(condition)
             count_stmt = count_stmt.where(condition)
-        rows = (await self._session.execute(stmt.limit(_limit(query.limit)).offset(max(0, query.offset)))).scalars().all()
+        rows = (
+            (await self._session.execute(stmt.limit(_limit(query.limit)).offset(max(0, query.offset)))).scalars().all()
+        )
         total = int(await self._session.scalar(count_stmt) or 0)
         return {
             "items": [template_payload(row) for row in rows],
@@ -69,12 +76,15 @@ class CarbonVerificationTemplateQueryService:
         return await self._session.scalar(
             select(m.CarbonVerificationTemplateVersion)
             .where(m.CarbonVerificationTemplateVersion.status == "active")
-            .order_by(m.CarbonVerificationTemplateVersion.is_default.desc(), m.CarbonVerificationTemplateVersion.id.desc())
+            .order_by(
+                m.CarbonVerificationTemplateVersion.is_default.desc(), m.CarbonVerificationTemplateVersion.id.desc()
+            )
             .limit(1)
         )
 
 
 def template_payload(row: m.CarbonVerificationTemplateVersion) -> dict[str, Any]:
+    descriptor = descriptor_for_template(row.template_code)
     return {
         "id": row.id,
         "template_code": row.template_code,
@@ -96,12 +106,22 @@ def template_payload(row: m.CarbonVerificationTemplateVersion) -> dict[str, Any]
         "effective_to": row.effective_to.isoformat() if row.effective_to else None,
         "confidence_level": row.confidence_level,
         "remark": row.remark,
+        "report_purpose": descriptor.report_purpose,
+        "jurisdiction": descriptor.jurisdiction,
+        "program_code": descriptor.program_code,
+        "industry_codes": descriptor.industry_codes,
+        "technical_spec_code": descriptor.technical_spec_code,
+        "renderer_kind": descriptor.renderer_kind,
+        "schema_version": descriptor.schema_version,
+        "implementation_status": descriptor.implementation_status,
+        "source_url": descriptor.source_url,
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }
 
 
 def default_template_payload() -> dict[str, Any]:
+    descriptor = descriptor_for_template("organization_ghg_generic")
     return {
         "id": None,
         "template_code": "organization_ghg_generic",
@@ -112,22 +132,31 @@ def default_template_payload() -> dict[str, Any]:
         "template_format": "docx",
         "path": REPORT_TEMPLATE_PATH,
         "template_path": REPORT_TEMPLATE_PATH,
-        "applicable_industry": "工业其他行业",
-        "applicable_scope": "工业企业组织层面温室气体排放报告和核查材料包",
+        "applicable_industry": "通用工业企业",
+        "applicable_scope": "组织温室气体盘查报告",
         "standard_name": REPORT_STANDARD_NAME,
         "standard_code": REPORT_STANDARD_CODE,
         "source_name": "repository_default",
         "status": "active",
         "is_default": True,
-        "effective_from": "2026-06-13",
+        "effective_from": "2026-07-01",
         "effective_to": None,
-        "confidence_level": "medium",
-        "remark": "仓库内置通用模板 fallback",
+        "confidence_level": "high",
+        "remark": "GB/T 32150—2025 通用组织盘查报告",
+        "report_purpose": descriptor.report_purpose,
+        "jurisdiction": descriptor.jurisdiction,
+        "program_code": descriptor.program_code,
+        "industry_codes": descriptor.industry_codes,
+        "technical_spec_code": descriptor.technical_spec_code,
+        "renderer_kind": descriptor.renderer_kind,
+        "schema_version": descriptor.schema_version,
+        "implementation_status": descriptor.implementation_status,
+        "source_url": descriptor.source_url,
     }
 
 
 def _conditions(query: TemplateQuery) -> list[Any]:
-    conditions = []
+    conditions: list[Any] = []
     if query.status and query.status != "all":
         conditions.append(m.CarbonVerificationTemplateVersion.status == query.status)
     if query.applicable_industry and query.applicable_industry != "all":

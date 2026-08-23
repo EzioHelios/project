@@ -423,7 +423,7 @@ class CommitCategoryWorkbook:
     async def _resolve_organization_boundary_id(self, batch: GhgImportBatch) -> int | None:
         if batch.reporting_period_id is None:
             return None
-        return await self.session.scalar(
+        boundary_id = await self.session.scalar(
             select(carbon_models.OrganizationBoundary.id)
             .join(
                 carbon_models.ReportingOrganization,
@@ -437,6 +437,7 @@ class CommitCategoryWorkbook:
             .order_by(carbon_models.OrganizationBoundary.version.desc())
             .limit(1)
         )
+        return int(boundary_id) if boundary_id is not None else None
 
 
 def _text(value: Any) -> str | None:

@@ -1,0 +1,53 @@
+{
+  "schema_version": "climate-profile-v1",
+  "code": "transition",
+  "name": "转型推进期",
+  "description": "目标覆盖和披露治理基本就绪，可再生电力采购进入规模化执行阶段。",
+  "sbti": {
+    "baseline_year": 2024,
+    "baseline_multiplier": 1.12,
+    "target_year": 2030,
+    "reduction_pct": 42.0,
+    "scope12_coverage_pct": 95.0,
+    "scope3_coverage_pct": 67.0,
+    "scope2_method": "location"
+  },
+  "cdp": {
+    "status": "ready_for_review",
+    "owner_name": "可持续发展经理",
+    "domain_statuses": {
+      "governance": true,
+      "risks": true,
+      "strategy": true,
+      "targets": true
+    }
+  },
+  "re100": {
+    "electricity_data_year": 2025,
+    "target_year": 2030,
+    "target_pct": 100.0,
+    "claims": [
+      {
+        "source_type": "green_power",
+        "share_pct": 40.0,
+        "technology": "wind_solar_mix",
+        "ownership_status": "retired",
+        "evidence_reference": "EVIDENCE-DEMO-XT-GREEN-POWER-2025"
+      },
+      {
+        "source_type": "onsite_generation",
+        "share_pct": 15.0,
+        "technology": "solar",
+        "ownership_status": "allocated",
+        "evidence_reference": "EVIDENCE-DEMO-XT-PV-SELFUSE-2025"
+      },
+      {
+        "source_type": "certificate",
+        "share_pct": 15.0,
+        "technology": "solar",
+        "ownership_status": "held",
+        "evidence_reference": null
+      }
+    ]
+  }
+}

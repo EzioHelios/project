@@ -193,6 +193,7 @@ class Scope2ElectricityReconciliation(TeamScopedMixin, BigIntAuditBase):
     __table_args__ = (
         UniqueConstraint("team_id", "billing_month", "revision_no", name="uq_scope2_reconciliation_month_revision"),
         Index("ix_scope2_reconciliation_current", "team_id", "billing_month", "is_current"),
+        Index("ix_scope2_reconciliation_activity", "activity_record_id"),
         Index(
             "uq_scope2_reconciliation_one_current",
             "team_id",
@@ -207,8 +208,8 @@ class Scope2ElectricityReconciliation(TeamScopedMixin, BigIntAuditBase):
     projection_run_id: Mapped[int | None] = mapped_column(
         ForeignKey("metering_energy_projection_run.id", ondelete="SET NULL"), index=True
     )
-    electricity_bill_id: Mapped[int | None] = mapped_column(
-        ForeignKey("dataapp_scope2electricitybill.id", ondelete="SET NULL"), index=True
+    activity_record_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ghg_activity_record.id", ondelete="SET NULL")
     )
     source_priority: Mapped[str] = mapped_column(String(24), default="meter_aggregate", index=True)
     organization_total_kwh: Mapped[Decimal] = mapped_column(Numeric(18, 6))

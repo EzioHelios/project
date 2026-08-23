@@ -187,6 +187,7 @@ class GhgActivityRecord(TeamScopedMixin, BigIntAuditBase):
         UniqueConstraint("team_id", "inventory_code", "record_code", name="uq_ghg_activity_inventory_record"),
         Index("ix_ghg_activity_inventory_category", "team_id", "inventory_code", "iso_category_code"),
         Index("ix_ghg_activity_period", "team_id", "period_start", "period_end"),
+        Index("ix_ghg_activity_period_mechanism", "team_id", "period_start", "period_end", "source_mechanism"),
     )
 
     record_code: Mapped[str] = mapped_column(String(96), index=True)
@@ -236,6 +237,14 @@ class GhgActivityAllocation(TeamScopedMixin, BigIntAuditBase):
         UniqueConstraint("team_id", "activity_id", "allocation_code", name="uq_ghg_activity_allocation_code"),
         Index("ix_ghg_allocation_area", "team_id", "area_id", "allocation_role"),
         Index("ix_ghg_allocation_equipment", "team_id", "equipment_id", "allocation_role"),
+        Index(
+            "ix_ghg_allocation_resource_activity",
+            "team_id",
+            "area_id",
+            "equipment_id",
+            "activity_id",
+            "status",
+        ),
         CheckConstraint("allocation_ratio > 0 and allocation_ratio <= 1", name="ck_ghg_allocation_ratio"),
     )
 
@@ -322,11 +331,20 @@ class GhgCalculationRun(TeamScopedMixin, BigIntAuditBase):
     reporting_profile_id: Mapped[int] = mapped_column(
         ForeignKey("ghg_reporting_profile.id", ondelete="RESTRICT"), index=True
     )
+    reporting_org_id: Mapped[int | None] = mapped_column(
+        ForeignKey("carbon_reporting_organization.id", ondelete="SET NULL"), index=True
+    )
     reporting_period_id: Mapped[int | None] = mapped_column(
         ForeignKey("carbon_reporting_period.id", ondelete="SET NULL"), index=True
     )
+    organization_boundary_id: Mapped[int | None] = mapped_column(
+        ForeignKey("carbon_organization_boundary.id", ondelete="SET NULL"), index=True
+    )
+    default_scope2_method: Mapped[str] = mapped_column(String(24), default="location", index=True)
     status: Mapped[str] = mapped_column(String(24), default="running", index=True)
     input_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    summary_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    quality_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     total_co2e_kg: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -378,6 +396,14 @@ class GhgCalculationResult(TeamScopedMixin, BigIntAuditBase):
             name="uq_ghg_calculation_result_dimension",
         ),
         Index("ix_ghg_calculation_result_inventory", "team_id", "run_id", "iso_category_code"),
+        Index(
+            "ix_ghg_result_run_scope_method_quality",
+            "team_id",
+            "run_id",
+            "ghg_scope",
+            "scope2_method",
+            "quality_status",
+        ),
     )
 
     run_id: Mapped[int] = mapped_column(ForeignKey("ghg_calculation_run.id", ondelete="CASCADE"), index=True)
@@ -396,6 +422,59 @@ class GhgCalculationResult(TeamScopedMixin, BigIntAuditBase):
     result_kind: Mapped[str] = mapped_column(String(24), default="emission", index=True)
     formula_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON)
     quality_status: Mapped[str] = mapped_column(String(24), default="pass", index=True)
+
+
+class GhgInventoryReport(TeamScopedMixin, BigIntAuditBase):
+    """Versioned internal organization-inventory report frozen from one run."""
+
+    __tablename__ = "ghg_inventory_report"
+    __table_args__ = (
+        UniqueConstraint("team_id", "report_code", "version", name="uq_ghg_inventory_report_version"),
+        Index("ix_ghg_inventory_report_context", "team_id", "reporting_org_id", "reporting_period_id", "status"),
+    )
+
+    report_code: Mapped[str] = mapped_column(String(96), index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    title: Mapped[str] = mapped_column(String(255))
+    inventory_code: Mapped[str] = mapped_column(String(96), index=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("ghg_calculation_run.id", ondelete="RESTRICT"), index=True)
+    reporting_org_id: Mapped[int] = mapped_column(
+        ForeignKey("carbon_reporting_organization.id", ondelete="RESTRICT"), index=True
+    )
+    reporting_period_id: Mapped[int] = mapped_column(
+        ForeignKey("carbon_reporting_period.id", ondelete="RESTRICT"), index=True
+    )
+    organization_boundary_id: Mapped[int] = mapped_column(
+        ForeignKey("carbon_organization_boundary.id", ondelete="RESTRICT"), index=True
+    )
+    reporting_profile_id: Mapped[int] = mapped_column(
+        ForeignKey("ghg_reporting_profile.id", ondelete="RESTRICT"), index=True
+    )
+    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    content_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    metrics_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    evidence_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    change_summary: Mapped[str | None] = mapped_column(Text)
+    submitted_by: Mapped[str | None] = mapped_column(String(128))
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by: Mapped[str | None] = mapped_column(String(128))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class GhgInventoryReportReview(TeamScopedMixin, BigIntAuditBase):
+    """Immutable internal review action for an inventory report version."""
+
+    __tablename__ = "ghg_inventory_report_review"
+    __table_args__ = (Index("ix_ghg_inventory_report_review", "team_id", "report_id", "acted_at"),)
+
+    report_id: Mapped[int] = mapped_column(ForeignKey("ghg_inventory_report.id", ondelete="CASCADE"), index=True)
+    action: Mapped[str] = mapped_column(String(24), index=True)
+    from_status: Mapped[str] = mapped_column(String(24))
+    to_status: Mapped[str] = mapped_column(String(24))
+    actor: Mapped[str] = mapped_column(String(128))
+    comment: Mapped[str | None] = mapped_column(Text)
+    acted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class GhgImportBatch(TeamScopedMixin, BigIntAuditBase):

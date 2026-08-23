@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
@@ -33,7 +32,7 @@ class EnergyDatasetImportResult:
     received_count: int
     imported_count: int = 0
     skipped_count: int = 0
-    errors: list[dict[str, Any]] = field(default_factory=list)
+    errors: list[dict[str, Any]] = field(default_factory=list[dict[str, Any]])
 
 
 class EnergyDatasetImportUseCase:
@@ -48,7 +47,6 @@ class EnergyDatasetImportUseCase:
         dataset: str,
         rows: list[dict[str, Any]],
         source_name: str | None = None,
-        default_status: str = "approved",
     ) -> EnergyDatasetImportResult:
         team_id = self._session.info.get(TENANT_ID_SESSION_KEY)
         if team_id is None:
@@ -69,20 +67,6 @@ class EnergyDatasetImportUseCase:
                         await self._upsert_energy_interval_fact(team_id=str(team_id), row=row, source_name=source_name)
                     elif normalized_dataset == "production_output_facts":
                         await self._upsert_production_output_fact(team_id=str(team_id), row=row, source_name=source_name)
-                    elif normalized_dataset == "scope1_stationary_combustion":
-                        await self._replace_scope1_stationary_combustion(
-                            team_id=str(team_id),
-                            row=row,
-                            source_name=source_name,
-                            default_status=default_status,
-                        )
-                    elif normalized_dataset == "scope2_electricity_bills":
-                        await self._replace_scope2_electricity_bill(
-                            team_id=str(team_id),
-                            row=row,
-                            source_name=source_name,
-                            default_status=default_status,
-                        )
                     else:
                         result.errors.append({"row_number": index, "message": f"不支持的数据集: {normalized_dataset}"})
                         break
@@ -270,143 +254,6 @@ class EnergyDatasetImportUseCase:
             },
         )
 
-    async def _replace_scope1_stationary_combustion(
-        self,
-        *,
-        team_id: str,
-        row: dict[str, Any],
-        source_name: str | None,
-        default_status: str,
-    ) -> None:
-        source_record_id = _text(row.get("source_record_id")) or _scope_key(row, ["facility_name", "period_start", "fuel_type"])
-        period_start = _date(row.get("period_start"))
-        period_end = _date(row.get("period_end"))
-        await self._session.execute(
-            text(
-                """
-                delete from dataapp_scope1stationarycombustion
-                where team_id = :team_id
-                    and facility_name = :facility_name
-                    and period_start = :period_start
-                    and period_end = :period_end
-                    and fuel_type = :fuel_type
-                    and remark like :marker_like
-                """
-            ),
-            {
-                "team_id": team_id,
-                "facility_name": _required_text(row, "facility_name"),
-                "period_start": period_start,
-                "period_end": period_end,
-                "fuel_type": _required_text(row, "fuel_type"),
-                "marker_like": f"%{IMPORT_MARKER}%",
-            },
-        )
-        await self._session.execute(
-            text(
-                """
-                insert into dataapp_scope1stationarycombustion (
-                    team_id, status, data_source, collection_method, confidence_level, data_year_type, data_year,
-                    approved_at, facility_name, period_start, period_end, fuel_type, amount, unit,
-                    meter_reading_start, meter_reading_end, attachment, remark, created_at, updated_at
-                )
-                values (
-                    :team_id, :status, :data_source, :collection_method, :confidence_level, :data_year_type, :data_year,
-                    :approved_at, :facility_name, :period_start, :period_end, :fuel_type, :amount, :unit,
-                    :meter_reading_start, :meter_reading_end, :attachment, :remark, now(), now()
-                )
-                """
-            ),
-            {
-                "team_id": team_id,
-                "status": _text(row.get("status")) or default_status,
-                "data_source": _text(row.get("data_source")) or IMPORT_SOURCE_SYSTEM,
-                "collection_method": _text(row.get("collection_method")) or "monthly",
-                "confidence_level": _text(row.get("confidence_level")) or "source",
-                "data_year_type": _text(row.get("data_year_type")) or "calendar_year",
-                "data_year": period_start.year,
-                "approved_at": datetime.now(UTC),
-                "facility_name": _required_text(row, "facility_name"),
-                "period_start": period_start,
-                "period_end": period_end,
-                "fuel_type": _required_text(row, "fuel_type"),
-                "amount": _required_decimal(row, "amount"),
-                "unit": _text(row.get("unit")) or "m3",
-                "meter_reading_start": _decimal(row.get("meter_reading_start")),
-                "meter_reading_end": _decimal(row.get("meter_reading_end")),
-                "attachment": _nullable_text(row.get("attachment")),
-                "remark": _remark(row.get("remark"), source_name, source_record_id),
-            },
-        )
-
-    async def _replace_scope2_electricity_bill(
-        self,
-        *,
-        team_id: str,
-        row: dict[str, Any],
-        source_name: str | None,
-        default_status: str,
-    ) -> None:
-        source_record_id = _text(row.get("source_record_id")) or _scope_key(row, ["account_number", "billing_month"])
-        billing_month = _billing_month(row.get("billing_month"))
-        await self._session.execute(
-            text(
-                """
-                delete from dataapp_scope2electricitybill
-                where team_id = :team_id
-                    and account_number = :account_number
-                    and billing_month = :billing_month
-                    and remark like :marker_like
-                """
-            ),
-            {
-                "team_id": team_id,
-                "account_number": _required_text(row, "account_number"),
-                "billing_month": billing_month,
-                "marker_like": f"%{IMPORT_MARKER}%",
-            },
-        )
-        total_kwh = _required_decimal(row, "total_kwh")
-        await self._session.execute(
-            text(
-                """
-                insert into dataapp_scope2electricitybill (
-                    team_id, status, data_source, collection_method, confidence_level, data_year_type, data_year,
-                    approved_at, account_number, billing_month, total_kwh, peak_kwh, flat_kwh, valley_kwh,
-                    amount_cny, attachment, remark, calc_status, activity_amount, activity_unit, created_at, updated_at
-                )
-                values (
-                    :team_id, :status, :data_source, :collection_method, :confidence_level, :data_year_type, :data_year,
-                    :approved_at, :account_number, :billing_month, :total_kwh, :peak_kwh, :flat_kwh, :valley_kwh,
-                    :amount_cny, :attachment, :remark, :calc_status, :activity_amount, :activity_unit, now(), now()
-                )
-                """
-            ),
-            {
-                "team_id": team_id,
-                "status": _text(row.get("status")) or default_status,
-                "data_source": _text(row.get("data_source")) or IMPORT_SOURCE_SYSTEM,
-                "collection_method": _text(row.get("collection_method")) or "monthly",
-                "confidence_level": _text(row.get("confidence_level")) or "source",
-                "data_year_type": _text(row.get("data_year_type")) or "calendar_year",
-                "data_year": int(billing_month[:4]),
-                "approved_at": datetime.now(UTC),
-                "account_number": _required_text(row, "account_number"),
-                "billing_month": billing_month,
-                "total_kwh": total_kwh,
-                "peak_kwh": _decimal(row.get("peak_kwh")),
-                "flat_kwh": _decimal(row.get("flat_kwh")),
-                "valley_kwh": _decimal(row.get("valley_kwh")),
-                "amount_cny": _decimal(row.get("amount_cny")),
-                "attachment": _nullable_text(row.get("attachment")),
-                "remark": _remark(row.get("remark"), source_name, source_record_id),
-                "calc_status": _text(row.get("calc_status")) or "ready",
-                "activity_amount": total_kwh,
-                "activity_unit": "kWh",
-            },
-        )
-
-
 def _text(value: Any) -> str:
     return str(value).strip() if value is not None else ""
 
@@ -468,21 +315,6 @@ def _datetime(value: Any) -> datetime:
     return datetime.fromisoformat(text_value.replace(" ", "T"))
 
 
-def _billing_month(value: Any) -> str:
-    text_value = _text(value)
-    if not text_value:
-        msg = "缺少账期 billing_month"
-        raise EnergyImportValidationError(msg)
-    match = re.search(r"(20\d{2})[-/年](\d{1,2})", text_value)
-    if match:
-        year, month = (int(part) for part in match.groups())
-        return f"{year}-{month:02d}"
-    year_match = re.search(r"(20\d{2})", text_value)
-    if year_match:
-        return f"{year_match.group(1)}-12"
-    return text_value[:YEAR_MONTH_LENGTH]
-
-
 def _data_quality(value: Any) -> str:
     text_value = _text(value).lower()
     if not text_value:
@@ -492,10 +324,6 @@ def _data_quality(value: Any) -> str:
     if any(token in text_value for token in ("manual", "手工")):
         return "manual"
     return "measured"
-
-
-def _scope_key(row: dict[str, Any], fields: list[str]) -> str:
-    return ":".join(_text(row.get(field)) for field in fields if _text(row.get(field)))
 
 
 def _remark(value: Any, source_name: str | None, source_record_id: str) -> str:

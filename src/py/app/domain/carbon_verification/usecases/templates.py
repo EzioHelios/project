@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.db import models as m
 from app.domain.carbon_verification.domain.policies import validate_template_status
+from app.domain.carbon_verification.domain.regulatory_templates import REGULATORY_TEMPLATES
 from app.domain.carbon_verification.queries.verification_constants import (
     REPORT_STANDARD_CODE,
     REPORT_STANDARD_NAME,
@@ -77,15 +78,16 @@ class CarbonVerificationTemplateUseCase:
             existing.template_name = REPORT_TEMPLATE_NAME
             existing.template_format = "docx"
             existing.template_path = REPORT_TEMPLATE_PATH
-            existing.applicable_industry = "工业其他行业"
-            existing.applicable_scope = "工业企业组织层面温室气体排放报告和核查材料包"
+            existing.applicable_industry = "通用工业企业"
+            existing.applicable_scope = "组织温室气体盘查报告"
             existing.standard_name = REPORT_STANDARD_NAME
             existing.standard_code = REPORT_STANDARD_CODE
             existing.source_name = "repository_default"
-            existing.confidence_level = "medium"
-            existing.remark = "仓库内置通用模板"
+            existing.confidence_level = "high"
+            existing.remark = "GB/T 32150—2025 通用组织盘查报告"
             existing.status = "active"
             existing.is_default = True
+            await self._ensure_regulatory_catalog()
             await self._session.commit()
             await self._session.refresh(existing)
             return existing
@@ -96,18 +98,19 @@ class CarbonVerificationTemplateUseCase:
             version=REPORT_TEMPLATE_VERSION,
             template_format="docx",
             template_path=REPORT_TEMPLATE_PATH,
-            applicable_industry="工业其他行业",
-            applicable_scope="工业企业组织层面温室气体排放报告和核查材料包",
+            applicable_industry="通用工业企业",
+            applicable_scope="组织温室气体盘查报告",
             standard_name=REPORT_STANDARD_NAME,
             standard_code=REPORT_STANDARD_CODE,
             source_name="repository_default",
             status="active",
             is_default=True,
-            effective_from=datetime.date(2026, 6, 13),
-            confidence_level="medium",
-            remark="仓库内置通用模板",
+            effective_from=datetime.date(2026, 7, 1),
+            confidence_level="high",
+            remark="GB/T 32150—2025 通用组织盘查报告",
         )
         self._session.add(obj)
+        await self._ensure_regulatory_catalog()
         await self._session.commit()
         await self._session.refresh(obj)
         return obj
@@ -133,6 +136,40 @@ class CarbonVerificationTemplateUseCase:
             if except_id is not None and row.id == except_id:
                 continue
             row.is_default = False
+
+    async def _ensure_regulatory_catalog(self) -> None:
+        for descriptor in REGULATORY_TEMPLATES:
+            if descriptor.template_code == "organization_ghg_generic":
+                continue
+            existing = await self._session.scalar(
+                select(m.CarbonVerificationTemplateVersion)
+                .where(
+                    m.CarbonVerificationTemplateVersion.template_code == descriptor.template_code,
+                    m.CarbonVerificationTemplateVersion.version == descriptor.schema_version,
+                )
+                .limit(1)
+            )
+            if existing is not None:
+                continue
+            self._session.add(
+                m.CarbonVerificationTemplateVersion(
+                    template_code=descriptor.template_code,
+                    template_name=descriptor.standard_name,
+                    version=descriptor.schema_version,
+                    template_format="docx",
+                    template_path=f"regulatory://{descriptor.template_code}",
+                    applicable_industry="、".join(descriptor.industry_codes),
+                    applicable_scope="全国碳排放权交易市场行业报告",
+                    standard_name=descriptor.standard_name,
+                    standard_code=descriptor.standard_code,
+                    source_name="official_regulatory_registry",
+                    status="active",
+                    is_default=False,
+                    effective_from=datetime.date.fromisoformat(descriptor.effective_from),
+                    confidence_level="high",
+                    remark="已登记现行规范; 完成行业表式适配前不可正式导出",
+                )
+            )
 
     async def _get_or_raise(self, template_id: int) -> m.CarbonVerificationTemplateVersion:
         obj = await self._session.get(m.CarbonVerificationTemplateVersion, template_id)
