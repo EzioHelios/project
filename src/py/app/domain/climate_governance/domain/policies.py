@@ -118,12 +118,19 @@ def assess_sbti_progress(
     target_path: Decimal | None = None
     target_end: Decimal | None = None
     gap: Decimal | None = None
+    target_completion_pct: Decimal | None = None
     if target_configured and years_valid and baseline_tco2e is not None and reduction_pct is not None:
         duration = Decimal(target_year - baseline_year)  # type: ignore[operator]
         elapsed = Decimal(max(0, min(reporting_year - baseline_year, target_year - baseline_year)))  # type: ignore[operator]
         target_end = baseline_tco2e * (Decimal(1) - reduction_pct / Decimal(100))
         target_path = baseline_tco2e - (baseline_tco2e - target_end) * elapsed / duration
         gap = current - target_path
+        reduction_required = baseline_tco2e - target_end
+        if reduction_required > 0:
+            target_completion_pct = min(
+                Decimal(100),
+                max(Decimal(0), _pct(baseline_tco2e - current, reduction_required)),
+            )
 
     blocking = [item for item in checks if item["severity"] == "blocking" and not item["passed"]]
     return {
@@ -131,11 +138,15 @@ def assess_sbti_progress(
         "status": "ready" if not blocking else "needs_attention",
         "reportingYear": reporting_year,
         "actualTco2e": float(current),
+        "scope1Tco2e": float(scope1_tco2e),
+        "scope2Tco2e": float(scope2_tco2e),
+        "scope3Tco2e": float(scope3_tco2e),
         "scope3SharePct": float(scope3_share),
         "scope3TargetRequired": scope3_required,
         "targetPathTco2e": float(target_path) if target_path is not None else None,
         "targetEndTco2e": float(target_end) if target_end is not None else None,
         "gapTco2e": float(gap) if gap is not None else None,
+        "targetCompletionPct": float(target_completion_pct) if target_completion_pct is not None else None,
         "readinessPct": float(_pct(Decimal(len(checks) - len(blocking)), Decimal(len(checks)))),
         "trajectoryKind": "internal_linear_tracking",
         "checks": checks,
@@ -216,6 +227,7 @@ def assess_re100_progress(
 
     eligible = min(max(eligible_mwh, Decimal(0)), max(total_electricity_mwh, Decimal(0)))
     progress = _pct(eligible, total_electricity_mwh)
+    self_reported = _pct(min(eligible + max(pending_mwh, Decimal(0)), total_electricity_mwh), total_electricity_mwh)
     target_mwh = total_electricity_mwh * target_pct / Decimal(100)
     gap = max(Decimal(0), target_mwh - eligible)
     checks = [
@@ -245,6 +257,7 @@ def assess_re100_progress(
         "eligibleRenewableMwh": float(eligible),
         "pendingRenewableMwh": float(pending_mwh),
         "progressPct": float(progress),
+        "selfReportedPct": float(self_reported),
         "targetPct": float(target_pct),
         "gapMwh": float(gap),
         "checks": checks,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
@@ -86,11 +87,12 @@ class ClimateGovernanceQueryService:
         )
 
         sbti_program = programs.get("sbti")
+        annualization_factor = Decimal(str(scope.get("annualizationFactor") or 1))
         sbti = assess_sbti_progress(
             reporting_year=reporting_year,
-            scope1_tco2e=Decimal(str(scope["scope1Tco2e"])),
-            scope2_tco2e=Decimal(str(scope["scope2Tco2e"])),
-            scope3_tco2e=Decimal(str(scope["scope3Tco2e"])),
+            scope1_tco2e=Decimal(str(scope["scope1Tco2e"])) * annualization_factor,
+            scope2_tco2e=Decimal(str(scope["scope2Tco2e"])) * annualization_factor,
+            scope3_tco2e=Decimal(str(scope["scope3Tco2e"])) * annualization_factor,
             baseline_year=sbti_target.baseline_year if sbti_target else None,
             baseline_tco2e=sbti_target.baseline_value if sbti_target else None,
             target_year=sbti_target.target_year if sbti_target else None,
@@ -102,6 +104,10 @@ class ClimateGovernanceQueryService:
             if sbti_target
             else Decimal(0),
         )
+        sbti["trackingTco2e"] = sbti["actualTco2e"]
+        sbti["actualTco2e"] = float(scope["totalTco2e"] or 0)
+        sbti["actualKind"] = "full_year" if scope.get("isFullYear", True) else "partial_year"
+        sbti["actualPeriodEnd"] = scope.get("periodEnd")
         sbti["programId"] = sbti_program.id if sbti_program else None
         sbti["target"] = self.target_payload(sbti_target) if sbti_target else None
 
@@ -132,8 +138,18 @@ class ClimateGovernanceQueryService:
             target_pct=target_pct,
         )
         re100["programId"] = re100_program.id if re100_program else None
+        re100["target"] = self.target_payload(re100_target) if re100_target else None
         re100["claims"] = claims
         re100["sourceMix"] = self._claim_mix(claims, electricity_mwh)
+        re100["coverageSegments"] = [
+            {"name": "经规则认可", "value": float(eligible_mwh), "status": "eligible"},
+            {"name": "待核验", "value": float(pending_mwh), "status": "pending"},
+            {
+                "name": "其他电力",
+                "value": float(max(Decimal(0), electricity_mwh - eligible_mwh - pending_mwh)),
+                "status": "other",
+            },
+        ]
 
         cdp_program = programs.get("cdp")
         cdp_cycle = await self._disclosure_cycle(cdp_program)
@@ -171,6 +187,19 @@ class ClimateGovernanceQueryService:
         cdp["programId"] = cdp_program.id if cdp_program else None
         cdp["questionnaireVersion"] = cdp_cycle.questionnaire_version if cdp_cycle else "2026"
         cdp["cycleStatus"] = cdp_cycle.status if cdp_cycle else "not_configured"
+        cdp["readinessMatrix"] = [
+            {
+                "domain": check["label"],
+                "dimension": "内部准备状态",
+                "status": "complete"
+                if check["passed"]
+                else "blocked"
+                if check["severity"] == "blocking"
+                else "missing",
+                "detail": "已具备当前周期所需信息" if check["passed"] else "需补充当前周期数据或材料",
+            }
+            for check in cdp["checks"]
+        ]
 
         trajectory = self._trajectory(inventory_rows, sbti_target, reporting_year)
         tasks = [
@@ -292,8 +321,14 @@ class ClimateGovernanceQueryService:
             )
             latest.setdefault(year, (run, period))
         output: list[dict[str, Any]] = []
-        for year, (run, _period) in sorted(latest.items()):
+        for year, (run, period) in sorted(latest.items()):
             totals = await self._scope_totals(run, scope2_method or run.default_scope2_method)
+            period_start = period.period_start if period else date(year, 1, 1)
+            period_end = period.period_end if period else date(year, 12, 31)
+            is_full_year = period_start <= date(year, 1, 1) and period_end >= date(year, 12, 31)
+            covered_days = max((period_end - period_start).days + 1, 1)
+            year_days = (date(year, 12, 31) - date(year, 1, 1)).days + 1
+            annualization_factor = Decimal(1) if is_full_year else Decimal(year_days) / Decimal(covered_days)
             output.append(
                 {
                     "year": year,
@@ -303,6 +338,11 @@ class ClimateGovernanceQueryService:
                     "totalTco2e": float(sum(totals.values(), Decimal(0)) / Decimal(1000)),
                     "runCode": run.run_code,
                     "completedAt": run.completed_at.isoformat() if run.completed_at else None,
+                    "periodStart": period_start.isoformat(),
+                    "periodEnd": period_end.isoformat(),
+                    "isFullYear": is_full_year,
+                    "annualizationFactor": float(annualization_factor),
+                    "annualizedTco2e": float(sum(totals.values(), Decimal(0)) / Decimal(1000) * annualization_factor),
                 }
             )
         return output
@@ -357,9 +397,24 @@ class ClimateGovernanceQueryService:
                     target.target_year - target.baseline_year
                 )
                 target_value = float(path)
+            inventory = by_year.get(year, {})
+            is_full_year = bool(inventory.get("isFullYear", True))
             output.append(
-                {"period": str(year), "actual": by_year.get(year, {}).get("totalTco2e"), "target": target_value}
+                {
+                    "period": str(year),
+                    "actual": inventory.get("totalTco2e") if is_full_year else None,
+                    "forecast": inventory.get("annualizedTco2e") if inventory and not is_full_year else None,
+                    "scope1": inventory.get("scope1Tco2e"),
+                    "scope2": inventory.get("scope2Tco2e"),
+                    "scope3": inventory.get("scope3Tco2e"),
+                    "target": target_value,
+                    "reference": target_value,
+                }
             )
+        for index, item in enumerate(output):
+            if item.get("forecast") is not None and index > 0:
+                previous = output[index - 1]
+                previous["forecast"] = previous.get("actual")
         return output
 
     @staticmethod

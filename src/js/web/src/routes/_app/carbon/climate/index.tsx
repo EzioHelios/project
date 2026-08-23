@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
-import { createDistributionChartOption, createGaugeChartOption, createRankingChartOption, createTrendChartOption, useAdminChartTheme } from "@/lib/admin-chart-theme"
+import { createBulletProgressChartOption, createReadinessMatrixOption, createTargetPathChartOption, useAdminChartTheme } from "@/lib/admin-chart-theme"
 import {
   useClimateOverview,
   useClimatePrograms,
@@ -32,11 +32,20 @@ type AnyRecord = Record<string, unknown>
 const frameworkLabels: Record<Framework, string> = { sbti: "SBTi目标", cdp: "CDP披露", re100: "RE100进展" }
 const claimSourceLabels: Record<string, string> = {
   onsite_generation: "自发自用",
+  self_generation: "自发自用",
   ppa: "购电协议",
   green_power: "绿电交易",
   certificate: "绿色电力证书",
   supplier_product: "供应商绿色电力产品",
   grid: "其他电网电力",
+}
+
+const cycleStatusLabels: Record<string, string> = {
+  preparing: "准备中",
+  internal_review: "内部复核",
+  submitted: "已提交",
+  completed: "已完成",
+  not_configured: "未配置",
 }
 
 function record(value: unknown): AnyRecord {
@@ -77,6 +86,7 @@ function ClimateGovernancePage() {
   const sbti = record(data?.sbti)
   const cdp = record(data?.cdp)
   const re100 = record(data?.re100)
+  const sbtiTarget = record(sbti.target)
   const programs = programsQuery.data?.items ?? []
   const selectedFramework = view === "overview" ? null : view
   const selectedProgram = selectedFramework ? programs.find((item) => item.framework === selectedFramework) : undefined
@@ -84,49 +94,81 @@ function ClimateGovernancePage() {
 
   const trendOption = useMemo(
     () =>
-      createTrendChartOption(
+      createTargetPathChartOption(
         chartTheme,
         records(data?.inventoryTrend).map((item) => ({
           period: textValue(item.period),
-          actual: item.actual == null ? Number.NaN : numberValue(item.actual),
-          target: item.target == null ? Number.NaN : numberValue(item.target),
+          actual: item.actual == null ? null : numberValue(item.actual),
+          reference: item.reference == null && item.target == null ? null : numberValue(item.reference ?? item.target),
+          forecast: item.forecast == null ? null : numberValue(item.forecast),
         })),
-        [
-          { key: "actual", label: "组织盘查实际排放", colorKey: "scope1" },
-          { key: "target", label: "内部目标路径", colorKey: "carbon" },
-        ],
-        { includeZeroSeries: true },
+        {
+          unit: "tCO₂e",
+          baselineYear: numberValue(sbtiTarget.baselineYear) || undefined,
+          reportingYear,
+          targetYear: numberValue(sbtiTarget.targetYear) || undefined,
+        },
       ),
-    [chartTheme, data?.inventoryTrend],
+    [chartTheme, data?.inventoryTrend, reportingYear, sbtiTarget.baselineYear, sbtiTarget.targetYear],
   )
   const scopeOption = useMemo(
     () =>
-      createDistributionChartOption(
+      createBulletProgressChartOption(
         chartTheme,
-        records(data?.scopeBreakdown).map((item) => ({ name: textValue(item.name), value: numberValue(item.value) })),
-        { unit: "tCO₂e" },
+        records(data?.scopeBreakdown).map((item, index) => ({
+          name: textValue(item.name),
+          value: numberValue(item.value),
+          colorKey: (["scope1", "scope2", "scope3"] as const)[index] ?? "neutral",
+        })),
+        { unit: "tCO₂e", label: `${reportingYear}年度` },
       ),
-    [chartTheme, data?.scopeBreakdown],
+    [chartTheme, data?.scopeBreakdown, reportingYear],
   )
   const cdpOption = useMemo(
     () =>
-      createRankingChartOption(
+      createReadinessMatrixOption(
         chartTheme,
-        records(cdp.checks).map((item) => ({ name: textValue(item.label), value: item.passed ? 100 : 0 })),
-        { unit: "%", colorKey: "carbon", limit: 8 },
+        records(cdp.readinessMatrix).map((item) => ({
+          domain: textValue(item.domain),
+          dimension: textValue(item.dimension),
+          status: textValue(item.status, "missing") as "complete" | "partial" | "missing" | "blocked" | "not_applicable",
+          detail: textValue(item.detail),
+        })),
       ),
-    [cdp.checks, chartTheme],
+    [cdp.readinessMatrix, chartTheme],
   )
   const re100MixOption = useMemo(
     () =>
-      createDistributionChartOption(
+      createBulletProgressChartOption(
         chartTheme,
-        records(re100.sourceMix).map((item) => ({ name: claimSourceLabels[textValue(item.name)] ?? textValue(item.name), value: numberValue(item.value) })),
-        { unit: "MWh" },
+        records(re100.sourceMix).map((item, index) => ({
+          name: claimSourceLabels[textValue(item.name)] ?? textValue(item.name),
+          value: numberValue(item.value),
+          colorKey: (["carbon", "scope2", "scope3", "energy", "neutral"] as const)[index] ?? "muted",
+        })),
+        { unit: "MWh", label: "来源构成", max: numberValue(re100.totalElectricityMwh) },
       ),
-    [chartTheme, re100.sourceMix],
+    [chartTheme, re100.sourceMix, re100.totalElectricityMwh],
   )
-  const re100GaugeOption = useMemo(() => createGaugeChartOption(chartTheme, numberValue(re100.progressPct), { suffix: "%" }), [chartTheme, re100.progressPct])
+  const re100CoverageOption = useMemo(
+    () =>
+      createBulletProgressChartOption(
+        chartTheme,
+        records(re100.coverageSegments).map((item) => ({
+          name: textValue(item.name),
+          value: numberValue(item.value),
+          colorKey: item.status === "eligible" ? "success" : item.status === "pending" ? "warning" : "muted",
+        })),
+        {
+          unit: "MWh",
+          label: "年度用电",
+          max: numberValue(re100.totalElectricityMwh),
+          target: (numberValue(re100.totalElectricityMwh) * numberValue(re100.targetPct)) / 100,
+          targetLabel: `目标 ${formatNumber(re100.targetPct, 0)}%`,
+        },
+      ),
+    [chartTheme, re100.coverageSegments, re100.targetPct, re100.totalElectricityMwh],
+  )
 
   const runCurrentAssessment = async () => {
     if (!selectedProgram) return
@@ -189,7 +231,7 @@ function ClimateGovernancePage() {
       >
         <TabsContent value="overview" className="m-0 grid gap-3">
           <div className="grid gap-3 xl:grid-cols-2">
-            <ChartPanel title="实际排放与目标路径" unit="tCO₂e" source="组织碳盘查与已发布气候目标" option={trendOption} height={310} />
+            <ChartPanel title="SBTi减排路径与年度跟踪" unit="tCO₂e" source="组织碳盘查与已发布目标版本" option={trendOption} height={310} />
             <ChartPanel title="组织排放结构" unit="tCO₂e" source="最新组织碳盘查" option={scopeOption} height={310} />
           </div>
           <FrameworkProgress
@@ -208,7 +250,7 @@ function ClimateGovernancePage() {
         <TabsContent value="sbti" className="m-0 grid gap-3">
           {!selectedProgram ? <ConfigureState framework="sbti" onClick={() => setProgramOpen(true)} /> : null}
           <div className="grid gap-3 xl:grid-cols-2">
-            <ChartPanel title="实际排放与年度目标路径" unit="tCO₂e" source="组织碳盘查与SBTi目标版本" option={trendOption} height={320} />
+            <ChartPanel title="SBTi减排路径与年度跟踪" unit="tCO₂e" source="组织碳盘查与已发布目标版本" option={trendOption} height={320} />
             <AdminPanel
               title="目标状态"
               actions={
@@ -220,9 +262,11 @@ function ClimateGovernancePage() {
             >
               <KeyFacts
                 items={[
-                  ["当前排放", `${formatNumber(sbti.actualTco2e)} tCO₂e`],
+                  [sbti.actualKind === "partial_year" ? "报告期排放" : "当前排放", `${formatNumber(sbti.actualTco2e)} tCO₂e`],
+                  ...(sbti.actualKind === "partial_year" ? [["年度预测", `${formatNumber(sbti.trackingTco2e)} tCO₂e`] as [string, string]] : []),
                   ["目标路径", sbti.targetPathTco2e == null ? "未配置" : `${formatNumber(sbti.targetPathTco2e)} tCO₂e`],
                   ["路径差距", sbti.gapTco2e == null ? "-" : `${formatNumber(sbti.gapTco2e)} tCO₂e`],
+                  ["目标完成度", sbti.targetCompletionPct == null ? "-" : `${formatNumber(sbti.targetCompletionPct, 1)}%`],
                   ["Scope 3占比", `${formatNumber(sbti.scope3SharePct, 1)}%`],
                 ]}
               />
@@ -234,7 +278,7 @@ function ClimateGovernancePage() {
         <TabsContent value="cdp" className="m-0 grid gap-3">
           {!selectedProgram ? <ConfigureState framework="cdp" onClick={() => setProgramOpen(true)} /> : null}
           <div className="grid gap-3 xl:grid-cols-[1.2fr_0.8fr]">
-            <ChartPanel title="披露主题就绪度" unit="%" source="2026年度企业问卷数据映射" option={cdpOption} height={330} />
+            <ChartPanel title="披露主题准备矩阵" source="当前披露周期内部检查" option={cdpOption} height={330} />
             <AdminPanel
               title="披露周期"
               actions={
@@ -249,7 +293,7 @@ function ClimateGovernancePage() {
                   ["内部就绪度", `${formatNumber(cdp.readinessPct, 0)}%`],
                   ["完成主题", `${formatNumber(cdp.completedDomains, 0)} / ${formatNumber(cdp.totalDomains, 0)}`],
                   ["问卷版本", textValue(cdp.questionnaireVersion, "2026")],
-                  ["周期状态", textValue(cdp.cycleStatus, "未配置")],
+                  ["周期状态", cycleStatusLabels[textValue(cdp.cycleStatus)] ?? textValue(cdp.cycleStatus, "未配置")],
                 ]}
               />
             </AdminPanel>
@@ -260,7 +304,7 @@ function ClimateGovernancePage() {
         <TabsContent value="re100" className="m-0 grid gap-3">
           {!selectedProgram ? <ConfigureState framework="re100" onClick={() => setProgramOpen(true)} /> : null}
           <div className="grid gap-3 xl:grid-cols-3">
-            <ChartPanel title="RE100年度进展" unit="%" source="用电边界与合格电力属性" option={re100GaugeOption} height={290} />
+            <ChartPanel title="可再生电力目标覆盖" unit="MWh" source="用电边界与电力属性资格结果" option={re100CoverageOption} height={290} />
             <ChartPanel title="企业用电来源结构" unit="MWh" source="能源计量与可再生电力台账" option={re100MixOption} height={290} className="xl:col-span-2" />
           </div>
           <AdminPanel
