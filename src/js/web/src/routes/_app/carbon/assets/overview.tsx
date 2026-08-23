@@ -1,19 +1,45 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { useMemo } from "react"
 
-import { AdminPageScaffold, MetricStrip, MetricTile } from "@/components/admin-ui"
-import { type AssetRow, AssetTable, formatNumber, RefreshButton, textOf } from "@/components/carbon/carbon-assets-common"
+import { AdminPageScaffold, ChartPanel, MetricStrip, MetricTile } from "@/components/admin-ui"
+import { type AssetRow, AssetTable, formatNumber, marketQuoteMetricLabel, RefreshButton, textOf } from "@/components/carbon/carbon-assets-common"
+import { createBulletProgressChartOption, createRankingChartOption, useAdminChartTheme } from "@/lib/admin-chart-theme"
 import { useCarbonAssetInstruments, useCarbonAssetOverview, useCarbonCompliance } from "@/lib/api/hooks/carbon-assets"
 
 export const Route = createFileRoute("/_app/carbon/assets/overview")({ component: CarbonAssetsOverviewPage })
 
 function CarbonAssetsOverviewPage() {
+  const theme = useAdminChartTheme("carbon")
   const overview = useCarbonAssetOverview()
   const instruments = useCarbonAssetInstruments()
   const compliance = useCarbonCompliance()
   const data = overview.data
   const position = (data?.compliancePosition ?? {}) as AssetRow
+  const balances = (data?.balances ?? []) as AssetRow[]
   const instrumentName = new Map((instruments.data?.items ?? []).map((row) => [Number(row.id), textOf(row, "name")]))
   const refresh = () => void Promise.all([overview.refetch(), instruments.refetch(), compliance.cycles.refetch(), compliance.position.refetch(), compliance.settlements.refetch()])
+  const coverageOption = useMemo(
+    () =>
+      createBulletProgressChartOption(
+        theme,
+        [
+          { name: "CEA可用", value: Number(position.cea_available_tco2e ?? 0), colorKey: "scope2" },
+          { name: "CCER可抵销", value: Number(position.usable_ccer_tco2e ?? 0), colorKey: "success" },
+          { name: "履约缺口", value: Number(position.gap_tco2e ?? 0), colorKey: "warning" },
+        ],
+        { max: Number(position.obligation_tco2e ?? 0), target: Number(position.obligation_tco2e ?? 0), targetLabel: "履约义务", unit: "tCO₂e", label: "当前周期" },
+      ),
+    [position, theme],
+  )
+  const valuationOption = useMemo(
+    () =>
+      createRankingChartOption(
+        theme,
+        balances.filter((row) => Number(row.marketValueCny ?? 0) > 0).map((row) => ({ name: textOf(row, "name"), value: Number(row.marketValueCny) })),
+        { unit: "元", colorKey: "carbon", limit: 8 },
+      ),
+    [balances, theme],
+  )
   return (
     <AdminPageScaffold
       title="碳资产总览"
@@ -27,15 +53,20 @@ function CarbonAssetsOverviewPage() {
         </MetricStrip>
       }
     >
+      <div className="grid gap-3 xl:grid-cols-[1.15fr_0.85fr]">
+        <ChartPanel title="履约覆盖结构" unit="tCO₂e" source="当前履约周期与可用资产余额" option={coverageOption} height={250} />
+        <ChartPanel title="资产市场价值" unit="元" source="可用余额与最新有效行情" option={valuationOption} height={250} />
+      </div>
       <div className="grid gap-3 xl:grid-cols-2">
         <AssetTable
           title="资产余额"
-          rows={(data?.balances ?? []) as AssetRow[]}
+          rows={balances}
           columns={[
             { key: "name", label: "资产工具" },
             { key: "instrumentClass", label: "类别" },
             { key: "balance", label: "可用余额", align: "right", render: (row) => formatNumber(row.balance) },
             { key: "nativeUnit", label: "单位" },
+            { key: "marketValueCny", label: "市场价值", align: "right", render: (row) => formatNumber(row.marketValueCny) },
           ]}
         />
         <AssetTable
@@ -44,7 +75,8 @@ function CarbonAssetsOverviewPage() {
           columns={[
             { key: "tradeDate", label: "交易日" },
             { key: "instrumentId", label: "工具", render: (row) => instrumentName.get(Number(row.instrumentId)) ?? "—" },
-            { key: "closePrice", label: "收盘价", align: "right", render: (row) => formatNumber(row.closePrice) },
+            { key: "closePrice", label: "价格", align: "right", render: (row) => formatNumber(row.closePrice) },
+            { key: "sourceVersion", label: "价格口径", render: (row) => marketQuoteMetricLabel(row.sourceVersion) },
             { key: "sourceName", label: "来源" },
           ]}
         />

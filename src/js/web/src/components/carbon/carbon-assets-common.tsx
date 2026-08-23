@@ -26,6 +26,14 @@ export function formatNumber(value: unknown, digits = 2) {
   return Number.isFinite(number) ? number.toLocaleString("zh-CN", { maximumFractionDigits: digits }) : "—"
 }
 
+export function marketQuoteMetricLabel(metric: unknown) {
+  if (metric === "daily-close-v1") return "日收盘价"
+  if (metric === "daily-average-v1") return "日成交均价"
+  if (metric === "monthly-average-vintage-2025-v1") return "月度均价（2025年电量）"
+  if (metric === "manual-observed-v1") return "登记价格"
+  return "价格"
+}
+
 export function RefreshButton({ onClick, loading }: { onClick: () => void; loading?: boolean }) {
   return (
     <Button size="sm" variant="outline" onClick={onClick} disabled={loading}>

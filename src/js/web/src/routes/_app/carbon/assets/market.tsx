@@ -3,13 +3,13 @@ import { Plus } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { AdminFilterBar, AdminPageScaffold, ChartPanel, MetricStrip, MetricTile } from "@/components/admin-ui"
-import { type AssetRow, AssetTable, formatNumber, RefreshButton, textOf } from "@/components/carbon/carbon-assets-common"
+import { type AssetRow, AssetTable, formatNumber, marketQuoteMetricLabel, RefreshButton, textOf } from "@/components/carbon/carbon-assets-common"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { createTrendChartOption, useAdminChartTheme } from "@/lib/admin-chart-theme"
+import { createMarketKlineChartOption, createMarketPriceVolumeChartOption, useAdminChartTheme } from "@/lib/admin-chart-theme"
 import { useCarbonAssetInstruments, useCarbonMarketQuotes, useCreateMarketQuote } from "@/lib/api/hooks/carbon-assets"
 import type { MarketQuoteRequest } from "@/lib/generated/api"
 
@@ -18,22 +18,50 @@ export const Route = createFileRoute("/_app/carbon/assets/market")({ component: 
 function CarbonAssetMarketPage() {
   const theme = useAdminChartTheme("carbon")
   const [instrumentId, setInstrumentId] = useState<number>()
+  const [chartMode, setChartMode] = useState<"price-volume" | "kline">("kline")
   const [open, setOpen] = useState(false)
   const instruments = useCarbonAssetInstruments()
-  const quotes = useCarbonMarketQuotes(instrumentId)
+  const instrumentRows = (instruments.data?.items ?? []) as AssetRow[]
+  const defaultInstrument = instrumentRows.find((row) => textOf(row, "instrumentClass") === "CEA") ?? instrumentRows[0]
+  const firstInstrumentId = defaultInstrument?.id ? Number(defaultInstrument.id) : undefined
+  const selectedInstrumentId = instrumentId ?? firstInstrumentId
+  const quotes = useCarbonMarketQuotes(selectedInstrumentId)
   const createQuote = useCreateMarketQuote()
-  const rows = (quotes.data?.items ?? []) as AssetRow[]
+  const rows = useMemo(() => (quotes.data?.items ?? []) as AssetRow[], [quotes.data?.items])
+  const selectedInstrument = instrumentRows.find((row) => Number(row.id) === selectedInstrumentId)
+  const orderedRows = useMemo(() => [...rows].reverse(), [rows])
+  const hasOhlc = rows.length > 0 && rows.every((row) => row.openPrice != null && row.highPrice != null && row.lowPrice != null)
+  const priceLabel =
+    textOf(selectedInstrument ?? {}, "instrumentClass") === "CEA" ? "综合价格收盘价" : textOf(selectedInstrument ?? {}, "instrumentClass") === "CCER" ? "成交均价" : "月度均价"
   const instrumentName = new Map((instruments.data?.items ?? []).map((row) => [Number(row.id), textOf(row, "name")]))
-  const option = useMemo(
-    () =>
-      createTrendChartOption(
+  const option = useMemo(() => {
+    if (chartMode === "kline" && hasOhlc) {
+      return createMarketKlineChartOption(
         theme,
-        [...rows].reverse().map((row) => ({ period: textOf(row, "tradeDate"), close: Number(row.closePrice ?? 0) })),
-        [{ key: "close", label: "收盘价", colorKey: "scope2" }],
-        { periodKey: "period", includeZeroSeries: true },
-      ),
-    [rows, theme],
-  )
+        orderedRows.map((row) => ({
+          trade_date: textOf(row, "tradeDate"),
+          open: Number(row.openPrice),
+          close: Number(row.closePrice),
+          low: Number(row.lowPrice),
+          high: Number(row.highPrice),
+          volume: row.volume == null ? null : Number(row.volume),
+        })),
+        {
+          priceUnit: `元/${textOf(selectedInstrument ?? {}, "nativeUnit", "单位")}`,
+          volumeUnit: textOf(selectedInstrument ?? {}, "nativeUnit", "单位"),
+        },
+      )
+    }
+    return createMarketPriceVolumeChartOption(
+      theme,
+      orderedRows.map((row) => ({
+        period: textOf(row, "tradeDate"),
+        price: Number(row.closePrice ?? 0),
+        volume: row.volume == null ? null : Number(row.volume),
+      })),
+      { priceUnit: "元", volumeUnit: textOf(selectedInstrument ?? {}, "nativeUnit"), priceLabel },
+    )
+  }, [chartMode, hasOhlc, orderedRows, priceLabel, selectedInstrument, theme])
   const latest = rows[0]
   return (
     <AdminPageScaffold
@@ -53,12 +81,11 @@ function CarbonAssetMarketPage() {
             {
               key: "instrument",
               node: (
-                <Select value={instrumentId ? String(instrumentId) : "all"} onValueChange={(value) => setInstrumentId(value === "all" ? undefined : Number(value))}>
+                <Select value={selectedInstrumentId ? String(selectedInstrumentId) : undefined} onValueChange={(value) => setInstrumentId(Number(value))}>
                   <SelectTrigger aria-label="资产工具">
-                    <SelectValue placeholder="全部资产工具" />
+                    <SelectValue placeholder="选择资产工具" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">全部资产工具</SelectItem>
                     {(instruments.data?.items ?? []).map((row) => (
                       <SelectItem key={String(row.id)} value={String(row.id)}>
                         {textOf(row, "name")}
@@ -75,13 +102,32 @@ function CarbonAssetMarketPage() {
       metrics={
         <MetricStrip>
           <MetricTile label="行情记录" value={quotes.data?.total ?? 0} unit="条" />
-          <MetricTile label="最新收盘" value={formatNumber(latest?.closePrice)} unit="元" />
+          <MetricTile label="最新价格" value={formatNumber(latest?.closePrice)} unit="元" />
           <MetricTile label="最新成交量" value={formatNumber(latest?.volume)} />
           <MetricTile label="行情日期" value={textOf(latest ?? {}, "tradeDate")} />
         </MetricStrip>
       }
     >
-      <ChartPanel title="价格走势" option={rows.length ? option : undefined} height={300} />
+      <ChartPanel
+        title={chartMode === "kline" && hasOhlc ? "市场K线与成交量" : "市场量价走势"}
+        unit={`元/${textOf(selectedInstrument ?? {}, "nativeUnit", "单位")}`}
+        source={textOf(latest ?? {}, "sourceName", "市场行情台账")}
+        option={rows.length ? option : undefined}
+        height={320}
+        actions={
+          hasOhlc ? (
+            <Select value={chartMode} onValueChange={(value) => setChartMode(value as "price-volume" | "kline")}>
+              <SelectTrigger aria-label="图表模式" className="h-8 w-28">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="price-volume">量价视图</SelectItem>
+                <SelectItem value="kline">K线视图</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : undefined
+        }
+      />
       <div className="mt-3">
         <AssetTable
           title="行情台账"
@@ -89,8 +135,16 @@ function CarbonAssetMarketPage() {
           columns={[
             { key: "tradeDate", label: "交易日" },
             { key: "instrumentId", label: "工具", render: (row) => instrumentName.get(Number(row.instrumentId)) ?? "—" },
-            { key: "closePrice", label: "收盘价", align: "right", render: (row) => formatNumber(row.closePrice) },
+            { key: "closePrice", label: "价格", align: "right", render: (row) => formatNumber(row.closePrice) },
+            ...(hasOhlc
+              ? [
+                  { key: "openPrice", label: "开盘", align: "right" as const, render: (row: AssetRow) => formatNumber(row.openPrice) },
+                  { key: "highPrice", label: "最高", align: "right" as const, render: (row: AssetRow) => formatNumber(row.highPrice) },
+                  { key: "lowPrice", label: "最低", align: "right" as const, render: (row: AssetRow) => formatNumber(row.lowPrice) },
+                ]
+              : []),
             { key: "volume", label: "成交量", align: "right", render: (row) => formatNumber(row.volume) },
+            { key: "sourceVersion", label: "价格口径", render: (row) => marketQuoteMetricLabel(row.sourceVersion) },
             { key: "sourceName", label: "来源" },
             { key: "sourceKind", label: "数据类型" },
           ]}
@@ -153,7 +207,7 @@ function QuoteDialog({
               <Input type="date" value={tradeDate} onChange={(event) => setTradeDate(event.target.value)} />
             </div>
             <div className="grid gap-2">
-              <Label>收盘价</Label>
+              <Label>价格</Label>
               <Input type="number" min="0" step="0.01" value={closePrice} onChange={(event) => setClosePrice(event.target.value)} />
             </div>
           </div>
@@ -174,7 +228,7 @@ function QuoteDialog({
                 quoteUnit: textOf(instrument ?? {}, "nativeUnit"),
                 sourceKind: "observed",
                 sourceName,
-                sourceVersion: "1",
+                sourceVersion: "manual-observed-v1",
               })
             }
           >

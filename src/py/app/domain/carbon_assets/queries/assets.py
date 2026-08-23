@@ -135,11 +135,22 @@ class CarbonAssetQueryService:
         balances = await self.balances()
         quotes = await self.latest_quotes()
         quote_by_instrument = {int(row["instrumentId"]): Decimal(str(row["closePrice"])) for row in quotes}
-        portfolio_value = sum(Decimal(str(row["balance"])) * quote_by_instrument.get(int(row["instrumentId"]), Decimal(0)) for row in balances)
+        valued_balances: list[dict[str, Any]] = []
+        for row in balances:
+            market_price = quote_by_instrument.get(int(row["instrumentId"]), Decimal(0))
+            market_value = Decimal(str(row["balance"])) * market_price
+            valued_balances.append(
+                {
+                    **row,
+                    "marketPrice": float(market_price),
+                    "marketValueCny": float(market_value),
+                }
+            )
+        portfolio_value = sum(Decimal(str(row["marketValueCny"])) for row in valued_balances)
         movements = list((await self.session.scalars(select(m.CarbonAssetMovement).order_by(m.CarbonAssetMovement.posted_at.desc()).limit(8))).all())
         compliance = await self.compliance_position()
         return {
-            "balances": balances,
+            "balances": valued_balances,
             "portfolioValueCny": float(portfolio_value),
             "activeCycle": compliance["cycle"] if compliance else None,
             "compliancePosition": compliance["position"] if compliance else None,
