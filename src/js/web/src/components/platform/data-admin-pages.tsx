@@ -130,12 +130,14 @@ export function PaginationBar({
   page,
   pageIndex,
   pageSize,
+  pageSizeOptions = [20, 50, 100],
   onPageChange,
   onPageSizeChange,
 }: {
   page: PageResult<unknown>
   pageIndex: number
   pageSize: number
+  pageSizeOptions?: number[]
   onPageChange: (pageIndex: number) => void
   onPageSizeChange: (pageSize: number) => void
 }) {
@@ -153,20 +155,20 @@ export function PaginationBar({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {[20, 50, 100].map((size) => (
+            {pageSizeOptions.map((size) => (
               <SelectItem key={size} value={String(size)}>
                 {size} 条/页
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Button variant="outline" size="sm" onClick={() => onPageChange(Math.max(0, pageIndex - 1))} disabled={pageIndex === 0}>
+        <Button aria-label="上一页" variant="outline" size="sm" onClick={() => onPageChange(Math.max(0, pageIndex - 1))} disabled={pageIndex === 0}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="w-20 text-center text-muted-foreground">
           {pageIndex + 1} / {pageCount}
         </div>
-        <Button variant="outline" size="sm" onClick={() => onPageChange(Math.min(pageCount - 1, pageIndex + 1))} disabled={pageIndex + 1 >= pageCount}>
+        <Button aria-label="下一页" variant="outline" size="sm" onClick={() => onPageChange(Math.min(pageCount - 1, pageIndex + 1))} disabled={pageIndex + 1 >= pageCount}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>

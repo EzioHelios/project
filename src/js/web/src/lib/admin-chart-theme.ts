@@ -147,6 +147,10 @@ export type AdminChartBarSeriesConfig<K extends string = string> = AdminChartSer
 export type AdminChartLineSeriesConfig<K extends string = string> = AdminChartSeriesConfig<K> & { yAxisIndex?: number }
 export type AdminChartRankingItem = { name: string; value: number }
 export type AdminChartDistributionItem = { name: string; value: number }
+export type AdminChartParetoItem = { name: string; value: number }
+export type AdminChartWaterfallItem = { name: string; value: number; kind?: "start" | "increase" | "decrease" | "total" }
+export type AdminChartBubbleItem = { name: string; x: number; y: number; size: number; category?: string }
+export type AdminChartMaccItem = { name: string; reduction: number; cost: number }
 export type AdminChartFlowNode = { id: string; name: string; value?: number; category?: string }
 export type AdminChartFlowLink = { source: string; target: string; value: number }
 export type AdminMarketKlinePoint = { trade_date: string; open: number; close: number; low: number; high: number; volume?: number | null }
@@ -382,6 +386,63 @@ export function createRankingChartOption(
   })
 }
 
+export function createParetoChartOption(
+  theme: AdminChartTheme,
+  items: AdminChartParetoItem[],
+  config: { unit?: string; limit?: number; colorKey?: AdminChartColorKey } = {},
+): EChartsOption | undefined {
+  if (items.length === 0) return undefined
+  const unit = config.unit ?? ""
+  const sorted = [...items].sort((left, right) => right.value - left.value).slice(0, config.limit ?? 10)
+  const total = sorted.reduce((sum, item) => sum + item.value, 0)
+  let accumulated = 0
+  const cumulative = sorted.map((item) => {
+    accumulated += item.value
+    return total > 0 ? (accumulated / total) * 100 : 0
+  })
+  const color = getAdminChartColor(theme, config.colorKey ?? (theme.domain === "carbon" ? "carbon" : "energy"))
+  return createAdminChartOption(theme, {
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      formatter: (params: unknown) => {
+        const rows = Array.isArray(params) ? params.map(chartParamRecord) : [chartParamRecord(params)]
+        const name = String(rows[0]?.axisValueLabel ?? rows[0]?.name ?? "")
+        const amount = chartParamNumber(rows.find((row) => row.seriesName === "排放量")?.value)
+        const ratio = chartParamNumber(rows.find((row) => row.seriesName === "累计占比")?.value)
+        return `${name}<br/>排放量 ${formatAdminChartNumber(amount, 2)}${unit ? ` ${unit}` : ""}<br/>累计占比 ${formatAdminChartNumber(ratio, 1)}%`
+      },
+    },
+    grid: { top: 36, left: 10, right: 18, bottom: 12, containLabel: true },
+    xAxis: categoryAxis(
+      theme,
+      sorted.map((item) => item.name),
+    ),
+    yAxis: [valueAxis(theme, unit), { ...valueAxis(theme, "%"), max: 100, splitLine: { show: false } }],
+    series: [
+      {
+        type: "bar",
+        name: "排放量",
+        data: sorted.map((item) => item.value),
+        barMaxWidth: 18,
+        itemStyle: { color, borderRadius: [5, 5, 0, 0] },
+        showBackground: true,
+        backgroundStyle: { color: theme.palette.gridSubtle, borderRadius: [5, 5, 0, 0] },
+      },
+      {
+        type: "line",
+        name: "累计占比",
+        yAxisIndex: 1,
+        data: cumulative,
+        smooth: true,
+        symbolSize: 6,
+        lineStyle: { width: 2.25, color: theme.palette.cost },
+        itemStyle: { color: theme.palette.cost },
+      },
+    ],
+  })
+}
+
 export function createDistributionChartOption(theme: AdminChartTheme, items: AdminChartDistributionItem[], config: { unit?: string } = {}): EChartsOption | undefined {
   if (items.length === 0) return undefined
   const unit = config.unit ?? ""
@@ -403,6 +464,133 @@ export function createDistributionChartOption(theme: AdminChartTheme, items: Adm
         labelLine: { lineStyle: { color: theme.palette.grid } },
         itemStyle: { borderColor: theme.palette.panel, borderWidth: 3 },
         data: items,
+      },
+    ],
+  })
+}
+
+export function createWaterfallChartOption(theme: AdminChartTheme, items: AdminChartWaterfallItem[], config: { unit?: string } = {}): EChartsOption | undefined {
+  if (items.length === 0) return undefined
+  const unit = config.unit ?? ""
+  let running = 0
+  const helpers: number[] = []
+  const values: Array<{ value: number; itemStyle: { color: string; borderRadius: number[] } }> = []
+  for (const item of items) {
+    const kind = item.kind ?? (item.value < 0 ? "decrease" : "increase")
+    if (kind === "start" || kind === "total") {
+      helpers.push(0)
+      values.push({ value: Math.abs(item.value), itemStyle: { color: kind === "total" ? theme.palette.carbon : theme.palette.neutral, borderRadius: [5, 5, 0, 0] } })
+      running = item.value
+    } else if (item.value >= 0) {
+      helpers.push(running)
+      values.push({ value: item.value, itemStyle: { color: theme.palette.warning, borderRadius: [5, 5, 0, 0] } })
+      running += item.value
+    } else {
+      running += item.value
+      helpers.push(running)
+      values.push({ value: Math.abs(item.value), itemStyle: { color: theme.palette.success, borderRadius: [5, 5, 0, 0] } })
+    }
+  }
+  return createAdminChartOption(theme, {
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      formatter: (params: unknown) => {
+        const rows = Array.isArray(params) ? params.map(chartParamRecord) : [chartParamRecord(params)]
+        const index = Number(rows[0]?.dataIndex ?? 0)
+        const item = items[index]
+        return `${item?.name ?? ""}<br/>${formatAdminChartNumber(item?.value, 2)}${unit ? ` ${unit}` : ""}`
+      },
+    },
+    xAxis: categoryAxis(
+      theme,
+      items.map((item) => item.name),
+    ),
+    yAxis: valueAxis(theme, unit),
+    series: [
+      { type: "bar", stack: "waterfall", silent: true, itemStyle: { color: "transparent" }, emphasis: { itemStyle: { color: "transparent" } }, data: helpers },
+      {
+        type: "bar",
+        stack: "waterfall",
+        barMaxWidth: 30,
+        data: values,
+        label: {
+          show: true,
+          position: "top",
+          color: theme.palette.label,
+          formatter: (params: unknown) => formatAdminChartNumber(items[Number(chartParamRecord(params).dataIndex ?? 0)]?.value, 1),
+        },
+      },
+    ],
+  })
+}
+
+export function createBubbleChartOption(theme: AdminChartTheme, items: AdminChartBubbleItem[], config: { xUnit?: string; yUnit?: string } = {}): EChartsOption | undefined {
+  if (items.length === 0) return undefined
+  const maxSize = Math.max(...items.map((item) => item.size), 1)
+  return createAdminChartOption(theme, {
+    tooltip: {
+      trigger: "item",
+      formatter: (params: unknown) => {
+        const data = chartParamRecord(chartParamRecord(params).data)
+        return `${String(data.name ?? "")}<br/>投资 ${formatAdminChartNumber(chartParamNumber(data.x), 2)}${config.xUnit ?? ""}<br/>减排 ${formatAdminChartNumber(chartParamNumber(data.y), 2)}${config.yUnit ?? ""}`
+      },
+    },
+    xAxis: valueAxis(theme, config.xUnit),
+    yAxis: valueAxis(theme, config.yUnit),
+    series: [
+      {
+        type: "scatter",
+        data: items.map((item, index) => ({
+          name: item.name,
+          x: item.x,
+          y: item.y,
+          value: [item.x, item.y, item.size],
+          symbolSize: 12 + 30 * Math.sqrt(item.size / maxSize),
+          itemStyle: { color: theme.seriesColors[index % theme.seriesColors.length], opacity: 0.78 },
+        })),
+        emphasis: { focus: "series", scale: true },
+      },
+    ],
+  })
+}
+
+export function createMaccChartOption(theme: AdminChartTheme, items: AdminChartMaccItem[], config: { costUnit?: string } = {}): EChartsOption | undefined {
+  if (items.length === 0) return undefined
+  const sorted = [...items].filter((item) => item.reduction > 0).sort((left, right) => left.cost - right.cost)
+  if (sorted.length === 0) return undefined
+  let cumulative = 0
+  const data = sorted.map((item, index) => {
+    const start = cumulative
+    cumulative += item.reduction
+    return { ...item, start, end: cumulative, color: item.cost <= 0 ? theme.palette.success : theme.seriesColors[(index + 1) % theme.seriesColors.length] }
+  })
+  return createAdminChartOption(theme, {
+    tooltip: {
+      trigger: "item",
+      formatter: (params: unknown) => {
+        const item = data[Number(chartParamRecord(params).dataIndex ?? 0)]
+        return `${item?.name ?? ""}<br/>减排潜力 ${formatAdminChartNumber(item?.reduction, 2)} tCO₂e<br/>边际成本 ${formatAdminChartNumber(item?.cost, 2)} ${config.costUnit ?? "元/tCO₂e"}`
+      },
+    },
+    xAxis: valueAxis(theme, "累计减排量 tCO₂e"),
+    yAxis: valueAxis(theme, config.costUnit ?? "元/tCO₂e"),
+    series: [
+      {
+        type: "custom",
+        renderItem: (params: unknown, api: unknown) => {
+          const apiObject = api as { value: (index: number) => number; coord: (point: number[]) => number[] }
+          const start = apiObject.coord([apiObject.value(0), apiObject.value(2)])
+          const end = apiObject.coord([apiObject.value(1), 0])
+          const zero = apiObject.coord([0, 0])
+          return {
+            type: "rect",
+            shape: { x: start[0] + 1, y: Math.min(start[1], zero[1]), width: Math.max(end[0] - start[0] - 2, 2), height: Math.abs(zero[1] - start[1]) },
+            style: { fill: data[Number((params as { dataIndex?: number }).dataIndex ?? 0)]?.color, opacity: 0.86 },
+          }
+        },
+        encode: { x: [0, 1], y: 2 },
+        data: data.map((item) => [item.start, item.end, item.cost]),
       },
     ],
   })
@@ -442,7 +630,7 @@ export function createSankeyChartOption(
   theme: AdminChartTheme,
   nodes: AdminChartFlowNode[],
   links: AdminChartFlowLink[],
-  config: { categoryColorMap?: Record<string, AdminChartColorKey> } = {},
+  config: { categoryColorMap?: Record<string, AdminChartColorKey>; labelWidth?: number; nodeGap?: number; right?: string } = {},
 ): EChartsOption | undefined {
   if (nodes.length === 0 || links.length === 0) return undefined
   const nameMap = new Map(nodes.map((node) => [node.id, node]))
@@ -472,6 +660,8 @@ export function createSankeyChartOption(
     label: {
       color: theme.palette.label,
       fontSize: 12,
+      width: config.labelWidth ?? 132,
+      overflow: "truncate" as const,
       formatter: () => `${node.name}${node.value && node.value > 0 ? `\n${formatAdminChartNumber(node.value, 2)}` : ""}`,
     },
   }))
@@ -498,14 +688,14 @@ export function createSankeyChartOption(
       {
         type: "sankey",
         left: "2%",
-        right: "4%",
+        right: config.right ?? "4%",
         top: 24,
         bottom: 12,
         data: sankeyNodes,
         links: sankeyLinks,
         nodeAlign: "justify",
         draggable: false,
-        nodeGap: 18,
+        nodeGap: config.nodeGap ?? 18,
         nodeWidth: 16,
         emphasis: { focus: "adjacency" },
         levels: [
@@ -517,6 +707,8 @@ export function createSankeyChartOption(
         label: {
           color: theme.palette.label,
           fontSize: 12,
+          width: config.labelWidth ?? 132,
+          overflow: "truncate",
           formatter: (params: unknown) => {
             const node = nameMap.get(String(chartParamRecord(params).name ?? ""))
             return `${node?.name ?? ""}${node?.value && node.value > 0 ? `\n${formatAdminChartNumber(node.value, 2)}` : ""}`

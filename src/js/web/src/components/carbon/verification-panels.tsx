@@ -1,15 +1,50 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { CheckCircle2, FileText, PackageCheck, ShieldCheck, TriangleAlert } from "lucide-react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
 import { AdminDataTable, AdminPanel, AdminTableStateRow, MetricStrip, MetricTile } from "@/components/admin-ui"
-import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
+import type { ApiEnvelope } from "@/components/carbon/analytics-panels"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useGhgInventoryReports } from "@/lib/api/hooks/ghg-inventory"
+import {
+  carbonVerificationCreateExport,
+  carbonVerificationCreateFinding,
+  carbonVerificationCreateProject,
+  carbonVerificationDownloadEvidence,
+  carbonVerificationDownloadExport,
+  carbonVerificationEnsureDefaultTemplate,
+  carbonVerificationGetAuditTrail,
+  carbonVerificationGetMaterialPackage,
+  carbonVerificationGetReportContext,
+  carbonVerificationGetSummary,
+  carbonVerificationListEvidence,
+  carbonVerificationListExports,
+  carbonVerificationListFindings,
+  carbonVerificationListIssues,
+  carbonVerificationListProjects,
+  carbonVerificationListTemplates,
+  carbonVerificationRefreshProject,
+  carbonVerificationReviewEvidence,
+  carbonVerificationUpdateFinding,
+  carbonVerificationUpdateProject,
+  carbonVerificationUpdateTemplate,
+  carbonVerificationUploadEvidence,
+} from "@/lib/generated/api"
 
 type VerificationSummary = {
+  project: {
+    id: number
+    project_no: string
+    project_name: string
+    report_code: string
+    report_version: number
+    run_code: string
+    conclusion_status: string
+  }
   enterprise?: { name?: string | null; unify_code?: string | null; industry?: string | null } | null
   reporting_period: { year?: number | null; period_start?: string | null; period_end?: string | null }
   totals: { total_kg_co2e: number; total_t_co2e: number; missing_result_count: number }
@@ -20,11 +55,23 @@ type VerificationSummary = {
   template: { name: string; path: string }
 }
 
+type VerificationAuditTrail = {
+  items: {
+    record_type: string
+    record_code: string
+    action: string
+    comment?: string | null
+    operator?: string | null
+    created_at?: string | null
+  }[]
+  total: number
+}
+
 type EvidenceManifest = {
   items: {
     evidence_code: string
     record_type: string
-    record_id?: number | null
+    record_code: string
     scope?: string | null
     display_name: string
     period?: string | null
@@ -37,44 +84,13 @@ type EvidenceManifest = {
   }[]
   missing: {
     record_type: string
-    record_id: number
+    record_code: string
     scope: string
     display_name: string
     period?: string | null
     material_status: string
   }[]
-  summary: { evidence_count: number; attachment_count: number; missing_evidence_count: number; record_count: number }
-}
-
-type VerificationAttachment = {
-  id: number
-  attachment_no: string
-  material_group: string
-  attachment_type: string
-  title: string
-  source_object_type: string
-  source_object_id?: number | null
-  source_object_label?: string | null
-  source_scope?: string | null
-  source_period?: string | null
-  file_name?: string | null
-  file_path?: string | null
-  file_size_bytes?: number | null
-  sha256?: string | null
-  status: string
-  material_status: string
-}
-
-type VerificationAttachments = {
-  items: VerificationAttachment[]
-  total: number
-  summary: {
-    total: number
-    by_status: Record<string, number>
-    by_group: Record<string, number>
-    ready_count: number
-    pending_count: number
-  }
+  summary: { evidence_count: number; linked_activity_count: number; missing_evidence_count: number; record_count: number }
 }
 
 type VerificationIssue = {
@@ -82,7 +98,7 @@ type VerificationIssue = {
   severity: string
   title: string
   record_type: string
-  record_id: number
+  record_code: string
   scope: string
   display_name: string
   period?: string | null
@@ -105,6 +121,7 @@ type VerificationFinding = {
   description?: string | null
   action_required?: string | null
   record_type?: string | null
+  record_code?: string | null
   record_id?: number | null
   scope?: string | null
   display_name?: string | null
@@ -148,6 +165,12 @@ type MaterialPackage = {
 type ReportContext = {
   template: TemplateVersion
   standard: { name: string; code: string; source_name: string }
+  formal_readiness: {
+    status: string
+    blocking_count: number
+    warning_count: number
+    checks: { code: string; label: string; status: string; detail?: string | null }[]
+  }
   inventory: {
     totals: { total_t_co2e: number; total_kg_co2e: number }
     source_summary: { scope: string; record_label: string; record_count: number; t_co2e: number }[]
@@ -184,6 +207,10 @@ type TemplateVersion = {
   effective_to?: string | null
   confidence_level?: string | null
   remark?: string | null
+  report_purpose?: string | null
+  technical_spec_code?: string | null
+  implementation_status?: string | null
+  schema_version?: string | null
 }
 
 type ExportJobs = {
@@ -230,12 +257,13 @@ type VerificationProject = {
   reporting_org_name?: string | null
   period_name?: string | null
   boundary_name?: string | null
-  accounting_batch_id?: number | null
-  batch_name?: string | null
-  batch_status?: string | null
-  batch_inventory_status?: string | null
-  batch_locked?: boolean
-  batch_locked_at?: string | null
+  inventory_report_id?: number | null
+  report_code?: string | null
+  report_version?: number | null
+  report_title?: string | null
+  report_status?: string | null
+  run_code?: string | null
+  inventory_code?: string | null
   template_name?: string | null
   template_version?: string | null
   planned_start?: string | null
@@ -245,35 +273,53 @@ type VerificationProject = {
   lead_reviewer?: string | null
   responsible_person?: string | null
   verifier_org?: string | null
+  assurance_level: string
+  materiality_threshold_pct?: string | null
+  verification_basis?: string | null
+  sampling_strategy?: string | null
+  site_visit_required: boolean
+  site_visit_status: string
+  conclusion_status: string
   readiness_status: string
   conclusion?: string | null
   finding_summary?: Record<string, number> | null
   artifact_counts: {
     finding_count: number
     open_finding_count: number
-    attachment_count: number
+    evidence_count: number
     export_count: number
   }
 }
 
-export function VerificationProjectsPanel() {
+export function VerificationProjectsPanel({ selectedProjectId, onProjectSelect }: { selectedProjectId?: number; onProjectSelect: (projectId: number) => void }) {
   const queryClient = useQueryClient()
+  const reports = useGhgInventoryReports()
+  const [projectName, setProjectName] = useState("")
+  const [reportId, setReportId] = useState<number>()
   const projectsQuery = useQuery<ApiEnvelope<VerificationProjects>>({
     queryKey: ["carbon-verification", "projects"],
-    queryFn: () => fetchCarbonApi<VerificationProjects>("/api/carbon/verification/projects?limit=100"),
+    queryFn: () => generatedEnvelope<VerificationProjects>(carbonVerificationListProjects({ query: { limit: 100 } })),
   })
   const createProject = useMutation({
     mutationFn: () => {
-      const name = window.prompt("请输入核查项目名称", `组织碳盘查核查项目 ${new Date().getFullYear()}`)
-      if (!name?.trim()) throw new Error("已取消创建")
-      const batchId = window.prompt("请输入核算批次ID（可选）", "")
-      return postCarbonApi<VerificationProject>("/api/carbon/verification/projects", {
-        project_name: name.trim(),
-        accounting_batch_id: batchId?.trim() ? Number(batchId.trim()) : undefined,
-      })
+      if (!projectName.trim() || !reportId) throw new Error("请选择已发布报告并填写项目名称")
+      return generatedEnvelope<VerificationProject>(
+        carbonVerificationCreateProject({
+          body: {
+            project_name: projectName.trim(),
+            inventory_report_id: reportId,
+            assurance_level: "internal_review",
+            verification_basis: "ISO 14064-3:2019",
+          },
+        }),
+      )
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast.success("核查项目已创建")
+      const id = result.data?.id
+      if (id) onProjectSelect(id)
+      setProjectName("")
+      setReportId(undefined)
       void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "projects"] })
     },
     onError: (error) => {
@@ -281,7 +327,8 @@ export function VerificationProjectsPanel() {
     },
   })
   const updateProject = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) => patchCarbonApi<VerificationProject>(`/api/carbon/verification/projects/${id}`, data),
+    mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) =>
+      generatedEnvelope<VerificationProject>(carbonVerificationUpdateProject({ path: { project_id: id }, body: data })),
     onSuccess: () => {
       toast.success("核查项目已更新")
       void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "projects"] })
@@ -291,7 +338,7 @@ export function VerificationProjectsPanel() {
     },
   })
   const refreshProject = useMutation({
-    mutationFn: (id: number) => postCarbonApi<VerificationProject>(`/api/carbon/verification/projects/${id}/refresh`, {}),
+    mutationFn: (id: number) => generatedEnvelope<VerificationProject>(carbonVerificationRefreshProject({ path: { project_id: id } })),
     onSuccess: () => {
       toast.success("项目状态已刷新")
       void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "projects"] })
@@ -302,13 +349,17 @@ export function VerificationProjectsPanel() {
   })
   const createExport = useMutation({
     mutationFn: (project: VerificationProject) =>
-      postCarbonApi<ExportJob>("/api/carbon/verification/export-jobs", {
-        project_id: project.id,
-        export_type: "material_package",
-        year: project.verification_year ?? undefined,
-      }),
+      generatedEnvelope<ExportJob>(
+        carbonVerificationCreateExport({
+          body: {
+            project_id: project.id,
+            export_type: "material_package",
+            year: project.verification_year ?? undefined,
+          },
+        }),
+      ),
     onSuccess: () => {
-      toast.success("项目材料包已生成")
+      toast.success("项目材料包生成任务已提交")
       void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "projects"] })
       void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "export-jobs"] })
     },
@@ -318,6 +369,13 @@ export function VerificationProjectsPanel() {
   })
   const data = projectsQuery.data?.data
   const projects = data?.items ?? []
+  const selectedProject = projects.find((item) => item.id === selectedProjectId)
+
+  useEffect(() => {
+    if (selectedProjectId || !projects.length) return
+    const defaultProject = projects.find((item) => item.inventory_report_id && item.status !== "archived")
+    if (defaultProject) onProjectSelect(defaultProject.id)
+  }, [onProjectSelect, projects, selectedProjectId])
 
   return (
     <div className="space-y-4">
@@ -328,11 +386,42 @@ export function VerificationProjectsPanel() {
           { label: "已完成", value: data?.summary.completed_count ?? 0, icon: CheckCircle2 },
         ]}
       />
-      <div className="flex justify-end">
-        <Button onClick={() => createProject.mutate()} disabled={createProject.isPending}>
-          创建核查项目
-        </Button>
+      <div className="space-y-2">
+        <div className="grid w-full gap-2 md:grid-cols-2">
+          <select
+            className="h-9 min-w-0 rounded-md border bg-background px-3 text-sm"
+            value={reportId ?? ""}
+            onChange={(event) => setReportId(event.target.value ? Number(event.target.value) : undefined)}
+          >
+            <option value="">选择已发布盘查报告</option>
+            {(reports.data?.items ?? [])
+              .filter((item) => item.status === "published")
+              .map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.title} · v{item.version}
+                </option>
+              ))}
+          </select>
+          <input
+            className="h-9 min-w-0 rounded-md border bg-background px-3 text-sm"
+            value={projectName}
+            onChange={(event) => setProjectName(event.target.value)}
+            placeholder="核查项目名称"
+          />
+        </div>
+        <div className="flex justify-start">
+          <Button onClick={() => createProject.mutate()} disabled={createProject.isPending || !reportId || !projectName.trim()}>
+            创建核查项目
+          </Button>
+        </div>
       </div>
+      {selectedProject ? (
+        <VerificationProjectPlanEditor
+          project={selectedProject}
+          disabled={updateProject.isPending}
+          onSave={(patch) => updateProject.mutate({ id: selectedProject.id, data: patch })}
+        />
+      ) : null}
       <AdminPanel title="项目台账" contentClassName="p-0">
         <AdminDataTable className="rounded-none border-0">
           <Table>
@@ -350,13 +439,20 @@ export function VerificationProjectsPanel() {
             </TableHeader>
             <TableBody>
               {projects.map((project) => (
-                <TableRow key={project.id}>
+                <TableRow
+                  key={project.id}
+                  data-state={selectedProjectId === project.id ? "selected" : undefined}
+                  className={project.inventory_report_id ? "cursor-pointer" : "text-muted-foreground"}
+                  onClick={() => {
+                    if (project.inventory_report_id) onProjectSelect(project.id)
+                  }}
+                >
                   <TableCell>
                     <div className="font-medium">{project.project_name}</div>
                     <div className="text-xs text-muted-foreground">{project.project_no}</div>
                   </TableCell>
                   <TableCell>
-                    <div>{project.reporting_org_name ?? project.batch_name ?? "-"}</div>
+                    <div>{project.reporting_org_name ?? project.report_title ?? "-"}</div>
                     <div className="text-xs text-muted-foreground">{project.period_name ?? project.verification_year ?? "-"}</div>
                   </TableCell>
                   <TableCell>
@@ -364,10 +460,10 @@ export function VerificationProjectsPanel() {
                     <div className="text-xs text-muted-foreground">{project.template_version ?? "-"}</div>
                   </TableCell>
                   <TableCell>
-                    <InventoryLockBadge project={project} />
+                    <ReportBindingBadge project={project} />
                   </TableCell>
                   <TableCell>
-                    {project.artifact_counts.attachment_count} 附件 / {project.artifact_counts.finding_count} 发现 / {project.artifact_counts.export_count} 导出
+                    {project.artifact_counts.evidence_count} 证据 / {project.artifact_counts.finding_count} 发现 / {project.artifact_counts.export_count} 导出
                   </TableCell>
                   <TableCell>
                     <ProjectStatusBadge status={project.status} />
@@ -395,51 +491,136 @@ export function VerificationProjectsPanel() {
   )
 }
 
-export function VerificationEvidencePanel() {
+function VerificationProjectPlanEditor({ project, onSave, disabled }: { project: VerificationProject; onSave: (patch: Record<string, unknown>) => void; disabled?: boolean }) {
+  return (
+    <AdminPanel title="核查方案">
+      <form
+        key={project.id}
+        className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"
+        onSubmit={(event) => {
+          event.preventDefault()
+          const form = new FormData(event.currentTarget)
+          onSave({
+            assurance_level: form.get("assurance_level"),
+            materiality_threshold_pct: form.get("materiality_threshold_pct") || null,
+            verification_basis: form.get("verification_basis") || null,
+            sampling_strategy: form.get("sampling_strategy") || null,
+            conclusion: form.get("conclusion") || null,
+            site_visit_required: form.get("site_visit_required") === "on",
+            site_visit_status: form.get("site_visit_status"),
+          })
+        }}
+      >
+        <label className="space-y-1 text-sm">
+          <span className="text-muted-foreground">保证等级</span>
+          <select name="assurance_level" defaultValue={project.assurance_level} className="h-9 w-full rounded-md border bg-background px-3">
+            <option value="internal_review">内部复核</option>
+            <option value="limited">有限保证</option>
+            <option value="reasonable">合理保证</option>
+          </select>
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="text-muted-foreground">重要性水平（%）</span>
+          <input
+            name="materiality_threshold_pct"
+            type="number"
+            min="0.0001"
+            max="100"
+            step="0.0001"
+            defaultValue={project.materiality_threshold_pct ?? ""}
+            className="h-9 w-full rounded-md border bg-background px-3"
+          />
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="text-muted-foreground">核查依据</span>
+          <input name="verification_basis" defaultValue={project.verification_basis ?? "ISO 14064-3:2019"} className="h-9 w-full rounded-md border bg-background px-3" />
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="text-muted-foreground">现场核查状态</span>
+          <select name="site_visit_status" defaultValue={project.site_visit_status} className="h-9 w-full rounded-md border bg-background px-3">
+            <option value="not_planned">未计划</option>
+            <option value="planned">已计划</option>
+            <option value="completed">已完成</option>
+            <option value="waived">已豁免</option>
+          </select>
+        </label>
+        <label className="space-y-1 text-sm md:col-span-2">
+          <span className="text-muted-foreground">抽样策略</span>
+          <input name="sampling_strategy" defaultValue={project.sampling_strategy ?? ""} className="h-9 w-full rounded-md border bg-background px-3" />
+        </label>
+        <label className="space-y-1 text-sm md:col-span-2">
+          <span className="text-muted-foreground">核查结论</span>
+          <input name="conclusion" defaultValue={project.conclusion ?? ""} className="h-9 w-full rounded-md border bg-background px-3" />
+        </label>
+        <div className="flex items-end justify-between gap-3">
+          <label className="flex h-9 items-center gap-2 text-sm">
+            <input name="site_visit_required" type="checkbox" defaultChecked={project.site_visit_required} />
+            需要现场核查
+          </label>
+          <Button type="submit" disabled={disabled || project.status === "completed" || project.status === "archived"}>
+            保存方案
+          </Button>
+        </div>
+      </form>
+    </AdminPanel>
+  )
+}
+
+export function VerificationEvidencePanel({ projectId }: { projectId?: number }) {
   const queryClient = useQueryClient()
   const evidenceQuery = useQuery<ApiEnvelope<EvidenceManifest>>({
-    queryKey: ["carbon-verification", "evidence"],
-    queryFn: () => fetchCarbonApi<EvidenceManifest>("/api/carbon/verification/evidence?limit=200"),
+    queryKey: ["carbon-verification", "evidence", projectId],
+    queryFn: () => generatedEnvelope<EvidenceManifest>(carbonVerificationListEvidence({ query: { limit: 200, project_id: projectId } })),
+    enabled: Boolean(projectId),
   })
-  const attachmentsQuery = useQuery<ApiEnvelope<VerificationAttachments>>({
-    queryKey: ["carbon-verification", "attachments"],
-    queryFn: () => fetchCarbonApi<VerificationAttachments>("/api/carbon/verification/attachments?limit=200"),
-  })
-  const createAttachment = useMutation({
-    mutationFn: (record: EvidenceManifest["missing"][number]) => {
-      const filePath = window.prompt("请输入凭证文件路径或URL", "")
-      if (filePath === null) throw new Error("已取消登记")
-      return postCarbonApi<VerificationAttachment>("/api/carbon/verification/attachments", {
-        title: `${record.display_name} 凭证`,
-        source_object_type: record.record_type,
-        source_object_id: record.record_id,
-        source_object_label: record.display_name,
-        source_scope: record.scope,
-        source_period: record.period,
-        file_path: filePath.trim() || undefined,
-        status: filePath.trim() ? "ready" : "pending_upload",
-        source_name: "carbon_verification.evidence_panel",
-      })
+  const uploadEvidence = useMutation({
+    mutationFn: ({ record, file }: { record: EvidenceManifest["missing"][number]; file: File }) => {
+      if (!projectId) throw new Error("请先选择核查项目")
+      return generatedEnvelope(
+        carbonVerificationUploadEvidence({
+          query: {
+            project_id: projectId,
+            record_type: record.record_type,
+            record_code: record.record_code,
+            evidence_role: "activity_evidence",
+            document_type: file.type || "application/octet-stream",
+          },
+          body: { file },
+        }),
+      )
     },
     onSuccess: () => {
-      toast.success("凭证已登记")
+      toast.success("证据文件已上传")
       void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "evidence"] })
-      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "attachments"] })
       void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "issues"] })
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "projects"] })
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "登记凭证失败")
+      toast.error(error instanceof Error ? error.message : "上传证据失败")
+    },
+  })
+  const reviewEvidence = useMutation({
+    mutationFn: ({ evidenceCode, decision }: { evidenceCode: string; decision: "approved" | "rejected" }) => {
+      if (!projectId) throw new Error("请先选择核查项目")
+      return generatedEnvelope(carbonVerificationReviewEvidence({ path: { evidence_code: evidenceCode }, query: { project_id: projectId }, body: { decision } }))
+    },
+    onSuccess: () => {
+      toast.success("证据复核状态已更新")
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "evidence"] })
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "issues"] })
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "projects"] })
     },
   })
   const data = evidenceQuery.data?.data
-  const attachments = attachmentsQuery.data?.data
+
+  if (!projectId) return <ProjectSelectionRequired />
 
   return (
     <div className="space-y-4">
       <MetricGrid
         items={[
           { label: "凭证数", value: data?.summary.evidence_count ?? 0, icon: FileText },
-          { label: "独立附件", value: attachments?.summary.total ?? data?.summary.attachment_count ?? 0, icon: PackageCheck },
+          { label: "已关联活动", value: data?.summary.linked_activity_count ?? 0, icon: PackageCheck },
           { label: "缺失凭证", value: data?.summary.missing_evidence_count ?? 0, icon: TriangleAlert },
         ]}
       />
@@ -453,12 +634,13 @@ export function VerificationEvidencePanel() {
                 <TableHead>对象</TableHead>
                 <TableHead>期间</TableHead>
                 <TableHead>状态</TableHead>
-                <TableHead>路径</TableHead>
+                <TableHead>文件</TableHead>
+                <TableHead className="w-[180px]">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {(data?.items ?? []).map((item) => (
-                <TableRow key={item.evidence_code}>
+                <TableRow key={`${item.evidence_code}-${item.record_type}-${item.record_code}`}>
                   <TableCell>{item.evidence_code}</TableCell>
                   <TableCell>{item.scope}</TableCell>
                   <TableCell>{item.display_name}</TableCell>
@@ -467,9 +649,21 @@ export function VerificationEvidencePanel() {
                     <VerificationStatusBadge status={item.material_status} />
                   </TableCell>
                   <TableCell className="max-w-[260px] truncate">{item.path || item.file_name || "-"}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button variant="outline" size="sm" onClick={() => void downloadEvidence(item.evidence_code)}>
+                        下载
+                      </Button>
+                      {item.material_status !== "ready" ? (
+                        <Button variant="outline" size="sm" onClick={() => reviewEvidence.mutate({ evidenceCode: item.evidence_code, decision: "approved" })}>
+                          通过
+                        </Button>
+                      ) : null}
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
-              {!data?.items?.length ? <EmptyRow colSpan={6} /> : null}
+              {!data?.items?.length ? <EmptyRow colSpan={7} /> : null}
             </TableBody>
           </Table>
         </AdminDataTable>
@@ -488,7 +682,7 @@ export function VerificationEvidencePanel() {
             </TableHeader>
             <TableBody>
               {(data?.missing ?? []).map((item) => (
-                <TableRow key={`${item.record_type}-${item.record_id}`}>
+                <TableRow key={`${item.record_type}-${item.record_code}`}>
                   <TableCell>{item.scope}</TableCell>
                   <TableCell>{item.display_name}</TableCell>
                   <TableCell>{item.period ?? "-"}</TableCell>
@@ -496,9 +690,20 @@ export function VerificationEvidencePanel() {
                     <VerificationStatusBadge status={item.material_status} />
                   </TableCell>
                   <TableCell>
-                    <Button variant="outline" size="sm" onClick={() => createAttachment.mutate(item)} disabled={createAttachment.isPending}>
-                      登记
-                    </Button>
+                    <label className="inline-flex h-8 cursor-pointer items-center rounded-md border px-3 text-sm hover:bg-muted">
+                      上传
+                      <input
+                        className="sr-only"
+                        type="file"
+                        accept=".pdf,.xlsx,.docx,.png,.jpg,.jpeg,.csv,.txt"
+                        disabled={!projectId || uploadEvidence.isPending}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0]
+                          if (file) uploadEvidence.mutate({ record: item, file })
+                          event.currentTarget.value = ""
+                        }}
+                      />
+                    </label>
                   </TableCell>
                 </TableRow>
               ))}
@@ -507,80 +712,167 @@ export function VerificationEvidencePanel() {
           </Table>
         </AdminDataTable>
       </AdminPanel>
-      <AdminPanel title="附件台账" contentClassName="p-0">
-        <AdminDataTable className="rounded-none border-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>编号</TableHead>
-                <TableHead>标题</TableHead>
-                <TableHead>对象</TableHead>
-                <TableHead>类型</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>文件</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(attachments?.items ?? []).map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="max-w-[180px] truncate">{item.attachment_no}</TableCell>
-                  <TableCell>{item.title}</TableCell>
-                  <TableCell>{item.source_object_label ?? item.source_object_type}</TableCell>
-                  <TableCell>{attachmentTypeLabel(item.attachment_type)}</TableCell>
-                  <TableCell>
-                    <VerificationStatusBadge status={item.material_status} />
-                  </TableCell>
-                  <TableCell className="max-w-[260px] truncate">{item.file_path || item.file_name || "-"}</TableCell>
-                </TableRow>
-              ))}
-              {!attachments?.items?.length ? <EmptyRow colSpan={6} /> : null}
-            </TableBody>
-          </Table>
-        </AdminDataTable>
-      </AdminPanel>
     </div>
   )
 }
 
-export function VerificationIssuesPanel() {
-  const queryClient = useQueryClient()
-  const issuesQuery = useQuery<ApiEnvelope<VerificationIssues>>({
-    queryKey: ["carbon-verification", "issues"],
-    queryFn: () => fetchCarbonApi<VerificationIssues>("/api/carbon/verification/issues?limit=200"),
+export function VerificationTracePanel({ projectId }: { projectId?: number }) {
+  const summaryQuery = useQuery<ApiEnvelope<VerificationSummary>>({
+    queryKey: ["carbon-verification", "summary", projectId],
+    queryFn: () => generatedEnvelope<VerificationSummary>(carbonVerificationGetSummary({ query: { project_id: projectId } })),
+    enabled: Boolean(projectId),
+  })
+  const evidenceQuery = useQuery<ApiEnvelope<EvidenceManifest>>({
+    queryKey: ["carbon-verification", "evidence", projectId],
+    queryFn: () => generatedEnvelope<EvidenceManifest>(carbonVerificationListEvidence({ query: { limit: 200, project_id: projectId } })),
+    enabled: Boolean(projectId),
   })
   const findingsQuery = useQuery<ApiEnvelope<VerificationFindings>>({
-    queryKey: ["carbon-verification", "findings"],
-    queryFn: () => fetchCarbonApi<VerificationFindings>("/api/carbon/verification/findings?limit=200"),
+    queryKey: ["carbon-verification", "findings", projectId],
+    queryFn: () => generatedEnvelope<VerificationFindings>(carbonVerificationListFindings({ query: { limit: 200, project_id: projectId } })),
+    enabled: Boolean(projectId),
+  })
+  if (!projectId) return <ProjectSelectionRequired />
+  const summary = summaryQuery.data?.data
+  const evidence = evidenceQuery.data?.data
+  const findings = findingsQuery.data?.data
+  const stages = [
+    { name: "盘查报告", reference: summary?.project.report_code, status: summary ? "ready" : "blocked" },
+    { name: "核算运行", reference: summary?.project.run_code, status: summary ? "ready" : "blocked" },
+    {
+      name: "证据资料",
+      reference: `${evidence?.summary.linked_activity_count ?? 0}/${evidence?.summary.record_count ?? 0}`,
+      status: evidence?.summary.missing_evidence_count === 0 ? "ready" : "attention",
+    },
+    {
+      name: "核查发现",
+      reference: `${findings?.summary.open_count ?? 0} 项待处理`,
+      status: findings?.summary.open_count === 0 ? "ready" : "attention",
+    },
+    {
+      name: "核查结论",
+      reference: summary?.project.conclusion_status ?? "pending",
+      status: summary?.project.conclusion_status === "approved" ? "ready" : "attention",
+    },
+  ]
+  return (
+    <AdminPanel title="核查链路" contentClassName="p-0">
+      <AdminDataTable className="rounded-none border-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>阶段</TableHead>
+              <TableHead>业务编号</TableHead>
+              <TableHead>状态</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {stages.map((stage) => (
+              <TableRow key={stage.name}>
+                <TableCell className="font-medium">{stage.name}</TableCell>
+                <TableCell>{stage.reference ?? "-"}</TableCell>
+                <TableCell>
+                  <VerificationStatusBadge status={stage.status} />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </AdminDataTable>
+    </AdminPanel>
+  )
+}
+
+export function VerificationAuditPanel({ projectId }: { projectId?: number }) {
+  const query = useQuery<ApiEnvelope<VerificationAuditTrail>>({
+    queryKey: ["carbon-verification", "audit-trail", projectId],
+    queryFn: () => generatedEnvelope<VerificationAuditTrail>(carbonVerificationGetAuditTrail({ query: { limit: 200, project_id: projectId } })),
+    enabled: Boolean(projectId),
+  })
+  if (!projectId) return <ProjectSelectionRequired />
+  const items = query.data?.data.items ?? []
+  return (
+    <AdminPanel title="审核日志" contentClassName="p-0">
+      <AdminDataTable className="rounded-none border-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>时间</TableHead>
+              <TableHead>对象</TableHead>
+              <TableHead>编号</TableHead>
+              <TableHead>动作</TableHead>
+              <TableHead>操作人</TableHead>
+              <TableHead>意见</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((item, index) => (
+              <TableRow key={`${item.record_type}-${item.record_code}-${item.created_at}-${index}`}>
+                <TableCell>{formatDateTime(item.created_at)}</TableCell>
+                <TableCell>{auditObjectLabel(item.record_type)}</TableCell>
+                <TableCell>{item.record_code}</TableCell>
+                <TableCell>{item.action}</TableCell>
+                <TableCell>{item.operator ?? "-"}</TableCell>
+                <TableCell>{item.comment ?? "-"}</TableCell>
+              </TableRow>
+            ))}
+            {!items.length ? <EmptyRow colSpan={6} /> : null}
+          </TableBody>
+        </Table>
+      </AdminDataTable>
+    </AdminPanel>
+  )
+}
+
+export function VerificationIssuesPanel({ projectId }: { projectId?: number }) {
+  const queryClient = useQueryClient()
+  const issuesQuery = useQuery<ApiEnvelope<VerificationIssues>>({
+    queryKey: ["carbon-verification", "issues", projectId],
+    queryFn: () => generatedEnvelope<VerificationIssues>(carbonVerificationListIssues({ query: { limit: 200, project_id: projectId } })),
+    enabled: Boolean(projectId),
+  })
+  const findingsQuery = useQuery<ApiEnvelope<VerificationFindings>>({
+    queryKey: ["carbon-verification", "findings", projectId],
+    queryFn: () => generatedEnvelope<VerificationFindings>(carbonVerificationListFindings({ query: { limit: 200, project_id: projectId } })),
+    enabled: Boolean(projectId),
   })
   const createFinding = useMutation({
     mutationFn: (issue: VerificationIssue) =>
-      postCarbonApi<VerificationFinding>("/api/carbon/verification/findings", {
-        issue_type: issue.issue_type,
-        severity: issue.severity,
-        title: issue.title,
-        description: issue.display_name,
-        action_required: issue.action,
-        record_type: issue.record_type,
-        record_id: issue.record_id,
-        scope: issue.scope,
-        display_name: issue.display_name,
-        period: issue.period,
-        source_name: "carbon_verification.auto_issue",
-        source_payload: issue,
-      }),
+      generatedEnvelope<VerificationFinding>(
+        carbonVerificationCreateFinding({
+          body: {
+            project_id: projectId,
+            issue_type: issue.issue_type,
+            severity: issue.severity,
+            title: issue.title,
+            description: issue.display_name,
+            action_required: issue.action,
+            record_type: issue.record_type,
+            record_code: issue.record_code,
+            scope: issue.scope,
+            display_name: issue.display_name,
+            period: issue.period,
+            source_name: "carbon_verification.auto_issue",
+            source_payload: issue,
+          },
+        }),
+      ),
     onSuccess: () => {
       toast.success("已升级为核查发现")
       void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "findings"] })
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "projects"] })
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "创建核查发现失败")
     },
   })
   const updateFinding = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) => patchCarbonApi<VerificationFinding>(`/api/carbon/verification/findings/${id}`, data),
+    mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) =>
+      generatedEnvelope<VerificationFinding>(carbonVerificationUpdateFinding({ path: { finding_id: id }, body: data })),
     onSuccess: () => {
       toast.success("核查发现已更新")
       void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "findings"] })
+      void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "projects"] })
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "更新核查发现失败")
@@ -588,6 +880,8 @@ export function VerificationIssuesPanel() {
   })
   const data = issuesQuery.data?.data
   const findings = findingsQuery.data?.data
+
+  if (!projectId) return <ProjectSelectionRequired />
 
   return (
     <div className="space-y-4">
@@ -614,7 +908,7 @@ export function VerificationIssuesPanel() {
             </TableHeader>
             <TableBody>
               {(data?.items ?? []).map((item) => (
-                <TableRow key={`${item.record_type}-${item.record_id}-${item.issue_type}`}>
+                <TableRow key={`${item.record_type}-${item.record_code}-${item.issue_type}`}>
                   <TableCell>{item.title}</TableCell>
                   <TableCell>
                     <SeverityBadge severity={item.severity} />
@@ -676,12 +970,15 @@ export function VerificationIssuesPanel() {
   )
 }
 
-export function VerificationMaterialPackagePanel() {
+export function VerificationMaterialPackagePanel({ projectId }: { projectId?: number }) {
   const packageQuery = useQuery<ApiEnvelope<MaterialPackage>>({
-    queryKey: ["carbon-verification", "material-package"],
-    queryFn: () => fetchCarbonApi<MaterialPackage>("/api/carbon/verification/material-package?limit=200"),
+    queryKey: ["carbon-verification", "material-package", projectId],
+    queryFn: () => generatedEnvelope<MaterialPackage>(carbonVerificationGetMaterialPackage({ query: { limit: 200, project_id: projectId } })),
+    enabled: Boolean(projectId),
   })
   const data = packageQuery.data?.data
+
+  if (!projectId) return <ProjectSelectionRequired />
 
   return (
     <div className="space-y-4">
@@ -746,32 +1043,44 @@ export function VerificationMaterialPackagePanel() {
   )
 }
 
-export function VerificationReportPanel() {
+export function VerificationReportPanel({ projectId }: { projectId?: number }) {
   const queryClient = useQueryClient()
   const summaryQuery = useQuery<ApiEnvelope<VerificationSummary>>({
-    queryKey: ["carbon-verification", "summary"],
-    queryFn: () => fetchCarbonApi<VerificationSummary>("/api/carbon/verification/summary"),
+    queryKey: ["carbon-verification", "summary", projectId],
+    queryFn: () => generatedEnvelope<VerificationSummary>(carbonVerificationGetSummary({ query: { project_id: projectId } })),
+    enabled: Boolean(projectId),
   })
   const reportQuery = useQuery<ApiEnvelope<ReportContext>>({
-    queryKey: ["carbon-verification", "report"],
-    queryFn: () => fetchCarbonApi<ReportContext>("/api/carbon/verification/report?limit=200"),
+    queryKey: ["carbon-verification", "report", projectId],
+    queryFn: () => generatedEnvelope<ReportContext>(carbonVerificationGetReportContext({ query: { limit: 200, project_id: projectId } })),
+    enabled: Boolean(projectId),
   })
   const jobsQuery = useQuery<ApiEnvelope<ExportJobs>>({
-    queryKey: ["carbon-verification", "export-jobs"],
-    queryFn: () => fetchCarbonApi<ExportJobs>("/api/carbon/verification/export-jobs?limit=20"),
+    queryKey: ["carbon-verification", "export-jobs", projectId],
+    queryFn: () => generatedEnvelope<ExportJobs>(carbonVerificationListExports({ query: { limit: 20, project_id: projectId } })),
+    enabled: Boolean(projectId),
+    refetchInterval: (query) => {
+      const items = query.state.data?.data.items ?? []
+      return items.some((item) => item.status === "queued" || item.status === "running") ? 3000 : false
+    },
   })
   const templatesQuery = useQuery<ApiEnvelope<TemplateVersions>>({
     queryKey: ["carbon-verification", "templates"],
-    queryFn: () => fetchCarbonApi<TemplateVersions>("/api/carbon/verification/templates?limit=50"),
+    queryFn: () => generatedEnvelope<TemplateVersions>(carbonVerificationListTemplates({ query: { limit: 50 } })),
   })
   const createExport = useMutation({
-    mutationFn: () =>
-      postCarbonApi<ExportJob>("/api/carbon/verification/export-jobs", {
-        export_type: "material_package",
-        year: summaryQuery.data?.data.reporting_period.year ?? undefined,
-      }),
-    onSuccess: () => {
-      toast.success("核查材料包已生成")
+    mutationFn: (exportType: "organization_report" | "material_package") =>
+      generatedEnvelope<ExportJob>(
+        carbonVerificationCreateExport({
+          body: {
+            project_id: projectId,
+            export_type: exportType,
+            year: summaryQuery.data?.data.reporting_period.year ?? undefined,
+          },
+        }),
+      ),
+    onSuccess: (_result, exportType) => {
+      toast.success(exportType === "organization_report" ? "盘查报告生成任务已提交" : "核查材料包生成任务已提交")
       void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "export-jobs"] })
     },
     onError: (error) => {
@@ -779,13 +1088,13 @@ export function VerificationReportPanel() {
     },
   })
   const downloadExport = useMutation({
-    mutationFn: (url: string) => downloadVerificationExport(url),
+    mutationFn: (jobId: number) => downloadExportFile(jobId),
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "下载失败")
     },
   })
   const ensureTemplate = useMutation({
-    mutationFn: () => postCarbonApi<TemplateVersion>("/api/carbon/verification/templates/ensure-default", {}),
+    mutationFn: () => generatedEnvelope<TemplateVersion>(carbonVerificationEnsureDefaultTemplate()),
     onSuccess: () => {
       toast.success("默认模板已登记")
       void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "templates"] })
@@ -797,7 +1106,8 @@ export function VerificationReportPanel() {
     },
   })
   const updateTemplate = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) => patchCarbonApi<TemplateVersion>(`/api/carbon/verification/templates/${id}`, data),
+    mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) =>
+      generatedEnvelope<TemplateVersion>(carbonVerificationUpdateTemplate({ path: { template_id: id }, body: data })),
     onSuccess: () => {
       toast.success("模板版本已更新")
       void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "templates"] })
@@ -813,6 +1123,9 @@ export function VerificationReportPanel() {
   const jobs = jobsQuery.data?.data.items ?? []
   const templates = templatesQuery.data?.data
   const templateRows = templates?.items.length ? templates.items : templates?.active ? [templates.active] : []
+  const formalReadiness = report?.formal_readiness
+
+  if (!projectId) return <ProjectSelectionRequired />
 
   return (
     <div className="space-y-4">
@@ -823,11 +1136,40 @@ export function VerificationReportPanel() {
           { label: "问题数", value: summary?.issue_count ?? 0, icon: TriangleAlert },
         ]}
       />
-      <div className="flex justify-end">
-        <Button onClick={() => createExport.mutate()} disabled={createExport.isPending}>
-          {createExport.isPending ? "生成中" : "生成核查材料包"}
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => createExport.mutate("material_package")} disabled={createExport.isPending}>
+          生成核查材料包
+        </Button>
+        <Button onClick={() => createExport.mutate("organization_report")} disabled={createExport.isPending || formalReadiness?.status !== "ready"}>
+          {createExport.isPending ? "生成中" : "生成盘查报告"}
         </Button>
       </div>
+      <AdminPanel title="正式报告就绪检查" contentClassName="p-0">
+        <AdminDataTable className="rounded-none border-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>检查项</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead>待完善内容</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(formalReadiness?.checks ?? []).map((item) => (
+                <TableRow key={item.code}>
+                  <TableCell>{item.label}</TableCell>
+                  <TableCell>
+                    <VerificationStatusBadge status={item.status} />
+                  </TableCell>
+                  <TableCell>{item.detail ?? "—"}</TableCell>
+                </TableRow>
+              ))}
+              {reportQuery.isPending ? <AdminTableStateRow colSpan={3}>加载中</AdminTableStateRow> : null}
+              {!reportQuery.isPending && !formalReadiness?.checks.length ? <EmptyRow colSpan={3} /> : null}
+            </TableBody>
+          </Table>
+        </AdminDataTable>
+      </AdminPanel>
       <AdminPanel title="报告数据" contentClassName="p-0">
         <AdminDataTable className="rounded-none border-0">
           <Table>
@@ -848,7 +1190,8 @@ export function VerificationReportPanel() {
                   <TableCell className="text-right">{formatNumber(item.t_co2e)}</TableCell>
                 </TableRow>
               ))}
-              {!report?.inventory.source_summary?.length ? <EmptyRow colSpan={4} /> : null}
+              {reportQuery.isPending ? <AdminTableStateRow colSpan={4}>加载中</AdminTableStateRow> : null}
+              {!reportQuery.isPending && !report?.inventory.source_summary?.length ? <EmptyRow colSpan={4} /> : null}
             </TableBody>
           </Table>
         </AdminDataTable>
@@ -880,14 +1223,17 @@ export function VerificationReportPanel() {
                 <TableRow key={item.id ?? `${item.template_code}-${item.version}`}>
                   <TableCell>
                     <div className="font-medium">{item.template_name || item.name}</div>
-                    <div className="max-w-[320px] truncate text-xs text-muted-foreground">{item.template_path || item.path}</div>
+                    <div className="text-xs text-muted-foreground">{item.report_purpose === "national_ets" ? "全国碳市场行业报告" : "组织温室气体盘查报告"}</div>
                   </TableCell>
                   <TableCell>{item.version}</TableCell>
                   <TableCell>
                     <div>{item.standard_name ?? "-"}</div>
                     <div className="text-xs text-muted-foreground">{item.standard_code ?? "-"}</div>
                   </TableCell>
-                  <TableCell>{item.applicable_scope ?? item.applicable_industry ?? "-"}</TableCell>
+                  <TableCell>
+                    <div>{item.applicable_scope ?? item.applicable_industry ?? "-"}</div>
+                    <div className="text-xs text-muted-foreground">{item.implementation_status === "supported" ? "可正式导出" : "已登记，待完成适配"}</div>
+                  </TableCell>
                   <TableCell>
                     <TemplateStatusBadge status={item.status} />
                   </TableCell>
@@ -902,28 +1248,8 @@ export function VerificationReportPanel() {
                   </TableCell>
                 </TableRow>
               ))}
-              {!templateRows.length ? <EmptyRow colSpan={7} /> : null}
-            </TableBody>
-          </Table>
-        </AdminDataTable>
-      </AdminPanel>
-      <AdminPanel title="模板字段" contentClassName="p-0">
-        <AdminDataTable className="rounded-none border-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>字段</TableHead>
-                <TableHead>来源</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(report?.export_fields ?? []).map((item) => (
-                <TableRow key={item.field}>
-                  <TableCell>{item.field}</TableCell>
-                  <TableCell>{item.source}</TableCell>
-                </TableRow>
-              ))}
-              {!report?.export_fields?.length ? <EmptyRow colSpan={2} /> : null}
+              {templatesQuery.isPending ? <AdminTableStateRow colSpan={7}>加载中</AdminTableStateRow> : null}
+              {!templatesQuery.isPending && !templateRows.length ? <EmptyRow colSpan={7} /> : null}
             </TableBody>
           </Table>
         </AdminDataTable>
@@ -944,7 +1270,7 @@ export function VerificationReportPanel() {
             <TableBody>
               {jobs.map((job) => (
                 <TableRow key={job.id}>
-                  <TableCell className="max-w-[280px] truncate">{job.job_no}</TableCell>
+                  <TableCell>{job.job_no}</TableCell>
                   <TableCell>{job.report_year ?? "全部"}</TableCell>
                   <TableCell>
                     <ExportJobStatusBadge status={job.status} />
@@ -953,7 +1279,7 @@ export function VerificationReportPanel() {
                   <TableCell>{job.completed_at ?? job.created_at ?? "-"}</TableCell>
                   <TableCell>
                     {job.download_url ? (
-                      <Button variant="outline" size="sm" onClick={() => downloadExport.mutate(job.download_url as string)} disabled={downloadExport.isPending}>
+                      <Button variant="outline" size="sm" onClick={() => downloadExport.mutate(job.id)} disabled={downloadExport.isPending}>
                         下载
                       </Button>
                     ) : (
@@ -962,7 +1288,8 @@ export function VerificationReportPanel() {
                   </TableCell>
                 </TableRow>
               ))}
-              {!jobs.length ? <EmptyRow colSpan={6} /> : null}
+              {jobsQuery.isPending ? <AdminTableStateRow colSpan={6}>加载中</AdminTableStateRow> : null}
+              {!jobsQuery.isPending && !jobs.length ? <EmptyRow colSpan={6} /> : null}
             </TableBody>
           </Table>
         </AdminDataTable>
@@ -985,6 +1312,14 @@ function EmptyRow({ colSpan }: { colSpan: number }) {
   return <AdminTableStateRow colSpan={colSpan}>暂无数据</AdminTableStateRow>
 }
 
+function ProjectSelectionRequired() {
+  return (
+    <AdminPanel title="核查项目">
+      <div className="py-8 text-center text-sm text-muted-foreground">请先在“核查项目”中选择一项记录</div>
+    </AdminPanel>
+  )
+}
+
 function VerificationStatusBadge({ status }: { status?: string }) {
   if (status === "ready") return <Badge>就绪</Badge>
   if (status === "attention") return <Badge variant="secondary">待完善</Badge>
@@ -998,24 +1333,15 @@ function VerificationStatusBadge({ status }: { status?: string }) {
   return <Badge variant="outline">{status || "无数据"}</Badge>
 }
 
-function InventoryLockBadge({ project }: { project: VerificationProject }) {
-  if (!project.accounting_batch_id) return <Badge variant="secondary">未绑定</Badge>
-  if (project.batch_locked) return <Badge>已锁定</Badge>
+function ReportBindingBadge({ project }: { project: VerificationProject }) {
+  if (!project.inventory_report_id) return <Badge variant="secondary">未绑定</Badge>
+  if (project.report_status === "published") return <Badge>已发布 v{project.report_version}</Badge>
   return (
     <div className="flex flex-col gap-1">
-      <Badge variant="destructive">未锁定</Badge>
-      <span className="text-xs text-muted-foreground">{project.batch_status ?? project.batch_inventory_status ?? "-"}</span>
+      <Badge variant="destructive">报告未发布</Badge>
+      <span className="text-xs text-muted-foreground">{project.report_code ?? "-"}</span>
     </div>
   )
-}
-
-function attachmentTypeLabel(value?: string | null) {
-  if (value === "invoice") return "发票"
-  if (value === "meter_record") return "计量记录"
-  if (value === "calibration_certificate") return "校准证书"
-  if (value === "inspection_report") return "检测报告"
-  if (value === "other") return "其他"
-  return "支撑材料"
 }
 
 function SeverityBadge({ severity }: { severity?: string }) {
@@ -1086,8 +1412,13 @@ function ProjectActions({
         </Button>
       ) : null}
       {project.status === "in_progress" || project.status === "review" ? (
-        <Button variant="outline" size="sm" onClick={() => onUpdate(project.id, { status: "completed" })} disabled={disabled}>
-          完成
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onUpdate(project.id, { status: "completed", conclusion_status: "approved" })}
+          disabled={disabled || project.readiness_status !== "ready"}
+        >
+          批准并完成
         </Button>
       ) : null}
       {project.status === "completed" ? (
@@ -1180,50 +1511,56 @@ function formatBytes(value?: number | null) {
   return `${(value / 1024 / 1024).toFixed(1)} MB`
 }
 
-async function postCarbonApi<T>(url: string, body: Record<string, unknown>) {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  })
-  const text = await res.text()
-  const raw = text ? JSON.parse(text) : {}
-  if (!res.ok || (raw.code && raw.code >= 400)) {
-    throw new Error(raw.msg || raw.detail || `HTTP ${res.status}`)
-  }
-  return raw as ApiEnvelope<T>
+function formatDateTime(value?: string | null) {
+  if (!value) return "-"
+  return new Date(value).toLocaleString("zh-CN", { hour12: false })
 }
 
-async function patchCarbonApi<T>(url: string, body: Record<string, unknown>) {
-  const res = await fetch(url, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  })
-  const text = await res.text()
-  const raw = text ? JSON.parse(text) : {}
-  if (!res.ok || (raw.code && raw.code >= 400)) {
-    throw new Error(raw.msg || raw.detail || `HTTP ${res.status}`)
-  }
-  return raw as ApiEnvelope<T>
+function auditObjectLabel(value: string) {
+  if (value === "inventory_report") return "盘查报告"
+  if (value === "verification_finding") return "核查发现"
+  return value
 }
 
-async function downloadVerificationExport(url: string) {
-  const response = await fetch(url)
-  if (!response.ok) {
-    const text = await response.text()
-    let message = `HTTP ${response.status}`
-    try {
-      const payload = JSON.parse(text) as { msg?: string; detail?: string }
-      message = payload.msg || payload.detail || message
-    } catch {
-      message = text || message
-    }
-    throw new Error(message)
+type GeneratedApiResult = {
+  data?: unknown
+  error?: unknown
+  response: Response
+}
+
+async function generatedEnvelope<T>(request: Promise<GeneratedApiResult>): Promise<ApiEnvelope<T>> {
+  const result = await request
+  if (result.error) throw apiError(result.error, result.response.status)
+  const envelope = result.data as ApiEnvelope<T> | undefined
+  if (!envelope) throw new Error(`HTTP ${result.response.status}`)
+  if (envelope.code >= 400) throw new Error(envelope.msg || `HTTP ${envelope.code}`)
+  return envelope
+}
+
+function apiError(error: unknown, status: number) {
+  if (error instanceof Error) return error
+  if (typeof error === "object" && error !== null) {
+    const payload = error as { msg?: string; detail?: string }
+    return new Error(payload.msg || payload.detail || `HTTP ${status}`)
   }
-  const blob = await response.blob()
-  const filename = filenameFromDisposition(response.headers.get("content-disposition")) ?? "carbon-verification-export.zip"
-  const blobUrl = URL.createObjectURL(blob)
+  return new Error(typeof error === "string" ? error : `HTTP ${status}`)
+}
+
+async function downloadEvidence(evidenceCode: string) {
+  const response = await carbonVerificationDownloadEvidence({ path: { evidence_code: evidenceCode }, parseAs: "blob" })
+  await saveGeneratedDownload(response, `${evidenceCode}.bin`)
+}
+
+async function downloadExportFile(jobId: number) {
+  const response = await carbonVerificationDownloadExport({ path: { job_id: jobId }, parseAs: "blob" })
+  await saveGeneratedDownload(response, "carbon-verification-export.zip")
+}
+
+async function saveGeneratedDownload(result: GeneratedApiResult, fallbackFilename: string) {
+  if (result.error) throw apiError(result.error, result.response.status)
+  if (!(result.data instanceof Blob)) throw new Error("下载文件响应无效")
+  const filename = filenameFromDisposition(result.response.headers.get("content-disposition")) ?? fallbackFilename
+  const blobUrl = URL.createObjectURL(result.data)
   const anchor = document.createElement("a")
   anchor.href = blobUrl
   anchor.download = filename

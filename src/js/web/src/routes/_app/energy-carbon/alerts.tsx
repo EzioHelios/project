@@ -255,7 +255,7 @@ function AlertsCenterPage() {
                     </Button>
                   ) : detailQuery.data.data.source === "carbon" ? (
                     <Button size="sm" asChild>
-                      <Link to="/energy-carbon/carbon">去碳盘查页核查</Link>
+                      <Link to="/carbon/organization/inventory">去碳盘查页核查</Link>
                     </Button>
                   ) : (
                     <Button size="sm" asChild>

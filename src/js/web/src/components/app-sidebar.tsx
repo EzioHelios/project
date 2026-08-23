@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouterState } from "@tanstack/react-router"
-import { BellRing, Building2, ClipboardList, Cpu, Database, FileInput, Home, MonitorPlay, Network, Settings, ShieldCheck, Zap } from "lucide-react"
+import { BellRing, Building2, ClipboardList, Cpu, Database, FileInput, Home, Landmark, Leaf, MonitorPlay, Network, Settings, ShieldCheck, Zap } from "lucide-react"
 import type * as React from "react"
 import { useCallback, useEffect, useMemo } from "react"
 import { NavMain } from "@/components/nav-main"
@@ -49,7 +49,14 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
   }, [currentTeam, isError, isLoading, queryClient, setTeams, storeIds, teamIds, teamsData])
 
   const navMain = useMemo(() => {
-    const isCarbonModuleRoute = pathname === "/carbon" || pathname.startsWith("/carbon/")
+    const isCarbonAccountingRoute =
+      pathname === "/carbon" ||
+      pathname.startsWith("/carbon/organization") ||
+      pathname.startsWith("/carbon/product-footprint") ||
+      pathname.startsWith("/carbon/supply-chain") ||
+      pathname.startsWith("/carbon/verification")
+    const isCarbonAssetRoute = pathname.startsWith("/carbon/assets")
+    const isClimateReductionRoute = pathname.startsWith("/carbon/climate") || pathname.startsWith("/carbon/reduction")
     const isEnergyBudgetRoute = pathname === "/energy/budget"
     const isCarbonInventoryRoute = pathname.startsWith("/carbon-mgmt/activities") || pathname.startsWith("/carbon-mgmt/import") || pathname.startsWith("/carbon-mgmt/category")
     const items: React.ComponentProps<typeof NavMain>["items"] = [
@@ -121,16 +128,47 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
         ],
       },
       {
-        title: "碳排放管理",
-        to: "/carbon/product-footprint",
+        title: "碳核算",
+        to: "/carbon/organization/overview",
         icon: ShieldCheck,
-        isActive: isCarbonModuleRoute || isEnergyBudgetRoute,
+        isActive: isCarbonAccountingRoute,
         items: [
+          { title: "组织碳", kind: "section" },
+          { title: "组织碳总览", to: "/carbon/organization/overview" },
+          { title: "碳排放查询", to: "/carbon/organization/records" },
+          { title: "碳流分析", to: "/carbon/organization/flow" },
+          { title: "核算边界", to: "/carbon/organization/boundary" },
+          { title: "核查支撑", to: "/carbon/verification" },
+          { title: "专项核算", kind: "section" },
           { title: "产品碳足迹", to: "/carbon/product-footprint" },
           { title: "供应链碳", to: "/carbon/supply-chain" },
-          { title: "核查支撑", to: "/carbon/verification" },
-          { title: "碳资产管理", to: "/carbon/assets" },
+        ],
+      },
+      {
+        title: "碳资产",
+        to: "/carbon/assets/overview",
+        icon: Landmark,
+        isActive: isCarbonAssetRoute,
+        items: [
+          { title: "资产总览", to: "/carbon/assets/overview" },
+          { title: "资产台账", to: "/carbon/assets/ledger" },
+          { title: "履约管理", to: "/carbon/assets/compliance" },
+          { title: "成本测算", to: "/carbon/assets/simulation" },
+          { title: "市场行情", to: "/carbon/assets/market" },
+          { title: "绿证权益", to: "/carbon/assets/certificates" },
+        ],
+      },
+      {
+        title: "气候与减碳",
+        to: "/carbon/climate",
+        icon: Leaf,
+        isActive: isClimateReductionRoute || isEnergyBudgetRoute,
+        items: [
+          { title: "气候目标与披露", to: "/carbon/climate" },
           { title: "能碳预算", to: "/energy/budget" },
+          { title: "减排概览", to: "/carbon/reduction/overview" },
+          { title: "减排项目库", to: "/carbon/reduction/projects" },
+          { title: "方法学与CCER", to: "/carbon/reduction/methodologies" },
         ],
       },
       {
@@ -158,7 +196,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
         ],
       },
       {
-        title: "活动台账",
+        title: "经营活动台账",
         to: "/data/commute",
         icon: ClipboardList,
         isActive:

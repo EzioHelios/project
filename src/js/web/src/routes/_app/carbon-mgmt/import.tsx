@@ -444,7 +444,9 @@ function ActivityPreviewTable({ preview }: { preview: GhgImportBatch }) {
             const parameterRows = new Set(
               preview.preview.parameters.filter((parameter) => parameter.parameterSetCode === row.parameterSetCode).map((parameter) => parameter._row_number),
             )
-            const parameterIssues = preview.preview.issues.filter((issue) => issue.sheetName === "04_参数与因子" && issue.rowNumber !== null && parameterRows.has(issue.rowNumber))
+            const parameterIssues = preview.preview.issues.filter(
+              (issue) => issue.sheetName === "04_参数与因子" && typeof issue.rowNumber === "number" && parameterRows.has(issue.rowNumber),
+            )
             const evidenceCount = preview.preview.links.filter((link) => link.recordType === "activity" && link.recordCode === row.recordCode).length
             const hasError =
               [...rowIssues, ...parameterIssues].some((issue) => issue.severity === "error") ||

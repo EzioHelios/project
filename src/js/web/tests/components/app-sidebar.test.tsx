@@ -6,7 +6,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider } from "@/components/ui/sidebar"
 
 const routeState = vi.hoisted(() => ({
-  pathname: "/carbon/ledger",
+  pathname: "/carbon/organization/overview",
 }))
 
 vi.mock("@tanstack/react-router", () => ({
@@ -55,7 +55,7 @@ function renderSidebar() {
 
 describe("AppSidebar", () => {
   beforeEach(() => {
-    routeState.pathname = "/carbon/ledger"
+    routeState.pathname = "/carbon/organization/overview"
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
       matches: false,
       media: query,
@@ -68,38 +68,62 @@ describe("AppSidebar", () => {
     }))
   })
 
-  it("shows the primary carbon accounting entry", () => {
+  it("shows the primary organization carbon entries", () => {
     renderSidebar()
 
-    const accountingLink = screen.getByRole("link", { name: "碳排放核算" })
+    const overviewLink = screen.getByRole("link", { name: "组织碳总览" })
+    const recordsLink = screen.getByRole("link", { name: "碳排放查询" })
+    const flowLink = screen.getByRole("link", { name: "碳流分析" })
+    const boundaryLink = screen.getByRole("link", { name: "核算边界" })
 
-    expect(accountingLink).toBeInTheDocument()
-    expect(accountingLink).toHaveAttribute("href", "/carbon/accounting")
+    expect(overviewLink).toHaveAttribute("href", "/carbon/organization/overview")
+    expect(recordsLink).toHaveAttribute("href", "/carbon/organization/records")
+    expect(flowLink).toHaveAttribute("href", "/carbon/organization/flow")
+    expect(boundaryLink).toHaveAttribute("href", "/carbon/organization/boundary")
   })
 
-  it("shows carbon data entry links for Scope records", () => {
-    routeState.pathname = "/carbon-mgmt/scope2-bill"
+  it("shows carbon data entry links by ISO 14064-1 category", () => {
+    routeState.pathname = "/carbon-mgmt/category/2.1"
 
     renderSidebar()
 
     const parentButton = screen.getByRole("button", { name: "碳数据填报" })
-    const currentLeafLink = screen.getByRole("link", { name: "电力账单" })
+    const currentLeafLink = screen.getByRole("link", { name: "2.1 购入电力" })
 
     expect(parentButton).toHaveAttribute("data-active", "false")
     expect(parentButton).not.toHaveAttribute("aria-current")
-    expect(currentLeafLink).toHaveAttribute("href", "/carbon-mgmt/scope2-bill")
+    expect(currentLeafLink).toHaveAttribute("href", "/carbon-mgmt/category/2.1")
     expect(currentLeafLink).toHaveAttribute("aria-current", "page")
-    expect(screen.getByRole("link", { name: "固定源燃烧" })).toHaveAttribute("href", "/carbon-mgmt/scope1-stationary")
-    expect(screen.getByRole("link", { name: "移动源燃烧" })).toHaveAttribute("href", "/carbon-mgmt/scope1-mobile")
-    expect(screen.getByRole("link", { name: "废弃物处理" })).toHaveAttribute("href", "/carbon-mgmt/scope3-waste")
+    expect(screen.getByRole("link", { name: "1.1 固定燃烧" })).toHaveAttribute("href", "/carbon-mgmt/category/1.1")
+    expect(screen.getByRole("link", { name: "1.2 移动燃烧" })).toHaveAttribute("href", "/carbon-mgmt/category/1.2")
+    expect(screen.getByRole("link", { name: "4.4 运营废物处置" })).toHaveAttribute("href", "/carbon-mgmt/category/4.4")
   })
 
-  it("places carbon data entry after activity ledger", () => {
+  it("places carbon accounting after carbon data entry", () => {
     renderSidebar()
 
-    const activityLedgerButton = screen.getByRole("button", { name: "活动台账" })
     const carbonDataEntryButton = screen.getByRole("button", { name: "碳数据填报" })
+    const carbonAccountingButton = screen.getByRole("button", { name: "碳核算" })
 
-    expect(activityLedgerButton.compareDocumentPosition(carbonDataEntryButton)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(carbonDataEntryButton.compareDocumentPosition(carbonAccountingButton)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
+  it("separates carbon assets from carbon accounting", () => {
+    routeState.pathname = "/carbon/assets/overview"
+    renderSidebar()
+
+    expect(screen.getByRole("button", { name: "碳资产" })).toHaveAttribute("data-context-active", "true")
+    expect(screen.getByRole("link", { name: "资产台账" })).toHaveAttribute("href", "/carbon/assets/ledger")
+    expect(screen.queryByRole("link", { name: "组织碳总览" })).not.toBeInTheDocument()
+  })
+
+  it("groups climate governance, budgets, and reduction work", () => {
+    routeState.pathname = "/carbon/climate"
+    renderSidebar()
+
+    expect(screen.getByRole("button", { name: "气候与减碳" })).toHaveAttribute("data-context-active", "true")
+    expect(screen.getByRole("link", { name: "气候目标与披露" })).toHaveAttribute("href", "/carbon/climate")
+    expect(screen.getByRole("link", { name: "能碳预算" })).toHaveAttribute("href", "/energy/budget")
+    expect(screen.getByRole("link", { name: "减排项目库" })).toHaveAttribute("href", "/carbon/reduction/projects")
   })
 })

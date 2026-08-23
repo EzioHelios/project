@@ -23,7 +23,11 @@ const maxWidthClasses = {
 }
 
 export function PageContainer({ children, className, maxWidth = "2xl" }: PageContainerProps) {
-  return <div className={cn("w-full px-4 py-4 md:px-7 md:py-5", maxWidthClasses[maxWidth], className)}>{children}</div>
+  return (
+    <div data-admin-page-container className={cn("w-full px-4 py-4 md:px-7 md:py-5", maxWidthClasses[maxWidth], className)}>
+      {children}
+    </div>
+  )
 }
 
 interface PageHeaderProps {

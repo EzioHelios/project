@@ -1,16 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Outlet } from "@tanstack/react-router"
 
-import { CarbonAssetsPanel } from "@/components/carbon/carbon-assets-panel"
 import { PageContainer } from "@/components/ui/page-layout"
 
 export const Route = createFileRoute("/_app/carbon/assets")({
-  component: CarbonAssetsPage,
+  component: CarbonAssetsLayout,
 })
 
-function CarbonAssetsPage() {
+function CarbonAssetsLayout() {
   return (
     <PageContainer className="flex-1" maxWidth="full">
-      <CarbonAssetsPanel />
+      <Outlet />
     </PageContainer>
   )
 }

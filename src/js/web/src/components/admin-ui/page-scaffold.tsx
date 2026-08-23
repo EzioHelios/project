@@ -19,7 +19,7 @@ export function AdminPageScaffold({ title, header, topActions, status, meta, tab
   const resolvedHeader = header ?? (title ? <AdminPageHeader title={title} status={status} actions={topActions} meta={meta} /> : null)
 
   return (
-    <div className={cn("admin-page-scaffold", className)} {...props}>
+    <div data-admin-page-scaffold className={cn("admin-page-scaffold", className)} {...props}>
       {resolvedHeader && <div className="admin-page-scaffold-header">{resolvedHeader}</div>}
       {tabs && <div className="admin-page-scaffold-tabs">{tabs}</div>}
       {filters && <div className="admin-page-scaffold-filters">{filters}</div>}

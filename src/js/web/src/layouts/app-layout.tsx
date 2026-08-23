@@ -88,13 +88,13 @@ export function AppLayout() {
       if (pathname === "/carbon-mgmt/activities") return { eyebrow: "温室气体盘查", title: "活动数据台账" }
       if (pathname === "/carbon-mgmt/import") return { eyebrow: "温室气体盘查", title: "活动数据导入" }
       if (pathname.startsWith("/carbon-mgmt/category/")) {
-        const categoryCode = pathname.split("/").at(-1)
+        const pathSegments = pathname.split("/")
+        const categoryCode = pathSegments[pathSegments.length - 1]
         const category = GHG_CATEGORY_GROUPS.flatMap((group) => group.items).find((item) => item.code === categoryCode)
         return { eyebrow: "碳数据填报", title: category ? `${category.code} ${category.name}` : "活动数据分类" }
       }
       if (pathname === "/carbon-mgmt/factors") return { eyebrow: "碳排放因子库", title: "排放因子库" }
       if (pathname === "/carbon-mgmt/calculation-factors") return { eyebrow: "碳排放因子库", title: "计算因子库" }
-      if (pathname === "/carbon-mgmt/audit") return { eyebrow: "碳排放管理", title: "审核操作日志" }
       return { eyebrow: "碳排放管理", title: "碳排放管理" }
     }
     if (pathname.startsWith("/energy-carbon/monitor")) {
@@ -110,7 +110,7 @@ export function AppLayout() {
       if (pathname === "/energy/benchmark") return { eyebrow: "能源运营", title: "能效对标" }
       if (pathname === "/energy/flow") return { eyebrow: "能源运营", title: "能流分析" }
       if (pathname === "/energy/balance") return { eyebrow: "能源运营", title: "能效平衡" }
-      if (pathname === "/energy/budget") return { eyebrow: "能源运营", title: "用能预算" }
+      if (pathname === "/energy/budget") return { eyebrow: "气候与减碳", title: "能碳预算" }
       return { eyebrow: "能源运营", title: "能源运营" }
     }
     if (pathname === "/microgrid" || pathname.startsWith("/microgrid/")) {
@@ -124,10 +124,19 @@ export function AppLayout() {
       return { eyebrow: "微电网运营", title: "微电网运营" }
     }
     if (pathname.startsWith("/carbon")) {
-      if (pathname === "/carbon/product-footprint") return { eyebrow: "碳核算", title: "产品碳足迹核算" }
-      if (pathname === "/carbon/supply-chain") return { eyebrow: "碳核算", title: "供应链碳管理" }
-      if (pathname === "/carbon/verification") return { eyebrow: "碳核算", title: "碳核查支撑" }
-      if (pathname === "/carbon/assets") return { eyebrow: "碳核算", title: "碳资产管理" }
+      if (pathname === "/carbon/organization/overview") return { eyebrow: "组织温室气体盘查", title: "组织碳总览" }
+      if (pathname === "/carbon/organization/records") return { eyebrow: "组织温室气体盘查", title: "碳排放查询" }
+      if (pathname === "/carbon/organization/flow") return { eyebrow: "组织温室气体盘查", title: "碳流分析" }
+      if (pathname === "/carbon/organization/boundary") return { eyebrow: "组织温室气体盘查", title: "核算边界" }
+      if (pathname === "/carbon/organization/inventory") return { eyebrow: "组织温室气体盘查", title: "碳盘查" }
+      if (pathname === "/carbon/product-footprint") return { eyebrow: "专项碳核算", title: "产品碳足迹核算" }
+      if (pathname === "/carbon/supply-chain") return { eyebrow: "专项碳核算", title: "供应链碳管理" }
+      if (pathname === "/carbon/verification") return { eyebrow: "组织温室气体盘查", title: "碳核查支撑" }
+      if (pathname.startsWith("/carbon/assets")) return { eyebrow: "碳资产", title: "碳资产管理" }
+      if (pathname.startsWith("/carbon/climate")) return { eyebrow: "气候与减碳", title: "气候目标与披露" }
+      if (pathname === "/carbon/reduction/overview") return { eyebrow: "气候与减碳", title: "减排概览" }
+      if (pathname === "/carbon/reduction/projects") return { eyebrow: "气候与减碳", title: "减排项目库" }
+      if (pathname === "/carbon/reduction/methodologies") return { eyebrow: "气候与减碳", title: "方法学与CCER" }
       return { eyebrow: "碳核算", title: "碳核算" }
     }
     return { eyebrow: "工作台", title: "首页" }

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build && node ./scripts/copy-cesium-assets.mjs && node ./scripts/generate-spa-index.mjs",
     "audit:admin-visual": "node ./scripts/admin-visual-audit.mjs",
-    "lint": "biome check --write .",
+    "lint": "biome check --write . && node ./scripts/admin-layout-check.mjs",
     "format": "biome format --write .",
     "preview": "vite preview",
     "test": "vitest run",

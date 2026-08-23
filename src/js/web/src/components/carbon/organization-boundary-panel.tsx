@@ -209,7 +209,6 @@ export function OrganizationBoundaryPanel() {
         legal_entity_code: optional(organizationForm.legal_entity_code),
         control_method: organizationForm.control_method,
         source_name: "enterprise_inventory",
-        standard_code: "GB/T 32150",
       }),
     onSuccess: async () => {
       toast.success("报告主体已创建")
@@ -230,7 +229,6 @@ export function OrganizationBoundaryPanel() {
         period_end: periodForm.period_end,
         period_type: "annual",
         source_name: "enterprise_inventory",
-        standard_code: "GB/T 32150",
       }),
     onSuccess: async () => {
       toast.success("报告期已创建")
@@ -252,7 +250,6 @@ export function OrganizationBoundaryPanel() {
         boundary_type: "organization",
         status: "draft",
         source_name: "enterprise_inventory",
-        standard_code: "GB/T 32150",
         confidence_level: "medium",
       }),
     onSuccess: async () => {

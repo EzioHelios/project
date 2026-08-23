@@ -622,11 +622,7 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
   const formatNumber = (value: number | null | undefined, digits = 4) =>
     value === null || value === undefined ? "-" : Number(value).toLocaleString("zh-CN", { maximumFractionDigits: digits })
   const sourceRoute: Record<string, string> = {
-    Scope1MobileCombustion: "/carbon-mgmt/activities",
-    Scope1StationaryCombustion: "/carbon-mgmt/activities",
-    Scope2ElectricityBill: "/carbon-mgmt/activities",
-    Scope2MeterAggregate: "/carbon-mgmt/activities",
-    Scope2PurchasedEnergy: "/carbon-mgmt/activities",
+    GhgActivityRecord: "/carbon-mgmt/activities",
   }
 
   return (
@@ -698,11 +694,7 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">全部来源</SelectItem>
-                <SelectItem value="Scope1MobileCombustion">Scope1 移动源</SelectItem>
-                <SelectItem value="Scope1StationaryCombustion">Scope1 固定源</SelectItem>
-                <SelectItem value="Scope2ElectricityBill">Scope2 电费账单</SelectItem>
-                <SelectItem value="Scope2MeterAggregate">Scope2 电表聚合</SelectItem>
-                <SelectItem value="Scope2PurchasedEnergy">Scope2 外购热/汽/冷</SelectItem>
+                <SelectItem value="GhgActivityRecord">组织盘查活动</SelectItem>
               </SelectContent>
             </Select>
             <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="区域关键字" />

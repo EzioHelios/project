@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 
 export type DesignDomain = "neutral" | "energy" | "carbon"
 
-const carbonPaths = ["/carbon", "/carbon-mgmt", "/energy/budget", "/energy-carbon/carbon", "/energy-carbon/factors", "/energy-carbon/quality"]
+const carbonPaths = ["/carbon", "/carbon-mgmt", "/energy/budget"]
 const energyPaths = [
   "/energy",
   "/microgrid",
