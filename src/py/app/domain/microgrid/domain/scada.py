@@ -78,8 +78,8 @@ def _edge(
     }
 
 
-def xiangtai_scada_scene() -> dict[str, Any]:
-    """Return the electrically ordered, auto-layout scene for the Xiangtai demo."""
+def warehouse_microgrid_scada_scene() -> dict[str, Any]:
+    """Return an electrically ordered, auto-layout warehouse microgrid scene."""
     bus_ports = [
         _port("main-in", "top", "input", offset=0.14, voltage_level="AC400V"),
         _port("pv-in", "top", "input", offset=0.38, voltage_level="AC400V"),
@@ -255,6 +255,12 @@ def xiangtai_scada_scene() -> dict[str, Any]:
         "nodes": nodes,
         "edges": edges,
     }
+
+
+def xiangtai_scada_scene() -> dict[str, Any]:
+    """Return the warehouse scene under the legacy Xiangtai compatibility name."""
+
+    return warehouse_microgrid_scada_scene()
 
 
 def validate_scada_scene(scene: dict[str, Any]) -> list[str]:

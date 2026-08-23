@@ -228,6 +228,8 @@ def optimize_dispatch(
     solver = pyo.SolverFactory("appsi_highs")
     solver.options["time_limit"] = 30
     solver.options["mip_gap"] = 0.01
+    solver.options["output_flag"] = False
+    solver.options["log_to_console"] = False
     results = solver.solve(model, tee=False, load_solutions=False)
     solver_seconds = time.perf_counter() - started
     termination = results.solver.termination_condition
