@@ -105,6 +105,7 @@ export function InventoryStatusBadge({ status }: { status?: string | null }) {
     return <StatusBadge status="approved" label={status === "published" ? "已发布" : status === "completed" ? "已完成" : "已通过"} />
   if (status === "failed" || status === "rejected") return <StatusBadge status="rejected" label={status === "failed" ? "失败" : "已驳回"} />
   if (status === "running" || status === "in_progress") return <StatusBadge status="in_progress" label="处理中" />
+  if (status === "archived") return <StatusBadge status="draft" label="已归档" />
   if (status === "submitted" || status === "pending_review" || status === "pending" || status === "warning")
     return <StatusBadge status="pending" label={status === "submitted" ? "待审批" : status === "warning" ? "需关注" : "待处理"} />
   return <StatusBadge status="draft" />

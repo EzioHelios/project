@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_app/carbon/verification")({
 function CarbonVerificationPage() {
   const [projectId, setProjectId] = useState<number>()
   return (
-    <PageContainer className="flex-1" maxWidth="4xl">
+    <PageContainer className="min-w-0 flex-1" maxWidth="4xl">
       <Tabs defaultValue="projects" className="space-y-4">
         <AdminPageScaffold
           header={<AdminPageHeader title="碳核查支撑" />}

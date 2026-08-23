@@ -18,6 +18,7 @@ import {
   type GhgResultListResponse,
   type GhgResultSummaryResponse,
   ghgInventoryApproveReport,
+  ghgInventoryArchiveReport,
   ghgInventoryCommitWorkbook,
   ghgInventoryCreateReport,
   ghgInventoryDownloadTemplate,
@@ -38,6 +39,7 @@ import {
   ghgInventoryPreviewWorkbook,
   ghgInventoryPublishReport,
   ghgInventoryRejectReport,
+  ghgInventoryResubmitReport,
   ghgInventoryRunCalculation,
   ghgInventorySubmitReport,
   organizationBoundaryCreateWorkingCopy,
@@ -456,7 +458,17 @@ export function useGhgInventoryReportActions() {
       (await ghgInventoryPublishReport({ path: { report_code: reportCode, version }, body: { comment }, throwOnError: true })).data,
     ...mutationOptions,
   })
-  return { create, submit, approve, reject, publish }
+  const resubmit = useMutation({
+    mutationFn: async ({ reportCode, version, comment }: { reportCode: string; version: number; comment?: string }) =>
+      (await ghgInventoryResubmitReport({ path: { report_code: reportCode, version }, body: { comment }, throwOnError: true })).data,
+    ...mutationOptions,
+  })
+  const archive = useMutation({
+    mutationFn: async ({ reportCode, version, comment }: { reportCode: string; version: number; comment?: string }) =>
+      (await ghgInventoryArchiveReport({ path: { report_code: reportCode, version }, body: { comment }, throwOnError: true })).data,
+    ...mutationOptions,
+  })
+  return { create, submit, resubmit, approve, reject, publish, archive }
 }
 
 export function useOrganizationBoundarySelection(boundaryId?: number) {

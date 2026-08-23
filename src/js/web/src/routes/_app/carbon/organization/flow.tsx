@@ -40,6 +40,7 @@ function OrganizationCarbonFlowPage() {
   const analyticsFilters = toAnalyticsFilters(search, runCode)
   const flow = useGhgAnalyticsFlow({ ...analyticsFilters, classification })
   const overview = useGhgAnalyticsOverview(analyticsFilters)
+  const summary = useGhgResultSummary(analyticsFilters)
   const selectedFilters = { ...analyticsFilters, ...toDrilldownFilters(selectedNode?.drilldown) }
   const nodeSummary = useGhgResultSummary(selectedFilters)
   const data = flow.data
@@ -69,6 +70,7 @@ function OrganizationCarbonFlowPage() {
   const sourceCount = data?.nodes.filter((node) => node.category === "source").length ?? 0
   const resourceCount = data?.nodes.filter((node) => node.category === "resource").length ?? 0
   const evidenceCoverage = overview.data?.evidenceCoveragePct
+  const anomalyCount = (summary.data?.missingEvidenceCount ?? 0) + (summary.data?.unallocatedCount ?? 0) + (overview.data && !overview.data.scope2Available ? 1 : 0)
 
   return (
     <AdminPageScaffold
@@ -180,6 +182,7 @@ function OrganizationCarbonFlowPage() {
           <MetricTile label="排放源" value={sourceCount} unit="个" />
           <MetricTile label="归集区域/设备" value={resourceCount} unit="个" />
           <MetricTile label="证据覆盖率" value={formatPercent(evidenceCoverage)} tone={Number(evidenceCoverage ?? 0) < 80 ? "warning" : "success"} />
+          <MetricTile label="核算异常" value={anomalyCount} unit="项" tone={anomalyCount ? "warning" : "success"} />
         </MetricStrip>
       }
     >
@@ -215,6 +218,39 @@ function OrganizationCarbonFlowPage() {
                     <TableCell className="text-right font-medium tabular-nums">{formatTonnes(item.value)} tCO₂e</TableCell>
                   </TableRow>
                 ))}
+              </TableBody>
+            </Table>
+          </AdminPanel>
+          <AdminPanel title="核算异常" contentClassName="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>异常类型</TableHead>
+                  <TableHead>检查范围</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead className="text-right">影响记录</TableHead>
+                  <TableHead className="text-right">处理</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <AnomalyRow
+                  name="证据链缺失"
+                  scope="当前核算运行"
+                  count={summary.data?.missingEvidenceCount ?? 0}
+                  onOpen={() => void navigate({ to: "/carbon/organization/records", search: { ...search, page: 1 } })}
+                />
+                <AnomalyRow
+                  name="区域设备未归集"
+                  scope="活动数据归集"
+                  count={summary.data?.unallocatedCount ?? 0}
+                  onOpen={() => void navigate({ to: "/carbon/organization/records", search: { ...search, page: 1 } })}
+                />
+                <AnomalyRow
+                  name="Scope 2 口径不可用"
+                  scope={scope2Label(scope2Method)}
+                  count={overview.data && !overview.data.scope2Available ? 1 : 0}
+                  onOpen={() => void navigate({ to: "/carbon/organization/records", search: { ...search, scope: "scope2", page: 1 } })}
+                />
               </TableBody>
             </Table>
           </AdminPanel>
@@ -260,6 +296,24 @@ function OrganizationCarbonFlowPage() {
         </SheetContent>
       </Sheet>
     </AdminPageScaffold>
+  )
+}
+
+function AnomalyRow({ name, scope, count, onOpen }: { name: string; scope: string; count: number; onOpen: () => void }) {
+  return (
+    <TableRow>
+      <TableCell className="font-medium">{name}</TableCell>
+      <TableCell>{scope}</TableCell>
+      <TableCell>
+        <InventoryStatusBadge status={count ? "warning" : "pass"} />
+      </TableCell>
+      <TableCell className="text-right tabular-nums">{count}</TableCell>
+      <TableCell className="text-right">
+        <Button size="sm" variant="ghost" disabled={!count} onClick={onOpen}>
+          查看记录
+        </Button>
+      </TableCell>
+    </TableRow>
   )
 }
 
