@@ -67,13 +67,11 @@ export function AppLayout() {
       if (pathname === "/data/product-prices") return { eyebrow: "业务活动台账", title: "产品价格" }
       if (pathname === "/data/production-output") return { eyebrow: "业务活动台账", title: "产品批次产量" }
       if (pathname === "/data/product-resource-bindings") return { eyebrow: "业务活动台账", title: "产品产线关联" }
-      if (pathname === "/data/terminals") return { eyebrow: "采集设备与测点", title: "监控终端" }
+      if (pathname === "/data/terminals") return { eyebrow: "采集设备与测点", title: "设备台账" }
       if (pathname === "/data/point-monitoring") return { eyebrow: "采集设备与测点", title: "点位监测" }
       if (pathname === "/data/meter") return { eyebrow: "采集设备与测点", title: "电表电量" }
       if (pathname === "/data/video") return { eyebrow: "采集设备与测点", title: "视频监控" }
       if (pathname === "/data/alarm-rules") return { eyebrow: "监测告警运维", title: "预警规则" }
-      if (pathname === "/data/alarm-events") return { eyebrow: "监测告警运维", title: "预警事件" }
-      if (pathname === "/data/video-alarm-events") return { eyebrow: "监测告警运维", title: "视频监控预警事件" }
       if (pathname === "/data/energy-storage") return { eyebrow: "碳排放因子库", title: "能源折标与储能口径" }
       if (pathname === "/data/api-key-mapping") return { eyebrow: "碳排放因子库", title: "接口结果key映射" }
       return { eyebrow: "基础数据", title: "基础数据" }

@@ -80,8 +80,8 @@ type DistributionItem = {
 
 type SeriesConfig = AdminChartSeriesConfig<keyof TrendPoint & string>
 
-export async function fetchCarbonApi<T>(url: string) {
-  const res = await fetch(url)
+export async function fetchCarbonApi<T>(url: string, init?: RequestInit) {
+  const res = await fetch(url, init)
   const text = await res.text()
   const raw = text ? JSON.parse(text) : {}
   if (!res.ok || (raw.code && raw.code >= 400)) {

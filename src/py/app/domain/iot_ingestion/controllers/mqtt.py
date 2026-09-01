@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
@@ -12,8 +13,9 @@ from litestar.response import Response
 from sqlalchemy import func, select
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_superuser
+from app.domain.accounts.guards import requires_authenticated_user, requires_superuser
 from app.domain.energy.controllers._utils import model_to_dict, ok_data
+from app.domain.iot_ingestion.usecases import MqttIngestionUseCase
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -70,7 +72,7 @@ class MqttIngestionConfigurationController(Controller):
 
     tags = ["MQTT Ingestion"]
 
-    @get("/api/iot-ingestion/mqtt-sources", guards=[requires_superuser])
+    @get("/api/iot-ingestion/mqtt-sources", guards=[requires_authenticated_user])
     async def list_sources(self, db_session: AsyncSession, limit: int = 100, offset: int = 0) -> Response[dict]:
         return Response(content=ok_data(await _list_models(db_session, m.MqttDataSource, limit, offset)))
 
@@ -101,7 +103,7 @@ class MqttIngestionConfigurationController(Controller):
         await db_session.refresh(obj)
         return Response(content=ok_data(model_to_dict(obj)))
 
-    @get("/api/iot-ingestion/mqtt-subscriptions", guards=[requires_superuser])
+    @get("/api/iot-ingestion/mqtt-subscriptions", guards=[requires_authenticated_user])
     async def list_subscriptions(
         self, db_session: AsyncSession, source_id: int | None = None, limit: int = 100, offset: int = 0
     ) -> Response[dict]:
@@ -143,7 +145,7 @@ class MqttIngestionConfigurationController(Controller):
         await db_session.refresh(obj)
         return Response(content=ok_data(model_to_dict(obj)))
 
-    @get("/api/iot-ingestion/mqtt-device-bindings", guards=[requires_superuser])
+    @get("/api/iot-ingestion/mqtt-device-bindings", guards=[requires_authenticated_user])
     async def list_bindings(
         self, db_session: AsyncSession, subscription_id: int | None = None, limit: int = 100, offset: int = 0
     ) -> Response[dict]:
@@ -185,7 +187,7 @@ class MqttIngestionConfigurationController(Controller):
         await db_session.refresh(obj)
         return Response(content=ok_data(model_to_dict(obj)))
 
-    @get("/api/iot-ingestion/mqtt-point-mappings", guards=[requires_superuser])
+    @get("/api/iot-ingestion/mqtt-point-mappings", guards=[requires_authenticated_user])
     async def list_mappings(
         self, db_session: AsyncSession, binding_id: int | None = None, limit: int = 100, offset: int = 0
     ) -> Response[dict]:
@@ -227,7 +229,7 @@ class MqttIngestionConfigurationController(Controller):
         await db_session.refresh(obj)
         return Response(content=ok_data(model_to_dict(obj)))
 
-    @get("/api/iot-ingestion/mqtt-messages", guards=[requires_superuser])
+    @get("/api/iot-ingestion/mqtt-messages", guards=[requires_authenticated_user])
     async def list_messages(
         self,
         db_session: AsyncSession,
@@ -248,6 +250,65 @@ class MqttIngestionConfigurationController(Controller):
         for row in data["items"]:
             row.pop("payload", None)
         return Response(content=ok_data(data))
+
+    @post("/api/iot-ingestion/mqtt-test-messages", guards=[requires_superuser])
+    async def create_test_message(self, db_session: AsyncSession, data: dict[str, Any] = MQTT_BODY) -> Response[dict]:
+        """Inject one contract-compliant MQTT sample and project it through the normal ingestion workflow."""
+        try:
+            binding_id = _positive_int(data.get("binding_id"), "binding_id")
+            binding = await _require_binding(db_session, binding_id)
+            subscription = await _require_subscription(db_session, binding.subscription_id)
+            source = await _require_source(db_session, subscription.source_id)
+            mapping = await _select_test_mapping(db_session, binding.id, data)
+            meter_number = _meter_number_from_key(binding.meter_key)
+            value = _decimal(data.get("value", "888.88"), "value")
+            topic = str(data.get("topic") or _sample_topic(subscription.topic_filter, binding.meter_key))
+        except ValueError as exc:
+            return _bad_request(exc)
+
+        now = datetime.now(UTC)
+        payload = {
+            "guid": binding.gateway_key,
+            "ts": int(now.timestamp() * 1000),
+            "devs": [
+                {
+                    "data": [
+                        {
+                            "name": f"{meter_number}号电表{mapping.source_name_suffix or mapping.point_name or mapping.source_tag}",
+                            "tag": mapping.source_tag,
+                            "value": str(value),
+                            "valid": 1,
+                            "t": 1,
+                        }
+                    ]
+                }
+            ],
+        }
+        use_case = MqttIngestionUseCase(db_session)
+        message, created = await use_case.receive_message(
+            source_id=source.id,
+            subscription_id=subscription.id,
+            topic=topic,
+            payload=payload,
+        )
+        message = await use_case.process_message(message.id)
+        readings = (
+            await db_session.scalars(
+                select(m.MeterReadingFact)
+                .where(m.MeterReadingFact.source_message_id == message.id)
+                .order_by(m.MeterReadingFact.id.asc())
+            )
+        ).all()
+        return Response(
+            content=ok_data(
+                {
+                    "message": _message_row(message),
+                    "created": created,
+                    "readings": [model_to_dict(row) for row in readings],
+                    "reading_count": len(readings),
+                }
+            )
+        )
 
 
 async def _list_models(db_session: AsyncSession, model: type[Any], limit: int, offset: int) -> dict[str, Any]:
@@ -377,6 +438,44 @@ async def _require_binding(db_session: AsyncSession, binding_id: int) -> m.MqttD
     if binding is None:
         raise ValueError("MQTT 设备绑定不存在或不属于当前企业租户")
     return binding
+
+
+async def _select_test_mapping(
+    db_session: AsyncSession, binding_id: int, data: dict[str, Any]
+) -> m.MqttPointMapping:
+    mapping_id = data.get("mapping_id")
+    source_tag = str(data.get("source_tag") or "").strip()
+    statement = select(m.MqttPointMapping).where(
+        m.MqttPointMapping.binding_id == binding_id,
+        m.MqttPointMapping.enabled.is_(True),
+    )
+    if mapping_id is not None:
+        statement = statement.where(m.MqttPointMapping.id == _positive_int(mapping_id, "mapping_id"))
+    if source_tag:
+        statement = statement.where(m.MqttPointMapping.source_tag == source_tag)
+    mapping = await db_session.scalar(statement.order_by(m.MqttPointMapping.id.asc()).limit(1))
+    if mapping is None:
+        raise ValueError("当前设备绑定没有可用的 MQTT 点位映射")
+    return mapping
+
+
+def _meter_number_from_key(meter_key: str) -> int:
+    value = str(meter_key or "").strip().lower()
+    if len(value) < 2 or not value.startswith("m") or not value[1:].isdigit():
+        raise ValueError("MQTT 表计编号应为 m001 这类采集编号")
+    return int(value[1:])
+
+
+def _sample_topic(topic_filter: str, meter_key: str) -> str:
+    if "+" in topic_filter:
+        return topic_filter.replace("+", meter_key, 1)
+    return topic_filter
+
+
+def _message_row(message: m.MqttInboundMessage) -> dict[str, Any]:
+    row = model_to_dict(message)
+    row.pop("payload", None)
+    return row
 
 
 def _bad_request(exc: ValueError) -> Response[dict]:

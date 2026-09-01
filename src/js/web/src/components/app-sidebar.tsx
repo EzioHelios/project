@@ -221,16 +221,12 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
         icon: Cpu,
         isActive:
           pathname.startsWith("/data/terminals") ||
-          pathname.startsWith("/data/device-types") ||
-          pathname.startsWith("/data/device-points") ||
           pathname.startsWith("/data/point-monitoring") ||
           pathname.startsWith("/data/meter") ||
           pathname.startsWith("/data/energy-consumption") ||
           pathname.startsWith("/data/video"),
         items: [
-          { title: "监控终端", to: "/data/terminals" },
-          { title: "设备类型", to: "/data/device-types" },
-          { title: "设备测点", to: "/data/device-points" },
+          { title: "设备台账", to: "/data/terminals" },
           { title: "点位监测", to: "/data/point-monitoring" },
           { title: "电表电量", to: "/data/meter" },
           { title: "能源消费明细", to: "/data/energy-consumption" },
@@ -257,19 +253,12 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
         title: "监测告警",
         to: "/energy-carbon/monitor",
         icon: BellRing,
-        isActive:
-          pathname.startsWith("/energy-carbon/monitor") ||
-          pathname.startsWith("/energy-carbon/alerts") ||
-          pathname.startsWith("/data/alarm-rules") ||
-          pathname.startsWith("/data/alarm-events") ||
-          pathname.startsWith("/data/video-alarm-events"),
+        isActive: pathname.startsWith("/energy-carbon/monitor") || pathname.startsWith("/energy-carbon/alerts") || pathname.startsWith("/data/alarm-rules"),
         items: [
           { title: "监测中心", to: "/energy-carbon/monitor" },
           { title: "告警中心", to: "/energy-carbon/alerts" },
-          { title: "规则与事件台账", kind: "section" },
+          { title: "规则配置", kind: "section" },
           { title: "预警规则", to: "/data/alarm-rules" },
-          { title: "预警事件", to: "/data/alarm-events" },
-          { title: "视频预警", to: "/data/video-alarm-events" },
         ],
       },
     ]

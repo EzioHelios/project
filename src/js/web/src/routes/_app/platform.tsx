@@ -3,25 +3,7 @@
  * 结构：快捷操作（图标宫格） + 最近动作
  */
 import { createFileRoute, Link } from "@tanstack/react-router"
-import {
-  Activity,
-  AlarmClock,
-  ArrowRight,
-  Building2,
-  Camera,
-  ClipboardList,
-  Database,
-  FileDigit,
-  HardDrive,
-  KeyRound,
-  MapPinned,
-  PlugZap,
-  ShieldCheck,
-  Truck,
-  Users,
-  Video,
-  Warehouse,
-} from "lucide-react"
+import { AlarmClock, ArrowRight, Building2, Camera, Database, HardDrive, KeyRound, MapPinned, PlugZap, ShieldCheck, Truck, Users, Video, Warehouse } from "lucide-react"
 
 import { AdminEmptyState, AdminPageHeader, AdminPanel } from "@/components/admin-ui"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
@@ -47,19 +29,15 @@ const platformGroups = [
       { title: "监测区域", to: "/data/monitor-area", icon: MapPinned },
       { title: "入库管理", to: "/data/inbound", icon: Warehouse },
       { title: "出库管理", to: "/data/outbound", icon: HardDrive },
-      { title: "设备类型", to: "/data/device-types", icon: FileDigit },
-      { title: "设备测点", to: "/data/device-points", icon: Activity },
     ],
   },
   {
     title: "监测与告警",
     items: [
-      { title: "监控终端", to: "/data/terminals", icon: Camera },
+      { title: "设备台账", to: "/data/terminals", icon: Camera },
       { title: "电表电量", to: "/data/meter", icon: PlugZap },
       { title: "视频监控", to: "/data/video", icon: Video },
       { title: "预警规则", to: "/data/alarm-rules", icon: AlarmClock },
-      { title: "预警事件", to: "/data/alarm-events", icon: Activity },
-      { title: "视频监控预警事件", to: "/data/video-alarm-events", icon: ClipboardList },
     ],
   },
   {

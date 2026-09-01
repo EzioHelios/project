@@ -199,12 +199,23 @@ function toPayload(fields: Field[], form: Record<string, string>) {
   const payload: Record<string, unknown> = {}
   const numericNames = new Set(["area_id", "sector_id", "category", "status", "trip_state", "sort_index", "event_type"])
   for (const field of fields) {
+    if (field.name === "threshold_operator" || field.name === "threshold_value" || field.name === "threshold_unit") continue
     const raw = form[field.name]
     if (field.type === "number" || numericNames.has(field.name)) payload[field.name] = raw === "" ? null : Number(raw)
     else if (field.type === "boolean") payload[field.name] = raw === "true"
     else if (field.type === "json") {
       payload[field.name] = raw.trim() ? JSON.parse(raw) : null
     } else payload[field.name] = raw === "" ? null : raw
+  }
+  if (fields.some((field) => field.name === "threshold_value")) {
+    const thresholdValue = form.threshold_value?.trim()
+    payload.range_val = thresholdValue
+      ? {
+          operator: form.threshold_operator || ">",
+          threshold: Number(thresholdValue),
+          unit: form.threshold_unit?.trim() || undefined,
+        }
+      : null
   }
   return payload
 }
@@ -213,6 +224,10 @@ function makeInitial(fields: Field[], row?: Row) {
   return Object.fromEntries(
     fields.map((field) => {
       const value = row?.[field.name]
+      const rangeVal = row?.range_val && typeof row.range_val === "object" ? (row.range_val as Record<string, unknown>) : null
+      if (field.name === "threshold_operator") return [field.name, String(rangeVal?.operator ?? ">")]
+      if (field.name === "threshold_value") return [field.name, rangeVal?.threshold === null || rangeVal?.threshold === undefined ? "" : String(rangeVal.threshold)]
+      if (field.name === "threshold_unit") return [field.name, rangeVal?.unit === null || rangeVal?.unit === undefined ? "" : String(rangeVal.unit)]
       if (field.type === "json") return [field.name, value ? JSON.stringify(value, null, 2) : ""]
       if (field.type === "boolean") return [field.name, value === false ? "false" : "true"]
       return [field.name, value === null || value === undefined ? "" : String(value)]
@@ -792,6 +807,26 @@ export function VideoPage() {
 }
 
 export function WarningRulesPage() {
+  const areasQuery = useQuery({
+    queryKey: ["master-data", "areas", "tree", "warning-rule-options"],
+    queryFn: async () => (await request<{ items: Row[] }>("/api/master-data/areas/tree")).data,
+  })
+  const devicesQuery = useQuery({
+    queryKey: ["master-data", "devices", "warning-rule-options"],
+    queryFn: async () => requestPage<Row>("/api/master-data/devices", { limit: 500, offset: 0 }),
+  })
+  const areaOptions = useMemo(
+    () => flattenRows(areasQuery.data?.items ?? []).map((item) => ({ label: display(item.name) || display(item.code), value: String(item.id) })),
+    [areasQuery.data?.items],
+  )
+  const deviceOptions = useMemo(
+    () =>
+      (devicesQuery.data?.items ?? []).map((item) => ({
+        label: `${display(item.name) || display(item.code)} · ${display(item.area_name)}`,
+        value: String(item.id),
+      })),
+    [devicesQuery.data?.items],
+  )
   return (
     <CrudDataPage
       title="预警规则"
@@ -801,10 +836,10 @@ export function WarningRulesPage() {
         { key: "name", label: "规则名称" },
         { key: "alarm_name", label: "告警名称" },
         { key: "event_type", label: "事件类型" },
-        { key: "equipment_id", label: "设备ID" },
+        { key: "equipment_id", label: "设备" },
         { key: "point_code", label: "测点编码" },
-        { key: "table_name", label: "来源表/视图" },
-        { key: "sector_id", label: "区域ID" },
+        { key: "alarm_level", label: "等级" },
+        { key: "range_val", label: "阈值条件", render: (row) => rangeLabel(row.range_val) },
       ]}
       fields={[
         { name: "name", label: "规则名称", required: true },
@@ -831,16 +866,40 @@ export function WarningRulesPage() {
             { label: "碳排放异常", value: "4" },
           ],
         },
-        { name: "sector_id", label: "区域ID", type: "number" },
-        { name: "equipment_id", label: "设备ID", type: "number" },
+        { name: "sector_id", label: "区域", type: "select", options: areaOptions },
+        { name: "equipment_id", label: "设备", type: "select", options: deviceOptions },
         { name: "point_code", label: "测点编码" },
-        { name: "table_name", label: "来源表/视图" },
         { name: "is_enabled", label: "启用", type: "boolean" },
-        { name: "range_val", label: "阈值 JSON", type: "json" },
+        {
+          name: "threshold_operator",
+          label: "判断条件",
+          type: "select",
+          options: [
+            { label: "大于", value: ">" },
+            { label: "大于等于", value: ">=" },
+            { label: "小于", value: "<" },
+            { label: "小于等于", value: "<=" },
+          ],
+        },
+        { name: "threshold_value", label: "阈值", type: "number" },
+        { name: "threshold_unit", label: "单位" },
         { name: "description", label: "说明", type: "textarea" },
       ]}
     />
   )
+}
+
+function flattenRows(rows: Row[]): Row[] {
+  return rows.flatMap((row) => [row, ...flattenRows(Array.isArray(row.children) ? (row.children as Row[]) : [])])
+}
+
+function rangeLabel(value: unknown) {
+  if (!value || typeof value !== "object") return "-"
+  const row = value as Record<string, unknown>
+  const operator = display(row.operator)
+  const threshold = display(row.threshold)
+  const unit = display(row.unit)
+  return `${operator} ${threshold}${unit === "-" ? "" : ` ${unit}`}`
 }
 
 export function ApiKeyMappingPage() {
@@ -1326,5 +1385,5 @@ export function TasksPage({ mode }: { mode: "interval" | "crontab" | "schedules"
 }
 
 export function VideoMonitorsLink() {
-  return <Link to="/data/video-alarm-events">视频预警事件</Link>
+  return <Link to="/energy-carbon/alerts">视频预警处理</Link>
 }

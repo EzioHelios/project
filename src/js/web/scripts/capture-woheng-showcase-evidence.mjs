@@ -71,14 +71,26 @@ const evidenceDefinitions = [
   shot("EV-WH-006", "泰州设备主数据与采集协议配置", "/data/terminals", "taizhou", ["编辑设备", "采集标识", "采集协议", "在线状态"], "A", "数据维护与治理", {
     action: openFirstDeviceEditor,
   }),
-  shot("EV-WH-007", "泰州设备测点配置", "/data/device-points", "taizhou", ["设备测点工作台", "筛选树", "测点"], "A", "数据维护与治理"),
+  shot(
+    "EV-WH-007",
+    "泰州测点映射与接入校验",
+    "/data/terminals",
+    "taizhou",
+    ["设备台账", "设备接入主线", "MQTT接入", "点位映射", "接入校验"],
+    "A",
+    "数据维护与治理",
+    {
+      action: openDeviceIngestionPanel,
+      preserveScroll: true,
+    },
+  ),
   shot("EV-WH-008", "泰州电表电量采集结果", "/data/meter", "taizhou", ["电表电量", "最新采集", "电表数量", "采样数", "用电趋势"], "A", "数据维护与治理"),
   shot("EV-WH-009", "泰州点位监测与来源追溯", "/data/point-monitoring", "taizhou", ["点位监测", "总点位", "点位列表", "最近读数", "来源追溯"], "A", "数据维护与治理", {
     action: prepareTaizhouPointMonitoringTrend,
     rejectTexts: ["暂无时序数据"],
   }),
   shot("EV-WH-010", "湖州区域主数据", "/data/monitor-area", "huzhou", ["区域主数据工作台", "区域树", "基础信息", "本区域设备"], "A", "数据维护与治理"),
-  shot("EV-WH-011", "湖州设备测点主数据", "/data/device-points", "huzhou", ["设备测点工作台", "筛选树", "测点"], "A", "数据维护与治理", { allowPartial: true }),
+  shot("EV-WH-011", "湖州测点映射与接入质量", "/data/terminals", "huzhou", ["设备台账", "质量", "测点", "数据质量"], "A", "数据维护与治理", { allowPartial: true }),
   shot("EV-WH-012", "非电活动数据导入入口", "/carbon-mgmt/import", "huzhou", ["活动数据导入", "盘查期", "组织", "活动分类", "下载分类模板"], "B", "数据维护与治理", {
     allowPartial: true,
     allowedEmptyMarkers: ["等待工作簿预检"],
@@ -88,7 +100,7 @@ const evidenceDefinitions = [
     rejectTexts: ["预检未通过"],
   }),
   shot("EV-WH-014", "温室气体活动台账", "/carbon-mgmt/activities", "huzhou", ["温室气体活动台账", "活动记录", "记录 / 活动"], "A", "数据维护与治理"),
-  shot("EV-WH-015", "监测告警事件", "/data/alarm-events", "huzhou", ["告警", "状态"], "B", "数据维护与治理", { allowPartial: true }),
+  shot("EV-WH-015", "监测告警事件处理", "/energy-carbon/alerts", "huzhou", ["碳告警与预警", "确认", "转工单", "关闭"], "A", "数据维护与治理"),
   shot("EV-WH-016", "系统审计留痕", "/admin/audit", "huzhou", ["审计", "用户", "操作"], "B", "数据维护与治理", { allowPartial: true }),
 
   shot("EV-WH-017", "官方排放因子库概览", "/carbon-mgmt/factors", "huzhou", ["排放因子库", "官方库", "分类节点", "原始记录", "校验状态"], "A", "因子维护与计算"),
@@ -197,11 +209,11 @@ const evidenceDefinitions = [
     focus: "告警中心指标、趋势图、告警列表和处理详情",
     rejectTexts: ["当前筛选条件下没有告警。"],
   }),
-  shot("EV-WH-051", "预警规则配置台账", "/data/alarm-rules", "huzhou", ["预警规则", "规则名称", "告警名称", "事件类型", "来源表/视图"], "A", "监测告警补充", {
-    focus: "预警规则列表、规则名称、事件类型和来源表字段",
+  shot("EV-WH-051", "预警规则配置台账", "/data/alarm-rules", "huzhou", ["预警规则", "规则名称", "告警名称", "事件类型", "设备", "阈值条件"], "A", "监测告警补充", {
+    focus: "预警规则列表、规则名称、事件类型、设备对象和阈值条件",
   }),
-  shot("EV-WH-052", "视频监控预警事件", "/data/video-alarm-events", "huzhou", ["视频监控预警事件", "事件列表", "类型", "说明", "时间", "状态", "处理"], "A", "监测告警补充", {
-    focus: "视频预警事件列表和处理状态",
+  shot("EV-WH-052", "视频监控预警处理", "/energy-carbon/alerts", "huzhou", ["碳告警与预警", "视频", "确认", "转工单", "关闭"], "A", "监测告警补充", {
+    focus: "视频预警事件在告警中心的处理状态",
     rejectTexts: ["暂无事件"],
   }),
 
@@ -398,8 +410,9 @@ async function readExistingManifest() {
 }
 
 function removeByEvidenceId(items, evidenceId) {
-  const index = items.findIndex((item) => item.evidenceId === evidenceId)
-  if (index >= 0) items.splice(index, 1)
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    if (items[index]?.evidenceId === evidenceId) items.splice(index, 1)
+  }
 }
 
 function groupDefinitions() {
@@ -589,7 +602,7 @@ function collectPartialReasons(definition) {
   const reasons = []
   if (definition.section === "碳资产与公开碳价模拟") reasons.push("碳资产本次定位为扩展能力和公开碳价模拟，不作为核心主线能力")
   if (definition.evidenceId === "EV-WH-005") reasons.push("大屏专题作为展示补充，需确认数据丰富度和视觉完整度")
-  if (definition.evidenceId === "EV-WH-011") reasons.push("设备测点页用于主数据支撑，是否足以证明MQTT完整配置需结合泰州截图")
+  if (definition.evidenceId === "EV-WH-011") reasons.push("测点映射和质量检查用于主数据支撑，MQTT完整配置需结合泰州设备接入截图")
   if (definition.evidenceId === "EV-WH-015" || definition.evidenceId === "EV-WH-016") reasons.push("运维/审计页为支撑材料，需按实际可见记录判定")
   if (definition.evidenceId === "EV-WH-027") reasons.push("预算页需确认年度目标和月度预算数据是否完整")
   if (definition.evidenceId === "EV-WH-046" || definition.evidenceId === "EV-WH-047") reasons.push("页面可证明分类填报台账与活动记录；F10价值链方法当前显示为方法待配置，不能单独证明核算闭环")
@@ -881,6 +894,18 @@ async function prepareTaizhouPointMonitoringTrend({ page }) {
   await page.getByRole("button", { name: "查询" }).click()
   await page.getByText("正向有功总电能", { exact: false }).first().waitFor({ timeout: 20_000 })
   await page.getByText("最近读数", { exact: true }).waitFor({ timeout: 20_000 })
+}
+
+async function openDeviceIngestionPanel({ page }) {
+  await page.getByText("设备列表", { exact: true }).waitFor({ timeout: 20_000 })
+  const rows = page.locator("tbody tr").filter({ hasNotText: "暂无设备" })
+  await rows.first().waitFor({ state: "visible", timeout: 20_000 })
+  await rows.first().click()
+  await page.getByRole("tab", { name: "接入", exact: true }).click()
+  await page.getByText("MQTT接入", { exact: true }).waitFor({ timeout: 20_000 })
+  await page.getByText("点位映射", { exact: true }).waitFor({ timeout: 20_000 })
+  await page.getByText("接入校验", { exact: true }).waitFor({ timeout: 20_000 })
+  await page.getByText("点位映射", { exact: true }).scrollIntoViewIfNeeded()
 }
 
 async function ensureVerificationProjectSelected(page) {

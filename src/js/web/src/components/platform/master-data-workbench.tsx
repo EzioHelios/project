@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
 import { ChevronRight, Plus, RefreshCw } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -16,6 +17,7 @@ import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { useAuthStore } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
 type Id = number
@@ -104,6 +106,84 @@ type DevicePointRow = {
   remark?: string | null
 }
 
+type MqttSourceRow = {
+  id: Id
+  code: string
+  name: string
+  broker_host?: string | null
+  broker_port?: number | null
+  client_id?: string | null
+  tls_enabled?: boolean | null
+  enabled?: boolean | null
+}
+
+type MqttSubscriptionRow = {
+  id: Id
+  source_id: Id
+  topic_filter: string
+  parser_code?: string | null
+  contract_version?: string | null
+  qos?: number | null
+  expected_interval_seconds?: number | null
+  enabled?: boolean | null
+}
+
+type MqttBindingRow = {
+  id: Id
+  subscription_id: Id
+  gateway_key: string
+  meter_key: string
+  selector_name_pattern?: string | null
+  equipment_id?: Id | null
+  external_device_id?: string | null
+  temporary_address?: string | null
+  identity_status?: string | null
+  scaling_mode?: string | null
+  multiplier?: number | null
+}
+
+type MqttMappingRow = {
+  id: Id
+  binding_id: Id
+  source_tag: string
+  source_name_suffix?: string | null
+  point_code: string
+  point_name?: string | null
+  unit?: string | null
+  mapping_version?: string | null
+  enabled?: boolean | null
+}
+
+type MqttMessageRow = {
+  id: Id
+  source_id: Id
+  subscription_id: Id
+  topic?: string | null
+  status?: string | null
+  received_at?: string | null
+  published_at?: string | null
+  processed_at?: string | null
+  error_code?: string | null
+  error_detail?: string | null
+}
+
+type MqttTestResult = {
+  message: MqttMessageRow
+  created: boolean
+  readings: Array<{
+    id: Id
+    equipment_id: Id
+    source_point_code: string
+    point_code: string
+    point_name: string
+    normalized_value?: number | null
+    unit?: string | null
+    quality_status?: string | null
+    reading_time?: string | null
+  }>
+  reading_count: number
+}
+
 type AreaForm = {
   code: string
   name: string
@@ -150,6 +230,8 @@ type DevicePointForm = {
   lower_limit: string
   remark: string
 }
+
+type DeviceDetailTab = "devices" | "types" | "points" | "ingestion" | "quality"
 
 const AREA_TYPE_OPTIONS = [
   { label: "园区/厂区", value: "site" },
@@ -221,6 +303,30 @@ function areaLabel(area?: { code?: string | null; name?: string | null }) {
 
 function deviceLabel(device?: { code?: string | null; name?: string | null }) {
   return device?.name || device?.code || "-"
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "-"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString("zh-CN", { hour12: false })
+}
+
+function mqttIdentityStatus(value?: string | null) {
+  const labels: Record<string, string> = {
+    confirmed: "已确认",
+    temporary: "临时识别",
+  }
+  return labels[String(value || "")] ?? value ?? "-"
+}
+
+function mqttMessageStatus(value?: string | null) {
+  const labels: Record<string, string> = {
+    received: "已接收",
+    processed: "已处理",
+    rejected: "已拒收",
+  }
+  return labels[String(value || "")] ?? value ?? "-"
 }
 
 function boolValue(value?: boolean | null) {
@@ -674,8 +780,9 @@ export function MonitorAreaWorkbenchPage() {
   )
 }
 
-function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: "devices" | "types" | "points" }) {
+function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: DeviceDetailTab }) {
   const qc = useQueryClient()
+  const currentUser = useAuthStore((state) => state.user)
   const [expandedAreaIds, setExpandedAreaIds] = useState<Set<number>>(new Set())
   const [expandedTypeIds, setExpandedTypeIds] = useState<Set<number>>(new Set())
   const [selectedAreaFilter, setSelectedAreaFilter] = useState<number | null>(null)
@@ -690,6 +797,7 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: "de
   const [deviceForm, setDeviceForm] = useState<DeviceForm>(emptyDeviceForm())
   const [pointForm, setPointForm] = useState<DevicePointForm>(emptyPointForm())
   const [detailTab, setDetailTab] = useState(initialTab)
+  const [ingestionCheckResult, setIngestionCheckResult] = useState<string | null>(null)
 
   const areaTreeQuery = useQuery({
     queryKey: ["master-data", "areas", "tree"],
@@ -730,8 +838,87 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: "de
     queryFn: async () => (await request<DeviceDetail>(`/api/master-data/devices/${selectedDeviceId}`)).data,
     enabled: selectedDeviceId !== null,
   })
+  const mqttSourcesQuery = useQuery<PageResult<MqttSourceRow>>({
+    queryKey: ["iot-ingestion", "mqtt-sources"],
+    queryFn: async () => requestPage<MqttSourceRow>("/api/iot-ingestion/mqtt-sources", { limit: 100, offset: 0 }),
+  })
+  const mqttSubscriptionsQuery = useQuery<PageResult<MqttSubscriptionRow>>({
+    queryKey: ["iot-ingestion", "mqtt-subscriptions"],
+    queryFn: async () => requestPage<MqttSubscriptionRow>("/api/iot-ingestion/mqtt-subscriptions", { limit: 100, offset: 0 }),
+  })
+  const mqttBindingsQuery = useQuery<PageResult<MqttBindingRow>>({
+    queryKey: ["iot-ingestion", "mqtt-bindings"],
+    queryFn: async () => requestPage<MqttBindingRow>("/api/iot-ingestion/mqtt-device-bindings", { limit: 200, offset: 0 }),
+  })
+  const mqttMappingsQuery = useQuery<PageResult<MqttMappingRow>>({
+    queryKey: ["iot-ingestion", "mqtt-mappings"],
+    queryFn: async () => requestPage<MqttMappingRow>("/api/iot-ingestion/mqtt-point-mappings", { limit: 200, offset: 0 }),
+  })
+  const mqttMessagesQuery = useQuery<PageResult<MqttMessageRow>>({
+    queryKey: ["iot-ingestion", "mqtt-messages"],
+    queryFn: async () => requestPage<MqttMessageRow>("/api/iot-ingestion/mqtt-messages", { limit: 100, offset: 0 }),
+  })
 
   const currentArea = useMemo(() => flatAreas.find((item) => item.id === selectedAreaFilter) ?? null, [flatAreas, selectedAreaFilter])
+  const selectedDevice = detailQuery.data?.device
+  const selectedPoints = detailQuery.data?.points ?? []
+  const enabledPoints = selectedPoints.filter((point) => point.is_enabled !== false)
+  const alarmEnabledPoints = selectedPoints.filter((point) => point.is_alarm_enabled === true)
+  const mappedPoints = selectedPoints.filter((point) => Boolean(point.source_field?.trim()))
+  const isMqttDevice = selectedDevice?.protocol?.toLowerCase() === "mqtt"
+  const mqttBindings = useMemo(
+    () => (mqttBindingsQuery.data?.items ?? []).filter((binding) => binding.equipment_id === selectedDevice?.id),
+    [mqttBindingsQuery.data?.items, selectedDevice?.id],
+  )
+  const selectedMqttBinding = mqttBindings[0] ?? null
+  const mqttMappings = useMemo(
+    () => (mqttMappingsQuery.data?.items ?? []).filter((mapping) => mapping.binding_id === selectedMqttBinding?.id),
+    [mqttMappingsQuery.data?.items, selectedMqttBinding?.id],
+  )
+  const selectedMqttSubscription = useMemo(
+    () => (mqttSubscriptionsQuery.data?.items ?? []).find((subscription) => subscription.id === selectedMqttBinding?.subscription_id) ?? null,
+    [mqttSubscriptionsQuery.data?.items, selectedMqttBinding?.subscription_id],
+  )
+  const selectedMqttSource = useMemo(
+    () => (mqttSourcesQuery.data?.items ?? []).find((source) => source.id === selectedMqttSubscription?.source_id) ?? null,
+    [mqttSourcesQuery.data?.items, selectedMqttSubscription?.source_id],
+  )
+  const selectedMqttMessages = useMemo(
+    () =>
+      (mqttMessagesQuery.data?.items ?? []).filter((message) => {
+        if (!selectedMqttSubscription) return false
+        return message.subscription_id === selectedMqttSubscription.id && message.source_id === selectedMqttSubscription.source_id
+      }),
+    [mqttMessagesQuery.data?.items, selectedMqttSubscription],
+  )
+  const latestMqttMessage = selectedMqttMessages[0] ?? null
+  const canRunMqttTest = Boolean(currentUser?.isSuperuser)
+  const ingestionIssues = useMemo(() => {
+    if (!selectedDevice) return ["请先选择设备"]
+    const issues: string[] = []
+    if (!selectedDevice.protocol) issues.push("未选择采集协议")
+    if (!selectedDevice.external_device_id) issues.push("未维护采集标识")
+    if (selectedPoints.length === 0) issues.push("未配置测点")
+    if (enabledPoints.length === 0) issues.push("没有启用测点")
+    if (mappedPoints.length === 0) issues.push("启用前至少应配置一个来源字段")
+    if (selectedDevice.protocol?.toLowerCase() === "mqtt") {
+      if (mqttBindingsQuery.isError || mqttMappingsQuery.isError) issues.push("MQTT配置读取失败")
+      if (!mqttBindingsQuery.isLoading && mqttBindings.length === 0) issues.push("未绑定MQTT表计")
+      if (!mqttMappingsQuery.isLoading && mqttBindings.length > 0 && mqttMappings.length === 0) issues.push("未配置MQTT点位映射")
+    }
+    return issues
+  }, [
+    enabledPoints.length,
+    mappedPoints.length,
+    mqttBindings.length,
+    mqttBindingsQuery.isError,
+    mqttBindingsQuery.isLoading,
+    mqttMappings.length,
+    mqttMappingsQuery.isError,
+    mqttMappingsQuery.isLoading,
+    selectedDevice,
+    selectedPoints.length,
+  ])
 
   function openCreateDevice() {
     setEditingDevice(null)
@@ -741,6 +928,19 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: "de
       device_type_id: selectedTypeFilter ? String(selectedTypeFilter) : "",
     })
     setDialogOpen(true)
+  }
+
+  function validateIngestion() {
+    setDetailTab("ingestion")
+    if (ingestionIssues.length > 0) {
+      const message = `接入配置待补充：${ingestionIssues.join("、")}`
+      setIngestionCheckResult(message)
+      toast.warning("接入配置待补充", { description: ingestionIssues.join("、") })
+      return
+    }
+    const message = "接入配置具备进入监测的必要条件，可继续核对实时读数和告警规则。"
+    setIngestionCheckResult(message)
+    toast.success("接入配置校验通过")
   }
 
   function openEditDevice(device: DeviceRow) {
@@ -867,10 +1067,47 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: "de
     },
     onError: (error) => toast.error("删除失败", { description: error instanceof Error ? error.message : "请稍后重试" }),
   })
+  const testMqttIngestion = useMutation({
+    mutationFn: async () => {
+      if (!selectedMqttBinding) throw new Error("当前设备未绑定 MQTT 表计")
+      const sourceTag = mqttMappings.find((mapping) => mapping.source_tag === "EPI")?.source_tag ?? mqttMappings[0]?.source_tag
+      const result = await request<MqttTestResult>("/api/iot-ingestion/mqtt-test-messages", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          binding_id: selectedMqttBinding.id,
+          source_tag: sourceTag,
+          value: (860 + Math.random() * 40).toFixed(3),
+        }),
+      })
+      return result.data
+    },
+    onSuccess: async (result) => {
+      const reading = result.readings[0]
+      setIngestionCheckResult(
+        reading
+          ? `MQTT测试报文已处理：${reading.point_name} ${reading.normalized_value ?? "-"} ${reading.unit ?? ""}`
+          : `MQTT测试报文已处理，生成读数 ${result.reading_count} 条。`,
+      )
+      toast.success("MQTT接入测试完成")
+      await qc.invalidateQueries({ queryKey: ["iot-ingestion", "mqtt-messages"] })
+      await qc.invalidateQueries({ queryKey: ["master-data", "devices", "detail", selectedDeviceId] })
+      await qc.invalidateQueries({ queryKey: ["iot-monitoring", "points"] })
+    },
+    onError: (error) => toast.error("MQTT接入测试失败", { description: error instanceof Error ? error.message : "请稍后重试" }),
+  })
 
   return (
     <PageContainer className="flex-1 space-y-4">
       <AdminPageHeader title={title} />
+      <PageSection>
+        <AdminPanel title="设备接入主线" contentClassName="grid gap-3 md:grid-cols-4">
+          <FlowStep title="1. 设备建档" detail="维护区域、类型、资产编码和采集标识" active={Boolean(selectedDevice)} />
+          <FlowStep title="2. 协议配置" detail="选择 MQTT、Modbus、RTSP 或接口采集方式" active={Boolean(selectedDevice?.protocol)} />
+          <FlowStep title="3. 测点映射" detail="维护来源字段、单位、采样周期和阈值" active={mappedPoints.length > 0} />
+          <FlowStep title="4. 监测验证" detail="查看实时读数、质量状态和告警结果" active={enabledPoints.length > 0} />
+        </AdminPanel>
+      </PageSection>
       <PageSection>
         <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_380px]">
           <AdminPanel
@@ -1002,10 +1239,12 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: "de
           >
             {detailQuery.data?.device ? (
               <Tabs value={detailTab} onValueChange={(value) => setDetailTab(value as typeof detailTab)} className="space-y-4">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="devices">基础</TabsTrigger>
                   <TabsTrigger value="types">结构</TabsTrigger>
                   <TabsTrigger value="points">测点</TabsTrigger>
+                  <TabsTrigger value="ingestion">接入</TabsTrigger>
+                  <TabsTrigger value="quality">质量</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="devices" className="space-y-3">
@@ -1071,7 +1310,10 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: "de
                           <TableRow key={point.id}>
                             <TableCell>{point.point_code}</TableCell>
                             <TableCell>{point.point_name}</TableCell>
-                            <TableCell>{point.value_type ?? "-"}</TableCell>
+                            <TableCell>
+                              <div>{point.value_type ?? "-"}</div>
+                              <div className="text-muted-foreground text-xs">{point.source_field || "未配置来源字段"}</div>
+                            </TableCell>
                             <TableCell className="space-x-2 text-right">
                               <Button variant="outline" size="sm" onClick={() => openPointDialog(point)}>
                                 编辑
@@ -1085,6 +1327,122 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: "de
                       </TableBody>
                     </Table>
                   </AdminDataTable>
+                </TabsContent>
+
+                <TabsContent value="ingestion" className="space-y-4">
+                  <MetricStrip className="md:grid-cols-2">
+                    <SummaryMetric label="启用测点" value={String(enabledPoints.length)} />
+                    <SummaryMetric label="告警测点" value={String(alarmEnabledPoints.length)} />
+                    <SummaryMetric label="已映射来源字段" value={String(mappedPoints.length)} />
+                    <SummaryMetric label="配置问题" value={String(ingestionIssues.length)} />
+                  </MetricStrip>
+                  <DetailCard title="采集配置">
+                    <DetailRow label="采集协议" value={selectedDevice?.protocol ?? "-"} />
+                    <DetailRow label="采集标识" value={selectedDevice?.external_device_id ?? "-"} />
+                    <DetailRow label="能源类型" value={selectedDevice?.energy_type ?? "-"} />
+                    <DetailRow label="启用状态" value={selectedDevice?.is_enabled === false ? "停用" : "启用"} />
+                    <DetailRow label="投运状态" value={selectedDevice?.commissioning_status ?? "-"} />
+                  </DetailCard>
+                  <DetailCard title="MQTT接入">
+                    {!isMqttDevice ? (
+                      <div className="text-sm text-muted-foreground">当前设备未选择 MQTT 采集协议。</div>
+                    ) : mqttBindingsQuery.isLoading || mqttMappingsQuery.isLoading || mqttSubscriptionsQuery.isLoading || mqttSourcesQuery.isLoading ? (
+                      <div className="text-sm text-muted-foreground">正在读取接入配置...</div>
+                    ) : selectedMqttBinding ? (
+                      <div className="space-y-3">
+                        <DetailRow
+                          label="数据源"
+                          value={selectedMqttSource ? `${selectedMqttSource.name}（${selectedMqttSource.broker_host}:${selectedMqttSource.broker_port ?? 1883}）` : "-"}
+                        />
+                        <DetailRow label="订阅主题" value={selectedMqttSubscription?.topic_filter ?? "-"} />
+                        <DetailRow label="网关/表计" value={`${selectedMqttBinding.gateway_key} / ${selectedMqttBinding.meter_key}`} />
+                        <DetailRow label="绑定状态" value={mqttIdentityStatus(selectedMqttBinding.identity_status)} />
+                        <DetailRow
+                          label="最近报文"
+                          value={
+                            latestMqttMessage
+                              ? `${mqttMessageStatus(latestMqttMessage.status)} · ${formatDateTime(latestMqttMessage.processed_at || latestMqttMessage.received_at)}`
+                              : "-"
+                          }
+                        />
+                        <div className="space-y-2">
+                          <div className="text-xs font-medium text-muted-foreground">点位映射</div>
+                          {mqttMappings.length === 0 ? (
+                            <div className="text-sm text-muted-foreground">暂无 MQTT 点位映射</div>
+                          ) : (
+                            mqttMappings.map((mapping) => (
+                              <div key={mapping.id} className="flex items-center justify-between rounded-md border border-border/70 px-3 py-2 text-sm">
+                                <div>
+                                  <div className="font-medium">{mapping.point_name || mapping.point_code}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {mapping.source_tag} {"->"} {mapping.point_code}
+                                  </div>
+                                </div>
+                                <Badge variant={mapping.enabled === false ? "outline" : "secondary"}>{mapping.unit || "-"}</Badge>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                        {canRunMqttTest ? (
+                          <Button size="sm" onClick={() => testMqttIngestion.mutate()} disabled={testMqttIngestion.isPending || mqttMappings.length === 0}>
+                            {testMqttIngestion.isPending ? "测试中..." : "发送测试报文"}
+                          </Button>
+                        ) : (
+                          <div className="text-xs text-muted-foreground">接入测试由系统管理员执行。</div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground">当前设备尚未绑定 MQTT 表计。</div>
+                    )}
+                  </DetailCard>
+                  <DetailCard title="接入校验">
+                    {ingestionIssues.length === 0 ? (
+                      <div className="text-sm">协议、采集标识、启用测点和来源字段已具备进入监测的必要条件。</div>
+                    ) : (
+                      <div className="space-y-2 text-sm">
+                        {ingestionIssues.map((issue) => (
+                          <div key={issue}>- {issue}</div>
+                        ))}
+                      </div>
+                    )}
+                    {ingestionCheckResult && <div className="rounded-md border border-border/70 bg-muted/35 px-3 py-2 text-sm">{ingestionCheckResult}</div>}
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" onClick={validateIngestion}>
+                        校验配置
+                      </Button>
+                      <Button size="sm" variant="outline" asChild>
+                        <Link to="/data/point-monitoring">查看实时读数</Link>
+                      </Button>
+                      <Button size="sm" variant="outline" asChild>
+                        <Link to="/energy-carbon/monitor">进入监测中心</Link>
+                      </Button>
+                    </div>
+                  </DetailCard>
+                </TabsContent>
+
+                <TabsContent value="quality" className="space-y-4">
+                  <MetricStrip className="md:grid-cols-2">
+                    <SummaryMetric label="测点总数" value={String(selectedPoints.length)} />
+                    <SummaryMetric label="未启用测点" value={String(selectedPoints.length - enabledPoints.length)} />
+                    <SummaryMetric label="未映射来源字段" value={String(selectedPoints.length - mappedPoints.length)} />
+                    <SummaryMetric label="阈值测点" value={String(selectedPoints.filter((point) => point.upper_limit != null || point.lower_limit != null).length)} />
+                  </MetricStrip>
+                  <DetailCard title="质量检查项">
+                    <div className="space-y-2 text-sm">
+                      <QualityLine label="协议与采集标识" ok={Boolean(selectedDevice?.protocol && selectedDevice?.external_device_id)} />
+                      <QualityLine label="测点启用" ok={enabledPoints.length > 0} />
+                      <QualityLine label="来源字段映射" ok={mappedPoints.length > 0} />
+                      <QualityLine label="告警阈值配置" ok={alarmEnabledPoints.length > 0} />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" asChild>
+                        <Link to="/data/meter">查看电表汇总</Link>
+                      </Button>
+                      <Button size="sm" variant="outline" asChild>
+                        <Link to="/energy-carbon/alerts">查看告警中心</Link>
+                      </Button>
+                    </div>
+                  </DetailCard>
                 </TabsContent>
               </Tabs>
             ) : (
@@ -1268,7 +1626,7 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: "de
             <Field label="测点名称">
               <Input value={pointForm.point_name} onChange={(event) => setPointForm((state) => ({ ...state, point_name: event.target.value }))} />
             </Field>
-            <Field label="值类型">
+            <Field label="数值类型">
               <Select value={pointForm.value_type} onValueChange={(value) => setPointForm((state) => ({ ...state, value_type: value }))}>
                 <SelectTrigger>
                   <SelectValue />
@@ -1288,7 +1646,7 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: "de
             <Field label="来源字段">
               <Input value={pointForm.source_field} onChange={(event) => setPointForm((state) => ({ ...state, source_field: event.target.value }))} />
             </Field>
-            <Field label="采样周期(秒)">
+            <Field label="采样周期">
               <Input
                 type="number"
                 value={pointForm.sampling_interval_seconds}
@@ -1348,15 +1706,15 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: "de
 }
 
 export function TerminalsWorkbenchPage() {
-  return <DeviceWorkbench title="设备主数据工作台" initialTab="devices" />
+  return <DeviceWorkbench title="设备台账" initialTab="devices" />
 }
 
 export function DeviceTypesWorkbenchPage() {
-  return <DeviceWorkbench title="设备类型与结构工作台" initialTab="types" />
+  return <DeviceWorkbench title="设备台账" initialTab="types" />
 }
 
 export function DevicePointsWorkbenchPage() {
-  return <DeviceWorkbench title="设备测点工作台" initialTab="points" />
+  return <DeviceWorkbench title="设备台账" initialTab="points" />
 }
 
 function SummaryMetric({ label, value }: { label: string; value: string }) {
@@ -1386,6 +1744,24 @@ function Field({ label, children, className }: { label: string; children: ReactN
     <div className={cn("grid gap-2", className)}>
       <Label>{label}</Label>
       {children}
+    </div>
+  )
+}
+
+function FlowStep({ title, detail, active }: { title: string; detail: string; active: boolean }) {
+  return (
+    <div className={cn("rounded-md border px-3 py-3", active ? "border-primary/30 bg-primary/5" : "border-border/70 bg-background")}>
+      <div className="font-medium text-sm">{title}</div>
+      <div className="mt-1 text-muted-foreground text-xs leading-5">{detail}</div>
+    </div>
+  )
+}
+
+function QualityLine({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span>{label}</span>
+      <Badge variant={ok ? "secondary" : "destructive"}>{ok ? "通过" : "待处理"}</Badge>
     </div>
   )
 }

@@ -811,18 +811,27 @@ class WohengShowcasePackage:
             equipment = equipment_rows.get(code)
             if equipment is None:
                 continue
+            meter_key = f"m{index:03d}"
             binding = await self._session.scalar(
                 select(m.MqttDeviceBinding).where(
                     m.MqttDeviceBinding.subscription_id == subscription.id,
                     m.MqttDeviceBinding.gateway_key == "WH-GW-01",
-                    m.MqttDeviceBinding.meter_key == code,
+                    m.MqttDeviceBinding.meter_key == meter_key,
                 )
             )
+            if binding is None:
+                binding = await self._session.scalar(
+                    select(m.MqttDeviceBinding).where(
+                        m.MqttDeviceBinding.subscription_id == subscription.id,
+                        m.MqttDeviceBinding.gateway_key == "WH-GW-01",
+                        m.MqttDeviceBinding.equipment_id == equipment.id,
+                    )
+                )
             if binding is None:
                 binding = m.MqttDeviceBinding(
                     subscription_id=subscription.id,
                     gateway_key="WH-GW-01",
-                    meter_key=code,
+                    meter_key=meter_key,
                     selector_name_pattern=f"{equipment.name or code}*",
                     equipment_id=equipment.id,
                     external_device_id=equipment.external_device_id or f"WH-{code}",
@@ -833,31 +842,78 @@ class WohengShowcasePackage:
                 )
                 self._session.add(binding)
                 await self._session.flush()
-            for source_tag, point_code, point_name, unit in (
-                ("EPI", "forward_active_total", "正向有功总电能", "kWh"),
-                ("P", "active_power", "有功功率", "kW"),
-            ):
-                mapping = await self._session.scalar(
-                    select(m.MqttPointMapping).where(
-                        m.MqttPointMapping.binding_id == binding.id,
-                        m.MqttPointMapping.source_tag == source_tag,
-                        m.MqttPointMapping.mapping_version == "v1",
-                    )
+            else:
+                binding.meter_key = meter_key
+                binding.selector_name_pattern = f"{equipment.name or code}*"
+                binding.equipment_id = equipment.id
+                binding.external_device_id = equipment.external_device_id or f"WH-{code}"
+                binding.temporary_address = f"{index:03d}"
+                binding.identity_status = "confirmed"
+                binding.scaling_mode = "upstream_scaled"
+                binding.multiplier = Decimal(1)
+            await self._ensure_mqtt_points(equipment, binding)
+
+    async def _ensure_mqtt_points(self, equipment: m.MonitorEquipment, binding: m.MqttDeviceBinding) -> None:
+        for source_tag, point_code, point_name, unit in (
+            ("EPI", "forward_active_total", "正向有功总电能", "kWh"),
+            ("P", "active_power", "有功功率", "kW"),
+        ):
+            mapping = await self._session.scalar(
+                select(m.MqttPointMapping).where(
+                    m.MqttPointMapping.binding_id == binding.id,
+                    m.MqttPointMapping.source_tag == source_tag,
+                    m.MqttPointMapping.mapping_version == "v1",
                 )
-                if mapping is None:
-                    self._session.add(
-                        m.MqttPointMapping(
-                            binding_id=binding.id,
-                            source_tag=source_tag,
-                            source_name_suffix=point_name,
-                            point_code=point_code,
-                            point_name=point_name,
-                            unit=unit,
-                            multiplier=Decimal(1),
-                            mapping_version="v1",
-                            enabled=True,
-                        )
-                    )
+            )
+            if mapping is None:
+                mapping = m.MqttPointMapping(
+                    binding_id=binding.id,
+                    source_tag=source_tag,
+                    source_name_suffix=point_name,
+                    point_code=point_code,
+                    point_name=point_name,
+                    unit=unit,
+                    multiplier=Decimal(1),
+                    mapping_version="v1",
+                    enabled=True,
+                )
+                self._session.add(mapping)
+            else:
+                mapping.source_name_suffix = point_name
+                mapping.point_code = point_code
+                mapping.point_name = point_name
+                mapping.unit = unit
+                mapping.multiplier = Decimal(1)
+                mapping.enabled = True
+
+            device_point = await self._session.scalar(
+                select(m.DevicePoint).where(
+                    m.DevicePoint.device_id == equipment.id,
+                    m.DevicePoint.point_code == point_code,
+                )
+            )
+            if device_point is None:
+                device_point = m.DevicePoint(
+                    device_id=equipment.id,
+                    point_code=point_code,
+                    point_name=point_name,
+                    unit=unit,
+                    value_type="float",
+                    source_field=source_tag,
+                    sampling_interval_seconds=300,
+                    is_enabled=True,
+                    is_alarm_enabled=source_tag == "P",
+                )
+                self._session.add(device_point)
+            else:
+                device_point.point_name = point_name
+                device_point.unit = unit
+                device_point.value_type = "float"
+                device_point.source_field = source_tag
+                device_point.sampling_interval_seconds = 300
+                device_point.is_enabled = True
+                if source_tag == "P":
+                    device_point.is_alarm_enabled = True
 
     async def _ensure_metering_data(self, tenant: WohengTenantSpec) -> None:
         bindings = list((await self._session.scalars(select(m.MqttDeviceBinding))).all())

@@ -1,12 +1,14 @@
-import { useQuery } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { createFileRoute } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 import { AdminFilterBar, AdminPageHeader, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, CompositeTrendChart, DistributionChart, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
 import { DetailPanel, FacetNavigation, severityLabel, statusBadge } from "@/components/carbon/energy-carbon-center"
 import { Button } from "@/components/ui/button"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 
 type AlertSummary = {
   total: number
@@ -54,10 +56,12 @@ export const Route = createFileRoute("/_app/energy-carbon/alerts")({
 })
 
 function AlertsCenterPage() {
+  const queryClient = useQueryClient()
   const [source, setSource] = useState("all")
   const [status, setStatus] = useState("all")
   const [severity, setSeverity] = useState("all")
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [handleNote, setHandleNote] = useState("已核实告警来源并完成处置记录。")
 
   const summaryQuery = useQuery<ApiEnvelope<AlertSummary>>({
     queryKey: ["energy-carbon", "alerts", "summary"],
@@ -100,6 +104,38 @@ function AlertsCenterPage() {
       count: item.value,
     })) ?? []),
   ]
+  const alertAction = useMutation({
+    mutationFn: async ({ action, alert }: { action: "acknowledge" | "work-order" | "close"; alert: AlertDetail }) => {
+      const note = handleNote.trim() || "已在告警中心处理。"
+      if (action === "acknowledge") {
+        return fetchCarbonApi(`/api/mobile/alerts/${encodeURIComponent(alert.id)}/acknowledge`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ note }),
+        })
+      }
+      if (action === "work-order") {
+        return fetchCarbonApi(`/api/mobile/alerts/${encodeURIComponent(alert.id)}/transfer-work-order`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ note }),
+        })
+      }
+      const workOrderId = `wo:${alert.source}:${alert.record_id}`
+      return fetchCarbonApi(`/api/mobile/work-orders/${encodeURIComponent(workOrderId)}/submit`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ result: note, attachments: [] }),
+      })
+    },
+    onSuccess: async (_result, variables) => {
+      toast.success(variables.action === "acknowledge" ? "告警已确认" : variables.action === "work-order" ? "告警已转工单" : "告警已关闭")
+      await queryClient.invalidateQueries({ queryKey: ["energy-carbon", "alerts"] })
+    },
+    onError: (error) => toast.error("处理失败", { description: error instanceof Error ? error.message : "请稍后重试" }),
+  })
+  const detail = detailQuery.data?.data
+  const canHandle = Boolean(detail && detail.status !== "已处理")
 
   return (
     <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
@@ -165,24 +201,16 @@ function AlertsCenterPage() {
             },
           ]}
           actions={
-            <>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSource("all")
-                  setStatus("all")
-                  setSeverity("all")
-                }}
-              >
-                重置
-              </Button>
-              <Button variant="outline" asChild>
-                <Link to="/data/alarm-events">设备预警处理</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link to="/data/video-alarm-events">视频预警处理</Link>
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSource("all")
+                setStatus("all")
+                setSeverity("all")
+              }}
+            >
+              重置
+            </Button>
           }
         />
       </PageSection>
@@ -227,41 +255,41 @@ function AlertsCenterPage() {
         </div>
 
         <DetailPanel
-          title={detailQuery.data?.data.title || "处理详情"}
+          title={detail?.title || "处理详情"}
           items={[
-            { label: "告警类型", value: detailQuery.data?.data.alert_type },
-            { label: "风险等级", value: severityLabel(detailQuery.data?.data.severity) },
-            { label: "状态", value: detailQuery.data?.data.status },
-            { label: "区域", value: detailQuery.data?.data.area_name },
-            { label: "对象", value: detailQuery.data?.data.object_name },
-            { label: "发生时间", value: detailQuery.data?.data.occurred_at },
-            { label: "说明", value: detailQuery.data?.data.description },
+            { label: "告警类型", value: detail?.alert_type },
+            { label: "风险等级", value: severityLabel(detail?.severity) },
+            { label: "状态", value: detail?.status },
+            { label: "区域", value: detail?.area_name },
+            { label: "对象", value: detail?.object_name },
+            { label: "发生时间", value: detail?.occurred_at },
+            { label: "说明", value: detail?.description },
           ]}
           footer={
-            detailQuery.data?.data ? (
+            detail ? (
               <div className="space-y-3">
                 <div className="space-y-2 text-sm">
-                  {(detailQuery.data?.data.history ?? []).map((row) => (
+                  {(detail.history ?? []).map((row) => (
                     <div key={row.label} className="flex items-center justify-between gap-3 text-muted-foreground">
                       <span>{row.label}</span>
                       <span className="font-medium text-foreground">{row.value || "-"}</span>
                     </div>
                   ))}
                 </div>
+                <div className="space-y-2 text-sm">
+                  <div className="font-medium">处理说明</div>
+                  <Textarea value={handleNote} onChange={(event) => setHandleNote(event.target.value)} className="min-h-24" placeholder="填写确认、转工单或关闭说明" />
+                </div>
                 <div className="flex flex-wrap gap-2">
-                  {detailQuery.data.data.source === "video" ? (
-                    <Button size="sm" asChild>
-                      <Link to="/data/video-alarm-events">去视频事件页处理</Link>
-                    </Button>
-                  ) : detailQuery.data.data.source === "carbon" ? (
-                    <Button size="sm" asChild>
-                      <Link to="/carbon/organization/inventory">去碳盘查页核查</Link>
-                    </Button>
-                  ) : (
-                    <Button size="sm" asChild>
-                      <Link to="/data/alarm-events">去设备事件页处理</Link>
-                    </Button>
-                  )}
+                  <Button size="sm" variant="outline" onClick={() => alertAction.mutate({ action: "acknowledge", alert: detail })} disabled={!canHandle || alertAction.isPending}>
+                    确认
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => alertAction.mutate({ action: "work-order", alert: detail })} disabled={!canHandle || alertAction.isPending}>
+                    转工单
+                  </Button>
+                  <Button size="sm" onClick={() => alertAction.mutate({ action: "close", alert: detail })} disabled={!canHandle || alertAction.isPending}>
+                    关闭
+                  </Button>
                 </div>
               </div>
             ) : null

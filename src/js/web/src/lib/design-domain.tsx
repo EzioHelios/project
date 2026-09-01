@@ -5,16 +5,7 @@ import { cn } from "@/lib/utils"
 export type DesignDomain = "neutral" | "energy" | "carbon"
 
 const carbonPaths = ["/carbon", "/carbon-mgmt", "/energy/budget"]
-const energyPaths = [
-  "/energy",
-  "/microgrid",
-  "/energy-carbon/monitor",
-  "/energy-carbon/alerts",
-  "/data/alarm-rules",
-  "/data/alarm-events",
-  "/data/video-alarm-events",
-  "/data/point-monitoring",
-]
+const energyPaths = ["/energy", "/microgrid", "/energy-carbon/monitor", "/energy-carbon/alerts", "/data/alarm-rules", "/data/point-monitoring"]
 
 function pathMatches(pathname: string, prefix: string) {
   return pathname === prefix || pathname.startsWith(`${prefix}/`) || (prefix.endsWith("/") && pathname.startsWith(prefix))
