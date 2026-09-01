@@ -13,12 +13,14 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
 from dateutil.relativedelta import relativedelta
-from litestar import Controller, get
+from litestar import Controller, get, post
+from litestar.params import Body
 from litestar.response import Response
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import selectinload
 
 from app.db import models as m
+from app.domain.accounts.guards import requires_authenticated_user
 from app.domain.energy.controllers._utils import model_to_dict
 
 if TYPE_CHECKING:
@@ -26,12 +28,81 @@ if TYPE_CHECKING:
     from sqlalchemy.sql.elements import ColumnElement
 
 HIGH_RISK_UNHANDLED_ALERT_COUNT = 3
+MOBILE_BODY = Body(default={})
 
 
 class EnergyOperationsCompatibilityController(Controller):
     """Serve monitoring and alarm pages without depending on carbon facts."""
 
     tags = ["Energy Operations"]
+
+    @staticmethod
+    def _alarm_status_label(row: m.AlarmEvent) -> str:
+        if row.is_handle:
+            return "已处理"
+        if row.status == "acknowledged":
+            return "已确认"
+        if row.status == "work_order":
+            return "已转工单"
+        if row.status == "processing":
+            return "处理中"
+        return "待处理"
+
+    @staticmethod
+    def _split_alert_id(alert_id: str) -> tuple[str, int] | None:
+        source, separator, raw_id = alert_id.partition(":")
+        if separator != ":" or source not in {"alarm", "video"}:
+            return None
+        try:
+            return source, int(raw_id)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _work_order_id(alert: dict[str, Any]) -> str:
+        return f"wo:{alert['source']}:{alert['record_id']}"
+
+    @staticmethod
+    def _work_order_status(alert: dict[str, Any]) -> str:
+        if alert["status"] == "已处理":
+            return "已完成"
+        if alert["status"] == "已确认":
+            return "待接单"
+        if alert["status"] == "已转工单":
+            return "待接单"
+        if alert["status"] == "处理中":
+            return "处理中"
+        return "待接单" if int(alert["record_id"]) % 3 else "待分派"
+
+    @staticmethod
+    def _work_order_type(alert: dict[str, Any]) -> str:
+        if alert["source"] == "video":
+            return "巡检处置"
+        if alert["alert_type"] == "用能告警":
+            return "能耗异常处置"
+        if alert["alert_type"] == "碳告警":
+            return "碳排异常处置"
+        return "设备异常处置"
+
+    def _to_work_order(self, alert: dict[str, Any]) -> dict[str, Any]:
+        priority = "高" if alert["severity"] == "high" else "中"
+        return {
+            "id": self._work_order_id(alert),
+            "source_alert_id": alert["id"],
+            "source": alert["source"],
+            "record_id": alert["record_id"],
+            "task_type": self._work_order_type(alert),
+            "priority": priority,
+            "title": alert["title"],
+            "area_name": alert.get("area_name"),
+            "object_name": alert.get("object_name"),
+            "status": self._work_order_status(alert),
+            "occurred_at": alert.get("occurred_at"),
+            "due_at": alert.get("occurred_at"),
+            "assignee": "现场运维",
+            "description": alert.get("description"),
+            "actions": ["接单", "转派", "提交处理结果", "上传附件"],
+        }
 
     async def _monitor_area_summary(self, db_session: AsyncSession) -> list[dict[str, Any]]:
         sectors = list(
@@ -162,7 +233,7 @@ class EnergyOperationsCompatibilityController(Controller):
                         row.equipment_id,
                         f"设备{row.equipment_id}" if row.equipment_id else "未关联对象",
                     ),
-                    "status": "已处理" if row.is_handle else "待处理",
+                    "status": self._alarm_status_label(row),
                     "occurred_at": row.event_time.isoformat() if row.event_time else None,
                     "description": row.event_desc,
                 }
@@ -549,3 +620,173 @@ class EnergyOperationsCompatibilityController(Controller):
                 "data": {"items": [{"stage": "发现", "time": match.get("occurred_at"), "status": match.get("status")}]},
             }
         )
+
+    @post(
+        "/api/mobile/alerts/{alert_id:str}/acknowledge",
+        guards=[requires_authenticated_user],
+        operation_id="MobileAcknowledgeAlert",
+    )
+    async def acknowledge_mobile_alert(
+        self,
+        db_session: AsyncSession,
+        current_user: m.User,
+        alert_id: str,
+        data: dict[str, Any] = MOBILE_BODY,
+    ) -> Response[dict[str, Any]]:
+        parsed = self._split_alert_id(alert_id)
+        if parsed is None:
+            return Response(content={"code": 404, "msg": "告警不存在"}, status_code=404)
+        source, record_id = parsed
+        if source == "video":
+            obj = await db_session.get(m.VedioAlarmEvent, record_id)
+            if obj is None:
+                return Response(content={"code": 404, "msg": "告警不存在"}, status_code=404)
+            await db_session.commit()
+            return Response(content={"code": 200, "msg": "已确认", "data": {"alert_id": alert_id, "status": "已确认"}})
+
+        obj = await db_session.get(m.AlarmEvent, record_id)
+        if obj is None:
+            return Response(content={"code": 404, "msg": "告警不存在"}, status_code=404)
+        obj.status = "acknowledged"
+        obj.handled_by = current_user.email
+        note = str(data.get("note") or "已确认告警")
+        obj.handle_note = note
+        await db_session.commit()
+        return Response(content={"code": 200, "msg": "已确认", "data": {"alert_id": alert_id, "status": "已确认"}})
+
+    @post(
+        "/api/mobile/alerts/{alert_id:str}/transfer-work-order",
+        guards=[requires_authenticated_user],
+        operation_id="MobileTransferAlertToWorkOrder",
+    )
+    async def transfer_mobile_alert_to_work_order(
+        self,
+        db_session: AsyncSession,
+        current_user: m.User,
+        alert_id: str,
+        data: dict[str, Any] = MOBILE_BODY,
+    ) -> Response[dict[str, Any]]:
+        parsed = self._split_alert_id(alert_id)
+        if parsed is None:
+            return Response(content={"code": 404, "msg": "告警不存在"}, status_code=404)
+        source, record_id = parsed
+        if source == "alarm":
+            obj = await db_session.get(m.AlarmEvent, record_id)
+            if obj is None:
+                return Response(content={"code": 404, "msg": "告警不存在"}, status_code=404)
+            obj.status = "work_order"
+            obj.handled_by = current_user.email
+            obj.handle_note = str(data.get("note") or "已转入工单处理")
+            await db_session.commit()
+        else:
+            obj = await db_session.get(m.VedioAlarmEvent, record_id)
+            if obj is None:
+                return Response(content={"code": 404, "msg": "告警不存在"}, status_code=404)
+
+        work_order_id = f"wo:{source}:{record_id}"
+        return Response(
+            content={
+                "code": 200,
+                "msg": "已转工单",
+                "data": {"alert_id": alert_id, "work_order_id": work_order_id, "status": "待接单"},
+            }
+        )
+
+    @get("/api/mobile/work-orders", guards=[requires_authenticated_user], operation_id="MobileListWorkOrders")
+    async def list_mobile_work_orders(
+        self,
+        db_session: AsyncSession,
+        status: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> Response[dict[str, Any]]:
+        items = [self._to_work_order(alert) for alert in await self._alerts(db_session)]
+        if status and status != "all":
+            items = [item for item in items if item["status"] == status]
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {"items": items[offset : offset + limit], "total": len(items), "limit": limit, "offset": offset},
+            }
+        )
+
+    @get(
+        "/api/mobile/work-orders/{work_order_id:str}",
+        guards=[requires_authenticated_user],
+        operation_id="MobileGetWorkOrder",
+    )
+    async def get_mobile_work_order(self, db_session: AsyncSession, work_order_id: str) -> Response[dict[str, Any]]:
+        match = next(
+            (item for item in [self._to_work_order(alert) for alert in await self._alerts(db_session)] if item["id"] == work_order_id),
+            None,
+        )
+        if match is None:
+            return Response(content={"code": 404, "msg": "工单不存在"}, status_code=404)
+        match["history"] = [
+            {"label": "告警生成", "value": match.get("occurred_at")},
+            {"label": "任务状态", "value": match.get("status")},
+            {"label": "责任角色", "value": match.get("assignee")},
+        ]
+        return Response(content={"code": 200, "msg": "获取成功", "data": match})
+
+    @post(
+        "/api/mobile/work-orders/{work_order_id:str}/accept",
+        guards=[requires_authenticated_user],
+        operation_id="MobileAcceptWorkOrder",
+    )
+    async def accept_mobile_work_order(
+        self,
+        db_session: AsyncSession,
+        current_user: m.User,
+        work_order_id: str,
+    ) -> Response[dict[str, Any]]:
+        parsed = self._split_alert_id(work_order_id.removeprefix("wo:"))
+        if parsed is None:
+            return Response(content={"code": 404, "msg": "工单不存在"}, status_code=404)
+        source, record_id = parsed
+        if source == "alarm":
+            obj = await db_session.get(m.AlarmEvent, record_id)
+            if obj is None:
+                return Response(content={"code": 404, "msg": "工单不存在"}, status_code=404)
+            obj.status = "processing"
+            obj.handled_by = current_user.email
+            obj.handle_note = "已接单处理"
+            await db_session.commit()
+        return Response(content={"code": 200, "msg": "已接单", "data": {"work_order_id": work_order_id, "status": "处理中"}})
+
+    @post(
+        "/api/mobile/work-orders/{work_order_id:str}/submit",
+        guards=[requires_authenticated_user],
+        operation_id="MobileSubmitWorkOrder",
+    )
+    async def submit_mobile_work_order(
+        self,
+        db_session: AsyncSession,
+        current_user: m.User,
+        work_order_id: str,
+        data: dict[str, Any] = MOBILE_BODY,
+    ) -> Response[dict[str, Any]]:
+        parsed = self._split_alert_id(work_order_id.removeprefix("wo:"))
+        if parsed is None:
+            return Response(content={"code": 404, "msg": "工单不存在"}, status_code=404)
+        source, record_id = parsed
+        result = str(data.get("result") or "已提交处理结果")
+        attachments = data.get("attachments") if isinstance(data.get("attachments"), list) else []
+        if source == "alarm":
+            obj = await db_session.get(m.AlarmEvent, record_id)
+            if obj is None:
+                return Response(content={"code": 404, "msg": "工单不存在"}, status_code=404)
+            obj.status = "resolved"
+            obj.resolved_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+            obj.is_handle = True
+            obj.handled_by = current_user.email
+            obj.handle_note = f"{result}; 附件{len(attachments)}项"
+            await db_session.commit()
+        else:
+            obj = await db_session.get(m.VedioAlarmEvent, record_id)
+            if obj is None:
+                return Response(content={"code": 404, "msg": "工单不存在"}, status_code=404)
+            obj.is_handle = True
+            await db_session.commit()
+        return Response(content={"code": 200, "msg": "已提交", "data": {"work_order_id": work_order_id, "status": "已完成"}})
