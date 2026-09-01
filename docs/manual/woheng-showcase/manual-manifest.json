@@ -1,0 +1,430 @@
+{
+  "title": "沃衡汽车能碳管理平台操作手册",
+  "shortTitle": "沃衡平台操作手册",
+  "targetRole": "能碳管理人员、能源运维人员、体系与核查支持人员",
+  "verificationMode": "screenshot-plan-with-browser-evidence",
+  "brand": {
+    "name": "沃衡汽车能碳管理平台",
+    "company": "沃衡汽车有限公司"
+  },
+  "sourceEvidencePlan": "outputs/woheng-showcase-woheng-full-evidence/screenshot-plan.json",
+  "defaultScreenshotRoot": "outputs/woheng-showcase-woheng-full-evidence/screenshots",
+  "pagesRoot": "docs/manual/woheng-showcase/pages",
+  "htmlOutput": "src/js/web/public/help/woheng-showcase/index.html",
+  "siteOutputDir": "src/js/web/public/help/woheng-showcase",
+  "pages": [
+    {
+      "pageId": "overview",
+      "title": "平台概览",
+      "source": "00-overview.md"
+    },
+    {
+      "pageId": "green-factory-score-items",
+      "title": "绿色工厂评分项功能索引",
+      "source": "01-green-factory-score-items.md"
+    },
+    {
+      "pageId": "access-and-tenant",
+      "title": "登录、首页与租户切换",
+      "source": "01-access-and-tenant.md"
+    },
+    {
+      "pageId": "bigscreen",
+      "title": "态势大屏",
+      "source": "02-bigscreen.md"
+    },
+    {
+      "pageId": "data-maintenance-mqtt",
+      "title": "数据维护与 MQTT 电表接入",
+      "source": "03-data-maintenance-mqtt.md"
+    },
+    {
+      "pageId": "activity-ledgers-import",
+      "title": "经营活动台账与非电数据导入",
+      "source": "04-activity-ledgers-import.md"
+    },
+    {
+      "pageId": "factors-calculation",
+      "title": "因子维护与核算准备",
+      "source": "05-factors-calculation.md"
+    },
+    {
+      "pageId": "energy-management",
+      "title": "能源管理",
+      "source": "06-energy-management.md"
+    },
+    {
+      "pageId": "organization-carbon-iso14064",
+      "title": "组织碳管理与 ISO 14064 分类",
+      "source": "07-organization-carbon-iso14064.md"
+    },
+    {
+      "pageId": "product-supply-chain-carbon",
+      "title": "碳足迹与供应链碳管理",
+      "source": "08-product-supply-chain-carbon.md"
+    },
+    {
+      "pageId": "monitoring-alerts",
+      "title": "监测告警与处理留痕",
+      "source": "08-monitoring-alerts.md"
+    },
+    {
+      "pageId": "verification-report-export",
+      "title": "核查材料与报告导出",
+      "source": "09-verification-report-export.md"
+    },
+    {
+      "pageId": "reduction-carbon-asset",
+      "title": "减排绩效与公开碳价模拟",
+      "source": "10-reduction-carbon-asset.md"
+    },
+    {
+      "pageId": "demo-script",
+      "title": "下午演示脚本",
+      "source": "11-demo-script.md"
+    },
+    {
+      "pageId": "screenshot-index",
+      "title": "功能页面与截图索引",
+      "source": "12-screenshot-index.md"
+    }
+  ],
+  "sections": [
+    {
+      "sectionId": "access-and-home",
+      "title": "登录、首页与租户切换",
+      "summary": "用于演示平台入口、功能导航、首页指标和生产基地租户切换。",
+      "steps": [
+        {
+          "stepNumber": "1.1",
+          "title": "进入首页工作台",
+          "route": "/home",
+          "action": "登录平台后进入首页，查看能源运营、碳排放管理、态势大屏等功能入口。",
+          "expectedState": "首页展示平台导航、核心入口和当前租户业务状态。",
+          "evidenceId": "EV-WH-001",
+          "screenshot": "EV-WH-001-首页工作台与功能入口.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "1.2",
+          "title": "切换生产基地租户",
+          "route": "/home",
+          "action": "在租户切换入口选择泰州生产基地或湖州生产基地。",
+          "expectedState": "切换后页面数据、区域、设备和台账内容随租户变化。",
+          "evidenceId": "EV-WH-001",
+          "screenshot": "EV-WH-001-首页工作台与功能入口.png",
+          "verificationStatus": "planned"
+        }
+      ]
+    },
+    {
+      "sectionId": "bigscreen",
+      "title": "态势大屏展示",
+      "summary": "用于展示能耗、碳排、区域运行和电力专题的综合态势。",
+      "steps": [
+        {
+          "stepNumber": "2.1",
+          "title": "查看生产基地介绍大屏",
+          "route": "/bigscreen/intro",
+          "action": "进入介绍大屏，查看企业信息、运营项目和基地概况。",
+          "expectedState": "页面显示企业信息摘要和运营项目展示。",
+          "evidenceId": "EV-WH-002",
+          "screenshot": "EV-WH-002-生产基地介绍大屏.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "2.2",
+          "title": "查看能碳态势总览",
+          "route": "/bigscreen/overview",
+          "action": "进入态势总览大屏，查看能耗主指标、碳排主指标、月度经营趋势和区域能耗速览。",
+          "expectedState": "页面稳定显示指标卡、趋势图和区域概览。",
+          "evidenceId": "EV-WH-003",
+          "screenshot": "EV-WH-003-能碳态势总览大屏.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "2.3",
+          "title": "查看碳排专题大屏",
+          "route": "/bigscreen/carbon",
+          "action": "进入碳排专题，查看范围对比、贡献构成和碳排预警滚动榜。",
+          "expectedState": "页面展示组织碳专题图表和预警信息。",
+          "evidenceId": "EV-WH-004",
+          "screenshot": "EV-WH-004-碳排专题大屏.png",
+          "verificationStatus": "planned"
+        }
+      ]
+    },
+    {
+      "sectionId": "data-maintenance",
+      "title": "数据维护与采集配置",
+      "summary": "用于说明电表接入、设备测点、区域主数据、非电活动数据导入和审计留痕。",
+      "steps": [
+        {
+          "stepNumber": "3.1",
+          "title": "维护设备主数据与采集协议",
+          "route": "/data/terminals",
+          "action": "在设备主数据中查看或编辑设备编码、采集标识、采集协议和在线状态。",
+          "expectedState": "设备编辑页显示 MQTT 或其他采集协议字段，并能说明设备和采集点的绑定关系。",
+          "evidenceId": "EV-WH-006",
+          "screenshot": "EV-WH-006-泰州设备主数据与采集协议配置.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "3.2",
+          "title": "维护设备测点",
+          "route": "/data/device-points",
+          "action": "进入设备测点工作台，按区域或设备筛选测点。",
+          "expectedState": "页面显示测点列表、筛选树和测点配置字段。",
+          "evidenceId": "EV-WH-007",
+          "screenshot": "EV-WH-007-泰州设备测点配置.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "3.3",
+          "title": "查看电表电量采集结果",
+          "route": "/data/meter",
+          "action": "进入电表电量页面，查看最新采集、采样数和用电趋势。",
+          "expectedState": "页面显示非空电量数据和趋势图。",
+          "evidenceId": "EV-WH-008",
+          "screenshot": "EV-WH-008-泰州电表电量采集结果.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "3.4",
+          "title": "导入非电活动数据",
+          "route": "/carbon-mgmt/import",
+          "action": "下载分类模板，填写燃料、制冷剂、运输、通勤、采购材料等非电活动数据后上传预检。",
+          "expectedState": "预检结果显示活动数据预览、区域设备归集、方法与参数和证据覆盖。",
+          "evidenceId": "EV-WH-013",
+          "screenshot": "EV-WH-013-非电活动数据预检结果.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "3.5",
+          "title": "查看经营活动台账",
+          "route": "/data/inbound",
+          "action": "进入入库、出库、员工通勤、产量、产品价格等经营活动台账，核对业务活动数据。",
+          "expectedState": "台账页面显示单据编号、物料、数量、金额、车辆动力类型、产量或价格等业务字段。",
+          "evidenceId": "EV-WH-054",
+          "screenshot": "EV-WH-054-入库经营活动台账.png",
+          "verificationStatus": "planned"
+        }
+      ]
+    },
+    {
+      "sectionId": "factor-and-calculation",
+      "title": "因子维护与核算",
+      "summary": "用于说明官方原始因子、计算因子、参数来源和活动数据参与核算的过程。",
+      "steps": [
+        {
+          "stepNumber": "4.1",
+          "title": "查看官方排放因子库",
+          "route": "/carbon-mgmt/factors",
+          "action": "进入排放因子库，按分类树查看官方原始因子和校验状态。",
+          "expectedState": "页面显示分类节点、原始记录、因子名称、来源和校验状态。",
+          "evidenceId": "EV-WH-017",
+          "screenshot": "EV-WH-017-官方排放因子库概览.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "4.2",
+          "title": "查看计算因子库",
+          "route": "/carbon-mgmt/calculation-factors",
+          "action": "进入计算因子库，查看范围、因子值、单位和启用状态。",
+          "expectedState": "页面显示可用于核算的计算因子列表。",
+          "evidenceId": "EV-WH-019",
+          "screenshot": "EV-WH-019-计算因子库.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "4.3",
+          "title": "核对活动数据方法与参数",
+          "route": "/carbon-mgmt/import",
+          "action": "在导入预检后切换到方法与参数页签，查看参数集、采用值、来源版本和标准条款。",
+          "expectedState": "页面显示活动数据对应的核算方法、参数和来源信息。",
+          "evidenceId": "EV-WH-020",
+          "screenshot": "EV-WH-020-活动数据方法与参数解析.png",
+          "verificationStatus": "planned"
+        }
+      ]
+    },
+    {
+      "sectionId": "energy-management",
+      "title": "能源管理",
+      "summary": "用于说明能耗查询、强度计算、用能分析、能效对标、能流和平衡优化。",
+      "steps": [
+        {
+          "stepNumber": "5.1",
+          "title": "查询能耗数据",
+          "route": "/energy/consumption",
+          "action": "进入能耗查询页面，按时间、能源品种和区域筛选能耗记录。",
+          "expectedState": "页面显示记录数、能源品种和能耗明细。",
+          "evidenceId": "EV-WH-021",
+          "screenshot": "EV-WH-021-能耗查询.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "5.2",
+          "title": "查看能源消费量和强度",
+          "route": "/energy/intensity",
+          "action": "进入强度计算页面，查看综合能耗和能源品种汇总。",
+          "expectedState": "页面显示综合能耗、强度指标和汇总结果。",
+          "evidenceId": "EV-WH-022",
+          "screenshot": "EV-WH-022-能源消费量和强度计算.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "5.3",
+          "title": "查看能流和平衡优化",
+          "route": "/energy/flow",
+          "action": "进入能流分析和能效平衡页面，查看计量用电、分项用电、关键链路贡献和能量平衡表。",
+          "expectedState": "页面显示能流分析图表、平衡表和来源类型。",
+          "evidenceId": "EV-WH-025",
+          "screenshot": "EV-WH-025-能流分析.png",
+          "verificationStatus": "planned"
+        }
+      ]
+    },
+    {
+      "sectionId": "organization-carbon",
+      "title": "组织碳管理与 ISO 14064 分类",
+      "summary": "用于说明组织边界、核算边界、范围一二三、ISO 14064 类别 1-6、排放明细和核查支撑。",
+      "steps": [
+        {
+          "stepNumber": "6.1",
+          "title": "查看组织碳排放总览",
+          "route": "/carbon/organization/overview",
+          "action": "进入组织碳总览，查看 Scope 1、Scope 2、Scope 3 和报告期排放趋势。",
+          "expectedState": "页面显示范围构成、趋势和关键指标。",
+          "evidenceId": "EV-WH-028",
+          "screenshot": "EV-WH-028-组织碳排放总览.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "6.2",
+          "title": "维护组织边界与核算边界",
+          "route": "/carbon/organization/boundary",
+          "action": "进入边界管理页面，核对组织边界、运营控制法、区域设备边界和 ISO 14064-1 六类别。",
+          "expectedState": "页面显示边界口径、区域设备边界和类别覆盖情况。",
+          "evidenceId": "EV-WH-029",
+          "screenshot": "EV-WH-029-组织边界与核算边界.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "6.3",
+          "title": "查看排放清单与报告台账",
+          "route": "/carbon/organization/inventory",
+          "action": "进入碳盘查台账，查看核算准备检查、盘查报告版本和状态。",
+          "expectedState": "页面显示盘查报告台账和核算准备状态。",
+          "evidenceId": "EV-WH-030",
+          "screenshot": "EV-WH-030-排放清单与报告台账.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "6.4",
+          "title": "查看排放结果明细",
+          "route": "/carbon/organization/records",
+          "action": "进入碳排放查询页面，查看排放结果明细、核算公式、活动数据和参数因子。",
+          "expectedState": "页面显示排放源、活动量、因子、核算结果和证据文件。",
+          "evidenceId": "EV-WH-032",
+          "screenshot": "EV-WH-032-排放明细详情-活动与因子.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "6.5",
+          "title": "查看 ISO 14064 类别填报",
+          "route": "/carbon-mgmt/category/1.1",
+          "action": "按类别 1-6 进入分类填报页，核对固定燃烧、购入电力、员工通勤、采购商品、售出产品加工和其他间接排放记录。",
+          "expectedState": "分类填报页面显示活动记录、活动量、质量状态和归集字段。",
+          "evidenceId": "EV-WH-043",
+          "screenshot": "EV-WH-043-iso-14064-类别1固定燃烧分类填报.png",
+          "verificationStatus": "planned"
+        }
+      ]
+    },
+    {
+      "sectionId": "monitoring-alerts",
+      "title": "监测告警与处理留痕",
+      "summary": "用于说明数据采集监测、告警中心、预警规则、视频预警和审计留痕。",
+      "steps": [
+        {
+          "stepNumber": "7.1",
+          "title": "查看数据采集与监测中心",
+          "route": "/energy-carbon/monitor",
+          "action": "进入监测中心，查看运行概况、区域风险分布、设备近时段测点趋势和设备列表。",
+          "expectedState": "页面显示设备编码、协议、测点趋势和区域风险信息。",
+          "evidenceId": "EV-WH-049",
+          "screenshot": "EV-WH-049-数据采集与监测中心.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "7.2",
+          "title": "处理碳告警与预警",
+          "route": "/energy-carbon/alerts",
+          "action": "进入告警中心，查看总告警、趋势、来源分布、告警类型和风险等级。",
+          "expectedState": "页面显示告警列表和处理详情。",
+          "evidenceId": "EV-WH-050",
+          "screenshot": "EV-WH-050-碳告警与预警中心.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "7.3",
+          "title": "维护预警规则",
+          "route": "/data/alarm-rules",
+          "action": "进入预警规则台账，查看规则名称、告警名称、事件类型和来源表字段。",
+          "expectedState": "页面显示可维护的预警规则列表。",
+          "evidenceId": "EV-WH-051",
+          "screenshot": "EV-WH-051-预警规则配置台账.png",
+          "verificationStatus": "planned"
+        }
+      ]
+    },
+    {
+      "sectionId": "verification-report-reduction",
+      "title": "核查材料、报告导出与减排绩效",
+      "summary": "用于说明核查项目、证据材料、报告导出、公开碳价模拟和减排项目绩效跟踪。",
+      "steps": [
+        {
+          "stepNumber": "8.1",
+          "title": "查看碳核查支撑工作台",
+          "route": "/carbon/verification",
+          "action": "进入碳核查支撑页面，选择核查项目，查看证据资料和核查工作。",
+          "expectedState": "页面显示核查项目、凭证清单、核查发现和审核日志。",
+          "evidenceId": "EV-WH-034",
+          "screenshot": "EV-WH-034-碳核查支撑工作台.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "8.2",
+          "title": "导出报告与材料",
+          "route": "/carbon/verification",
+          "action": "在报告与材料页签中查看报告导出记录，并下载 Word/PDF 等材料。",
+          "expectedState": "页面显示报告导出、导出记录和下载入口。",
+          "evidenceId": "EV-WH-038",
+          "screenshot": "EV-WH-038-报告导出.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "8.3",
+          "title": "查看公开碳价模拟",
+          "route": "/carbon/assets/market",
+          "action": "进入碳市场行情和碳成本测算页面，查看公开碳价行情、月 K 线和成本情景。",
+          "expectedState": "页面显示月度行情、测算情景和冻结测算结果。",
+          "evidenceId": "EV-WH-040",
+          "screenshot": "EV-WH-040-公开碳价行情.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "8.4",
+          "title": "查看减排项目绩效",
+          "route": "/carbon/reduction/projects",
+          "action": "进入减排项目页面，查看项目基准线、项目排放、实际减排和进度阶段。",
+          "expectedState": "页面显示减排项目清单、基准排放、项目排放和实际减排计算结果。",
+          "evidenceId": "EV-WH-042",
+          "screenshot": "EV-WH-042-减排项目绩效跟踪.png",
+          "verificationStatus": "planned"
+        }
+      ]
+    }
+  ]
+}

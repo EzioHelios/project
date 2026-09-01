@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>下午演示脚本 - 沃衡汽车能碳管理平台操作手册</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-name">沃衡汽车能碳管理平台</div>
+      <div class="brand-subtitle">操作手册</div>
+    </div>
+    <nav><a class="" href="../index.html">01 平台概览</a><a class="" href="../pages/green-factory-score-items.html">02 绿色工厂评分项功能索引</a><a class="" href="../pages/access-and-tenant.html">03 登录、首页与租户切换</a><a class="" href="../pages/bigscreen.html">04 态势大屏</a><a class="" href="../pages/data-maintenance-mqtt.html">05 数据维护与 MQTT 电表接入</a><a class="" href="../pages/activity-ledgers-import.html">06 经营活动台账与非电数据导入</a><a class="" href="../pages/factors-calculation.html">07 因子维护与核算准备</a><a class="" href="../pages/energy-management.html">08 能源管理</a><a class="" href="../pages/organization-carbon-iso14064.html">09 组织碳管理与 ISO 14064 分类</a><a class="" href="../pages/product-supply-chain-carbon.html">10 碳足迹与供应链碳管理</a><a class="" href="../pages/monitoring-alerts.html">11 监测告警与处理留痕</a><a class="" href="../pages/verification-report-export.html">12 核查材料与报告导出</a><a class="" href="../pages/reduction-carbon-asset.html">13 减排绩效与公开碳价模拟</a><a class="active" href="../pages/demo-script.html">14 下午演示脚本</a><a class="" href="../pages/screenshot-index.html">15 功能页面与截图索引</a></nav>
+  </aside>
+  <main class="page">
+    <header class="page-header">
+      <div class="eyebrow">沃衡汽车有限公司</div>
+      <h1>下午演示脚本</h1>
+      <div class="page-meta">操作手册 · 生成时间 2026/8/31 16:50:31</div>
+    </header>
+    <article class="content"><h2>现场演示脚本</h2>
+<p>本页用于现场汇报时按首页十二类功能入口讲解。建议先打开首页确认平台名称、当前租户和功能入口，再进入各业务页面展示数据、图表、台账和报告结果。</p>
+<h3>开场：首页与租户</h3>
+<ul>
+<li>打开首页，展示沃衡汽车能碳管理平台和当前生产基地。</li>
+<li>说明平台围绕绿色工厂评价关注的十二类功能建设，覆盖能源、碳排、产品、供应链、核查和碳资产管理。</li>
+<li>展示泰州生产基地和湖州生产基地的租户切换，说明不同基地的区域、设备、台账、核算结果和报告记录按租户隔离。</li>
+</ul>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-001</span><span>/home</span><span>平台开场</span></div><img src="../assets/screenshots/EV-WH-001-首页工作台与功能入口.png" alt="首页工作台与功能入口" /><figcaption>首页工作台与功能入口</figcaption></figure>
+<h3>1. 能耗查询</h3>
+<p>进入 <code>/energy/consumption</code>，按时间、区域、设备和能源品种查询能耗记录，说明平台可从电表采集和台账数据中形成可筛选、可追溯的能源消费明细。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-021</span><span>/energy/consumption</span><span>能源管理</span></div><img src="../assets/screenshots/EV-WH-021-能耗查询.png" alt="能耗查询" /><figcaption>能耗查询</figcaption></figure>
+<h3>2. 能源消费质量和强度计算</h3>
+<p>进入 <code>/energy/intensity</code>，展示综合能耗、能源品种汇总和强度指标，说明强度计算可结合产量、面积、业务量等经营数据。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-022</span><span>/energy/intensity</span><span>能源管理</span></div><img src="../assets/screenshots/EV-WH-022-能源消费量和强度计算.png" alt="能源消费量和强度计算" /><figcaption>能源消费量和强度计算</figcaption></figure>
+<h3>3. 能源消费分析与用能策略推荐</h3>
+<p>进入 <code>/energy/analysis</code>，展示总用电量、用能系统构成和趋势变化，说明平台可识别重点用能系统、时段变化和优化方向。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-023</span><span>/energy/analysis</span><span>能源管理</span></div><img src="../assets/screenshots/EV-WH-023-用能分析.png" alt="用能分析" /><figcaption>用能分析</figcaption></figure>
+<h3>4. 能效对标</h3>
+<p>进入 <code>/energy/benchmark</code>，展示设备或工序对标结果，说明平台可围绕重点用能设备、生产工序和管理单元开展能效评价。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-024</span><span>/energy/benchmark</span><span>能源管理</span></div><img src="../assets/screenshots/EV-WH-024-能效对标.png" alt="能效对标" /><figcaption>能效对标</figcaption></figure>
+<h3>5. 能流分析</h3>
+<p>进入 <code>/energy/flow</code>，展示总表、区域、设备和用能系统之间的能流关系，说明平台可用于核对分区分项用能结构。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-025</span><span>/energy/flow</span><span>能源管理</span></div><img src="../assets/screenshots/EV-WH-025-能流分析.png" alt="能流分析" /><figcaption>能流分析</figcaption></figure>
+<h3>6. 能效平衡与优化</h3>
+<p>进入 <code>/energy/balance</code>，展示能量平衡表、来源类型和优化分析结果，说明平台可支撑能源输入、分配、消耗和损耗关系核对。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-026</span><span>/energy/balance</span><span>能源管理</span></div><img src="../assets/screenshots/EV-WH-026-能效平衡与优化.png" alt="能效平衡与优化" /><figcaption>能效平衡与优化</figcaption></figure>
+<h3>7. 用能与碳排放预算管理</h3>
+<p>进入 <code>/energy/budget</code>，展示年度目标、月度预算和执行跟踪，说明平台可将能源预算和碳排放预算纳入同一管理视图。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-027</span><span>/energy/budget</span><span>能源管理</span></div><img src="../assets/screenshots/EV-WH-027-用能与碳排放预算管理.png" alt="用能与碳排放预算管理" /><figcaption>用能与碳排放预算管理</figcaption></figure>
+<h3>8. 碳排放核算</h3>
+<p>进入组织碳总览、组织边界、排放明细和 ISO 14064 分类填报页面，说明平台按组织边界、核算边界、活动数据、排放因子和 Scope 分类形成组织温室气体核算结果。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-028</span><span>/carbon/organization/overview</span><span>组织碳与ISO 14064</span></div><img src="../assets/screenshots/EV-WH-028-组织碳排放总览.png" alt="组织碳排放总览" /><figcaption>组织碳排放总览</figcaption></figure>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-029</span><span>/carbon/organization/boundary</span><span>组织碳与ISO 14064</span></div><img src="../assets/screenshots/EV-WH-029-组织边界与核算边界.png" alt="组织边界与核算边界" /><figcaption>组织边界与核算边界</figcaption></figure>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-032</span><span>/carbon/organization/records</span><span>组织碳与ISO 14064</span></div><img src="../assets/screenshots/EV-WH-032-排放明细详情-活动与因子.png" alt="排放明细详情：活动与因子" /><figcaption>排放明细详情：活动与因子</figcaption></figure>
+<h3>9. 碳足迹核算</h3>
+<p>进入 <code>/carbon/product-footprint</code>，展示产品碳足迹研究、系统边界、生命周期阶段、活动清单和核算结果，说明平台可形成产品层面的碳足迹核算记录。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-035</span><span>/carbon/product-footprint</span><span>绿色工厂评分项</span></div><img src="../assets/screenshots/EV-WH-035-产品碳足迹核算.png" alt="产品碳足迹核算" /><figcaption>产品碳足迹核算</figcaption></figure>
+<h3>10. 供应链碳管理</h3>
+<p>进入 <code>/carbon/supply-chain</code>，展示供应商档案、填报任务、数据审核、证据材料、披露记录和供应链分析，说明供应商数据可支撑范围三和产品碳足迹相关管理。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-036</span><span>/carbon/supply-chain</span><span>绿色工厂评分项</span></div><img src="../assets/screenshots/EV-WH-036-供应链碳管理.png" alt="供应链碳管理" /><figcaption>供应链碳管理</figcaption></figure>
+<h3>11. 碳核查支撑</h3>
+<p>进入 <code>/carbon/verification</code>，展示核查项目、凭证清单、核查工作、审核日志和报告导出记录，说明平台可支撑核查材料归集、问题处理和报告归档。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-034</span><span>/carbon/verification</span><span>组织碳与ISO 14064</span></div><img src="../assets/screenshots/EV-WH-034-碳核查支撑工作台.png" alt="碳核查支撑工作台" /><figcaption>碳核查支撑工作台</figcaption></figure>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-037</span><span>/carbon/verification</span><span>其他碳管理能力</span></div><img src="../assets/screenshots/EV-WH-037-核查凭证与材料.png" alt="核查凭证与材料" /><figcaption>核查凭证与材料</figcaption></figure>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-038</span><span>/carbon/verification</span><span>其他碳管理能力</span></div><img src="../assets/screenshots/EV-WH-038-报告导出.png" alt="报告导出" /><figcaption>报告导出</figcaption></figure>
+<h3>12. 碳资产管理</h3>
+<p>进入公开碳价行情、碳成本测算和减排项目页面，展示月 K 线、测算情景、基准线、项目排放和实际减排绩效，说明平台可用于碳成本情景分析和减排项目管理。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-040</span><span>/carbon/assets/market</span><span>碳资产与公开碳价模拟</span></div><img src="../assets/screenshots/EV-WH-040-公开碳价行情.png" alt="公开碳价行情" /><figcaption>公开碳价行情</figcaption></figure>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-041</span><span>/carbon/assets/simulation</span><span>碳资产与公开碳价模拟</span></div><img src="../assets/screenshots/EV-WH-041-碳价模拟测算.png" alt="碳价模拟测算" /><figcaption>碳价模拟测算</figcaption></figure>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-042</span><span>/carbon/reduction/projects</span><span>减排绩效与公开碳价模拟</span></div><img src="../assets/screenshots/EV-WH-042-减排项目绩效跟踪.png" alt="减排项目绩效跟踪" /><figcaption>减排项目绩效跟踪</figcaption></figure></article>
+    <nav class="pager">
+      <a href="../pages/reduction-carbon-asset.html">上一页：减排绩效与公开碳价模拟</a>
+      <a href="../pages/screenshot-index.html">下一页：功能页面与截图索引</a>
+    </nav>
+  </main>
+</body>
+</html>

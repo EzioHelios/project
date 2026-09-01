@@ -1,0 +1,1019 @@
+{
+  "title": "沃衡汽车能碳管理平台操作手册 截图审计",
+  "generatedAt": "2026-08-31T08:50:31.271Z",
+  "screenshotRoot": "outputs/woheng-showcase-woheng-full-evidence/screenshots",
+  "totalEvidence": 57,
+  "availableScreenshots": 57,
+  "missingScreenshots": 0,
+  "rows": [
+    {
+      "section": "平台开场",
+      "title": "首页工作台与功能入口",
+      "route": "/home",
+      "evidenceId": "EV-WH-001",
+      "screenshot": "EV-WH-001-首页工作台与功能入口.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-001-首页工作台与功能入口.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "工作台",
+        "能源运营",
+        "碳排放管理",
+        "态势大屏"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "大屏展示",
+      "title": "生产基地介绍大屏",
+      "route": "/bigscreen/intro",
+      "evidenceId": "EV-WH-002",
+      "screenshot": "EV-WH-002-生产基地介绍大屏.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-002-生产基地介绍大屏.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "企业图集",
+        "企业信息摘要",
+        "运营项目轮播"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "C"
+    },
+    {
+      "section": "大屏展示",
+      "title": "能碳态势总览大屏",
+      "route": "/bigscreen/overview",
+      "evidenceId": "EV-WH-003",
+      "screenshot": "EV-WH-003-能碳态势总览大屏.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-003-能碳态势总览大屏.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能耗主指标",
+        "碳排主指标",
+        "月度经营趋势",
+        "区域能耗速览"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "大屏展示",
+      "title": "碳排专题大屏",
+      "route": "/bigscreen/carbon",
+      "evidenceId": "EV-WH-004",
+      "screenshot": "EV-WH-004-碳排专题大屏.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-004-碳排专题大屏.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "碳排指标",
+        "范围对比",
+        "贡献构成",
+        "碳排预警滚动榜"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "大屏展示",
+      "title": "电力专题大屏",
+      "route": "/bigscreen/power",
+      "evidenceId": "EV-WH-005",
+      "screenshot": "EV-WH-005-电力专题大屏.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-005-电力专题大屏.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "运行指标",
+        "区域电量流图",
+        "账期电量趋势",
+        "用电排行"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "B"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "泰州设备主数据与采集协议配置",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-006",
+      "screenshot": "EV-WH-006-泰州设备主数据与采集协议配置.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-006-泰州设备主数据与采集协议配置.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "编辑设备",
+        "采集标识",
+        "采集协议",
+        "在线状态"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "泰州设备测点配置",
+      "route": "/data/device-points",
+      "evidenceId": "EV-WH-007",
+      "screenshot": "EV-WH-007-泰州设备测点配置.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-007-泰州设备测点配置.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "设备测点工作台",
+        "筛选树",
+        "测点"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "泰州电表电量采集结果",
+      "route": "/data/meter",
+      "evidenceId": "EV-WH-008",
+      "screenshot": "EV-WH-008-泰州电表电量采集结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-008-泰州电表电量采集结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "电表电量",
+        "最新采集",
+        "电表数量",
+        "采样数",
+        "用电趋势"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "泰州点位监测与来源追溯",
+      "route": "/data/point-monitoring",
+      "evidenceId": "EV-WH-009",
+      "screenshot": "EV-WH-009-泰州点位监测与来源追溯.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-009-泰州点位监测与来源追溯.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "点位监测",
+        "总点位",
+        "点位列表",
+        "最近读数",
+        "来源追溯"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "湖州区域主数据",
+      "route": "/data/monitor-area",
+      "evidenceId": "EV-WH-010",
+      "screenshot": "EV-WH-010-湖州区域主数据.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-010-湖州区域主数据.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "区域主数据工作台",
+        "区域树",
+        "基础信息",
+        "本区域设备"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "湖州设备测点主数据",
+      "route": "/data/device-points",
+      "evidenceId": "EV-WH-011",
+      "screenshot": "EV-WH-011-湖州设备测点主数据.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-011-湖州设备测点主数据.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "设备测点工作台",
+        "筛选树",
+        "测点"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "非电活动数据导入入口",
+      "route": "/carbon-mgmt/import",
+      "evidenceId": "EV-WH-012",
+      "screenshot": "EV-WH-012-非电活动数据导入入口.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-012-非电活动数据导入入口.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "活动数据导入",
+        "盘查期",
+        "组织",
+        "活动分类",
+        "下载分类模板"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "B"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "非电活动数据预检结果",
+      "route": "/carbon-mgmt/import",
+      "evidenceId": "EV-WH-013",
+      "screenshot": "EV-WH-013-非电活动数据预检结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-013-非电活动数据预检结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "活动数据导入",
+        "活动数据预览",
+        "区域设备归集",
+        "方法与参数",
+        "证据覆盖"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "温室气体活动台账",
+      "route": "/carbon-mgmt/activities",
+      "evidenceId": "EV-WH-014",
+      "screenshot": "EV-WH-014-温室气体活动台账.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-014-温室气体活动台账.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "温室气体活动台账",
+        "活动记录",
+        "记录 / 活动"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "监测告警事件",
+      "route": "/data/alarm-events",
+      "evidenceId": "EV-WH-015",
+      "screenshot": "EV-WH-015-监测告警事件.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-015-监测告警事件.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "告警",
+        "状态"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "B"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "系统审计留痕",
+      "route": "/admin/audit",
+      "evidenceId": "EV-WH-016",
+      "screenshot": "EV-WH-016-系统审计留痕.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-016-系统审计留痕.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "审计",
+        "用户",
+        "操作"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "B"
+    },
+    {
+      "section": "因子维护与计算",
+      "title": "官方排放因子库概览",
+      "route": "/carbon-mgmt/factors",
+      "evidenceId": "EV-WH-017",
+      "screenshot": "EV-WH-017-官方排放因子库概览.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-017-官方排放因子库概览.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "排放因子库",
+        "官方库",
+        "分类节点",
+        "原始记录",
+        "校验状态"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "因子维护与计算",
+      "title": "官方因子分类与原始记录",
+      "route": "/carbon-mgmt/factors",
+      "evidenceId": "EV-WH-018",
+      "screenshot": "EV-WH-018-官方因子分类与原始记录.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-018-官方因子分类与原始记录.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "分类树",
+        "官方原始因子",
+        "因子名称"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "因子维护与计算",
+      "title": "计算因子库",
+      "route": "/carbon-mgmt/calculation-factors",
+      "evidenceId": "EV-WH-019",
+      "screenshot": "EV-WH-019-计算因子库.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-019-计算因子库.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "计算因子库",
+        "因子列表",
+        "因子值",
+        "因子单位",
+        "导入方式"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "因子维护与计算",
+      "title": "活动数据方法与参数解析",
+      "route": "/carbon-mgmt/import",
+      "evidenceId": "EV-WH-020",
+      "screenshot": "EV-WH-020-活动数据方法与参数解析.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-020-活动数据方法与参数解析.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "方法与参数解析",
+        "参数集",
+        "采用值",
+        "来源 / 版本",
+        "标准 / 条款"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源管理",
+      "title": "能耗查询",
+      "route": "/energy/consumption",
+      "evidenceId": "EV-WH-021",
+      "screenshot": "EV-WH-021-能耗查询.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-021-能耗查询.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能耗查询",
+        "记录数",
+        "能源品种"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源管理",
+      "title": "能源消费量和强度计算",
+      "route": "/energy/intensity",
+      "evidenceId": "EV-WH-022",
+      "screenshot": "EV-WH-022-能源消费量和强度计算.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-022-能源消费量和强度计算.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能源消费量和强度计算",
+        "综合能耗",
+        "能源品种汇总"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源管理",
+      "title": "用能分析",
+      "route": "/energy/analysis",
+      "evidenceId": "EV-WH-023",
+      "screenshot": "EV-WH-023-用能分析.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-023-用能分析.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "用能分析",
+        "总用电量",
+        "用能系统"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源管理",
+      "title": "能效对标",
+      "route": "/energy/benchmark",
+      "evidenceId": "EV-WH-024",
+      "screenshot": "EV-WH-024-能效对标.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-024-能效对标.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能效对标",
+        "设备/工序对标",
+        "对标对象"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源管理",
+      "title": "能流分析",
+      "route": "/energy/flow",
+      "evidenceId": "EV-WH-025",
+      "screenshot": "EV-WH-025-能流分析.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-025-能流分析.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能流分析",
+        "计量用电",
+        "分项用电",
+        "关键链路贡献"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源管理",
+      "title": "能效平衡与优化",
+      "route": "/energy/balance",
+      "evidenceId": "EV-WH-026",
+      "screenshot": "EV-WH-026-能效平衡与优化.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-026-能效平衡与优化.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能效平衡与优化",
+        "能量平衡表",
+        "来源类型",
+        "来源"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源管理",
+      "title": "用能与碳排放预算管理",
+      "route": "/energy/budget",
+      "evidenceId": "EV-WH-027",
+      "screenshot": "EV-WH-027-用能与碳排放预算管理.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-027-用能与碳排放预算管理.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能碳预算",
+        "年度目标",
+        "月度预算"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织碳与ISO 14064",
+      "title": "组织碳排放总览",
+      "route": "/carbon/organization/overview",
+      "evidenceId": "EV-WH-028",
+      "screenshot": "EV-WH-028-组织碳排放总览.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-028-组织碳排放总览.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "组织碳总览",
+        "Scope 1",
+        "Scope 2",
+        "Scope 3",
+        "报告期排放趋势"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织碳与ISO 14064",
+      "title": "组织边界与核算边界",
+      "route": "/carbon/organization/boundary",
+      "evidenceId": "EV-WH-029",
+      "screenshot": "EV-WH-029-组织边界与核算边界.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-029-组织边界与核算边界.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "核算边界",
+        "边界口径",
+        "区域与设备边界",
+        "ISO 14064-1 六类别"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织碳与ISO 14064",
+      "title": "排放清单与报告台账",
+      "route": "/carbon/organization/inventory",
+      "evidenceId": "EV-WH-030",
+      "screenshot": "EV-WH-030-排放清单与报告台账.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-030-排放清单与报告台账.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "碳盘查",
+        "核算准备检查",
+        "盘查报告台账"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织碳与ISO 14064",
+      "title": "排放结果明细与核算公式",
+      "route": "/carbon/organization/records",
+      "evidenceId": "EV-WH-031",
+      "screenshot": "EV-WH-031-排放结果明细与核算公式.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-031-排放结果明细与核算公式.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "碳排放查询",
+        "查询结果",
+        "排放结果明细",
+        "排放源帕累托分析"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织碳与ISO 14064",
+      "title": "排放明细详情：活动与因子",
+      "route": "/carbon/organization/records",
+      "evidenceId": "EV-WH-032",
+      "screenshot": "EV-WH-032-排放明细详情-活动与因子.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-032-排放明细详情-活动与因子.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "活动与核算公式",
+        "参数与因子",
+        "区域与设备归集",
+        "证据文件"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织碳与ISO 14064",
+      "title": "组织碳流向与结构分析",
+      "route": "/carbon/organization/flow",
+      "evidenceId": "EV-WH-033",
+      "screenshot": "EV-WH-033-组织碳流向与结构分析.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-033-组织碳流向与结构分析.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "碳流分析",
+        "组织边界至区域设备碳流",
+        "主要排放路径",
+        "核算异常"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "B"
+    },
+    {
+      "section": "组织碳与ISO 14064",
+      "title": "碳核查支撑工作台",
+      "route": "/carbon/verification",
+      "evidenceId": "EV-WH-034",
+      "screenshot": "EV-WH-034-碳核查支撑工作台.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-034-碳核查支撑工作台.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "碳核查支撑",
+        "核查项目"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "绿色工厂评分项",
+      "title": "产品碳足迹核算",
+      "route": "/carbon/product-footprint",
+      "evidenceId": "EV-WH-035",
+      "screenshot": "EV-WH-035-产品碳足迹核算.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-035-产品碳足迹核算.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "产品碳足迹核算",
+        "产品与研究",
+        "研究数",
+        "已核算",
+        "活动数据",
+        "核算结果"
+      ],
+      "focus": "产品碳足迹研究、生命周期活动数据、供应链引用数据和核算结果",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "绿色工厂评分项",
+      "title": "供应链碳管理",
+      "route": "/carbon/supply-chain",
+      "evidenceId": "EV-WH-036",
+      "screenshot": "EV-WH-036-供应链碳管理.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-036-供应链碳管理.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "供应链碳管理",
+        "供应商档案",
+        "供应商",
+        "填报任务",
+        "数据审核",
+        "供应链分析"
+      ],
+      "focus": "供应商档案、场站、填报任务、审核数据、披露记录和供应链分析",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "其他碳管理能力",
+      "title": "核查凭证与材料",
+      "route": "/carbon/verification",
+      "evidenceId": "EV-WH-037",
+      "screenshot": "EV-WH-037-核查凭证与材料.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-037-核查凭证与材料.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "证据资料",
+        "凭证清单",
+        "凭证数",
+        "下载"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "其他碳管理能力",
+      "title": "报告导出",
+      "route": "/carbon/verification",
+      "evidenceId": "EV-WH-038",
+      "screenshot": "EV-WH-038-报告导出.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-038-报告导出.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "报告与材料",
+        "报告导出",
+        "导出记录"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "碳资产与公开碳价模拟",
+      "title": "公开碳价行情",
+      "route": "/carbon/assets/market",
+      "evidenceId": "EV-WH-040",
+      "screenshot": "EV-WH-040-公开碳价行情.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-040-公开碳价行情.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "碳市场行情",
+        "行情记录",
+        "最新价格",
+        "月K线与成交量"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "B"
+    },
+    {
+      "section": "碳资产与公开碳价模拟",
+      "title": "碳价模拟测算",
+      "route": "/carbon/assets/simulation",
+      "evidenceId": "EV-WH-041",
+      "screenshot": "EV-WH-041-碳价模拟测算.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-041-碳价模拟测算.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "碳成本测算",
+        "测算情景",
+        "成本情景",
+        "冻结测算结果",
+        "预计成本"
+      ],
+      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
+      "expectedEvidenceLevel": "B"
+    },
+    {
+      "section": "减排绩效与公开碳价模拟",
+      "title": "减排项目绩效跟踪",
+      "route": "/carbon/reduction/projects",
+      "evidenceId": "EV-WH-042",
+      "screenshot": "EV-WH-042-减排项目绩效跟踪.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-042-减排项目绩效跟踪.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "减排项目",
+        "锁定基准线",
+        "实际减排计算",
+        "基准排放",
+        "项目排放",
+        "实际减排"
+      ],
+      "focus": "减排项目清单、锁定基准线、项目排放和实际减排计算结果",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "碳数据分类填报补充",
+      "title": "ISO 14064 类别1固定燃烧分类填报",
+      "route": "/carbon-mgmt/category/1.1",
+      "evidenceId": "EV-WH-043",
+      "screenshot": "EV-WH-043-iso-14064-类别1固定燃烧分类填报.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-043-iso-14064-类别1固定燃烧分类填报.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "1.1 固定燃烧",
+        "类别1",
+        "活动记录",
+        "记录 / 活动",
+        "活动量",
+        "质量",
+        "归集"
+      ],
+      "focus": "类别1固定燃烧分类台账的筛选区、指标卡和活动记录表",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "碳数据分类填报补充",
+      "title": "ISO 14064 类别2购入电力分类填报",
+      "route": "/carbon-mgmt/category/2.1",
+      "evidenceId": "EV-WH-044",
+      "screenshot": "EV-WH-044-iso-14064-类别2购入电力分类填报.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-044-iso-14064-类别2购入电力分类填报.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "2.1 购入电力",
+        "类别2",
+        "活动记录",
+        "记录 / 活动",
+        "活动量",
+        "质量",
+        "归集"
+      ],
+      "focus": "类别2购入电力分类台账的筛选区、指标卡和活动记录表",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "碳数据分类填报补充",
+      "title": "ISO 14064 类别3员工通勤分类填报",
+      "route": "/carbon-mgmt/category/3.3",
+      "evidenceId": "EV-WH-045",
+      "screenshot": "EV-WH-045-iso-14064-类别3员工通勤分类填报.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-045-iso-14064-类别3员工通勤分类填报.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "3.3 员工通勤",
+        "类别3",
+        "活动记录",
+        "记录 / 活动",
+        "活动量",
+        "质量",
+        "归集"
+      ],
+      "focus": "类别3员工通勤分类台账的筛选区、指标卡和活动记录表",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "碳数据分类填报补充",
+      "title": "ISO 14064 类别4采购商品分类填报",
+      "route": "/carbon-mgmt/category/4.1",
+      "evidenceId": "EV-WH-046",
+      "screenshot": "EV-WH-046-iso-14064-类别4采购商品分类填报.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-046-iso-14064-类别4采购商品分类填报.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "4.1 采购商品与服务",
+        "类别4",
+        "活动记录",
+        "记录 / 活动",
+        "活动量",
+        "质量",
+        "归集"
+      ],
+      "focus": "类别4采购商品与服务分类台账的筛选区、指标卡和活动记录表",
+      "expectedEvidenceLevel": "B"
+    },
+    {
+      "section": "碳数据分类填报补充",
+      "title": "ISO 14064 类别5售出产品加工分类填报",
+      "route": "/carbon-mgmt/category/5.1",
+      "evidenceId": "EV-WH-047",
+      "screenshot": "EV-WH-047-iso-14064-类别5售出产品加工分类填报.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-047-iso-14064-类别5售出产品加工分类填报.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "5.1 售出产品加工",
+        "类别5",
+        "活动记录",
+        "记录 / 活动",
+        "活动量",
+        "质量",
+        "归集"
+      ],
+      "focus": "类别5售出产品加工分类台账的筛选区、指标卡和活动记录表",
+      "expectedEvidenceLevel": "B"
+    },
+    {
+      "section": "碳数据分类填报补充",
+      "title": "ISO 14064 类别6其他间接排放分类填报",
+      "route": "/carbon-mgmt/category/6.1",
+      "evidenceId": "EV-WH-048",
+      "screenshot": "EV-WH-048-iso-14064-类别6其他间接排放分类填报.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-048-iso-14064-类别6其他间接排放分类填报.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "6.1 其他经确认的间接排放",
+        "类别6",
+        "活动记录",
+        "记录 / 活动",
+        "活动量",
+        "质量",
+        "归集"
+      ],
+      "focus": "类别6其他间接排放分类台账的筛选区、指标卡和活动记录表",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "监测告警补充",
+      "title": "数据采集与监测中心",
+      "route": "/energy-carbon/monitor",
+      "evidenceId": "EV-WH-049",
+      "screenshot": "EV-WH-049-数据采集与监测中心.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-049-数据采集与监测中心.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "数据采集与监测",
+        "运行概况",
+        "区域风险分布",
+        "设备近时段测点趋势",
+        "设备工作列表",
+        "设备编码",
+        "协议"
+      ],
+      "focus": "监测中心运行概况、区域风险、设备列表和设备详情",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "监测告警补充",
+      "title": "碳告警与预警中心",
+      "route": "/energy-carbon/alerts",
+      "evidenceId": "EV-WH-050",
+      "screenshot": "EV-WH-050-碳告警与预警中心.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-050-碳告警与预警中心.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "碳告警与预警",
+        "总告警",
+        "告警新增与处理趋势",
+        "来源分布",
+        "告警列表",
+        "告警类型",
+        "风险等级"
+      ],
+      "focus": "告警中心指标、趋势图、告警列表和处理详情",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "监测告警补充",
+      "title": "预警规则配置台账",
+      "route": "/data/alarm-rules",
+      "evidenceId": "EV-WH-051",
+      "screenshot": "EV-WH-051-预警规则配置台账.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-051-预警规则配置台账.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "预警规则",
+        "规则名称",
+        "告警名称",
+        "事件类型",
+        "来源表/视图"
+      ],
+      "focus": "预警规则列表、规则名称、事件类型和来源表字段",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "监测告警补充",
+      "title": "视频监控预警事件",
+      "route": "/data/video-alarm-events",
+      "evidenceId": "EV-WH-052",
+      "screenshot": "EV-WH-052-视频监控预警事件.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-052-视频监控预警事件.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "视频监控预警事件",
+        "事件列表",
+        "类型",
+        "说明",
+        "时间",
+        "状态",
+        "处理"
+      ],
+      "focus": "视频预警事件列表和处理状态",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "经营活动台账补充",
+      "title": "员工通勤经营活动台账",
+      "route": "/data/commute",
+      "evidenceId": "EV-WH-053",
+      "screenshot": "EV-WH-053-员工通勤经营活动台账.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-053-员工通勤经营活动台账.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "员工通勤",
+        "员工通勤列表",
+        "姓名 / 标识",
+        "通勤类别",
+        "车辆动力类型",
+        "平均单次里程"
+      ],
+      "focus": "员工通勤列表、通勤类别、车辆动力类型和里程/能耗字段",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "经营活动台账补充",
+      "title": "入库经营活动台账",
+      "route": "/data/inbound",
+      "evidenceId": "EV-WH-054",
+      "screenshot": "EV-WH-054-入库经营活动台账.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-054-入库经营活动台账.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "入库管理",
+        "入库管理台账",
+        "入库单号",
+        "供应商",
+        "物料编号",
+        "数量",
+        "金额"
+      ],
+      "focus": "入库业务单据台账和物料、数量、金额字段",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "经营活动台账补充",
+      "title": "出库经营活动台账",
+      "route": "/data/outbound",
+      "evidenceId": "EV-WH-055",
+      "screenshot": "EV-WH-055-出库经营活动台账.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-055-出库经营活动台账.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "出库管理",
+        "出库管理台账",
+        "出库单号",
+        "项目名称",
+        "物料编码",
+        "数量",
+        "金额"
+      ],
+      "focus": "出库业务单据台账和项目、物料、数量、金额字段",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "经营活动台账补充",
+      "title": "产品价格经营活动台账",
+      "route": "/data/product-prices",
+      "evidenceId": "EV-WH-056",
+      "screenshot": "EV-WH-056-产品价格经营活动台账.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-056-产品价格经营活动台账.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "产品价格",
+        "产品编码",
+        "价格口径",
+        "单价",
+        "币种",
+        "生效日期"
+      ],
+      "focus": "产品价格台账和价格口径、单价、生效日期字段",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "经营活动台账补充",
+      "title": "产品批次产量经营活动台账",
+      "route": "/data/production-output",
+      "evidenceId": "EV-WH-057",
+      "screenshot": "EV-WH-057-产品批次产量经营活动台账.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-057-产品批次产量经营活动台账.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "产品批次产量",
+        "产品编码",
+        "产品名称",
+        "批次",
+        "产量",
+        "产线"
+      ],
+      "focus": "产品批次产量台账、批次、产量和产线字段",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "经营活动台账补充",
+      "title": "产品产线关联台账",
+      "route": "/data/product-resource-bindings",
+      "evidenceId": "EV-WH-058",
+      "screenshot": "EV-WH-058-产品产线关联台账.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-058-产品产线关联台账.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "产品产线关联",
+        "产品编码",
+        "工作中心",
+        "产线",
+        "关联类型",
+        "置信等级"
+      ],
+      "focus": "产品与产线/设备绑定关系及置信等级字段",
+      "expectedEvidenceLevel": "A"
+    }
+  ]
+}

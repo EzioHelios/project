@@ -1,0 +1,254 @@
+:root {
+  color-scheme: light;
+  --ink: #1d2630;
+  --muted: #687386;
+  --line: #dce2ea;
+  --soft: #f5f7fa;
+  --brand: #16366b;
+  --paper: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #eef1f5;
+  color: var(--ink);
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", Arial, sans-serif;
+  line-height: 1.72;
+}
+
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 284px;
+  overflow: auto;
+  border-right: 1px solid var(--line);
+  background: #fff;
+  padding: 24px 16px;
+}
+
+.brand {
+  margin-bottom: 20px;
+  padding: 0 8px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand-name {
+  color: var(--brand);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.brand-subtitle {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.sidebar nav {
+  display: grid;
+  gap: 4px;
+}
+
+.sidebar a {
+  display: block;
+  color: #344154;
+  text-decoration: none;
+  padding: 8px 10px;
+  border-left: 3px solid transparent;
+  font-size: 14px;
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+  border-left-color: var(--brand);
+  background: #f1f5fa;
+  color: var(--brand);
+}
+
+.page {
+  max-width: 1060px;
+  margin-left: 284px;
+  padding: 34px 42px 64px;
+}
+
+.page-header,
+.content,
+.pager {
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.page-header {
+  padding: 34px 40px;
+}
+
+.eyebrow {
+  color: var(--brand);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+h1 {
+  margin: 12px 0 10px;
+  font-size: 34px;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.page-meta {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.content {
+  margin-top: 16px;
+  padding: 34px 40px;
+}
+
+.content h2 {
+  margin: 30px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 23px;
+}
+
+.content h3 {
+  margin: 24px 0 8px;
+  font-size: 18px;
+}
+
+.content p,
+.content li {
+  font-size: 15px;
+}
+
+.content code {
+  color: #244b7a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.content pre {
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: var(--soft);
+  padding: 14px 16px;
+}
+
+.evidence {
+  margin: 22px 0;
+  border: 1px solid var(--line);
+  background: var(--soft);
+  padding: 12px;
+}
+
+.evidence-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.evidence-meta span {
+  border: 1px solid #d6dde7;
+  background: #fff;
+  padding: 2px 8px;
+}
+
+.evidence img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid #e0e5ed;
+  background: #fff;
+}
+
+.evidence figcaption {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.missing-box {
+  border: 1px dashed #d7bd67;
+  background: #fff8e5;
+  color: #7a5600;
+  padding: 20px;
+  font-size: 14px;
+}
+
+.evidence-index {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+  font-size: 13px;
+}
+
+.evidence-index th,
+.evidence-index td {
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.evidence-index th {
+  background: var(--soft);
+}
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 16px 22px;
+}
+
+.pager a {
+  color: var(--brand);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+@media (max-width: 860px) {
+  .sidebar {
+    position: static;
+    width: auto;
+  }
+
+  .page {
+    margin-left: 0;
+    padding: 18px;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .page {
+    margin: 0;
+    max-width: none;
+    padding: 0;
+  }
+
+  .page-header,
+  .content,
+  .pager {
+    border-color: #aaa;
+  }
+
+  .pager {
+    display: none;
+  }
+}

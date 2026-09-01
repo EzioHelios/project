@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>经营活动台账与非电数据导入 - 沃衡汽车能碳管理平台操作手册</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-name">沃衡汽车能碳管理平台</div>
+      <div class="brand-subtitle">操作手册</div>
+    </div>
+    <nav><a class="" href="../index.html">01 平台概览</a><a class="" href="../pages/green-factory-score-items.html">02 绿色工厂评分项功能索引</a><a class="" href="../pages/access-and-tenant.html">03 登录、首页与租户切换</a><a class="" href="../pages/bigscreen.html">04 态势大屏</a><a class="" href="../pages/data-maintenance-mqtt.html">05 数据维护与 MQTT 电表接入</a><a class="active" href="../pages/activity-ledgers-import.html">06 经营活动台账与非电数据导入</a><a class="" href="../pages/factors-calculation.html">07 因子维护与核算准备</a><a class="" href="../pages/energy-management.html">08 能源管理</a><a class="" href="../pages/organization-carbon-iso14064.html">09 组织碳管理与 ISO 14064 分类</a><a class="" href="../pages/product-supply-chain-carbon.html">10 碳足迹与供应链碳管理</a><a class="" href="../pages/monitoring-alerts.html">11 监测告警与处理留痕</a><a class="" href="../pages/verification-report-export.html">12 核查材料与报告导出</a><a class="" href="../pages/reduction-carbon-asset.html">13 减排绩效与公开碳价模拟</a><a class="" href="../pages/demo-script.html">14 下午演示脚本</a><a class="" href="../pages/screenshot-index.html">15 功能页面与截图索引</a></nav>
+  </aside>
+  <main class="page">
+    <header class="page-header">
+      <div class="eyebrow">沃衡汽车有限公司</div>
+      <h1>经营活动台账与非电数据导入</h1>
+      <div class="page-meta">操作手册 · 生成时间 2026/8/31 16:50:31</div>
+    </header>
+    <article class="content"><h2>经营活动台账与非电数据导入</h2>
+<p>非电数据包括燃料、制冷剂、车辆运输、员工通勤、采购材料、生产活动和其他经营活动数据。此类数据通常不能直接从电表取得，需要通过经营活动台账或活动数据导入维护。</p>
+<h3>活动数据导入</h3>
+<p>进入 <code>/carbon-mgmt/import</code>，选择盘查期、组织和活动分类，下载分类模板。业务人员按模板填写活动量、单位、区域设备归集、方法参数和证据文件信息后上传。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-012</span><span>/carbon-mgmt/import</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-012-非电活动数据导入入口.png" alt="非电活动数据导入入口" /><figcaption>非电活动数据导入入口</figcaption></figure>
+<p>上传后执行预检。预检结果应显示活动数据预览、区域设备归集、方法与参数、证据覆盖和可执行核算状态。确认无误后再进入导入或核算流程。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-013</span><span>/carbon-mgmt/import</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-013-非电活动数据预检结果.png" alt="非电活动数据预检结果" /><figcaption>非电活动数据预检结果</figcaption></figure>
+<h3>温室气体活动台账</h3>
+<p>进入 <code>/carbon-mgmt/activities</code>，查看已导入或已维护的活动记录。台账中应能看到活动名称、活动量、单位、分类、边界状态、质量状态和归集信息。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-014</span><span>/carbon-mgmt/activities</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-014-温室气体活动台账.png" alt="温室气体活动台账" /><figcaption>温室气体活动台账</figcaption></figure>
+<h3>经营活动台账</h3>
+<p>经营活动台账用于维护支撑能碳分析的业务数据。演示时可依次说明员工通勤、入库、出库、产品价格、产品批次产量和产品产线关联。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-053</span><span>/data/commute</span><span>经营活动台账补充</span></div><img src="../assets/screenshots/EV-WH-053-员工通勤经营活动台账.png" alt="员工通勤经营活动台账" /><figcaption>员工通勤经营活动台账</figcaption></figure>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-054</span><span>/data/inbound</span><span>经营活动台账补充</span></div><img src="../assets/screenshots/EV-WH-054-入库经营活动台账.png" alt="入库经营活动台账" /><figcaption>入库经营活动台账</figcaption></figure>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-055</span><span>/data/outbound</span><span>经营活动台账补充</span></div><img src="../assets/screenshots/EV-WH-055-出库经营活动台账.png" alt="出库经营活动台账" /><figcaption>出库经营活动台账</figcaption></figure>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-056</span><span>/data/product-prices</span><span>经营活动台账补充</span></div><img src="../assets/screenshots/EV-WH-056-产品价格经营活动台账.png" alt="产品价格经营活动台账" /><figcaption>产品价格经营活动台账</figcaption></figure>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-057</span><span>/data/production-output</span><span>经营活动台账补充</span></div><img src="../assets/screenshots/EV-WH-057-产品批次产量经营活动台账.png" alt="产品批次产量经营活动台账" /><figcaption>产品批次产量经营活动台账</figcaption></figure>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-058</span><span>/data/product-resource-bindings</span><span>经营活动台账补充</span></div><img src="../assets/screenshots/EV-WH-058-产品产线关联台账.png" alt="产品产线关联台账" /><figcaption>产品产线关联台账</figcaption></figure>
+<h3>维护检查项</h3>
+<ul>
+<li>电表以外的数据应说明来源页面或导入模板。</li>
+<li>经营活动台账应显示非空业务记录。</li>
+<li>活动数据导入应展示预检结果态，不只展示上传入口。</li>
+<li>进入核算前应确认活动分类、单位、因子和证据字段完整。</li>
+</ul></article>
+    <nav class="pager">
+      <a href="../pages/data-maintenance-mqtt.html">上一页：数据维护与 MQTT 电表接入</a>
+      <a href="../pages/factors-calculation.html">下一页：因子维护与核算准备</a>
+    </nav>
+  </main>
+</body>
+</html>

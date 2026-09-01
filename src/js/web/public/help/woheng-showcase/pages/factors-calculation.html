@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>因子维护与核算准备 - 沃衡汽车能碳管理平台操作手册</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-name">沃衡汽车能碳管理平台</div>
+      <div class="brand-subtitle">操作手册</div>
+    </div>
+    <nav><a class="" href="../index.html">01 平台概览</a><a class="" href="../pages/green-factory-score-items.html">02 绿色工厂评分项功能索引</a><a class="" href="../pages/access-and-tenant.html">03 登录、首页与租户切换</a><a class="" href="../pages/bigscreen.html">04 态势大屏</a><a class="" href="../pages/data-maintenance-mqtt.html">05 数据维护与 MQTT 电表接入</a><a class="" href="../pages/activity-ledgers-import.html">06 经营活动台账与非电数据导入</a><a class="active" href="../pages/factors-calculation.html">07 因子维护与核算准备</a><a class="" href="../pages/energy-management.html">08 能源管理</a><a class="" href="../pages/organization-carbon-iso14064.html">09 组织碳管理与 ISO 14064 分类</a><a class="" href="../pages/product-supply-chain-carbon.html">10 碳足迹与供应链碳管理</a><a class="" href="../pages/monitoring-alerts.html">11 监测告警与处理留痕</a><a class="" href="../pages/verification-report-export.html">12 核查材料与报告导出</a><a class="" href="../pages/reduction-carbon-asset.html">13 减排绩效与公开碳价模拟</a><a class="" href="../pages/demo-script.html">14 下午演示脚本</a><a class="" href="../pages/screenshot-index.html">15 功能页面与截图索引</a></nav>
+  </aside>
+  <main class="page">
+    <header class="page-header">
+      <div class="eyebrow">沃衡汽车有限公司</div>
+      <h1>因子维护与核算准备</h1>
+      <div class="page-meta">操作手册 · 生成时间 2026/8/31 16:50:31</div>
+    </header>
+    <article class="content"><h2>因子维护与核算准备</h2>
+<p>排放因子用于把活动数据转换为温室气体排放量。平台区分官方原始因子和计算因子，前者用于来源追溯，后者用于实际核算。</p>
+<h3>官方排放因子库</h3>
+<p>进入 <code>/carbon-mgmt/factors</code>，查看因子分类树、官方库、原始记录和校验状态。业务人员可按分类查看因子名称、适用范围、来源版本和原始字段。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-017</span><span>/carbon-mgmt/factors</span><span>因子维护与计算</span></div><img src="../assets/screenshots/EV-WH-017-官方排放因子库概览.png" alt="官方排放因子库概览" /><figcaption>官方排放因子库概览</figcaption></figure>
+<p>打开因子详情后，可查看原始因子追溯信息，包括来源、版本、字段和校验状态。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-018</span><span>/carbon-mgmt/factors</span><span>因子维护与计算</span></div><img src="../assets/screenshots/EV-WH-018-官方因子分类与原始记录.png" alt="官方因子分类与原始记录" /><figcaption>官方因子分类与原始记录</figcaption></figure>
+<h3>计算因子库</h3>
+<p>进入 <code>/carbon-mgmt/calculation-factors</code>，查看参与核算的因子列表。计算因子应包含范围、因子值、单位、导入方式和启用状态。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-019</span><span>/carbon-mgmt/calculation-factors</span><span>因子维护与计算</span></div><img src="../assets/screenshots/EV-WH-019-计算因子库.png" alt="计算因子库" /><figcaption>计算因子库</figcaption></figure>
+<h3>方法与参数解析</h3>
+<p>在活动数据导入预检后切换到「<strong>方法与参数</strong>」页签，查看参数集、采用值、来源版本、标准条款和适用范围。该页面用于说明活动数据如何选择核算方法，以及因子和参数如何参与计算。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-020</span><span>/carbon-mgmt/import</span><span>因子维护与计算</span></div><img src="../assets/screenshots/EV-WH-020-活动数据方法与参数解析.png" alt="活动数据方法与参数解析" /><figcaption>活动数据方法与参数解析</figcaption></figure>
+<h3>检查项</h3>
+<ul>
+<li>因子应有来源、版本和适用范围。</li>
+<li>计算因子应明确启用状态。</li>
+<li>活动数据预检应能解析方法和参数。</li>
+<li>演示时避免把示例因子表述为外部认证结论。</li>
+</ul></article>
+    <nav class="pager">
+      <a href="../pages/activity-ledgers-import.html">上一页：经营活动台账与非电数据导入</a>
+      <a href="../pages/energy-management.html">下一页：能源管理</a>
+    </nav>
+  </main>
+</body>
+</html>

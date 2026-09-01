@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>平台概览 - 沃衡汽车能碳管理平台操作手册</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-name">沃衡汽车能碳管理平台</div>
+      <div class="brand-subtitle">操作手册</div>
+    </div>
+    <nav><a class="active" href="index.html">01 平台概览</a><a class="" href="pages/green-factory-score-items.html">02 绿色工厂评分项功能索引</a><a class="" href="pages/access-and-tenant.html">03 登录、首页与租户切换</a><a class="" href="pages/bigscreen.html">04 态势大屏</a><a class="" href="pages/data-maintenance-mqtt.html">05 数据维护与 MQTT 电表接入</a><a class="" href="pages/activity-ledgers-import.html">06 经营活动台账与非电数据导入</a><a class="" href="pages/factors-calculation.html">07 因子维护与核算准备</a><a class="" href="pages/energy-management.html">08 能源管理</a><a class="" href="pages/organization-carbon-iso14064.html">09 组织碳管理与 ISO 14064 分类</a><a class="" href="pages/product-supply-chain-carbon.html">10 碳足迹与供应链碳管理</a><a class="" href="pages/monitoring-alerts.html">11 监测告警与处理留痕</a><a class="" href="pages/verification-report-export.html">12 核查材料与报告导出</a><a class="" href="pages/reduction-carbon-asset.html">13 减排绩效与公开碳价模拟</a><a class="" href="pages/demo-script.html">14 下午演示脚本</a><a class="" href="pages/screenshot-index.html">15 功能页面与截图索引</a></nav>
+  </aside>
+  <main class="page">
+    <header class="page-header">
+      <div class="eyebrow">沃衡汽车有限公司</div>
+      <h1>平台概览</h1>
+      <div class="page-meta">操作手册 · 生成时间 2026/8/31 16:50:31</div>
+    </header>
+    <article class="content"><h2>平台概览</h2>
+<p>沃衡汽车能碳管理平台面向生产基地的能源计量、经营活动数据、组织碳核算、监测告警、报告导出和减排绩效管理。平台通过设备采集、业务台账、排放因子、核算模型和报告材料形成闭环，支撑能碳管理人员、能源运维人员、体系与核查支持人员开展日常工作。</p>
+<p>本手册用于系统演示和操作说明。演示数据使用「<strong>沃衡汽车泰州生产基地</strong>」和「<strong>沃衡汽车湖州生产基地</strong>」两个租户，两个租户共用同一套功能体系，数据、设备、区域、台账和核算结果相互隔离。</p>
+<h3>绿色工厂评价功能主线</h3>
+<p>平台首页围绕绿色工厂评价关注的十二类能力组织入口，覆盖能源消费管理、组织温室气体核算、产品碳足迹、供应链碳管理、碳核查支撑和碳资产管理。</p>
+<ul>
+<li>能耗查询：按基地、区域、设备、能源品种和时间维度查询能源消费数据。</li>
+<li>能源消费质量和强度计算：形成综合能耗、能源品种汇总和单位产出、单位面积等强度指标。</li>
+<li>能源消费分析与用能策略推荐：识别用能结构、时段趋势、重点系统和策略建议。</li>
+<li>能效对标：对设备、工序和管理单元开展能效指标对标。</li>
+<li>能流分析：展示计量边界、分项用电和关键用能链路。</li>
+<li>能效平衡与优化：形成能量平衡表、来源归集和优化分析。</li>
+<li>用能与碳排放预算管理：维护年度目标、月度预算和执行跟踪。</li>
+<li>碳排放核算：支撑组织边界、核算边界、Scope 1/2/3 和 ISO 14064 分类核算。</li>
+<li>碳足迹核算：维护产品研究、系统边界、生命周期阶段、活动清单和核算结果。</li>
+<li>供应链碳管理：管理供应商档案、填报任务、数据审核、证据材料和披露记录。</li>
+<li>碳核查支撑：组织核查项目、凭证材料、问题处理、审核日志和报告导出。</li>
+<li>碳资产管理：展示公开碳价行情、成本情景测算和减排项目绩效跟踪。</li>
+</ul>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-001</span><span>/home</span><span>平台开场</span></div><img src="assets/screenshots/EV-WH-001-首页工作台与功能入口.png" alt="首页工作台与功能入口" /><figcaption>首页工作台与功能入口</figcaption></figure>
+<h3>演示租户</h3>
+<p>泰州生产基地重点展示整车装配、厂内物流、MQTT 电表接入、分区分项用能监测和告警闭环。湖州生产基地重点展示零部件制造、经营活动台账、非电活动数据导入、组织碳核算、报告导出和减排绩效。</p>
+<p>两个租户都具备完整的区域、设备、活动数据、因子、核算结果、报告、减排项目和告警数据。演示时可先使用泰州说明采集和监测，再切换湖州说明台账、核算和报告。</p>
+<h3>推荐讲解顺序</h3>
+<ul>
+<li>从首页进入，确认品牌、租户和功能导航。</li>
+<li>打开态势大屏，说明能耗、碳排和区域运行总览。</li>
+<li>进入数据维护，说明 MQTT 电表、设备测点和点位监测。</li>
+<li>进入经营活动台账和活动数据导入，说明非电数据维护。</li>
+<li>进入因子库，说明因子来源、版本和计算因子启用。</li>
+<li>进入组织碳，说明边界、Scope、ISO 14064 分类、明细和碳流。</li>
+<li>进入监测告警，说明规则、事件和处理留痕。</li>
+<li>进入核查与报告，说明凭证、导出和减排绩效跟踪。</li>
+</ul></article>
+    <nav class="pager">
+      <span></span>
+      <a href="pages/green-factory-score-items.html">下一页：绿色工厂评分项功能索引</a>
+    </nav>
+  </main>
+</body>
+</html>

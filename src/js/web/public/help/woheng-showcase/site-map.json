@@ -1,0 +1,95 @@
+{
+  "title": "沃衡汽车能碳管理平台操作手册",
+  "pages": [
+    {
+      "pageId": "overview",
+      "title": "平台概览",
+      "source": "00-overview.md",
+      "href": "index.html"
+    },
+    {
+      "pageId": "green-factory-score-items",
+      "title": "绿色工厂评分项功能索引",
+      "source": "01-green-factory-score-items.md",
+      "href": "pages/green-factory-score-items.html"
+    },
+    {
+      "pageId": "access-and-tenant",
+      "title": "登录、首页与租户切换",
+      "source": "01-access-and-tenant.md",
+      "href": "pages/access-and-tenant.html"
+    },
+    {
+      "pageId": "bigscreen",
+      "title": "态势大屏",
+      "source": "02-bigscreen.md",
+      "href": "pages/bigscreen.html"
+    },
+    {
+      "pageId": "data-maintenance-mqtt",
+      "title": "数据维护与 MQTT 电表接入",
+      "source": "03-data-maintenance-mqtt.md",
+      "href": "pages/data-maintenance-mqtt.html"
+    },
+    {
+      "pageId": "activity-ledgers-import",
+      "title": "经营活动台账与非电数据导入",
+      "source": "04-activity-ledgers-import.md",
+      "href": "pages/activity-ledgers-import.html"
+    },
+    {
+      "pageId": "factors-calculation",
+      "title": "因子维护与核算准备",
+      "source": "05-factors-calculation.md",
+      "href": "pages/factors-calculation.html"
+    },
+    {
+      "pageId": "energy-management",
+      "title": "能源管理",
+      "source": "06-energy-management.md",
+      "href": "pages/energy-management.html"
+    },
+    {
+      "pageId": "organization-carbon-iso14064",
+      "title": "组织碳管理与 ISO 14064 分类",
+      "source": "07-organization-carbon-iso14064.md",
+      "href": "pages/organization-carbon-iso14064.html"
+    },
+    {
+      "pageId": "product-supply-chain-carbon",
+      "title": "碳足迹与供应链碳管理",
+      "source": "08-product-supply-chain-carbon.md",
+      "href": "pages/product-supply-chain-carbon.html"
+    },
+    {
+      "pageId": "monitoring-alerts",
+      "title": "监测告警与处理留痕",
+      "source": "08-monitoring-alerts.md",
+      "href": "pages/monitoring-alerts.html"
+    },
+    {
+      "pageId": "verification-report-export",
+      "title": "核查材料与报告导出",
+      "source": "09-verification-report-export.md",
+      "href": "pages/verification-report-export.html"
+    },
+    {
+      "pageId": "reduction-carbon-asset",
+      "title": "减排绩效与公开碳价模拟",
+      "source": "10-reduction-carbon-asset.md",
+      "href": "pages/reduction-carbon-asset.html"
+    },
+    {
+      "pageId": "demo-script",
+      "title": "下午演示脚本",
+      "source": "11-demo-script.md",
+      "href": "pages/demo-script.html"
+    },
+    {
+      "pageId": "screenshot-index",
+      "title": "功能页面与截图索引",
+      "source": "12-screenshot-index.md",
+      "href": "pages/screenshot-index.html"
+    }
+  ]
+}
