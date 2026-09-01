@@ -10,6 +10,7 @@ from litestar.response import Response
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.config import get_saq_config
 from app.domain.system import schemas as s
 
 if TYPE_CHECKING:
@@ -124,9 +125,9 @@ class SystemController(Controller):
         exclude_from_auth=True,
         security=[],
     )
-    async def get_system_tasks(self, settings: AppSettings) -> dict:
+    async def get_system_tasks(self) -> dict:
         """Return SAQ task and cron configuration for read-only admin pages."""
-        config = settings.saq.get_config()
+        config = get_saq_config()
         queues = []
         for queue in config.queue_configs:
             queue_name = getattr(queue, "name", "background-tasks")

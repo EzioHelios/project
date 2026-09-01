@@ -209,6 +209,11 @@ class ReductionProjectSummaryResponse(CamelizedBaseStruct, kw_only=True):
     expected_reduction_tco2e: float
     monitored_reduction_tco2e: float
     verified_reduction_tco2e: float
+    latest_locked_baseline_tco2e: float | None = None
+    latest_calculation_baseline_tco2e: float | None = None
+    latest_calculation_project_tco2e: float | None = None
+    latest_calculation_reduction_tco2e: float | None = None
+    latest_calculation_status: str | None = None
     objective: str | None
     implementation_plan: str | None
     evaluation_summary: str | None

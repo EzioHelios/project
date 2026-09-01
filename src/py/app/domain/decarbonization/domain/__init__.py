@@ -14,6 +14,7 @@ from app.domain.decarbonization.domain.policies import (
     ProjectLifecyclePolicy,
     ReductionDomainError,
 )
+
 __all__ = (
     "METHODOLOGY_CATALOG",
     "CalculationResult",

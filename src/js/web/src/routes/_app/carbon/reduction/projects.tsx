@@ -26,6 +26,14 @@ const initialProject: ReductionProjectRequest = {
   inventoryImpactKind: "none",
 }
 
+type ReductionProjectEvidenceRow = NonNullable<ReturnType<typeof useReductionProjects>["data"]>["items"][number] & {
+  latestLockedBaselineTco2E?: number | null
+  latestCalculationBaselineTco2E?: number | null
+  latestCalculationProjectTco2E?: number | null
+  latestCalculationReductionTco2E?: number | null
+  latestCalculationStatus?: string | null
+}
+
 function ReductionProjectsPage() {
   const [keyword, setKeyword] = useState("")
   const [track, setTrack] = useState("all")
@@ -43,9 +51,9 @@ function ReductionProjectsPage() {
     limit: 200,
   })
   const createProject = useCreateReductionProject()
-  const items = projects.data?.items ?? []
-  const monitored = items.reduce((sum, item) => sum + item.monitoredReductionTco2E, 0)
-  const verified = items.reduce((sum, item) => sum + item.verifiedReductionTco2E, 0)
+  const items = (projects.data?.items ?? []) as ReductionProjectEvidenceRow[]
+  const baselineCount = items.filter((item) => item.latestLockedBaselineTco2E != null).length
+  const calculatedReduction = items.reduce((sum, item) => sum + (item.latestCalculationReductionTco2E ?? 0), 0)
 
   const exportProjects = () => {
     const header = ["项目编号", "项目名称", "轨道", "分类", "责任人", "投资（元）", "预计减排量（tCO₂e）", "监测减排量（tCO₂e）", "核查减排量（tCO₂e）", "进度（%）", "阶段"]
@@ -257,8 +265,8 @@ function ReductionProjectsPage() {
         <MetricStrip>
           <MetricTile label="项目总数" value={projects.data?.total ?? 0} unit="项" tone="domain" />
           <MetricTile label="执行中" value={items.filter((item) => ["implementing", "monitoring"].includes(item.status)).length} unit="项" />
-          <MetricTile label="已监测减排量" value={formatReductionNumber(monitored)} unit="tCO₂e" />
-          <MetricTile label="已核查减排量" value={formatReductionNumber(verified)} unit="tCO₂e" tone="success" />
+          <MetricTile label="锁定基准线" value={baselineCount} unit="个" />
+          <MetricTile label="实际减排计算" value={formatReductionNumber(calculatedReduction)} unit="tCO₂e" tone="success" />
         </MetricStrip>
       }
     >
@@ -270,8 +278,9 @@ function ReductionProjectsPage() {
               <TableHead>轨道 / 分类</TableHead>
               <TableHead>责任人</TableHead>
               <TableHead>投资</TableHead>
-              <TableHead>预计减排</TableHead>
-              <TableHead>监测 / 核查</TableHead>
+              <TableHead>基准排放</TableHead>
+              <TableHead>项目排放</TableHead>
+              <TableHead>实际减排</TableHead>
               <TableHead>进度</TableHead>
               <TableHead>阶段</TableHead>
               <TableHead className="w-20" />
@@ -293,12 +302,17 @@ function ReductionProjectsPage() {
                   <div className="text-muted-foreground text-xs">{item.departmentName ?? "-"}</div>
                 </TableCell>
                 <TableCell className="tabular-nums">{formatReductionNumber(item.investmentCny / 10000)} 万元</TableCell>
-                <TableCell className="tabular-nums">{formatReductionNumber(item.expectedReductionTco2E)} tCO₂e</TableCell>
                 <TableCell className="tabular-nums">
-                  <div>
-                    {formatReductionNumber(item.monitoredReductionTco2E)} / {formatReductionNumber(item.verifiedReductionTco2E)}
-                  </div>
-                  <div className="text-muted-foreground text-xs">tCO₂e</div>
+                  <div>{formatReductionNumber(item.latestCalculationBaselineTco2E ?? item.latestLockedBaselineTco2E)} tCO₂e</div>
+                  <div className="text-muted-foreground text-xs">锁定基准线</div>
+                </TableCell>
+                <TableCell className="tabular-nums">
+                  <div>{formatReductionNumber(item.latestCalculationProjectTco2E)} tCO₂e</div>
+                  <div className="text-muted-foreground text-xs">核算运行</div>
+                </TableCell>
+                <TableCell className="tabular-nums">
+                  <div>{formatReductionNumber(item.latestCalculationReductionTco2E ?? item.verifiedReductionTco2E ?? item.monitoredReductionTco2E)} tCO₂e</div>
+                  <div className="text-muted-foreground text-xs">预计 {formatReductionNumber(item.expectedReductionTco2E)} tCO₂e</div>
                 </TableCell>
                 <TableCell className="tabular-nums">{formatReductionNumber(item.progressPct, 0)}%</TableCell>
                 <TableCell>

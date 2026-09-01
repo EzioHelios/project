@@ -2581,6 +2581,17 @@ class ShowcaseDemoBuilder:
                 m.CarbonMarketQuote.source_version == "2026.08-v1",
             )
         )
+        public_market_source_versions = {spec.source_version for spec in PUBLIC_MARKET_QUOTES} | {
+            "daily-close-v1",
+            "daily-average-v1",
+        }
+        public_market_instrument_ids = [instruments[spec.instrument_code].id for spec in PUBLIC_MARKET_QUOTES]
+        await self.session.execute(
+            delete(m.CarbonMarketQuote).where(
+                m.CarbonMarketQuote.instrument_id.in_(public_market_instrument_ids),
+                m.CarbonMarketQuote.source_version.in_(public_market_source_versions),
+            )
+        )
         for spec in PUBLIC_MARKET_QUOTES:
             instrument = instruments[spec.instrument_code]
             quote = await self.session.scalar(

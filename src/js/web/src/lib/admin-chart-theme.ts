@@ -759,7 +759,7 @@ export function createMarketKlineChartOption(
   })
   const priceSeries: SeriesOption = {
     type: "candlestick",
-    name: "日K",
+    name: "月K",
     xAxisIndex: 0,
     yAxisIndex: 0,
     data: points.map((point) => [point.open, point.close, point.low, point.high]),
@@ -767,7 +767,7 @@ export function createMarketKlineChartOption(
   }
   const movingAverageSeries: SeriesOption = {
     type: "line",
-    name: "MA5",
+    name: "5期均线",
     xAxisIndex: 0,
     yAxisIndex: 0,
     data: movingAverage,
@@ -797,7 +797,7 @@ export function createMarketKlineChartOption(
       axisPointer: { type: "cross" },
       formatter: (params: unknown) => {
         const list = Array.isArray(params) ? params.map(chartParamRecord) : [chartParamRecord(params)]
-        const candle = list.find((item) => item.seriesName === "日K")
+        const candle = list.find((item) => item.seriesName === "月K")
         const values = Array.isArray(candle?.data) ? candle.data.map(Number) : []
         const date = String(candle?.axisValue ?? list[0]?.axisValue ?? "")
         if (values.length < 4) return date

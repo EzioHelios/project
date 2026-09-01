@@ -40,10 +40,13 @@ from app.domain.carbon.controllers import (
     model_to_dict,
 )
 from app.domain.carbon.deps import (
+    provide_api_result_key_mapping_service,
     provide_area_service,
     provide_device_point_service,
     provide_device_service,
     provide_device_type_service,
+    provide_video_monitor_service,
+    provide_warning_rule_service,
 )
 from app.domain.production_denominator.controllers._utils import log_admin_data_event
 
@@ -61,6 +64,9 @@ class MasterDataController(Controller):
         "device_service": provide_device_service,
         "device_type_service": provide_device_type_service,
         "device_point_service": provide_device_point_service,
+        "warning_rule_service": provide_warning_rule_service,
+        "video_monitor_service": provide_video_monitor_service,
+        "api_result_key_mapping_service": provide_api_result_key_mapping_service,
         "security_audit_service": provide_audit_log_service,
     }
 

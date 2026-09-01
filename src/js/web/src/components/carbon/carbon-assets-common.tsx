@@ -27,6 +27,8 @@ export function formatNumber(value: unknown, digits = 2) {
 }
 
 export function marketQuoteMetricLabel(metric: unknown) {
+  if (metric === "monthly-ohlc-v1") return "月度K线"
+  if (metric === "monthly-average-v1") return "月度均价"
   if (metric === "daily-close-v1") return "日收盘价"
   if (metric === "daily-average-v1") return "日成交均价"
   if (metric === "monthly-average-vintage-2025-v1") return "月度均价（2025年电量）"

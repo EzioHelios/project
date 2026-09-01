@@ -11,7 +11,7 @@ from advanced_alchemy.filters import LimitOffset, OrderBy, SearchFilter
 from litestar import Controller, Request, delete, get, patch, post
 from litestar.params import Body
 from litestar.response import Response
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import models as m
@@ -41,6 +41,7 @@ from app.domain.carbon.validation import (
     CarbonValidationError,
     validate_amount_non_negative,
 )
+from app.lib.tenancy import session_tenant_id
 
 JSON_BODY = Body()
 DEVICE_TYPE_ID_TO_CODE = {
@@ -651,20 +652,23 @@ async def _ensure_root_area(db_session: AsyncSession) -> m.MonitorSector:
     root = await db_session.scalar(select(m.MonitorSector).where(m.MonitorSector.code == ROOT_AREA_CODE))
     if root is not None:
         return root
-    next_id = int((await db_session.execute(select(func.coalesce(func.max(m.MonitorSector.id), 0) + 1))).scalar_one())
+    tenant_id = session_tenant_id(db_session)
     root = m.MonitorSector(
-        id=next_id,
         code=ROOT_AREA_CODE,
         name="区域主数据",
         area_type="site",
-        path=f"/{next_id}",
+        path=None,
         level=0,
         sort_index=0,
         description="系统根节点",
         remark="系统自动创建的根区域",
         is_enable=False,
     )
+    if tenant_id is not None:
+        root.team_id = tenant_id
     db_session.add(root)
+    await db_session.flush()
+    root.path = f"/{root.id}"
     await db_session.commit()
     await db_session.refresh(root)
     return root

@@ -40,6 +40,25 @@ function display(value: unknown) {
   return String(value)
 }
 
+function ledgerRowKey(row: Row, index: number, pageOffset = 0) {
+  if (row.id !== null && row.id !== undefined && row.id !== "") return String(row.id)
+  const fields = [
+    row.source_record_type,
+    row.source_record_id,
+    row.source_system,
+    row.period_start,
+    row.period_end,
+    row.energy_type_code,
+    row.energy_type_name,
+    row.area_id,
+    row.facility_or_device_name,
+  ]
+    .filter((value) => value !== null && value !== undefined && value !== "")
+    .map(String)
+  if (fields.length > 0) return fields.join(":")
+  return `row-${pageOffset + index}`
+}
+
 const outputKindOptions = [
   { label: "产品产量", value: "product" },
   { label: "库存量", value: "material_storage" },
@@ -1223,8 +1242,8 @@ export function ReadonlyLedgerPage({ title, endpoint, queryKey, columns }: { tit
                   {!query.isLoading && !query.isError && items.length === 0 && <AdminTableStateRow colSpan={columns.length + 1}>暂无数据</AdminTableStateRow>}
                   {!query.isLoading &&
                     !query.isError &&
-                    items.map((row) => (
-                      <TableRow key={String(row.id)}>
+                    items.map((row, index) => (
+                      <TableRow key={ledgerRowKey(row, index, query.data?.offset ?? 0)}>
                         {columns.map((column) => (
                           <TableCell key={column.key}>{column.render ? column.render(row) : display(row[column.key])}</TableCell>
                         ))}

@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from litestar import Controller, get
+from litestar.params import Parameter
 from litestar.response import Response
 from sqlalchemy import func, or_, select
 
@@ -28,14 +29,14 @@ class FactorLibraryController(Controller):
         offset: int = 0,
         search: str | None = None,
         keyword: str | None = None,
-        scope: str | None = None,
+        scope_filter: str | None = Parameter(query="scope", required=False),
         is_active: bool | None = None,
         sort_field: str = "id",
         sort_order: str = "desc",
     ) -> Response[dict]:
         conditions = []
-        if scope:
-            conditions.append(m.EmissionFactor.scope == scope)
+        if scope_filter:
+            conditions.append(m.EmissionFactor.scope == scope_filter)
         if is_active is not None:
             conditions.append(m.EmissionFactor.is_active == is_active)
         page = await _list_page(

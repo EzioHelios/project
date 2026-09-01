@@ -109,7 +109,7 @@ function CarbonAssetMarketPage() {
       }
     >
       <ChartPanel
-        title={chartMode === "kline" && hasOhlc ? "市场K线与成交量" : "市场量价走势"}
+        title={chartMode === "kline" && hasOhlc ? "月K线与成交量" : "月度量价走势"}
         unit={`元/${textOf(selectedInstrument ?? {}, "nativeUnit", "单位")}`}
         source={textOf(latest ?? {}, "sourceName", "市场行情台账")}
         option={rows.length ? option : undefined}
@@ -133,7 +133,7 @@ function CarbonAssetMarketPage() {
           title="行情台账"
           rows={rows}
           columns={[
-            { key: "tradeDate", label: "交易日" },
+            { key: "tradeDate", label: "月份" },
             { key: "instrumentId", label: "工具", render: (row) => instrumentName.get(Number(row.instrumentId)) ?? "—" },
             { key: "closePrice", label: "价格", align: "right", render: (row) => formatNumber(row.closePrice) },
             ...(hasOhlc

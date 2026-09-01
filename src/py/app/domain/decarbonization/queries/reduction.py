@@ -221,8 +221,19 @@ class DecarbonizationQueryService:
                 )
             ).all()
         } if methodology_ids else {}
+        project_ids = [row.id for row in rows]
+        latest_baselines = await self._latest_locked_baselines(project_ids)
+        latest_calculations = await self._latest_calculations(project_ids)
         return {
-            "items": [self._project_payload(row, methods.get(row.methodology_id) if row.methodology_id else None) for row in rows],
+            "items": [
+                self._project_payload(
+                    row,
+                    methods.get(row.methodology_id) if row.methodology_id else None,
+                    latest_baselines.get(row.id),
+                    latest_calculations.get(row.id),
+                )
+                for row in rows
+            ],
             "total": int(total or 0),
             "limit": limit,
             "offset": offset,
@@ -291,8 +302,10 @@ class DecarbonizationQueryService:
         ).all()
         dossier = await self.session.scalar(select(m.CcerDossier).where(m.CcerDossier.project_id == project_id))
         evidence_count = await self._evidence_count(project.code)
+        latest_baseline = next((row for row in baselines if row.status == "locked"), baselines[0] if baselines else None)
+        latest_calculation = calculations[0] if calculations else None
         return {
-            **self._project_payload(project, methodology),
+            **self._project_payload(project, methodology, latest_baseline, latest_calculation),
             "resources": [
                 _model_payload(
                     row,
@@ -497,11 +510,62 @@ class DecarbonizationQueryService:
         )
         return int(count or 0)
 
+    async def _latest_locked_baselines(self, project_ids: list[int]) -> dict[int, m.ReductionBaselineScenario]:
+        if not project_ids:
+            return {}
+        rows = (
+            await self.session.scalars(
+                select(m.ReductionBaselineScenario)
+                .where(
+                    m.ReductionBaselineScenario.project_id.in_(project_ids),
+                    m.ReductionBaselineScenario.status == "locked",
+                )
+                .order_by(m.ReductionBaselineScenario.project_id, desc(m.ReductionBaselineScenario.version))
+            )
+        ).all()
+        latest: dict[int, m.ReductionBaselineScenario] = {}
+        for row in rows:
+            latest.setdefault(row.project_id, row)
+        return latest
+
+    async def _latest_calculations(self, project_ids: list[int]) -> dict[int, m.ReductionCalculationRun]:
+        if not project_ids:
+            return {}
+        rows = (
+            await self.session.scalars(
+                select(m.ReductionCalculationRun)
+                .where(m.ReductionCalculationRun.project_id.in_(project_ids))
+                .order_by(m.ReductionCalculationRun.project_id, desc(m.ReductionCalculationRun.created_at))
+            )
+        ).all()
+        latest: dict[int, m.ReductionCalculationRun] = {}
+        for row in rows:
+            latest.setdefault(row.project_id, row)
+        return latest
+
     @staticmethod
     def _project_payload(
-        row: m.ReductionProject, methodology: m.ReductionMethodologyVersion | None = None
+        row: m.ReductionProject,
+        methodology: m.ReductionMethodologyVersion | None = None,
+        latest_baseline: m.ReductionBaselineScenario | None = None,
+        latest_calculation: m.ReductionCalculationRun | None = None,
     ) -> dict[str, Any]:
         payload = _model_payload(row, PROJECT_FIELDS)
+        payload.update(
+            {
+                "latestLockedBaselineTco2E": _value(latest_baseline.baseline_tco2e) if latest_baseline else None,
+                "latestCalculationBaselineTco2E": _value(latest_calculation.baseline_tco2e)
+                if latest_calculation
+                else None,
+                "latestCalculationProjectTco2E": _value(latest_calculation.project_tco2e)
+                if latest_calculation
+                else None,
+                "latestCalculationReductionTco2E": _value(latest_calculation.reduction_tco2e)
+                if latest_calculation
+                else None,
+                "latestCalculationStatus": latest_calculation.status if latest_calculation else None,
+            }
+        )
         payload["methodology"] = (
             {"id": methodology.id, "code": methodology.code, "name": methodology.name, "version": methodology.version}
             if methodology

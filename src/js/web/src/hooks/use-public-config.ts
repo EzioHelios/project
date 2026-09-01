@@ -14,17 +14,29 @@ export interface PublicAppConfig {
   captchaSiteKey: string | null
 }
 
+const demoLogoFullUrlEnv = import.meta.env.VITE_DEMO_LOGO_FULL_URL
+const demoLogoFullUrl = typeof demoLogoFullUrlEnv === "string" && demoLogoFullUrlEnv.trim().length > 0 ? demoLogoFullUrlEnv.trim() : null
+const demoLogoFullUrlConfigured = typeof demoLogoFullUrlEnv === "string"
+const demoBrandName = import.meta.env.VITE_DEMO_BRAND_NAME
+const demoBrandShortName = import.meta.env.VITE_DEMO_BRAND_SHORT_NAME
+
 export const defaultPublicConfig: PublicAppConfig = {
-  displayName: "碳数据收集与管理系统",
-  shortName: "CD",
+  displayName: demoBrandName ?? "碳数据收集与管理系统",
+  shortName: demoBrandShortName ?? "CD",
   description: "支持 Scope 1/2/3 碳排放数据的采集、审核与统计分析。",
-  brandMarkUrl: null,
+  brandMarkUrl: demoLogoFullUrlConfigured ? demoLogoFullUrl : null,
   faviconUrl: null,
   authMode: "cookie-session",
   captchaProvider: null,
   captchaEnabled: false,
   captchaChallengeUrl: null,
   captchaSiteKey: null,
+}
+
+const demoBrandOverride: Partial<PublicAppConfig> = {
+  ...(typeof demoBrandName === "string" ? { displayName: demoBrandName } : {}),
+  ...(typeof demoBrandShortName === "string" ? { shortName: demoBrandShortName } : {}),
+  ...(demoLogoFullUrlConfigured ? { brandMarkUrl: demoLogoFullUrl } : {}),
 }
 
 async function fetchPublicConfig(): Promise<PublicAppConfig> {
@@ -35,7 +47,7 @@ async function fetchPublicConfig(): Promise<PublicAppConfig> {
     return defaultPublicConfig
   }
 
-  return { ...defaultPublicConfig, ...(await response.json()) }
+  return { ...defaultPublicConfig, ...(await response.json()), ...demoBrandOverride }
 }
 
 export function usePublicConfig() {
