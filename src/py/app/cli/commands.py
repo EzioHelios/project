@@ -52,6 +52,110 @@ def demo_management_group(_: dict[str, Any]) -> None:
     """Manage versioned tenant demo packages."""
 
 
+@click.group(name="package", invoke_without_command=False, help="Plan and run reusable demo packages.")
+@click.pass_context
+def demo_package_group(_: dict[str, Any]) -> None:
+    """Manage reusable demo packages."""
+
+
+demo_management_group.add_command(demo_package_group)
+
+
+@demo_package_group.command(name="list", help="List registered reusable demo packages.")
+def list_demo_packages_command() -> None:
+    """List package keys and supported profiles."""
+    from app.demo.ops import DemoOpsOrchestrator
+
+    console = get_console()
+
+    async def _list() -> None:
+        async with alchemy.get_session() as session:
+            orchestrator = DemoOpsOrchestrator(session)
+            for package in orchestrator.list_packages():
+                console.print(
+                    f"[cyan]{package.key}[/cyan] version={package.version} "
+                    f"profiles={','.join(package.supported_profiles)} description={package.description}"
+                )
+
+    anyio.run(_list)
+
+
+def _run_demo_package_command(*, package_key: str, namespace: str, profile: str, action: str, apply: bool) -> None:
+    from app.demo.ops import DemoAction, DemoOpsError, DemoOpsOrchestrator
+
+    console = get_console()
+
+    async def _run() -> None:
+        async with alchemy.get_session() as session:
+            orchestrator = DemoOpsOrchestrator(session)
+            try:
+                result = await orchestrator.execute(
+                    package_key=package_key,
+                    namespace=namespace,
+                    profile=profile,
+                    action=DemoAction(action),
+                    apply=apply,
+                )
+            except DemoOpsError as exc:
+                raise click.ClickException(str(exc)) from exc
+        status_color = "green" if result.status == "completed" else ("yellow" if result.status == "planned" else "red")
+        console.print(
+            f"[{status_color}]demo package {result.action} {result.status}[/{status_color}] "
+            f"package={result.package_key} namespace={result.namespace} profile={result.profile} applied={result.applied}"
+        )
+        for step in result.steps:
+            color = "green" if step.status == "completed" else ("yellow" if step.status == "planned" else "red")
+            console.print(f"  [{color}]{step.status}[/{color}] {step.module_key}: {step.summary} {dict(step.details)}")
+        if result.status == "failed":
+            msg = f"Demo package {result.action} failed for {result.package_key}."
+            raise click.ClickException(msg)
+
+    anyio.run(_run)
+
+
+@demo_package_group.command(name="plan", help="Show the plan for one reusable demo package action.")
+@click.argument("package_key", type=click.STRING)
+@click.option("--namespace", type=click.STRING, default="woheng", show_default=True)
+@click.option("--profile", type=click.STRING, default="full", show_default=True)
+@click.option(
+    "--action",
+    type=click.Choice(["preflight", "install", "validate", "cleanup"]),
+    default="install",
+    show_default=True,
+)
+def plan_demo_package_command(package_key: str, namespace: str, profile: str, action: str) -> None:
+    """Show a non-mutating package action plan."""
+    _run_demo_package_command(
+        package_key=package_key,
+        namespace=namespace,
+        profile=profile,
+        action=action,
+        apply=False,
+    )
+
+
+def _demo_action_command(name: str) -> Any:
+    @demo_package_group.command(name=name, help=f"Run demo package {name}.")
+    @click.argument("package_key", type=click.STRING)
+    @click.option("--namespace", type=click.STRING, default="woheng", show_default=True)
+    @click.option("--profile", type=click.STRING, default="full", show_default=True)
+    @click.option("--apply", "apply", is_flag=True, default=False, help="Persist mutating actions.")
+    def command(package_key: str, namespace: str, profile: str, apply: bool) -> None:
+        _run_demo_package_command(
+            package_key=package_key,
+            namespace=namespace,
+            profile=profile,
+            action=name,
+            apply=apply,
+        )
+
+    return command
+
+
+for _demo_action in ("preflight", "install", "validate", "cleanup"):
+    _demo_action_command(_demo_action)
+
+
 @demo_management_group.command(name="apply", help="Apply one reusable demo package to its tenant.")
 @click.option("--team", "team_slug", type=click.STRING, required=True, help="Tenant team slug.")
 @click.option("--package", "package_code", type=click.Choice(["xiangtai"]), default="xiangtai", show_default=True)

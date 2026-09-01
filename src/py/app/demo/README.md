@@ -1,56 +1,41 @@
-# 可复用演示数据包
+# 沃衡汽车统一演示数据包
 
-`app.demo` 是跨业务领域的演示数据编排层。它只保存演示清单和参数，不复制租户已有的计量、组织、区域、设备或温室气体活动台账。
+`app.demo` 是能碳平台的跨领域演示编排层。客户向演示统一使用 `woheng-showcase`，品牌口径为“沃衡汽车能碳管理平台”。
 
-## 独立标准演示租户
-
-`industrial-park` 是首个自包含演示租户，不依赖任何客户租户或旧台账。安装器创建 `demo-industrial-park`，并为超级管理员建立租户成员关系。组织碳数据确定性覆盖2024、2025完整年度，以及截至2026年8月31日的年内累计期间；微电网运行窗口随安装时点刷新。
+## 推荐入口
 
 ```bash
-app demo install-showcase --profile transition
-app demo verify-showcase
+app demo package list
+app demo package plan woheng-showcase --namespace woheng --profile full --action install
+app demo package install woheng-showcase --namespace woheng --profile full --apply
+app demo package validate woheng-showcase --namespace woheng --profile full
 ```
 
-该租户包含组织与运营边界、10个区域、19类设备、Scope 1/2/3与ISO六大类别活动、计算运行、报告版本、证据、核查、减排项目、SBTi/CDP/RE100及年度能碳预算。碳资产工作台覆盖CEA、CCER与绿证主数据、账户和批次、绿证唯一使用、企业自愿抵消记录、官方公开市场观测值及三套成本情景。微电网部分复用同一设备台账，生成21天15分钟负荷投影、96点预测、MILP优化以及288条模拟调度回执。重复安装只补齐或刷新本数据包拥有的记录，不读取任何客户租户数据。
-
-园区普通屋顶光伏保持为内部减排措施，不被表示为已签发CCER；CEA只作为全国碳市场参考品种，不为非控排园区生成虚构配额批次。碳资产行情为已冻结的官方公开观测值，企业预算价和压力价仅用于成本情景。
-
-## 祥泰演示包
-
-祥泰包以租户 `default-tenant` 的既有数据为基础，并按固定顺序复用现有应用用例：
-
-1. 完成组织碳盘查的组织边界、区域/设备归集和计算结果；
-2. 建立已发布盘查报告、正式核查项目、证据文件/链接和核查发现；
-3. 建立祥泰微电网站点、设备、场景与运行遥测，并接入已确认电表映射；
-4. 建立内部减排目标、项目组合和区域关联；
-5. 应用一套 SBTi、CDP、RE100 气候治理情景并运行自动评估。
-
-微电网适配器还会复用既有预测和优化用例生成当前24小时计划。真实历史未达到质量门禁时，自动形成有风险标识的试算，不会被误用为正式调度计划。
+截图入口：
 
 ```bash
-app demo apply --team default-tenant --package xiangtai --profile transition
+cd src/js/web
+bun run qa:evidence:woheng-showcase:isolated
 ```
 
-可选气候披露情景：
+## 租户结构
 
-- `foundation`：基础建设期，目标和披露治理尚不完整，部分可再生电力属性待核验；
-- `transition`：转型推进期，目标覆盖与披露治理就绪，可再生电力进入规模化执行；
-- `leadership`：领先实践期，目标覆盖、治理与可再生电力属性形成完整闭环。
+`woheng-showcase` 会生成两个演示子租户：
 
-应用其他情景会替换同一报告年度中由本演示包创建的气候计划，不会删除或修改组织碳、计量和设备源台账。若同年度已经存在非演示气候计划，命令会拒绝覆盖。
+- `woheng-taizhou-production-base`：沃衡汽车泰州生产基地，重点展示整车装配、厂内物流、MQTT 电表接入、分区分项用能监测、点位配置和告警闭环。
+- `woheng-huzhou-production-base`：沃衡汽车湖州生产基地，重点展示零部件制造、经营活动台账、非电活动数据导入、组织碳核算、报告导出和减排绩效。
 
-## 数据所有权与幂等约束
+两个租户共用同一套组织碳、能源、监测告警、报告、公开碳价模拟和后续产品碳足迹联动口径。企业主体复用 `litestar-microservice` 演示包中的“沃衡汽车有限公司 / Voryntis Mobility”资料，生产基地、采集协议、MQTT 点位、经营活动和排放结构做差异化。
 
-- 演示代码统一使用 `DEMO-XT-` 前缀，`source_name` 统一为 `祥泰统一演示包V1`；
-- 减排目标和项目按代码更新，项目区域关系由本包重建；
-- 核查项目绑定已发布盘查报告和冻结计算运行；证据按ISO类别关联全部活动记录；
-- 核查证据使用确定性业务编号和文件哈希，重复执行只补缺失链接，不重复创建文件；
-- 仅在电表映射为空时应用祥泰模板；任何已有映射均原样保留；
-- 气候计划按报告年度和演示来源替换，以便在三套情景之间稳定切换；
-- RE100 电量以祥泰 2025 年真实购电事实为分母，情景文件只定义占比；
-- 普通屋顶光伏作为内部减排项目，不标记为 CCER 项目或已签发碳资产；
-- 组织碳数据统一由 `ghg_inventory` 领域生成；演示包不写入已退役的 Scope 专用台账。
+## 数据归属
 
-## 扩展方式
+演示包写入的租户和安装摘要会登记到 `demo_manifest`。`cleanup` 只清理 manifest 中登记为本包拥有的沃衡汽车演示租户，避免误删历史客户数据。
 
-新增演示场站时，新建 `<package>/manifest.json` 与气候情景文件，并在 `ApplyDemoPackage` 中注册明确的领域适配器。业务规则仍由各领域用例持有，演示包不得另写一套计算公式或直接绕过领域校验。
+```bash
+app demo package cleanup woheng-showcase --namespace woheng --profile full
+app demo package cleanup woheng-showcase --namespace woheng --profile full --apply
+```
+
+## 兼容入口
+
+历史客户向演示入口仅保留用于追溯旧材料。新增客户演示、截图和材料生成应使用 `woheng-showcase`。
