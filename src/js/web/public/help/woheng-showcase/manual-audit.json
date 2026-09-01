@@ -1,6 +1,6 @@
 {
   "title": "沃衡汽车能碳管理平台操作手册 截图审计",
-  "generatedAt": "2026-08-31T08:50:31.271Z",
+  "generatedAt": "2026-09-01T10:33:44.865Z",
   "screenshotRoot": "outputs/woheng-showcase-woheng-full-evidence/screenshots",
   "totalEvidence": 57,
   "availableScreenshots": 57,
@@ -109,16 +109,18 @@
     },
     {
       "section": "数据维护与治理",
-      "title": "泰州设备测点配置",
-      "route": "/data/device-points",
+      "title": "泰州测点映射与接入校验",
+      "route": "/data/terminals",
       "evidenceId": "EV-WH-007",
-      "screenshot": "EV-WH-007-泰州设备测点配置.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-007-泰州设备测点配置.png",
+      "screenshot": "EV-WH-007-泰州测点映射与接入校验.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-007-泰州测点映射与接入校验.png",
       "status": "ready",
       "mustVisibleContents": [
-        "设备测点工作台",
-        "筛选树",
-        "测点"
+        "设备台账",
+        "设备接入主线",
+        "MQTT接入",
+        "点位映射",
+        "接入校验"
       ],
       "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
       "expectedEvidenceLevel": "A"
@@ -178,16 +180,17 @@
     },
     {
       "section": "数据维护与治理",
-      "title": "湖州设备测点主数据",
-      "route": "/data/device-points",
+      "title": "湖州测点映射与接入质量",
+      "route": "/data/terminals",
       "evidenceId": "EV-WH-011",
-      "screenshot": "EV-WH-011-湖州设备测点主数据.png",
+      "screenshot": "EV-WH-011-湖州测点映射与接入质量.png",
       "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-011-湖州设备测点主数据.png",
       "status": "ready",
       "mustVisibleContents": [
-        "设备测点工作台",
-        "筛选树",
-        "测点"
+        "设备台账",
+        "质量",
+        "测点",
+        "数据质量"
       ],
       "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
       "expectedEvidenceLevel": "A"
@@ -246,18 +249,20 @@
     },
     {
       "section": "数据维护与治理",
-      "title": "监测告警事件",
-      "route": "/data/alarm-events",
+      "title": "监测告警事件处理",
+      "route": "/energy-carbon/alerts",
       "evidenceId": "EV-WH-015",
-      "screenshot": "EV-WH-015-监测告警事件.png",
+      "screenshot": "EV-WH-015-监测告警事件处理.png",
       "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-015-监测告警事件.png",
       "status": "ready",
       "mustVisibleContents": [
-        "告警",
-        "状态"
+        "碳告警与预警",
+        "确认",
+        "转工单",
+        "关闭"
       ],
       "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
-      "expectedEvidenceLevel": "B"
+      "expectedEvidenceLevel": "A"
     },
     {
       "section": "数据维护与治理",
@@ -874,29 +879,28 @@
         "规则名称",
         "告警名称",
         "事件类型",
-        "来源表/视图"
+        "设备",
+        "阈值条件"
       ],
-      "focus": "预警规则列表、规则名称、事件类型和来源表字段",
+      "focus": "预警规则列表、规则名称、事件类型、设备对象和阈值条件",
       "expectedEvidenceLevel": "A"
     },
     {
       "section": "监测告警补充",
-      "title": "视频监控预警事件",
-      "route": "/data/video-alarm-events",
+      "title": "视频监控预警处理",
+      "route": "/energy-carbon/alerts",
       "evidenceId": "EV-WH-052",
-      "screenshot": "EV-WH-052-视频监控预警事件.png",
+      "screenshot": "EV-WH-052-视频监控预警处理.png",
       "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-052-视频监控预警事件.png",
       "status": "ready",
       "mustVisibleContents": [
-        "视频监控预警事件",
-        "事件列表",
-        "类型",
-        "说明",
-        "时间",
-        "状态",
-        "处理"
+        "碳告警与预警",
+        "视频",
+        "确认",
+        "转工单",
+        "关闭"
       ],
-      "focus": "视频预警事件列表和处理状态",
+      "focus": "视频预警事件在告警中心的处理状态",
       "expectedEvidenceLevel": "A"
     },
     {

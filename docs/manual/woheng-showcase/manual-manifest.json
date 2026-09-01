@@ -157,40 +157,50 @@
     {
       "sectionId": "data-maintenance",
       "title": "数据维护与采集配置",
-      "summary": "用于说明电表接入、设备测点、区域主数据、非电活动数据导入和审计留痕。",
+      "summary": "用于说明电表接入、测点映射、区域主数据、非电活动数据导入和审计留痕。",
       "steps": [
         {
           "stepNumber": "3.1",
           "title": "维护设备主数据与采集协议",
           "route": "/data/terminals",
-          "action": "在设备主数据中查看或编辑设备编码、采集标识、采集协议和在线状态。",
-          "expectedState": "设备编辑页显示 MQTT 或其他采集协议字段，并能说明设备和采集点的绑定关系。",
+          "action": "在设备台账中按区域选择电表、制冷机组、输送线、照明配电柜、充电桩等设备，查看或编辑设备编码、所属区域、采集标识、采集协议和投运状态。",
+          "expectedState": "设备详情显示区域归属、采集标识、采集协议、能源类型和启用状态，并能说明区域、设备和测点的绑定关系。",
           "evidenceId": "EV-WH-006",
           "screenshot": "EV-WH-006-泰州设备主数据与采集协议配置.png",
           "verificationStatus": "planned"
         },
         {
           "stepNumber": "3.2",
-          "title": "维护设备测点",
-          "route": "/data/device-points",
-          "action": "进入设备测点工作台，按区域或设备筛选测点。",
-          "expectedState": "页面显示测点列表、筛选树和测点配置字段。",
+          "title": "维护测点映射与接入校验",
+          "route": "/data/terminals",
+          "action": "进入设备台账，选择 MQTT 电表后切换到接入页签，查看数据源、订阅主题、网关/表计、点位映射和接入校验。",
+          "expectedState": "页面显示 MQTT 接入配置、来源字段到业务点位的映射关系，并可执行测试报文或进入实时读数页面。",
           "evidenceId": "EV-WH-007",
-          "screenshot": "EV-WH-007-泰州设备测点配置.png",
+          "screenshot": "EV-WH-007-泰州测点映射与接入校验.png",
           "verificationStatus": "planned"
         },
         {
           "stepNumber": "3.3",
           "title": "查看电表电量采集结果",
           "route": "/data/meter",
-          "action": "进入电表电量页面，查看最新采集、采样数和用电趋势。",
-          "expectedState": "页面显示非空电量数据和趋势图。",
+          "action": "进入电表电量页面，查看最新采集时间、采样数、电表数量、分时电量和用电趋势。",
+          "expectedState": "页面显示非空电量数据和趋势图，可证明电表读数进入统计口径。",
           "evidenceId": "EV-WH-008",
           "screenshot": "EV-WH-008-泰州电表电量采集结果.png",
           "verificationStatus": "planned"
         },
         {
           "stepNumber": "3.4",
+          "title": "查看点位监测与来源追溯",
+          "route": "/data/point-monitoring",
+          "action": "进入点位监测页面，按设备、点位或来源编码筛选关键测点，查看趋势图、最近读数和来源追溯。",
+          "expectedState": "页面显示有效点位、最新读数、时序趋势、设备编码、网关、表计、订阅主题和映射版本。",
+          "evidenceId": "EV-WH-009",
+          "screenshot": "EV-WH-009-泰州点位监测与来源追溯.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "3.5",
           "title": "导入非电活动数据",
           "route": "/carbon-mgmt/import",
           "action": "下载分类模板，填写燃料、制冷剂、运输、通勤、采购材料等非电活动数据后上传预检。",
@@ -200,7 +210,7 @@
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "3.5",
+          "stepNumber": "3.6",
           "title": "查看经营活动台账",
           "route": "/data/inbound",
           "action": "进入入库、出库、员工通勤、产量、产品价格等经营活动台账，核对业务活动数据。",
