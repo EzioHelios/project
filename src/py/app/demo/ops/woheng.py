@@ -128,7 +128,7 @@ STANDARD_ACCOUNTS: tuple[WohengAccountSpec, ...] = (
         name="自动化验证员",
         username="codex_e2e",
         is_superuser=False,
-        team_scope="all",
+        team_scope="woheng",
         is_owner=False,
     ),
     WohengAccountSpec(
