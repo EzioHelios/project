@@ -3,6 +3,7 @@
 # ruff: noqa: RUF022
 
 from app.db.models._audit_log import AuditLog
+from app.db.models._demo_manifest import DemoManifest
 from app.db.models._email_verification_token import EmailVerificationToken
 from app.db.models._oauth_account import UserOAuthAccount
 from app.db.models._password_reset_token import PasswordResetToken
@@ -171,6 +172,7 @@ from app.domain.microgrid.models import (
 
 __all__ = (
     "AuditLog",
+    "DemoManifest",
     "EmailVerificationToken",
     "Permission",
     "PasswordResetToken",

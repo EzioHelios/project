@@ -26,6 +26,7 @@ TABLES = (
     models.GhgCalculationMethodDefinition.__table__,
     models.GhgMethodParameterDefinition.__table__,
     models.GhgParameterValue.__table__,
+    models.GhgEmissionSource.__table__,
     models.GhgActivityRecord.__table__,
     models.GhgEvidenceFile.__table__,
     models.GhgEvidenceLink.__table__,
@@ -188,6 +189,7 @@ def _insert_permissions() -> None:
 def _migrate_legacy_activities() -> None:
     if op.get_bind().dialect.name != "postgresql":
         return
+    op.execute(sa.text("select set_config('app.tenant_bypass', 'true', true)"))
     statements = (
         """
         insert into ghg_activity_record (
@@ -344,11 +346,11 @@ def upgrade() -> None:
     bind = op.get_bind()
     for table in TABLES:
         table.create(bind=bind, checkfirst=False)
-    for table_name in TENANT_TABLES:
-        _enable_tenant_rls(table_name)
     _seed_catalog()
     _insert_permissions()
     _migrate_legacy_activities()
+    for table_name in TENANT_TABLES:
+        _enable_tenant_rls(table_name)
 
 
 def downgrade() -> None:

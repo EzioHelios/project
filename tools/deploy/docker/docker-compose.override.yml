@@ -3,6 +3,7 @@ x-development-volumes: &development-volumes
     - ../../../docs:/workspace/app/docs/
     - ../../../tools:/workspace/app/tools/
     - ../../../src:/workspace/app/src/
+    - ../../../.exports:/workspace/app/.exports/
     - ../../../Makefile:/workspace/app/Makefile
     - ../../../pyproject.toml:/workspace/app/pyproject.toml
     - ../../../uv.lock:/workspace/app/uv.lock

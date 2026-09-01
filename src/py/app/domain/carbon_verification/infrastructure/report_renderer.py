@@ -83,6 +83,7 @@ def _build_document(report: dict[str, Any]) -> DocumentObject:
     _contents(document)
     _organization_section(document, report)
     _basis_and_boundary_section(document, report)
+    _inventory_chart_section(document, report)
     _inventory_summary_section(document, report)
     _activity_section(document, report)
     _factor_section(document, report)
@@ -102,14 +103,17 @@ def _configure_document(document: DocumentObject) -> None:
     _style_font(normal, "宋体", 10.5)
     normal.paragraph_format.line_spacing = 1.5
     normal.paragraph_format.space_after = Pt(3)
-    for name, size, color in (("Title", 26, "17365D"), ("Heading 1", 16, "17365D"), ("Heading 2", 13, "1F4E79")):
+    for name, size in (("Title", 22), ("Heading 1", 15), ("Heading 2", 12)):
         style = document.styles[name]
-        _style_font(style, "黑体", size, bold=True, color=color)
+        _style_font(style, "黑体", size, bold=True, color="000000")
+        _clear_style_paragraph_borders(style)
     document.styles["Heading 1"].paragraph_format.space_before = Pt(12)
     document.styles["Heading 1"].paragraph_format.space_after = Pt(8)
+    document.styles["Heading 2"].paragraph_format.space_before = Pt(8)
+    document.styles["Heading 2"].paragraph_format.space_after = Pt(5)
     header = section.header.paragraphs[0]
     header.text, header.alignment = "组织温室气体排放盘查报告", WD_ALIGN_PARAGRAPH.RIGHT
-    _set_run_font(header.runs[0], "宋体", 8, color="7F8C8D")
+    _set_run_font(header.runs[0], "宋体", 8, color="666666")
     footer = section.footer.paragraphs[0]
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
     _add_page_number(footer)
@@ -120,38 +124,31 @@ def _configure_document(document: DocumentObject) -> None:
 def _cover(document: DocumentObject, report: dict[str, Any]) -> None:
     enterprise, period = _mapping(report.get("enterprise")), _mapping(report.get("reporting_period"))
     template, project = _mapping(report.get("template")), _mapping(report.get("project"))
-    document.add_paragraph().paragraph_format.space_after = Pt(54)
+    document.add_paragraph().paragraph_format.space_after = Pt(70)
     title = document.add_paragraph("组织温室气体排放盘查报告", style="Title")
-    title.alignment, title.paragraph_format.space_after = WD_ALIGN_PARAGRAPH.CENTER, Pt(18)
-    year = document.add_paragraph(f"报告期：{_display(period.get('year'))} 年")
-    year.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    _set_run_font(year.runs[0], "黑体", 16, bold=True, color="1F4E79")
-    document.add_paragraph().paragraph_format.space_after = Pt(48)
+    title.alignment, title.paragraph_format.space_after = WD_ALIGN_PARAGRAPH.CENTER, Pt(36)
+    document.add_paragraph().paragraph_format.space_after = Pt(42)
     rows = (
-        ("报告主体", enterprise.get("name")),
-        ("统一标识", enterprise.get("unify_code") or enterprise.get("code")),
-        ("报告编号", project.get("report_code")),
-        ("报告版本", project.get("report_version")),
+        ("报告主体（盖章）", enterprise.get("name")),
+        ("统一社会信用代码", enterprise.get("unify_code") or enterprise.get("code")),
+        ("报告年度", period.get("year")),
         ("编制日期", datetime.datetime.now(UTC).date().isoformat()),
+        ("核算依据", f"{_display(template.get('standard_name'))} / {_display(template.get('standard_code'))}"),
+        ("报告版本", project.get("report_version")),
     )
     _key_value_table(document, rows)
-    basis = document.add_paragraph(
-        f"编制依据：{_display(template.get('standard_name'))}（{_display(template.get('standard_code'))}）"
-    )
-    basis.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    _set_run_font(basis.runs[0], "宋体", 9, color="566573")
     document.add_page_break()
 
 
 def _declaration(document: DocumentObject, report: dict[str, Any]) -> None:
-    _heading(document, "报告声明", 1)
+    _heading(document, "一、报告声明", 1)
     enterprise, period = _mapping(report.get("enterprise")), _mapping(report.get("reporting_period"))
     paragraphs = (
         f"本报告由{_display(enterprise.get('name'))}依据已发布的组织温室气体盘查结果编制，报告期为"
         f"{_display(period.get('period_start'))}至{_display(period.get('period_end'))}。",
         "报告中的组织边界、活动数据、排放因子、温室气体排放量及证据索引均来自报告发布时冻结的数据快照。",
         "报告主体对所提供资料的真实性、完整性和一致性负责；任何后续修订均应形成新版本并保留变更记录。",
-        "本报告不替代主管部门要求的行业专用报表，也不构成第三方核查结论或主管部门认可文件。",
+        "本报告适用于组织碳盘查成果归档、内部复核、核查支撑材料准备及披露材料编制。",
     )
     for text in paragraphs:
         paragraph = document.add_paragraph(text)
@@ -163,14 +160,15 @@ def _declaration(document: DocumentObject, report: dict[str, Any]) -> None:
 def _contents(document: DocumentObject) -> None:
     _heading(document, "目录", 1)
     for entry in (
-        "1 组织基本信息",
-        "2 核算依据、报告边界与方法",
-        "3 温室气体排放汇总",
-        "4 活动数据明细",
-        "5 排放因子与计算参数",
-        "6 数据质量、不确定性与核查问题",
-        "7 证据文件索引",
-        "8 编制、复核与批准",
+        "一、报告声明",
+        "二、报告主体基本情况",
+        "三、核算边界与排放源识别",
+        "四、温室气体排放关键图表",
+        "五、温室气体排放量化明细",
+        "六、活动水平数据及来源说明",
+        "七、排放因子与计算参数说明",
+        "八、数据质量控制与文件存档",
+        "九、编制、复核与批准",
     ):
         paragraph = document.add_paragraph(entry)
         paragraph.paragraph_format.left_indent, paragraph.paragraph_format.space_after = Cm(0.8), Pt(8)
@@ -178,7 +176,7 @@ def _contents(document: DocumentObject) -> None:
 
 
 def _organization_section(document: DocumentObject, report: dict[str, Any]) -> None:
-    _heading(document, "1 组织基本信息", 1)
+    _heading(document, "二、报告主体基本情况", 1)
     enterprise, period = _mapping(report.get("enterprise")), _mapping(report.get("reporting_period"))
     rows = (
         ("组织名称", enterprise.get("name"), "统一标识", enterprise.get("unify_code") or enterprise.get("code")),
@@ -198,7 +196,7 @@ def _organization_section(document: DocumentObject, report: dict[str, Any]) -> N
 
 
 def _basis_and_boundary_section(document: DocumentObject, report: dict[str, Any]) -> None:
-    _heading(document, "2 核算依据、报告边界与方法", 1)
+    _heading(document, "三、核算边界与排放源识别", 1)
     standard, template = _mapping(report.get("standard")), _mapping(report.get("template"))
     source, inventory = _mapping(report.get("inventory_source")), _mapping(report.get("inventory"))
     _key_value_table(
@@ -214,7 +212,7 @@ def _basis_and_boundary_section(document: DocumentObject, report: dict[str, Any]
             ("GWP 版本", "、".join(str(item) for item in inventory.get("gwp_versions", [])) or "未记录"),
         ),
     )
-    _heading(document, "2.1 纳入边界的排放源", 2)
+    _heading(document, "（一）纳入边界的排放源", 2)
     _data_table(
         document,
         ("Scope", "排放源", "记录数", "排放量（tCO₂e）"),
@@ -229,7 +227,7 @@ def _basis_and_boundary_section(document: DocumentObject, report: dict[str, Any]
         ],
         widths=(2.5, 7.2, 2.3, 3.5),
     )
-    _heading(document, "2.2 排除项", 2)
+    _heading(document, "（二）排除项", 2)
     exclusions = _rows(report, "exclusions")
     if exclusions:
         _data_table(
@@ -242,19 +240,58 @@ def _basis_and_boundary_section(document: DocumentObject, report: dict[str, Any]
         document.add_paragraph("本报告冻结数据中未登记排除项。")
 
 
+def _inventory_chart_section(document: DocumentObject, report: dict[str, Any]) -> None:
+    document.add_page_break()
+    _heading(document, "四、温室气体排放关键图表", 1)
+    inventory = _mapping(report.get("inventory"))
+    totals = _mapping(inventory.get("totals"))
+    activity_rows = _rows(report, "activity_data")
+    evidence_rows = _rows(report, "verification_attachments")
+    total_t = _decimal(totals.get("total_t_co2e"))
+    _key_value_table(
+        document,
+        (
+            ("报告期排放总量", f"{_number(total_t)} tCO₂e"),
+            ("活动数据记录", f"{len(activity_rows)} 条"),
+            ("证据文件记录", f"{len(evidence_rows)} 项"),
+        ),
+    )
+    _heading(document, "（一）按 Scope 排放构成", 2)
+    _bar_chart_table(
+        document,
+        [
+            (_scope_label(row.get("scope")), _decimal(row.get("t_co2e")))
+            for row in _rows(inventory, "scope_summary")
+        ],
+        total=total_t,
+        widths=(3.2, 6.0, 2.8, 2.4),
+    )
+    _heading(document, "（二）主要排放源贡献", 2)
+    source_rows = sorted(
+        (
+            (_display(row.get("record_label")), _decimal(row.get("t_co2e")))
+            for row in _rows(inventory, "source_summary")
+        ),
+        key=lambda item: item[1],
+        reverse=True,
+    )[:8]
+    _bar_chart_table(document, source_rows, total=total_t, widths=(4.6, 5.0, 2.7, 2.2), font_size=7.5)
+    document.add_page_break()
+
+
 def _inventory_summary_section(document: DocumentObject, report: dict[str, Any]) -> None:
-    _heading(document, "3 温室气体排放汇总", 1)
+    _heading(document, "五、温室气体排放量化明细", 1)
     inventory, totals = _mapping(report.get("inventory")), _mapping(_mapping(report.get("inventory")).get("totals"))
     paragraph = document.add_paragraph()
     paragraph.add_run("报告期温室气体排放总量：").bold = True
     total_run = paragraph.add_run(f"{_number(totals.get('total_t_co2e'))} tCO₂e")
-    _set_run_font(total_run, "Arial", 14, bold=True, color="1F4E79")
+    _set_run_font(total_run, "Arial", 12, bold=True, color="000000")
     for heading, rows, key, labeler in (
-        ("3.1 按 Scope 汇总", _rows(inventory, "scope_summary"), "scope", _scope_label),
-        ("3.2 按温室气体汇总", _rows(inventory, "gas_summary"), "gas_code", _uppercase_label),
-        ("3.3 按 ISO 14064-1 六类汇总", _rows(inventory, "iso_category_summary"), "label", _display),
-        ("3.4 Scope 2 方法结果", _rows(inventory, "scope2_method_summary"), "method", _scope2_label),
-        ("3.5 Scope 3 类别结果", _rows(inventory, "scope3_category_summary"), "label", _display),
+        ("（一）按 Scope 汇总", _rows(inventory, "scope_summary"), "scope", _scope_label),
+        ("（二）按温室气体汇总", _rows(inventory, "gas_summary"), "gas_code", _uppercase_label),
+        ("（三）按 ISO 14064-1 六类汇总", _rows(inventory, "iso_category_summary"), "label", _display),
+        ("（四）Scope 2 方法结果", _rows(inventory, "scope2_method_summary"), "method", _scope2_label),
+        ("（五）Scope 3 类别结果", _rows(inventory, "scope3_category_summary"), "label", _display),
     ):
         if rows:
             _heading(document, heading, 2)
@@ -263,7 +300,7 @@ def _inventory_summary_section(document: DocumentObject, report: dict[str, Any])
 
 def _activity_section(document: DocumentObject, report: dict[str, Any]) -> None:
     document.add_section(WD_SECTION.NEW_PAGE)
-    _heading(document, "4 活动数据明细", 1)
+    _heading(document, "六、活动水平数据及来源说明", 1)
     _data_table(
         document,
         ("记录编号", "Scope/ISO类", "活动数据", "数量", "单位", "排放量（tCO₂e）", "证据状态"),
@@ -285,7 +322,7 @@ def _activity_section(document: DocumentObject, report: dict[str, Any]) -> None:
 
 
 def _factor_section(document: DocumentObject, report: dict[str, Any]) -> None:
-    _heading(document, "5 排放因子与计算参数", 1)
+    _heading(document, "七、排放因子与计算参数说明", 1)
     _data_table(
         document,
         ("记录编号", "Scope", "参数来源", "版本/年份", "单位"),
@@ -305,7 +342,7 @@ def _factor_section(document: DocumentObject, report: dict[str, Any]) -> None:
 
 
 def _quality_section(document: DocumentObject, report: dict[str, Any]) -> None:
-    _heading(document, "6 数据质量、不确定性与核查问题", 1)
+    _heading(document, "八、数据质量控制与文件存档", 1)
     issues, findings = _rows(report, "quality_issues"), _rows(report, "verification_findings")
     readiness = _mapping(report.get("formal_readiness"))
     _key_value_table(
@@ -331,7 +368,7 @@ def _quality_section(document: DocumentObject, report: dict[str, Any]) -> None:
 
 
 def _evidence_section(document: DocumentObject, report: dict[str, Any]) -> None:
-    _heading(document, "7 证据文件索引", 1)
+    _heading(document, "附表：证据文件索引", 1)
     _data_table(
         document,
         ("证据编号", "活动记录", "文件名称", "文件类型", "复核状态", "SHA-256"),
@@ -352,7 +389,7 @@ def _evidence_section(document: DocumentObject, report: dict[str, Any]) -> None:
 
 
 def _approval_section(document: DocumentObject, report: dict[str, Any]) -> None:
-    _heading(document, "8 编制、复核与批准", 1)
+    _heading(document, "九、编制、复核与批准", 1)
     project = _mapping(report.get("project"))
     _key_value_table(
         document,
@@ -376,6 +413,38 @@ def _summary_table(document: DocumentObject, rows: list[dict[str, Any]], key: st
         ],
         widths=(7.8, 4.0, 4.0),
     )
+
+
+def _bar_chart_table(
+    document: DocumentObject,
+    rows: list[tuple[str, Decimal]],
+    *,
+    total: Decimal,
+    widths: tuple[float, float, float, float],
+    font_size: float = 8,
+) -> None:
+    bar_segments = 20
+    table = _table(document, max(1, len(rows)) + 1, 4, widths=widths)
+    table.rows[0]._tr.get_or_add_trPr().append(OxmlElement("w:tblHeader"))
+    _set_cell(table.cell(0, 0), "分类", header=True, font_size=font_size)
+    _set_cell(table.cell(0, 1), "构成比例", header=True, font_size=font_size, align=WD_ALIGN_PARAGRAPH.CENTER)
+    _set_cell(table.cell(0, 2), "排放量（tCO₂e）", header=True, font_size=font_size)
+    _set_cell(table.cell(0, 3), "占比", header=True, font_size=font_size)
+    if not rows:
+        merged = table.cell(1, 0).merge(table.cell(1, 3))
+        _set_cell(merged, "无相关记录", font_size=font_size, align=WD_ALIGN_PARAGRAPH.CENTER)
+        return
+    denominator = total if total > 0 else sum((value for _, value in rows), Decimal(0))
+    max_value = max((value for _, value in rows), default=Decimal(0))
+    for row_index, (label, value) in enumerate(rows, start=1):
+        share = (value / denominator) if denominator > 0 else Decimal(0)
+        relative = (value / max_value) if max_value > 0 else Decimal(0)
+        filled = max(1 if value > 0 else 0, min(bar_segments, int((relative * bar_segments).to_integral_value())))
+        _set_cell(table.cell(row_index, 0), label, font_size=font_size)
+        bar = f"{'■' * filled}{'□' * (bar_segments - filled)}"
+        _set_cell(table.cell(row_index, 1), bar, font_size=font_size, align=WD_ALIGN_PARAGRAPH.LEFT)
+        _set_cell(table.cell(row_index, 2), _number(value), font_size=font_size, align=WD_ALIGN_PARAGRAPH.RIGHT)
+        _set_cell(table.cell(row_index, 3), _percent(share), font_size=font_size, align=WD_ALIGN_PARAGRAPH.RIGHT)
 
 
 def _key_value_table(document: DocumentObject, rows: tuple[tuple[str, Any], ...]) -> None:
@@ -426,9 +495,7 @@ def _set_cell(
     paragraph = cell.paragraphs[0]
     paragraph.alignment, paragraph.paragraph_format.space_after = align, Pt(0)
     run = paragraph.add_run(_display(value))
-    _set_run_font(run, "黑体" if header else "宋体", font_size, bold=header, color="17365D" if header else "1F2933")
-    if header:
-        _set_cell_shading(cell, "DCE6F1")
+    _set_run_font(run, "黑体" if header else "宋体", font_size, bold=header, color="000000")
 
 
 def _heading(document: DocumentObject, text: str, level: int) -> None:
@@ -451,19 +518,18 @@ def _style_font(style: Any, name: str, size: float, *, bold: bool = False, color
         style.font.color.rgb = RGBColor.from_string(color)
 
 
+def _clear_style_paragraph_borders(style: Any) -> None:
+    p_pr = style._element.get_or_add_pPr()
+    p_bdr = p_pr.find(qn("w:pBdr"))
+    if p_bdr is not None:
+        p_pr.remove(p_bdr)
+
+
 def _set_run_font(run: Any, name: str, size: float, *, bold: bool = False, color: str | None = None) -> None:
     run.font.name, run.font.size, run.font.bold = name, Pt(size), bold
     run._element.rPr.rFonts.set(qn("w:eastAsia"), name)
     if color:
         run.font.color.rgb = RGBColor.from_string(color)
-
-
-def _set_cell_shading(cell: Any, fill: str) -> None:
-    tc_pr = cell._tc.get_or_add_tcPr()
-    shading = tc_pr.find(qn("w:shd")) or OxmlElement("w:shd")
-    if shading.getparent() is None:
-        tc_pr.append(shading)
-    shading.set(qn("w:fill"), fill)
 
 
 def _set_cell_margins(cell: Any) -> None:
@@ -481,7 +547,7 @@ def _set_cell_margins(cell: Any) -> None:
 
 def _add_page_number(paragraph: Any) -> None:
     run = paragraph.add_run("第 ")
-    _set_run_font(run, "宋体", 8, color="7F8C8D")
+    _set_run_font(run, "宋体", 8, color="666666")
     for kind, text in (("begin", None), (None, " PAGE "), ("end", None)):
         node = OxmlElement("w:instrText" if text else "w:fldChar")
         if text:
@@ -491,7 +557,7 @@ def _add_page_number(paragraph: Any) -> None:
             node.set(qn("w:fldCharType"), kind)
         run._r.append(node)
     suffix = paragraph.add_run(" 页")
-    _set_run_font(suffix, "宋体", 8, color="7F8C8D")
+    _set_run_font(suffix, "宋体", 8, color="666666")
 
 
 def _convert_docx_to_pdf(docx_path: Path, pdf_path: Path) -> bool:
@@ -529,6 +595,10 @@ def _number(value: Any) -> str:
     if number == number.to_integral():
         return f"{number:,.0f}"
     return f"{number:,.4f}".rstrip("0").rstrip(".")
+
+
+def _percent(value: Decimal) -> str:
+    return f"{(value * Decimal(100)):.1f}%"
 
 
 def _decimal(value: Any) -> Decimal:

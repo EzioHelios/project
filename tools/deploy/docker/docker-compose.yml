@@ -106,6 +106,8 @@ services:
       SAQ_USE_SERVER_LIFESPAN: "false"
     env_file:
       - .env.docker
+    volumes:
+      - export-data:/workspace/app/.exports
   worker:
     image: ${APP_IMAGE:-project/warehouse-carbon:latest}
     build:
@@ -122,6 +124,8 @@ services:
         condition: service_healthy
     env_file:
       - .env.docker
+    volumes:
+      - export-data:/workspace/app/.exports
   mqtt-ingest-worker:
     image: ${APP_IMAGE:-project/warehouse-carbon:latest}
     build:
@@ -161,4 +165,5 @@ services:
 volumes:
   db-data: {}
   cache-data: {}
+  export-data: {}
   sentinel-data: {}

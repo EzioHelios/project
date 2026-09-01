@@ -28,6 +28,27 @@ PERMISSIONS = (
 )
 
 
+def _column_exists(table_name: str, column_name: str) -> bool:
+    inspector = sa.inspect(op.get_bind())
+    return any(column["name"] == column_name for column in inspector.get_columns(table_name))
+
+
+def _index_exists(table_name: str, index_name: str) -> bool:
+    inspector = sa.inspect(op.get_bind())
+    return any(index["name"] == index_name for index in inspector.get_indexes(table_name))
+
+
+def _foreign_key_exists(table_name: str, constrained_columns: list[str], referred_table: str) -> bool:
+    inspector = sa.inspect(op.get_bind())
+    constrained = set(constrained_columns)
+    for foreign_key in inspector.get_foreign_keys(table_name):
+        if foreign_key.get("referred_table") != referred_table:
+            continue
+        if set(foreign_key.get("constrained_columns") or []) == constrained:
+            return True
+    return False
+
+
 def _enable_tenant_rls(table_name: str) -> None:
     if op.get_bind().dialect.name != "postgresql":
         return
@@ -81,35 +102,77 @@ def _insert_permissions() -> None:
 
 
 def upgrade() -> None:
-    with op.batch_alter_table("ghg_calculation_run") as batch_op:
-        batch_op.add_column(sa.Column("reporting_org_id", sa.BigInteger(), nullable=True))
-        batch_op.add_column(sa.Column("organization_boundary_id", sa.BigInteger(), nullable=True))
-        batch_op.add_column(
-            sa.Column("default_scope2_method", sa.String(length=24), server_default="location", nullable=False)
+    needs_reporting_org_id = not _column_exists("ghg_calculation_run", "reporting_org_id")
+    needs_organization_boundary_id = not _column_exists("ghg_calculation_run", "organization_boundary_id")
+    needs_default_scope2_method = not _column_exists("ghg_calculation_run", "default_scope2_method")
+    needs_summary_snapshot = not _column_exists("ghg_calculation_run", "summary_snapshot")
+    needs_quality_snapshot = not _column_exists("ghg_calculation_run", "quality_snapshot")
+    needs_reporting_org_index = not _index_exists("ghg_calculation_run", "ix_ghg_calculation_run_reporting_org_id")
+    needs_boundary_index = not _index_exists("ghg_calculation_run", "ix_ghg_calculation_run_organization_boundary_id")
+    needs_scope2_method_index = not _index_exists("ghg_calculation_run", "ix_ghg_calculation_run_default_scope2_method")
+    needs_reporting_org_fk = not _foreign_key_exists(
+        "ghg_calculation_run",
+        ["reporting_org_id"],
+        "carbon_reporting_organization",
+    )
+    needs_boundary_fk = not _foreign_key_exists(
+        "ghg_calculation_run",
+        ["organization_boundary_id"],
+        "carbon_organization_boundary",
+    )
+    if any(
+        (
+            needs_reporting_org_id,
+            needs_organization_boundary_id,
+            needs_default_scope2_method,
+            needs_summary_snapshot,
+            needs_quality_snapshot,
+            needs_reporting_org_index,
+            needs_boundary_index,
+            needs_scope2_method_index,
+            needs_reporting_org_fk,
+            needs_boundary_fk,
         )
-        batch_op.add_column(
-            sa.Column("summary_snapshot", sa.JSON(), server_default=sa.text("'{}'::json"), nullable=False)
-        )
-        batch_op.add_column(
-            sa.Column("quality_snapshot", sa.JSON(), server_default=sa.text("'{}'::json"), nullable=False)
-        )
-        batch_op.create_index("ix_ghg_calculation_run_reporting_org_id", ["reporting_org_id"])
-        batch_op.create_index("ix_ghg_calculation_run_organization_boundary_id", ["organization_boundary_id"])
-        batch_op.create_index("ix_ghg_calculation_run_default_scope2_method", ["default_scope2_method"])
-        batch_op.create_foreign_key(
-            "fk_ghg_calculation_run_reporting_org",
-            "carbon_reporting_organization",
-            ["reporting_org_id"],
-            ["id"],
-            ondelete="SET NULL",
-        )
-        batch_op.create_foreign_key(
-            "fk_ghg_calculation_run_boundary",
-            "carbon_organization_boundary",
-            ["organization_boundary_id"],
-            ["id"],
-            ondelete="SET NULL",
-        )
+    ):
+        with op.batch_alter_table("ghg_calculation_run") as batch_op:
+            if needs_reporting_org_id:
+                batch_op.add_column(sa.Column("reporting_org_id", sa.BigInteger(), nullable=True))
+            if needs_organization_boundary_id:
+                batch_op.add_column(sa.Column("organization_boundary_id", sa.BigInteger(), nullable=True))
+            if needs_default_scope2_method:
+                batch_op.add_column(
+                    sa.Column("default_scope2_method", sa.String(length=24), server_default="location", nullable=False)
+                )
+            if needs_summary_snapshot:
+                batch_op.add_column(
+                    sa.Column("summary_snapshot", sa.JSON(), server_default=sa.text("'{}'::json"), nullable=False)
+                )
+            if needs_quality_snapshot:
+                batch_op.add_column(
+                    sa.Column("quality_snapshot", sa.JSON(), server_default=sa.text("'{}'::json"), nullable=False)
+                )
+            if needs_reporting_org_index:
+                batch_op.create_index("ix_ghg_calculation_run_reporting_org_id", ["reporting_org_id"])
+            if needs_boundary_index:
+                batch_op.create_index("ix_ghg_calculation_run_organization_boundary_id", ["organization_boundary_id"])
+            if needs_scope2_method_index:
+                batch_op.create_index("ix_ghg_calculation_run_default_scope2_method", ["default_scope2_method"])
+            if needs_reporting_org_fk:
+                batch_op.create_foreign_key(
+                    "fk_ghg_calculation_run_reporting_org",
+                    "carbon_reporting_organization",
+                    ["reporting_org_id"],
+                    ["id"],
+                    ondelete="SET NULL",
+                )
+            if needs_boundary_fk:
+                batch_op.create_foreign_key(
+                    "fk_ghg_calculation_run_boundary",
+                    "carbon_organization_boundary",
+                    ["organization_boundary_id"],
+                    ["id"],
+                    ondelete="SET NULL",
+                )
 
     if op.get_bind().dialect.name == "postgresql":
         op.execute(

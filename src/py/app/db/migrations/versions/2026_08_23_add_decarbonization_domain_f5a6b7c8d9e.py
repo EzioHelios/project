@@ -12,6 +12,7 @@ from datetime import date
 from uuid import uuid4
 
 import sqlalchemy as sa
+from advanced_alchemy.types import GUID, DateTimeUTC
 from alembic import op
 
 from app.domain.decarbonization import models
@@ -47,6 +48,68 @@ PERMISSIONS = (
     ("carbon.reduction.ccer.manage", "管理CCER卷宗", "维护离线登记、签发和碳资产衔接信息"),
     ("carbon.reduction.export", "导出减碳成果", "导出项目、监测、计算和申报材料"),
 )
+
+
+def _create_legacy_ccer_dossier() -> None:
+    bind = op.get_bind()
+    if sa.inspect(bind).has_table("decarbonization_ccer_dossier"):
+        return
+    op.create_table(
+        "decarbonization_ccer_dossier",
+        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("project_id", sa.BigInteger(), nullable=False),
+        sa.Column("status", sa.String(length=24), server_default="preparing", nullable=False),
+        sa.Column("project_design_document_no", sa.String(length=128), nullable=True),
+        sa.Column("validation_body", sa.String(length=255), nullable=True),
+        sa.Column("verification_body", sa.String(length=255), nullable=True),
+        sa.Column("registration_no", sa.String(length=128), nullable=True),
+        sa.Column("registration_date", sa.Date(), nullable=True),
+        sa.Column("issuance_no", sa.String(length=128), nullable=True),
+        sa.Column("issuance_date", sa.Date(), nullable=True),
+        sa.Column("issued_quantity_tco2e", sa.Numeric(20, 6), nullable=True),
+        sa.Column("material_checklist", sa.JSON(), server_default=sa.text("'[]'::json"), nullable=False),
+        sa.Column("milestones", sa.JSON(), server_default=sa.text("'[]'::json"), nullable=False),
+        sa.Column("carbon_credit_holding_id", sa.BigInteger(), nullable=True),
+        sa.Column("team_id", GUID(length=16), nullable=False),
+        sa.Column("created_at", DateTimeUTC(timezone=True), nullable=False),
+        sa.Column("updated_at", DateTimeUTC(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["project_id"],
+            ["decarbonization_project.id"],
+            name="fk_decarbonization_ccer_dossier_project_id_decarbonizat_746a",
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["carbon_credit_holding_id"],
+            ["carbon_credit_holding.id"],
+            name="fk_decarbonization_ccer_dossier_carbon_credit_holding_i_e6c8",
+            ondelete="SET NULL",
+        ),
+        sa.ForeignKeyConstraint(
+            ["team_id"],
+            ["team.id"],
+            name="fk_decarbonization_ccer_dossier_team_id_team",
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name="pk_decarbonization_ccer_dossier"),
+        sa.UniqueConstraint("team_id", "project_id", name="uq_decarb_ccer_project"),
+    )
+    op.create_index("ix_decarbonization_ccer_dossier_project_id", "decarbonization_ccer_dossier", ["project_id"])
+    op.create_index("ix_decarbonization_ccer_dossier_status", "decarbonization_ccer_dossier", ["status"])
+    op.create_index(
+        "ix_decarbonization_ccer_dossier_registration_no",
+        "decarbonization_ccer_dossier",
+        ["registration_no"],
+    )
+    op.create_index("ix_decarbonization_ccer_dossier_issuance_no", "decarbonization_ccer_dossier", ["issuance_no"])
+    op.create_index(
+        "ix_decarbonization_ccer_dossier_carbon_credit_holding_id",
+        "decarbonization_ccer_dossier",
+        ["carbon_credit_holding_id"],
+    )
+    op.alter_column("decarbonization_ccer_dossier", "status", server_default=None)
+    op.alter_column("decarbonization_ccer_dossier", "material_checklist", server_default=None)
+    op.alter_column("decarbonization_ccer_dossier", "milestones", server_default=None)
 
 
 def _enable_tenant_rls(table_name: str) -> None:
@@ -167,7 +230,10 @@ def upgrade() -> None:
     bind = op.get_bind()
     models.ReductionMethodologyVersion.__table__.create(bind=bind, checkfirst=False)
     for table in TENANT_TABLES:
-        table.create(bind=bind, checkfirst=False)
+        if table.name == "decarbonization_ccer_dossier":
+            _create_legacy_ccer_dossier()
+        else:
+            table.create(bind=bind, checkfirst=False)
         _enable_tenant_rls(table.name)
     _insert_methodologies()
     _insert_permissions()
