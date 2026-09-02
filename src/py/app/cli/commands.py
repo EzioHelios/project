@@ -46,6 +46,18 @@ def metering_management_group(_: dict[str, Any]) -> None:
     """Manage meter ingestion and migration operations."""
 
 
+@click.group(name="energy", invoke_without_command=False, help="Manage energy master data and tenant facts.")
+@click.pass_context
+def energy_management_group(_: dict[str, Any]) -> None:
+    """Manage energy dictionaries and tenant fact normalization."""
+
+
+@click.group(name="types", invoke_without_command=False, help="Manage standard energy type dictionaries.")
+@click.pass_context
+def energy_types_group(_: dict[str, Any]) -> None:
+    """Manage standard energy types."""
+
+
 @click.group(name="demo", invoke_without_command=False, help="Apply reusable cross-domain demo packages.")
 @click.pass_context
 def demo_management_group(_: dict[str, Any]) -> None:
@@ -59,6 +71,7 @@ def demo_package_group(_: dict[str, Any]) -> None:
 
 
 demo_management_group.add_command(demo_package_group)
+energy_management_group.add_command(energy_types_group)
 
 
 @demo_package_group.command(name="list", help="List registered reusable demo packages.")
@@ -154,6 +167,106 @@ def _demo_action_command(name: str) -> Any:
 
 for _demo_action in ("preflight", "install", "validate", "cleanup"):
     _demo_action_command(_demo_action)
+
+
+def _print_energy_type_init_result(result: Any) -> None:
+    console = get_console()
+    console.print(
+        f"applied={result.applied} "
+        f"energy_types(created={result.energy_types_created}, updated={result.energy_types_updated}, "
+        f"unchanged={result.energy_types_unchanged}) "
+        f"unit_conversions(created={result.conversions_created}, updated={result.conversions_updated}, "
+        f"unchanged={result.conversions_unchanged})"
+    )
+
+
+def _print_energy_type_diagnostics(result: Any) -> None:
+    console = get_console()
+    console.print(f"known_energy_types={result.known_energy_type_count} issues={result.issue_count}")
+    for issue in result.issues:
+        suggestion = f" -> {issue.suggested_code}" if issue.suggested_code else ""
+        console.print(
+            f"  [{issue.issue_type}] team={issue.team_slug} table={issue.table_name} "
+            f"field={issue.field_name} code={issue.observed_code}{suggestion} rows={issue.row_count}"
+        )
+
+
+@energy_types_group.command(name="init", help="Initialize or refresh the standard energy type dictionary.")
+@click.option("--apply", "apply", is_flag=True, default=False, help="Persist dictionary changes.")
+def init_energy_types_command(apply: bool) -> None:
+    """Initialize standard energy type dictionaries."""
+    from app.domain.energy.usecases.energy_types import ensure_standard_energy_types
+
+    console = get_console()
+
+    async def _init() -> None:
+        async with alchemy.get_session() as session:
+            result = await ensure_standard_energy_types(session, apply=apply)
+        _print_energy_type_init_result(result)
+
+    console.rule("Initialize standard energy types.")
+    anyio.run(_init)
+
+
+@energy_types_group.command(name="validate", help="Validate standard energy type dictionary coverage.")
+def validate_energy_types_command() -> None:
+    """Validate standard energy type dictionaries without changing data."""
+    from app.domain.energy.usecases.energy_types import ensure_standard_energy_types
+
+    console = get_console()
+
+    async def _validate() -> None:
+        async with alchemy.get_session() as session:
+            result = await ensure_standard_energy_types(session, apply=False)
+        _print_energy_type_init_result(result)
+        if result.energy_types_created or result.energy_types_updated or result.conversions_created or result.conversions_updated:
+            message = "Standard energy type dictionary is not up to date."
+            raise click.ClickException(message)
+
+    console.rule("Validate standard energy types.")
+    anyio.run(_validate)
+
+
+@energy_types_group.command(name="diagnose", help="Diagnose tenant rows that do not use standard energy types.")
+@click.option("--team", "team_slug", type=click.STRING, default="all", show_default=True, help="Tenant slug or all.")
+def diagnose_energy_types_command(team_slug: str) -> None:
+    """Diagnose tenant energy type usage."""
+    from app.domain.energy.usecases.energy_types import diagnose_energy_type_data
+
+    console = get_console()
+
+    async def _diagnose() -> None:
+        async with alchemy.get_session() as session:
+            result = await diagnose_energy_type_data(session, team_slug=team_slug)
+        _print_energy_type_diagnostics(result)
+
+    console.rule("Diagnose tenant energy type usage.")
+    anyio.run(_diagnose)
+
+
+@energy_types_group.command(name="repair", help="Normalize tenant rows to the standard energy type dictionary.")
+@click.option("--team", "team_slug", type=click.STRING, default="all", show_default=True, help="Tenant slug or all.")
+@click.option("--apply", "apply", is_flag=True, default=False, help="Persist tenant data changes.")
+def repair_energy_types_command(team_slug: str, apply: bool) -> None:
+    """Repair tenant energy type usage."""
+    from app.domain.energy.usecases.energy_types import repair_energy_type_data
+
+    console = get_console()
+
+    async def _repair() -> None:
+        async with alchemy.get_session() as session:
+            result = await repair_energy_type_data(session, team_slug=team_slug, apply=apply)
+        _print_energy_type_init_result(result.initialized)
+        console.print(
+            f"applied={result.applied} interval_facts_updated={result.interval_facts_updated} "
+            f"device_types_updated={result.device_types_updated} equipment_updated={result.equipment_updated} "
+            f"ghg_activities_updated={result.ghg_activities_updated}"
+        )
+        if result.remaining_issues is not None:
+            _print_energy_type_diagnostics(result.remaining_issues)
+
+    console.rule("Repair tenant energy type usage.")
+    anyio.run(_repair)
 
 
 @demo_management_group.command(name="apply", help="Apply one reusable demo package to its tenant.")

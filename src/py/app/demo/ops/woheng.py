@@ -19,6 +19,11 @@ from app.domain.carbon.energy_analysis_importer import (
     _rebuild_equipment_workload_facts,
     seed_energy_analysis_data,
 )
+from app.domain.energy.usecases.energy_types import (
+    diagnose_energy_type_data,
+    ensure_standard_energy_types,
+    repair_energy_type_data,
+)
 from app.lib.crypt import get_password_hash
 from app.lib.tenancy import TENANT_BYPASS_SESSION_KEY, TENANT_ID_SESSION_KEY
 
@@ -219,6 +224,21 @@ class WohengShowcasePackage:
             return self._result(context, DemoAction.INSTALL, False, DemoStepStatus.PLANNED, planned)
 
         steps: list[DemoPlanStep] = []
+        init_result = await ensure_standard_energy_types(self._session, apply=True)
+        steps.append(
+            DemoPlanStep(
+                module_key="energy-types",
+                action=DemoAction.INSTALL,
+                status=DemoStepStatus.COMPLETED,
+                summary="初始化标准能源品种与单位换算字典",
+                details={
+                    "energy_types_created": init_result.energy_types_created,
+                    "energy_types_updated": init_result.energy_types_updated,
+                    "unit_conversions_created": init_result.conversions_created,
+                    "unit_conversions_updated": init_result.conversions_updated,
+                },
+            )
+        )
         await self._ensure_standard_accounts()
         for tenant in TENANTS:
             team = await self._ensure_team(tenant)
@@ -246,6 +266,7 @@ class WohengShowcasePackage:
                     "builder": "ShowcaseDemoBuilder",
                 }
             await self._specialize_tenant(tenant, team_id=team.id)
+            repair_result = await repair_energy_type_data(self._session, team_slug=tenant.slug, apply=True)
             await self._record_manifest(
                 context,
                 module_key="tenant",
@@ -284,6 +305,9 @@ class WohengShowcasePackage:
                         "reports": result_summary["reports"],
                         "equipment": result_summary["equipment"],
                         "builder": result_summary["builder"],
+                        "energy_interval_facts_repaired": repair_result.interval_facts_updated,
+                        "equipment_energy_types_repaired": repair_result.equipment_updated,
+                        "ghg_activities_repaired": repair_result.ghg_activities_updated,
                     },
                 )
             )
@@ -327,6 +351,7 @@ class WohengShowcasePackage:
             self._session.info[TENANT_ID_SESSION_KEY] = team.id
             self._session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
             counts = await self._tenant_counts()
+            energy_type_diagnostics = await diagnose_energy_type_data(self._session, team_slug=tenant.slug)
             passed = (
                 counts["equipment"] >= MIN_EQUIPMENT_COUNT
                 and counts["activities"] >= MIN_ACTIVITY_COUNT
@@ -351,6 +376,7 @@ class WohengShowcasePackage:
                 and counts["reduction_projects"] >= MIN_REDUCTION_PROJECT_COUNT
                 and counts["alarm_events"] >= MIN_ALARM_EVENT_COUNT
                 and counts["video_alarm_events"] >= MIN_VIDEO_ALARM_EVENT_COUNT
+                and energy_type_diagnostics.issue_count == 0
             )
             steps.append(
                 DemoPlanStep(
@@ -376,6 +402,7 @@ class WohengShowcasePackage:
                         "required_reduction_projects": MIN_REDUCTION_PROJECT_COUNT,
                         "required_alarm_events": MIN_ALARM_EVENT_COUNT,
                         "required_video_alarm_events": MIN_VIDEO_ALARM_EVENT_COUNT,
+                        "energy_type_issues": energy_type_diagnostics.issue_count,
                         **counts,
                     },
                 )
@@ -446,6 +473,13 @@ class WohengShowcasePackage:
 
     def _install_steps(self, status: DemoStepStatus) -> list[DemoPlanStep]:
         return [
+            DemoPlanStep(
+                module_key="energy-types",
+                action=DemoAction.INSTALL,
+                status=status,
+                summary="初始化标准能源品种与单位换算字典",
+                details={"dictionary": "dataapp_energytype"},
+            ),
             DemoPlanStep(
                 module_key="tenant",
                 action=DemoAction.INSTALL,
@@ -663,7 +697,7 @@ class WohengShowcasePackage:
         for equipment in equipment_rows:
             equipment.owner_unit = tenant.enterprise_name
             equipment.location = tenant.location if equipment.code == "PCC-METER-01" else equipment.location
-            if equipment.energy_type == "electricity":
+            if equipment.energy_type in {"electricity", "purchased_electricity"}:
                 equipment.protocol = "mqtt"
                 equipment.data_acquisition_method = "MQTT电表接入"
                 equipment.external_device_id = f"WH-{tenant.city_code}-{equipment.code}"

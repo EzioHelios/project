@@ -150,7 +150,7 @@ class DeviceType(BigIntBase):
         index=True,
     )
     parent_code: Mapped[str | None] = mapped_column(String(32), index=True)
-    energy_type: Mapped[str | None] = mapped_column(String(20))
+    energy_type: Mapped[str | None] = mapped_column(String(32))
     is_energy_device: Mapped[bool] = mapped_column(Boolean, default=False)
     is_special_equipment: Mapped[bool] = mapped_column(Boolean, default=False)
     default_protocol: Mapped[str | None] = mapped_column(String(20))
@@ -1196,7 +1196,7 @@ class MonitorEquipment(TeamScopedMixin, BigIntBase):
     maintainer_name: Mapped[str | None] = mapped_column(String(64))
     warehouse_name: Mapped[str | None] = mapped_column(String(100), index=True)
     warehouse_code: Mapped[str | None] = mapped_column(String(32), index=True)
-    energy_type: Mapped[str | None] = mapped_column(String(20), index=True)
+    energy_type: Mapped[str | None] = mapped_column(String(32), index=True)
     rated_power_kw: Mapped[float | None] = mapped_column(Float)
     network_env: Mapped[str | None] = mapped_column(String(100))
     data_acquisition_method: Mapped[str | None] = mapped_column(String(30))

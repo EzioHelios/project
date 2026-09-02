@@ -9,6 +9,7 @@ from litestar.exceptions import PermissionDeniedException
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.domain.energy.usecases.energy_types import canonicalize_energy_type_code
 from app.lib.tenancy import TENANT_ID_SESSION_KEY
 
 if TYPE_CHECKING:
@@ -94,14 +95,16 @@ class EnergyDatasetImportUseCase:
                 insert into dataapp_energyintervalfact (
                     team_id, source_system, source_record_id, energy_type_code, equipment_code, equipment_name,
                     area_id, area_name, use_system_code, use_system_name, granularity, period_start, period_end,
-                    amount, unit, cost_cny, tariff_segment_type, reading_count, data_quality, remark, created_at, updated_at
+                    amount, unit, cost_cny, tariff_segment_type, reading_count, data_quality, revision_no, is_current,
+                    remark, created_at, updated_at
                 )
                 values (
                     :team_id, :source_system, :source_record_id, :energy_type_code, :equipment_code, :equipment_name,
                     :area_id, :area_name, :use_system_code, :use_system_name, :granularity, :period_start, :period_end,
-                    :amount, :unit, :cost_cny, :tariff_segment_type, :reading_count, :data_quality, :remark, now(), now()
+                    :amount, :unit, :cost_cny, :tariff_segment_type, :reading_count, :data_quality, 1, true,
+                    :remark, now(), now()
                 )
-                on conflict on constraint uq_energy_interval_team_source_record do update set
+                on conflict on constraint uq_energy_interval_team_source_record_revision do update set
                     energy_type_code = excluded.energy_type_code,
                     equipment_code = excluded.equipment_code,
                     equipment_name = excluded.equipment_name,
@@ -118,6 +121,7 @@ class EnergyDatasetImportUseCase:
                     tariff_segment_type = excluded.tariff_segment_type,
                     reading_count = excluded.reading_count,
                     data_quality = excluded.data_quality,
+                    is_current = true,
                     remark = excluded.remark,
                     updated_at = now()
                 """
@@ -126,7 +130,8 @@ class EnergyDatasetImportUseCase:
                 "team_id": team_id,
                 "source_system": _text(row.get("source_system")) or IMPORT_SOURCE_SYSTEM,
                 "source_record_id": source_record_id,
-                "energy_type_code": _text(row.get("energy_type_code")) or "electricity",
+                "energy_type_code": canonicalize_energy_type_code(_text(row.get("energy_type_code")))
+                or "purchased_electricity",
                 "equipment_code": _nullable_text(row.get("equipment_code")),
                 "equipment_name": _nullable_text(row.get("equipment_name")),
                 "area_id": _nullable_text(row.get("area_id")),
@@ -323,6 +328,8 @@ def _data_quality(value: Any) -> str:
         return "estimated"
     if any(token in text_value for token in ("manual", "手工")):
         return "manual"
+    if any(token in text_value for token in ("import", "导入")):
+        return "imported"
     return "measured"
 
 

@@ -104,6 +104,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from app.cli.commands import (
             carbon_management_group,
             demo_management_group,
+            energy_management_group,
             metering_management_group,
             user_management_group,
         )
@@ -112,6 +113,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         self.app_slug = settings.app.slug
         cli.add_command(carbon_management_group)
         cli.add_command(demo_management_group)
+        cli.add_command(energy_management_group)
         cli.add_command(metering_management_group)
         cli.add_command(user_management_group)
 

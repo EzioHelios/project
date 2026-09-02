@@ -271,7 +271,7 @@ class LegacyXtckMasterDataImport:
             equipment.sort_index = _int_or_none(row.get("sort_index"))
             equipment.supplier = _optional_text(row.get("supplier"))
             equipment.is_enable = bool(row.get("is_enable", True))
-            equipment.energy_type = "electricity" if equipment.category == 0 else equipment.energy_type
+            equipment.energy_type = "purchased_electricity" if equipment.category == 0 else equipment.energy_type
             equipment.data_acquisition_method = "legacy_import"
             equipment.protocol = "http_yunji"
             count += 1

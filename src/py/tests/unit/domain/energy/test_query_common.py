@@ -3,8 +3,18 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
 
+from app.domain.energy.queries.analysis import (
+    EnergyAnalysisQuery,
+    _analysis_granularity,
+    _analysis_source_granularity,
+)
+from app.domain.energy.queries.analysis import (
+    _build_energy_interval_filters as build_energy_analysis_filters,
+)
 from app.domain.energy.queries.common import period_param, ratio_or_none
 from app.domain.energy.queries.consumption import EnergyConsumptionQuery, build_energy_fact_filters
+from app.domain.energy.queries.flow import EnergyFlowQuery, _build_flow_model, _build_report_items
+from app.domain.energy.queries.flow import _build_filters as build_energy_flow_filters
 from app.domain.production_denominator.queries import ProductionOutputQuery, production_output_where_sql
 
 
@@ -32,6 +42,102 @@ def test_energy_fact_filters_always_include_the_active_team() -> None:
 
     assert "team_id = :team_id" in where_sql
     assert params["team_id"] == str(team_id)
+
+
+def test_energy_analysis_month_granularity_aggregates_day_source_facts() -> None:
+    where_sql, params = build_energy_analysis_filters(EnergyAnalysisQuery(granularity="month"), team_id="tenant-1")
+
+    assert "granularity = :source_granularity" in where_sql
+    assert _analysis_granularity("month") == "month"
+    assert _analysis_source_granularity("month") == "day"
+    assert params["source_granularity"] == "day"
+
+
+def test_energy_analysis_filters_include_business_object_selectors() -> None:
+    where_sql, params = build_energy_analysis_filters(
+        EnergyAnalysisQuery(
+            energy_type_code="purchased_electricity",
+            area_id="12",
+            equipment_id="34",
+            use_system_code="warehouse_lighting",
+            tariff_segment_type="peak",
+        ),
+        team_id="tenant-1",
+    )
+
+    assert "energy_type_code = :energy_type_code" in where_sql
+    assert "area_id = :area_id" in where_sql
+    assert "equipment_id = :equipment_id" in where_sql
+    assert "use_system_code = :use_system_code" in where_sql
+    assert "tariff_segment_type = :tariff_segment_type" in where_sql
+    assert params["energy_type_code"] == "purchased_electricity"
+    assert params["area_id"] == "12"
+    assert params["equipment_id"] == 34
+
+
+def test_energy_flow_filters_include_area_and_equipment_selectors() -> None:
+    where_sql, params = build_energy_flow_filters(
+        EnergyFlowQuery(energy_type_code="purchased_electricity", area_id="12", equipment_id="34"),
+        team_id="tenant-1",
+    )
+
+    assert "energy_type_code = :energy_type_code" in where_sql
+    assert "area_id = :area_id" in where_sql
+    assert "equipment_id = :equipment_id" in where_sql
+    assert params["area_id"] == "12"
+    assert params["equipment_id"] == 34
+
+
+def test_energy_flow_model_builds_metering_coverage_loss_items() -> None:
+    model = _build_flow_model(
+        [
+            {
+                "energy_type_code": "purchased_electricity",
+                "energy_type_name": "外购电力",
+                "use_system_code": "warehouse_lighting",
+                "use_system_name": "仓储照明",
+                "area_id": "AUTO_WH",
+                "area_name": "总装库",
+                "energy_amount": 1200,
+            }
+        ],
+        threshold_pct=5,
+    )
+
+    assert model["summary"]["total_input"] == 1200
+    assert model["summary"]["high_loss_count"] == 0
+    assert model["losses"]
+    assert model["losses"][0]["stage"] == "计量覆盖诊断"
+    assert model["losses"][0]["status"] == "normal"
+
+
+def test_energy_flow_report_items_follow_non_empty_flow_data() -> None:
+    model = _build_flow_model(
+        [
+            {
+                "energy_type_code": "purchased_electricity",
+                "energy_type_name": "外购电力",
+                "use_system_code": "charging",
+                "use_system_name": "充电设施",
+                "area_id": "CHARGING",
+                "area_name": "充电区",
+                "energy_amount": 860,
+            }
+        ],
+        threshold_pct=5,
+    )
+
+    report_items = _build_report_items(model["summary"], model["links"])
+
+    assert len(report_items) == 1
+    assert report_items[0]["title"] == "能流结构复盘"
+    assert report_items[0]["evidence"]["计量用电(kWh)"] == 860
+
+
+def test_energy_flow_report_items_empty_without_flow_data() -> None:
+    report_items = _build_report_items({"total_input": 0, "utilized_energy": 0, "row_count": 0}, [])
+
+    assert report_items == []
 
 
 def test_production_filters_always_include_the_active_team() -> None:

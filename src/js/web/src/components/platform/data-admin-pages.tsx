@@ -19,15 +19,18 @@ import { Textarea } from "@/components/ui/textarea"
 
 type ApiResponse<T> = { code: number; msg?: string; data: T }
 export type PageResult<T> = { items: T[]; total: number; limit: number; offset: number }
-type Row = Record<string, unknown> & { id?: number | string }
+export type Row = Record<string, unknown> & { id?: number | string }
 
-type Option = { label: string; value: string }
-type Field = {
+export type Option = { label: string; value: string; data?: Row }
+export type Field = {
   name: string
   label: string
   type?: "text" | "number" | "date" | "datetime" | "select" | "textarea" | "json" | "boolean"
   required?: boolean
   options?: Option[]
+  valueKind?: "number" | "string"
+  placeholder?: string
+  derive?: (option: Option, form: Record<string, string>) => Record<string, string>
 }
 type Column = { key: string; label: string; align?: "right"; render?: (row: Row) => string }
 
@@ -38,6 +41,12 @@ function display(value: unknown) {
   if (typeof value === "boolean") return value ? "是" : "否"
   if (typeof value === "object") return JSON.stringify(value)
   return String(value)
+}
+
+function displayDate(value: unknown) {
+  const text = display(value)
+  if (text === "-") return text
+  return text.includes("T") ? text.split("T")[0] : text
 }
 
 function ledgerRowKey(row: Row, index: number, pageOffset = 0) {
@@ -197,11 +206,13 @@ export function PaginationBar({
 
 function toPayload(fields: Field[], form: Record<string, string>) {
   const payload: Record<string, unknown> = {}
-  const numericNames = new Set(["area_id", "sector_id", "category", "status", "trip_state", "sort_index", "event_type"])
+  const numericNames = new Set(["sector_id", "category", "status", "trip_state", "sort_index", "event_type"])
   for (const field of fields) {
     if (field.name === "threshold_operator" || field.name === "threshold_value" || field.name === "threshold_unit") continue
     const raw = form[field.name]
-    if (field.type === "number" || numericNames.has(field.name)) payload[field.name] = raw === "" ? null : Number(raw)
+    if (raw === "__none") payload[field.name] = null
+    else if (field.valueKind === "string") payload[field.name] = raw === "" ? null : raw
+    else if (field.type === "number" || field.valueKind === "number" || numericNames.has(field.name)) payload[field.name] = raw === "" ? null : Number(raw)
     else if (field.type === "boolean") payload[field.name] = raw === "true"
     else if (field.type === "json") {
       payload[field.name] = raw.trim() ? JSON.parse(raw) : null
@@ -230,6 +241,7 @@ function makeInitial(fields: Field[], row?: Row) {
       if (field.name === "threshold_unit") return [field.name, rangeVal?.unit === null || rangeVal?.unit === undefined ? "" : String(rangeVal.unit)]
       if (field.type === "json") return [field.name, value ? JSON.stringify(value, null, 2) : ""]
       if (field.type === "boolean") return [field.name, value === false ? "false" : "true"]
+      if (field.type === "date") return [field.name, displayDate(value) === "-" ? "" : displayDate(value)]
       return [field.name, value === null || value === undefined ? "" : String(value)]
     }),
   )
@@ -245,9 +257,9 @@ function FieldControl({ field, value, onChange }: { field: Field; value: string;
           ]
         : (field.options ?? [])
     return (
-      <Select value={value || options[0]?.value} onValueChange={onChange}>
+      <Select value={value || undefined} onValueChange={onChange}>
         <SelectTrigger>
-          <SelectValue />
+          <SelectValue placeholder={field.placeholder ?? "请选择"} />
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (
@@ -271,7 +283,19 @@ function FieldControl({ field, value, onChange }: { field: Field; value: string;
   )
 }
 
-function RowDetail({ row, title, labels, onClose }: { row: Row | null; title: string; labels?: Record<string, string>; onClose: () => void }) {
+function RowDetail({
+  row,
+  title,
+  labels,
+  renderers,
+  onClose,
+}: {
+  row: Row | null
+  title: string
+  labels?: Record<string, string>
+  renderers?: Record<string, (row: Row) => string>
+  onClose: () => void
+}) {
   const visibleEntries = row ? Object.entries(row).filter(([key]) => key !== "id") : []
   return (
     <Sheet open={Boolean(row)} onOpenChange={(open) => !open && onClose()}>
@@ -283,7 +307,7 @@ function RowDetail({ row, title, labels, onClose }: { row: Row | null; title: st
           {visibleEntries.map(([key, value]) => (
             <div key={key} className="grid grid-cols-[120px_1fr] gap-3 rounded-md border px-3 py-2 text-sm">
               <div className="text-muted-foreground">{labels?.[key] ?? key}</div>
-              <div className="min-w-0 break-all">{display(value)}</div>
+              <div className="min-w-0 break-all">{renderers?.[key]?.(row as Row) ?? display(value)}</div>
             </div>
           ))}
         </div>
@@ -303,6 +327,7 @@ export function CrudDataPage({
   onCreateSuccess,
   topContent,
   topActions,
+  extraParams,
 }: {
   title: string
   endpoint: string
@@ -314,6 +339,7 @@ export function CrudDataPage({
   onCreateSuccess?: (row: Row) => void | Promise<void>
   topContent?: ReactNode
   topActions?: ReactNode
+  extraParams?: Record<string, string | number | boolean | null | undefined>
 }) {
   const qc = useQueryClient()
   const [keyword, setKeyword] = useState("")
@@ -322,11 +348,32 @@ export function CrudDataPage({
   const [editing, setEditing] = useState<Row | null>(null)
   const [detail, setDetail] = useState<Row | null>(null)
   const [form, setForm] = useState<Record<string, string>>(makeInitial(fields))
-  const { query: listQuery, pageIndex, setPageIndex, pageSize, setPageSize } = usePagedResource<Row>({ endpoint, queryKey, keyword: appliedKeyword })
+  const { query: listQuery, pageIndex, setPageIndex, pageSize, setPageSize } = usePagedResource<Row>({ endpoint, queryKey, keyword: appliedKeyword, extraParams })
   const detailLabels = useMemo(
     () => Object.fromEntries([...columns.map((column) => [column.key, column.label] as const), ...fields.map((field) => [field.name, field.label] as const)]),
     [columns, fields],
   )
+  const detailRenderers = useMemo(() => {
+    const renderers: Record<string, (row: Row) => string> = {}
+    for (const field of fields) {
+      const options =
+        field.type === "boolean"
+          ? [
+              { label: "启用", value: "true" },
+              { label: "停用", value: "false" },
+            ]
+          : field.options
+      if (field.type === "select" || field.type === "boolean") {
+        renderers[field.name] = (row) => options?.find((option) => option.value === String(row[field.name] ?? ""))?.label ?? display(row[field.name])
+      } else if (field.type === "date") {
+        renderers[field.name] = (row) => displayDate(row[field.name])
+      }
+    }
+    for (const column of columns) {
+      if (column.render) renderers[column.key] = column.render as (row: Row) => string
+    }
+    return renderers
+  }, [columns, fields])
 
   function startCreate() {
     setEditing(null)
@@ -421,7 +468,16 @@ export function CrudDataPage({
                         {fields.map((field) => (
                           <div key={field.name} className={field.type === "textarea" || field.type === "json" ? "grid gap-2 sm:col-span-2" : "grid gap-2"}>
                             <Label>{field.label}</Label>
-                            <FieldControl field={field} value={form[field.name] ?? ""} onChange={(value) => setForm((state) => ({ ...state, [field.name]: value }))} />
+                            <FieldControl
+                              field={field}
+                              value={form[field.name] ?? ""}
+                              onChange={(value) =>
+                                setForm((state) => {
+                                  const option = field.options?.find((item) => item.value === value)
+                                  return { ...state, [field.name]: value, ...(option && field.derive ? field.derive(option, state) : {}) }
+                                })
+                              }
+                            />
                           </div>
                         ))}
                       </div>
@@ -490,7 +546,7 @@ export function CrudDataPage({
           </div>
         </AdminPanel>
       </PageSection>
-      <RowDetail row={detail} title={`${title}详情`} labels={detailLabels} onClose={() => setDetail(null)} />
+      <RowDetail row={detail} title={`${title}详情`} labels={detailLabels} renderers={detailRenderers} onClose={() => setDetail(null)} />
     </PageContainer>
   )
 }
@@ -522,6 +578,104 @@ export function RolesPage() {
         if (!row.id) return
         await navigate({ to: "/admin/roles", search: { roleId: String(row.id) } })
       }}
+    />
+  )
+}
+
+const energyCategoryOptions = [
+  { label: "外购能源", value: "purchased_energy" },
+  { label: "燃料", value: "fuel" },
+  { label: "非能源介质", value: "non_energy_medium" },
+  { label: "其他", value: "other" },
+]
+
+const energyScopeOptions = [
+  { label: "范围一", value: "scope1" },
+  { label: "范围二", value: "scope2" },
+  { label: "范围三", value: "scope3" },
+  { label: "不适用", value: "not_applicable" },
+]
+
+function optionLabel(options: Option[], value: unknown) {
+  return options.find((option) => option.value === String(value ?? ""))?.label ?? display(value)
+}
+
+export function EnergyTypesPage() {
+  return (
+    <CrudDataPage
+      title="能源种类"
+      endpoint="/api/energy/types"
+      queryKey={["energy", "types", "manage"]}
+      extraParams={{ include_disabled: true }}
+      searchPlaceholder="搜索能源编码、名称、类别或标准"
+      columns={[
+        { key: "code", label: "能源编码" },
+        { key: "name", label: "能源名称" },
+        { key: "category", label: "类别", render: (row) => optionLabel(energyCategoryOptions, row.category) },
+        { key: "default_scope", label: "默认范围", render: (row) => optionLabel(energyScopeOptions, row.default_scope) },
+        { key: "original_unit", label: "原始单位" },
+        { key: "standard_unit", label: "折标单位" },
+        { key: "standard_factor", label: "折标系数", align: "right" },
+        { key: "standard_code", label: "标准依据" },
+        { key: "is_enabled", label: "状态", render: (row) => (row.is_enabled === false ? "停用" : "启用") },
+      ]}
+      fields={[
+        { name: "code", label: "能源编码", required: true },
+        { name: "name", label: "能源名称", required: true },
+        { name: "category", label: "类别", type: "select", required: true, valueKind: "string", options: energyCategoryOptions },
+        { name: "default_scope", label: "默认范围", type: "select", required: true, options: energyScopeOptions },
+        { name: "original_unit", label: "原始单位" },
+        { name: "standard_unit", label: "折标单位" },
+        { name: "standard_factor", label: "折标系数", type: "number" },
+        { name: "standard_code", label: "标准依据" },
+        { name: "conversion_factor_source", label: "系数来源", type: "textarea" },
+        { name: "is_enabled", label: "启用状态", type: "boolean" },
+        { name: "remark", label: "备注", type: "textarea" },
+      ]}
+    />
+  )
+}
+
+export function EnergyUnitConversionsPage() {
+  const energyTypesQuery = useQuery({
+    queryKey: ["energy", "types", "conversion-options"],
+    queryFn: async () => (await request<{ items: Row[] }>("/api/energy/types?include_disabled=true&limit=500")).data,
+  })
+  const energyTypeOptions = useMemo(
+    () =>
+      (energyTypesQuery.data?.items ?? []).map((item) => ({
+        label: `${display(item.name)} · ${display(item.code)}`,
+        value: String(item.code ?? ""),
+      })),
+    [energyTypesQuery.data?.items],
+  )
+  return (
+    <CrudDataPage
+      title="单位换算"
+      endpoint="/api/energy/unit-conversions"
+      queryKey={["energy", "unit-conversions", "manage"]}
+      extraParams={{ include_disabled: true }}
+      searchPlaceholder="搜索能源编码、单位或标准"
+      columns={[
+        { key: "energy_type_code", label: "能源种类", render: (row) => optionLabel(energyTypeOptions, row.energy_type_code) },
+        { key: "from_unit", label: "来源单位" },
+        { key: "to_unit", label: "目标单位" },
+        { key: "multiply_factor", label: "换算系数", align: "right" },
+        { key: "standard_code", label: "标准依据" },
+        { key: "is_default", label: "默认", render: (row) => (row.is_default ? "是" : "否") },
+        { key: "is_enabled", label: "状态", render: (row) => (row.is_enabled === false ? "停用" : "启用") },
+      ]}
+      fields={[
+        { name: "energy_type_code", label: "能源种类", type: "select", required: true, options: energyTypeOptions },
+        { name: "from_unit", label: "来源单位", required: true },
+        { name: "to_unit", label: "目标单位", required: true },
+        { name: "multiply_factor", label: "换算系数", type: "number", required: true },
+        { name: "standard_code", label: "标准依据" },
+        { name: "conversion_factor_source", label: "系数来源", type: "textarea" },
+        { name: "is_default", label: "默认换算", type: "boolean" },
+        { name: "is_enabled", label: "启用状态", type: "boolean" },
+        { name: "remark", label: "备注", type: "textarea" },
+      ]}
     />
   )
 }

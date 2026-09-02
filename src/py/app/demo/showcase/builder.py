@@ -36,6 +36,7 @@ from app.domain.climate_governance.schemas import (
 )
 from app.domain.climate_governance.usecases import ClimateGovernanceUseCases
 from app.domain.decarbonization import models as reduction_m
+from app.domain.energy.usecases.energy_types import canonicalize_energy_type_code, ensure_standard_energy_types
 from app.domain.ghg_inventory.models import (
     GhgActivityAllocation,
     GhgActivityRecord,
@@ -490,6 +491,7 @@ class ShowcaseDemoBuilder:
 
     async def execute(self, *, climate_profile: str = "transition") -> ShowcaseDemoResult:
         require_session_tenant_id(self.session)
+        await ensure_standard_energy_types(self.session, apply=True)
         enterprise, areas, equipment = await self._master_data()
         _organization, periods, boundaries = await self._inventory_context(enterprise=enterprise, areas=areas)
         activities = await self._activities(periods=periods, boundaries=boundaries, areas=areas, equipment=equipment)
@@ -762,6 +764,16 @@ class ShowcaseDemoBuilder:
                     await self.session.flush()
                 for month in range(1, months + 1):
                     record_code = f"DEMO-PARK-{year}{month:02d}-{spec.code}"
+                    source_payload = {
+                        "method_code": spec.method_code,
+                        "gas_code": "CO2e",
+                        "scope2_method": "location" if spec.scope == "scope2" else "not_applicable",
+                        "demoPackage": SHOWCASE_PACKAGE_CODE,
+                        "isYtd": year == 2026,
+                    }
+                    energy_type_code = canonicalize_energy_type_code(spec.code)
+                    if energy_type_code is not None and spec.scope in {"scope1", "scope2"}:
+                        source_payload["energy_type_code"] = energy_type_code
                     activity = await self.session.scalar(
                         select(GhgActivityRecord).where(
                             GhgActivityRecord.inventory_code == inventory_code,
@@ -798,19 +810,15 @@ class ShowcaseDemoBuilder:
                             if year == 2026 and month == 8 and spec.code in {"C33-COMMUTE", "C61-CLOUD"}
                             else "pass",
                             parameter_set_code=f"{record_code}-PS1",
-                            source_payload={
-                                "method_code": spec.method_code,
-                                "gas_code": "CO2e",
-                                "scope2_method": "location" if spec.scope == "scope2" else "not_applicable",
-                                "demoPackage": SHOWCASE_PACKAGE_CODE,
-                                "isYtd": year == 2026,
-                            },
+                            source_payload=source_payload,
                             remarks="2026年8月数据处于月结复核期" if year == 2026 and month == 8 else None,
                             status="approved",
                             source_system="demo_generator",
                         )
                         self.session.add(activity)
                         await self.session.flush()
+                    else:
+                        activity.source_payload = {**dict(activity.source_payload or {}), **source_payload}
                     await self._parameter(activity=activity, spec=spec, year=year)
                     await self._allocation(activity=activity, spec=spec, areas=areas, equipment=equipment)
                     activities.append(activity)
@@ -935,7 +943,7 @@ class ShowcaseDemoBuilder:
                     fact = m.EnergyIntervalFact(
                         source_system="demo_showcase",
                         source_record_id=source_record_id,
-                        energy_type_code="electricity",
+                        energy_type_code="purchased_electricity",
                         equipment_id=item.id,
                         equipment_code=item.code,
                         equipment_name=item.name,
@@ -957,6 +965,8 @@ class ShowcaseDemoBuilder:
                         remark=SOURCE_NAME,
                     )
                     self.session.add(fact)
+                else:
+                    fact.energy_type_code = "purchased_electricity"
         await self.session.commit()
 
     async def _create_microgrid_site(
