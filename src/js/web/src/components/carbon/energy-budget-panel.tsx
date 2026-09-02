@@ -1,30 +1,23 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Plus, RefreshCw, Wand2 } from "lucide-react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
+import { RefreshCw, Settings } from "lucide-react"
 import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
-import { toast } from "sonner"
 
 import { AdminDataTable, AdminEmptyState, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
-import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
+import { type PageResult, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
 
 type BudgetPlan = {
   id: number
-  code: string
   name: string
   budget_year: number
-  period_type: string
-  period_start: string
-  period_end: string
   target_scope: string
   target_code?: string | null
   target_name?: string | null
@@ -32,11 +25,8 @@ type BudgetPlan = {
   carbon_budget_co2e?: number | null
   denominator_plan?: number | null
   denominator_unit?: string | null
-  energy_intensity_budget?: number | null
-  carbon_intensity_budget?: number | null
   status: string
   source_name?: string | null
-  standard_code?: string | null
   confidence_level?: string | null
 }
 
@@ -58,8 +48,6 @@ type BudgetProgressRow = {
 }
 
 type BudgetTotals = {
-  budget_tce: number
-  budget_co2e: number
   actual_tce: number
   actual_co2e: number
   energy_execution_rate_pct?: number | null
@@ -77,15 +65,11 @@ type BudgetProgress = {
 }
 
 type BudgetForecast = {
-  plan: BudgetPlan | null
-  items: BudgetProgressRow[]
   summary: {
     elapsed_months: number
     total_months: number
     forecast_tce?: number | null
     forecast_co2e?: number | null
-    energy_forecast_rate_pct?: number | null
-    carbon_forecast_rate_pct?: number | null
     energy_status: string
     carbon_status: string
   }
@@ -96,25 +80,17 @@ type BudgetRecommendation = {
   priority: string
   title: string
   target?: string | null
-  evidence: Record<string, unknown>
   action: string
 }
 
 type BudgetAdjustment = {
   id: number
-  plan_id: number
-  allocation_id?: number | null
   adjustment_no: string
-  adjustment_type: string
   effective_month?: string | null
-  original_energy_budget_tce?: number | null
-  original_carbon_budget_co2e?: number | null
   adjusted_energy_budget_tce?: number | null
   adjusted_carbon_budget_co2e?: number | null
-  reason?: string | null
-  status: string
   requested_by?: string | null
-  approved_by?: string | null
+  status: string
 }
 
 const targetScopes = [
@@ -124,32 +100,6 @@ const targetScopes = [
 ]
 
 const currentYear = new Date().getFullYear()
-
-const defaultPlanForm = {
-  name: "",
-  budget_year: String(currentYear),
-  target_scope: "enterprise",
-  target_code: "",
-  target_name: "",
-  energy_budget_tce: "",
-  carbon_budget_co2e: "",
-  denominator_plan: "",
-  denominator_unit: "",
-  status: "active",
-  source_name: "年度预算目标",
-  standard_code: "enterprise_budget_rule",
-  confidence_level: "medium",
-  remark: "",
-}
-
-const defaultAdjustmentForm = {
-  allocation_id: "",
-  adjusted_energy_budget_tce: "",
-  adjusted_carbon_budget_co2e: "",
-  reason: "",
-  requested_by: "",
-  status: "draft",
-}
 
 function formatNumber(value: number | null | undefined, digits = 2) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "-"
@@ -198,31 +148,10 @@ function buildQuery(planId: string, year: string) {
   return text ? `?${text}` : ""
 }
 
-function planPayload(form: typeof defaultPlanForm) {
-  const year = Number(form.budget_year || currentYear)
-  return {
-    ...form,
-    code: `ECB-${year}-${form.target_scope}-${form.target_code || "all"}`,
-    budget_year: year,
-    period_start: `${year}-01-01`,
-    period_end: `${year}-12-31`,
-    target_code: form.target_code || null,
-    target_name: form.target_name || null,
-    energy_budget_tce: form.energy_budget_tce || null,
-    carbon_budget_co2e: form.carbon_budget_co2e || null,
-    denominator_plan: form.denominator_plan || null,
-    denominator_unit: form.denominator_unit || null,
-  }
-}
-
 export function EnergyBudgetPanel({ header }: { header?: ReactNode }) {
   const queryClient = useQueryClient()
   const [year, setYear] = useState(String(currentYear))
   const [selectedPlanId, setSelectedPlanId] = useState("auto")
-  const [planOpen, setPlanOpen] = useState(false)
-  const [adjustmentOpen, setAdjustmentOpen] = useState(false)
-  const [planForm, setPlanForm] = useState(defaultPlanForm)
-  const [adjustmentForm, setAdjustmentForm] = useState(defaultAdjustmentForm)
 
   const plansQuery = useQuery<PageResult<BudgetPlan>>({
     queryKey: ["energy-budget", "plans", year],
@@ -254,58 +183,6 @@ export function EnergyBudgetPanel({ header }: { header?: ReactNode }) {
     enabled: !!selectedPlan?.id,
   })
 
-  const refreshAll = () => queryClient.invalidateQueries({ queryKey: ["energy-budget"] })
-
-  const createPlan = useMutation({
-    mutationFn: () =>
-      request<BudgetPlan>("/api/energy/budget/plans", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(planPayload(planForm)),
-      }),
-    onSuccess: (result) => {
-      toast.success("预算方案已保存")
-      setPlanOpen(false)
-      setPlanForm(defaultPlanForm)
-      setSelectedPlanId(String(result.data.id))
-      refreshAll()
-    },
-    onError: (error) => toast.error("保存失败", { description: error instanceof Error ? error.message : "请检查输入" }),
-  })
-
-  const generateAllocations = useMutation({
-    mutationFn: () => request(`/api/energy/budget/plans/${selectedPlan?.id}/generate-allocations`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }),
-    onSuccess: () => {
-      toast.success("月度预算已生成")
-      refreshAll()
-    },
-    onError: (error) => toast.error("生成失败", { description: error instanceof Error ? error.message : "请先选择预算方案" }),
-  })
-
-  const createAdjustment = useMutation({
-    mutationFn: () =>
-      request<BudgetAdjustment>("/api/energy/budget/adjustments", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          plan_id: selectedPlan?.id,
-          allocation_id: adjustmentForm.allocation_id ? Number(adjustmentForm.allocation_id) : null,
-          adjusted_energy_budget_tce: adjustmentForm.adjusted_energy_budget_tce || null,
-          adjusted_carbon_budget_co2e: adjustmentForm.adjusted_carbon_budget_co2e || null,
-          reason: adjustmentForm.reason,
-          requested_by: adjustmentForm.requested_by,
-          status: adjustmentForm.status,
-        }),
-      }),
-    onSuccess: () => {
-      toast.success("调整记录已保存")
-      setAdjustmentOpen(false)
-      setAdjustmentForm(defaultAdjustmentForm)
-      refreshAll()
-    },
-    onError: (error) => toast.error("保存失败", { description: error instanceof Error ? error.message : "请检查输入" }),
-  })
-
   const progress = progressQuery.data?.data
   const plan = progress?.plan ?? selectedPlan ?? null
   const rows = progress?.rows ?? []
@@ -325,40 +202,23 @@ export function EnergyBudgetPanel({ header }: { header?: ReactNode }) {
             <TabsTrigger value="allocation">月度预算</TabsTrigger>
             <TabsTrigger value="variance">执行偏差</TabsTrigger>
             <TabsTrigger value="forecast">预测超限</TabsTrigger>
-            <TabsTrigger value="adjustment">调整审批</TabsTrigger>
+            <TabsTrigger value="adjustment">调整记录</TabsTrigger>
           </AdminTabsList>
         }
         filters={
           <ContextBar
             actions={
               <>
-                <Button variant="outline" onClick={refreshAll}>
+                <Button variant="outline" onClick={() => queryClient.invalidateQueries({ queryKey: ["energy-budget"] })}>
                   <RefreshCw className="mr-2 h-4 w-4" />
                   刷新
                 </Button>
-                <Dialog open={planOpen} onOpenChange={setPlanOpen}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      新增目标
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>新增预算目标</DialogTitle>
-                      <DialogDescription className="sr-only">维护年度能源与碳排预算目标。</DialogDescription>
-                    </DialogHeader>
-                    <BudgetPlanForm value={planForm} onChange={setPlanForm} />
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setPlanOpen(false)}>
-                        取消
-                      </Button>
-                      <Button onClick={() => createPlan.mutate()} disabled={!planForm.name.trim() || createPlan.isPending}>
-                        保存
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <Button asChild>
+                  <Link to="/data/energy-budget">
+                    <Settings className="mr-2 h-4 w-4" />
+                    维护预算
+                  </Link>
+                </Button>
               </>
             }
           >
@@ -398,23 +258,17 @@ export function EnergyBudgetPanel({ header }: { header?: ReactNode }) {
           )}
         </TabsContent>
 
-        <TabsContent value="allocation" className="space-y-4">
-          <div className="flex justify-end">
-            <Button variant="outline" onClick={() => generateAllocations.mutate()} disabled={!selectedPlan?.id || generateAllocations.isPending}>
-              <Wand2 className="mr-2 h-4 w-4" />
-              生成月度预算
-            </Button>
-          </div>
+        <TabsContent value="allocation">
           <MonthlyBudgetTable rows={rows} />
         </TabsContent>
 
         <TabsContent value="variance" className="space-y-4">
           {plan ? (
             <MetricStrip className="md:grid-cols-2 xl:grid-cols-4">
-              <BudgetStat label="实际能耗" value={totals?.actual_tce} unit="tce" rate={totals?.energy_execution_rate_pct} />
-              <BudgetStat label="能耗偏差" value={totals?.energy_variance_tce} unit="tce" status={totals?.energy_status} />
-              <BudgetStat label="实际排放" value={totals?.actual_co2e} unit="tCO2e" rate={totals?.carbon_execution_rate_pct} />
-              <BudgetStat label="碳排偏差" value={totals?.carbon_variance_co2e} unit="tCO2e" status={totals?.carbon_status} />
+              <MetricTile label="实际能耗" value={formatNumber(totals?.actual_tce)} unit="tce" meta={`执行率 ${formatNumber(totals?.energy_execution_rate_pct, 2)}%`} />
+              <MetricTile label="能耗偏差" value={formatNumber(totals?.energy_variance_tce)} unit="tce" meta={statusBadge(totals?.energy_status)} />
+              <MetricTile label="实际排放" value={formatNumber(totals?.actual_co2e)} unit="tCO2e" meta={`执行率 ${formatNumber(totals?.carbon_execution_rate_pct, 2)}%`} />
+              <MetricTile label="碳排偏差" value={formatNumber(totals?.carbon_variance_co2e)} unit="tCO2e" meta={statusBadge(totals?.carbon_status)} />
             </MetricStrip>
           ) : null}
           <VarianceTable rows={rows} />
@@ -445,46 +299,17 @@ export function EnergyBudgetPanel({ header }: { header?: ReactNode }) {
                   <div className="mt-3 text-sm">{item.action}</div>
                 </div>
               ))}
-              {recommendations.length === 0 && <EmptyText text="暂无建议" />}
+              {recommendations.length === 0 && <AdminEmptyState title="暂无建议" />}
             </AdminPanel>
           </div>
         </TabsContent>
 
-        <TabsContent value="adjustment" className="space-y-4">
-          <div className="flex justify-end">
-            <Dialog open={adjustmentOpen} onOpenChange={setAdjustmentOpen}>
-              <DialogTrigger asChild>
-                <Button disabled={!selectedPlan?.id}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  新增调整
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>新增预算调整</DialogTitle>
-                  <DialogDescription className="sr-only">维护月度预算调整申请。</DialogDescription>
-                </DialogHeader>
-                <AdjustmentForm rows={rows} value={adjustmentForm} onChange={setAdjustmentForm} />
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setAdjustmentOpen(false)}>
-                    取消
-                  </Button>
-                  <Button onClick={() => createAdjustment.mutate()} disabled={!adjustmentForm.allocation_id || createAdjustment.isPending}>
-                    保存
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
+        <TabsContent value="adjustment">
           <AdjustmentTable rows={adjustments} />
         </TabsContent>
       </AdminPageScaffold>
     </Tabs>
   )
-}
-
-function BudgetStat({ label, value, unit, rate, status }: { label: string; value?: number | null; unit: string; rate?: number | null; status?: string | null }) {
-  return <MetricTile label={label} value={formatNumber(value)} unit={unit} meta={rate !== undefined ? `执行率 ${formatNumber(rate, 2)}%` : status ? statusBadge(status) : null} />
 }
 
 function InfoCell({ label, value }: { label: string; value: unknown }) {
@@ -527,7 +352,7 @@ function MonthlyBudgetTable({ rows }: { rows: BudgetProgressRow[] }) {
                 </TableCell>
               </TableRow>
             ))}
-            {rows.length === 0 && <EmptyRow colSpan={6} />}
+            {rows.length === 0 && <AdminTableStateRow colSpan={6}>暂无数据</AdminTableStateRow>}
           </TableBody>
         </Table>
       </AdminDataTable>
@@ -568,7 +393,7 @@ function VarianceTable({ rows, compact = false, title = "执行偏差" }: { rows
                 </TableCell>
               </TableRow>
             ))}
-            {rows.length === 0 && <EmptyRow colSpan={compact ? 6 : 7} />}
+            {rows.length === 0 && <AdminTableStateRow colSpan={compact ? 6 : 7}>暂无数据</AdminTableStateRow>}
           </TableBody>
         </Table>
       </AdminDataTable>
@@ -602,129 +427,10 @@ function AdjustmentTable({ rows }: { rows: BudgetAdjustment[] }) {
                 <TableCell>{statusBadge(row.status)}</TableCell>
               </TableRow>
             ))}
-            {rows.length === 0 && <EmptyRow colSpan={6} />}
+            {rows.length === 0 && <AdminTableStateRow colSpan={6}>暂无数据</AdminTableStateRow>}
           </TableBody>
         </Table>
       </AdminDataTable>
     </AdminPanel>
   )
-}
-
-function BudgetPlanForm({ value, onChange }: { value: typeof defaultPlanForm; onChange: (value: typeof defaultPlanForm) => void }) {
-  const set = (key: keyof typeof defaultPlanForm, next: string) => onChange({ ...value, [key]: next })
-  return (
-    <div className="grid gap-3 md:grid-cols-2">
-      <Field label="名称">
-        <Input value={value.name} onChange={(event) => set("name", event.target.value)} />
-      </Field>
-      <Field label="年度">
-        <Input value={value.budget_year} onChange={(event) => set("budget_year", event.target.value)} />
-      </Field>
-      <Field label="范围">
-        <Select value={value.target_scope} onValueChange={(next) => set("target_scope", next)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {targetScopes.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-      <Field label="对象编码">
-        <Input value={value.target_code} onChange={(event) => set("target_code", event.target.value)} />
-      </Field>
-      <Field label="对象名称">
-        <Input value={value.target_name} onChange={(event) => set("target_name", event.target.value)} />
-      </Field>
-      <Field label="能耗预算(tce)">
-        <Input type="number" value={value.energy_budget_tce} onChange={(event) => set("energy_budget_tce", event.target.value)} />
-      </Field>
-      <Field label="碳预算(tCO2e)">
-        <Input type="number" value={value.carbon_budget_co2e} onChange={(event) => set("carbon_budget_co2e", event.target.value)} />
-      </Field>
-      <Field label="分母计划">
-        <Input type="number" value={value.denominator_plan} onChange={(event) => set("denominator_plan", event.target.value)} />
-      </Field>
-      <Field label="分母单位">
-        <Input value={value.denominator_unit} onChange={(event) => set("denominator_unit", event.target.value)} />
-      </Field>
-      <Field label="来源">
-        <Input value={value.source_name} onChange={(event) => set("source_name", event.target.value)} />
-      </Field>
-      <div className="md:col-span-2">
-        <Field label="备注">
-          <Textarea value={value.remark} onChange={(event) => set("remark", event.target.value)} />
-        </Field>
-      </div>
-    </div>
-  )
-}
-
-function AdjustmentForm({ rows, value, onChange }: { rows: BudgetProgressRow[]; value: typeof defaultAdjustmentForm; onChange: (value: typeof defaultAdjustmentForm) => void }) {
-  const set = (key: keyof typeof defaultAdjustmentForm, next: string) => onChange({ ...value, [key]: next })
-  return (
-    <div className="grid gap-3 md:grid-cols-2">
-      <Field label="月份">
-        <Select value={value.allocation_id} onValueChange={(next) => set("allocation_id", next)}>
-          <SelectTrigger>
-            <SelectValue placeholder="选择月份" />
-          </SelectTrigger>
-          <SelectContent>
-            {rows.map((row) => (
-              <SelectItem key={row.id} value={String(row.id)}>
-                {row.period}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-      <Field label="状态">
-        <Select value={value.status} onValueChange={(next) => set("status", next)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="draft">草稿</SelectItem>
-            <SelectItem value="submitted">提交</SelectItem>
-            <SelectItem value="approved">批准</SelectItem>
-          </SelectContent>
-        </Select>
-      </Field>
-      <Field label="调整后能耗(tce)">
-        <Input type="number" value={value.adjusted_energy_budget_tce} onChange={(event) => set("adjusted_energy_budget_tce", event.target.value)} />
-      </Field>
-      <Field label="调整后碳排(tCO2e)">
-        <Input type="number" value={value.adjusted_carbon_budget_co2e} onChange={(event) => set("adjusted_carbon_budget_co2e", event.target.value)} />
-      </Field>
-      <Field label="申请人">
-        <Input value={value.requested_by} onChange={(event) => set("requested_by", event.target.value)} />
-      </Field>
-      <div className="md:col-span-2">
-        <Field label="原因">
-          <Textarea value={value.reason} onChange={(event) => set("reason", event.target.value)} />
-        </Field>
-      </div>
-    </div>
-  )
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="grid gap-2">
-      <Label>{label}</Label>
-      {children}
-    </div>
-  )
-}
-
-function EmptyRow({ colSpan }: { colSpan: number }) {
-  return <AdminTableStateRow colSpan={colSpan}>暂无数据</AdminTableStateRow>
-}
-
-function EmptyText({ text }: { text: string }) {
-  return <AdminEmptyState title={text} />
 }

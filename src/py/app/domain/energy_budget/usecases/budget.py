@@ -206,6 +206,14 @@ class EnergyBudgetUseCase:
         await self._session.refresh(obj)
         return obj
 
+    async def delete_adjustment(self, adjustment_id: int) -> None:
+        obj = await self._session.get(m.EnergyCarbonBudgetAdjustment, adjustment_id)
+        if obj is None:
+            msg = "调整记录不存在"
+            raise ValueError(msg)
+        await self._session.delete(obj)
+        await self._session.commit()
+
     async def _adjustment_payload(self, data: dict[str, Any], *, require_required: bool) -> dict[str, Any]:
         payload = _generic_payload(data, ADJUSTMENT_FIELDS)
         if require_required and not payload.get("plan_id"):

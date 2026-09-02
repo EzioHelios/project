@@ -252,6 +252,14 @@ class EnergyBudgetController(Controller):
             return _not_found_or_bad_request(str(exc))
         return Response(content=ok_data(model_to_dict(obj)))
 
+    @delete("/api/energy/budget/adjustments/{adjustment_id:int}", status_code=200)
+    async def delete_energy_budget_adjustment(self, db_session: AsyncSession, adjustment_id: int) -> Response[dict]:
+        try:
+            await EnergyBudgetUseCase(db_session).delete_adjustment(adjustment_id)
+        except ValueError as exc:
+            return _not_found_or_bad_request(str(exc))
+        return Response(content={"code": 200, "msg": "已删除"})
+
 
 def _query(
     plan_id: int | None,
