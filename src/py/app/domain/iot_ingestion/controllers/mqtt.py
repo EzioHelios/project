@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
-from litestar import Controller, get, patch, post
+from litestar import Controller, delete, get, patch, post
 from litestar.params import Body
 from litestar.response import Response
 from sqlalchemy import func, select
@@ -187,6 +187,15 @@ class MqttIngestionConfigurationController(Controller):
         await db_session.refresh(obj)
         return Response(content=ok_data(model_to_dict(obj)))
 
+    @delete("/api/iot-ingestion/mqtt-device-bindings/{binding_id:int}", guards=[requires_superuser], status_code=200)
+    async def delete_binding(self, db_session: AsyncSession, binding_id: int) -> Response[dict]:
+        obj = await db_session.get(m.MqttDeviceBinding, binding_id)
+        if obj is None:
+            return _not_found("MQTT 设备绑定不存在")
+        await db_session.delete(obj)
+        await db_session.commit()
+        return Response(content=ok_data({"id": binding_id, "deleted": True}))
+
     @get("/api/iot-ingestion/mqtt-point-mappings", guards=[requires_authenticated_user])
     async def list_mappings(
         self, db_session: AsyncSession, binding_id: int | None = None, limit: int = 100, offset: int = 0
@@ -228,6 +237,15 @@ class MqttIngestionConfigurationController(Controller):
         await db_session.commit()
         await db_session.refresh(obj)
         return Response(content=ok_data(model_to_dict(obj)))
+
+    @delete("/api/iot-ingestion/mqtt-point-mappings/{mapping_id:int}", guards=[requires_superuser], status_code=200)
+    async def delete_mapping(self, db_session: AsyncSession, mapping_id: int) -> Response[dict]:
+        obj = await db_session.get(m.MqttPointMapping, mapping_id)
+        if obj is None:
+            return _not_found("MQTT 点位映射不存在")
+        await db_session.delete(obj)
+        await db_session.commit()
+        return Response(content=ok_data({"id": mapping_id, "deleted": True}))
 
     @get("/api/iot-ingestion/mqtt-messages", guards=[requires_authenticated_user])
     async def list_messages(

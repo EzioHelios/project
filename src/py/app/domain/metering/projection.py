@@ -478,7 +478,7 @@ class ElectricityProjectionUseCase:
                     team_id=self.team_id,
                     source_system="meter_projection",
                     source_record_id=source_record_id,
-                    energy_type_code="electricity",
+                    energy_type_code="purchased_electricity",
                     equipment_id=equipment_id,
                     equipment_code=sample.equipment.code,
                     equipment_name=sample.equipment.name,

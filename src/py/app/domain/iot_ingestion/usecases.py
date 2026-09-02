@@ -117,6 +117,11 @@ class MqttIngestionUseCase:
             message.error_code = "payload_validation"
             message.error_detail = str(exc)
             await self._session.commit()
+        except ValueError as exc:
+            message.status = "rejected"
+            message.error_code = "projection_config"
+            message.error_detail = str(exc)
+            await self._session.commit()
         return message
 
     async def _process_szscada_metering(self, message: m.MqttInboundMessage, subscription: m.MqttSubscription) -> None:

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { ChevronRight, Plus, RefreshCw } from "lucide-react"
+import { ChevronRight, Plus, RefreshCw, RotateCcw, Trash2 } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
@@ -150,8 +150,32 @@ type MqttMappingRow = {
   point_code: string
   point_name?: string | null
   unit?: string | null
+  multiplier?: number | null
   mapping_version?: string | null
   enabled?: boolean | null
+}
+
+type MqttBindingForm = {
+  subscription_id: string
+  gateway_key: string
+  meter_key: string
+  selector_name_pattern: string
+  external_device_id: string
+  temporary_address: string
+  identity_status: string
+  scaling_mode: string
+  multiplier: string
+}
+
+type MqttMappingForm = {
+  source_tag: string
+  source_name_suffix: string
+  point_code: string
+  point_name: string
+  unit: string
+  multiplier: string
+  mapping_version: string
+  enabled: string
 }
 
 type MqttMessageRow = {
@@ -217,6 +241,12 @@ type DeviceForm = {
   is_enabled: string
 }
 
+type EnergyTypeOption = {
+  code: string
+  name: string
+  is_enabled: boolean
+}
+
 type DevicePointForm = {
   point_code: string
   point_name: string
@@ -269,6 +299,8 @@ const PROTOCOL_OPTIONS = [
   { label: "RTSP", value: "rtsp" },
 ] as const
 
+const EMPTY_ENERGY_TYPE_VALUE = "__none__"
+
 const VALUE_TYPE_OPTIONS = [
   { label: "浮点数", value: "float" },
   { label: "整数", value: "int" },
@@ -276,6 +308,37 @@ const VALUE_TYPE_OPTIONS = [
   { label: "字符串", value: "string" },
   { label: "枚举", value: "enum" },
 ] as const
+
+const MQTT_IDENTITY_OPTIONS = [
+  { label: "已确认", value: "confirmed" },
+  { label: "临时识别", value: "temporary" },
+] as const
+
+const MQTT_SCALING_OPTIONS = [
+  { label: "上游已换算", value: "upstream_scaled" },
+  { label: "平台换算", value: "platform_scaled" },
+] as const
+
+function optionLabel<T extends ReadonlyArray<{ label: string; value: string }>>(options: T, value?: string | null) {
+  if (!value) return "-"
+  return options.find((option) => option.value === value)?.label ?? value
+}
+
+function areaTypeLabel(value?: string | null) {
+  return optionLabel(AREA_TYPE_OPTIONS, value)
+}
+
+function protocolLabel(value?: string | null) {
+  return optionLabel(PROTOCOL_OPTIONS, value)
+}
+
+function commissioningLabel(value?: string | null) {
+  return optionLabel(COMMISSIONING_OPTIONS, value)
+}
+
+function valueTypeLabel(value?: string | null) {
+  return optionLabel(VALUE_TYPE_OPTIONS, value)
+}
 
 function flattenAreaTree(nodes: AreaNode[]): AreaNode[] {
   const items: AreaNode[] = []
@@ -313,11 +376,7 @@ function formatDateTime(value?: string | null) {
 }
 
 function mqttIdentityStatus(value?: string | null) {
-  const labels: Record<string, string> = {
-    confirmed: "已确认",
-    temporary: "临时识别",
-  }
-  return labels[String(value || "")] ?? value ?? "-"
+  return optionLabel(MQTT_IDENTITY_OPTIONS, value)
 }
 
 function mqttMessageStatus(value?: string | null) {
@@ -360,7 +419,7 @@ function emptyDeviceForm(): DeviceForm {
     manufacturer: "",
     owner_department: "",
     maintainer_name: "",
-    energy_type: "",
+    energy_type: EMPTY_ENERGY_TYPE_VALUE,
     protocol: "http_yunji",
     status: "0",
     commissioning_status: "active",
@@ -383,6 +442,33 @@ function emptyPointForm(): DevicePointForm {
     upper_limit: "",
     lower_limit: "",
     remark: "",
+  }
+}
+
+function emptyMqttBindingForm(device?: DeviceRow | null, subscriptionId?: number | null): MqttBindingForm {
+  return {
+    subscription_id: subscriptionId ? String(subscriptionId) : "",
+    gateway_key: "WH-GW-01",
+    meter_key: "",
+    selector_name_pattern: device?.external_device_id || device?.code || "",
+    external_device_id: device?.external_device_id || device?.code || "",
+    temporary_address: "",
+    identity_status: "confirmed",
+    scaling_mode: "upstream_scaled",
+    multiplier: "1",
+  }
+}
+
+function emptyMqttMappingForm(point?: DevicePointRow | null): MqttMappingForm {
+  return {
+    source_tag: point?.source_field || "EPI",
+    source_name_suffix: point?.point_name || "",
+    point_code: point?.point_code || "",
+    point_name: point?.point_name || "",
+    unit: point?.unit || "",
+    multiplier: "1",
+    mapping_version: "v1",
+    enabled: "true",
   }
 }
 
@@ -417,7 +503,7 @@ function AreaTreeNode({
         <button type="button" className="min-w-0 flex-1 py-2 text-left" onClick={() => onSelect(node.id)}>
           <div className="truncate font-medium">{areaLabel(node)}</div>
           <div className="truncate text-xs text-muted-foreground">
-            {node.area_type || "zone"} · {node.equipment_count ?? 0} 台设备
+            {areaTypeLabel(node.area_type)} · {node.equipment_count ?? 0} 台设备
           </div>
         </button>
       </div>
@@ -568,6 +654,31 @@ export function MonitorAreaWorkbenchPage() {
     onError: (error) => toast.error("停用失败", { description: error instanceof Error ? error.message : "请稍后重试" }),
   })
 
+  const deleteArea = useMutation({
+    mutationFn: async () => {
+      if (!selectedAreaId) throw new Error("请先选择区域")
+      return request(`/api/master-data/areas/${selectedAreaId}`, { method: "DELETE" })
+    },
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: ["master-data", "areas", "summary", selectedAreaId] })
+    },
+    onSuccess: async () => {
+      toast.success("区域已删除")
+      setSelectedAreaId(null)
+      await qc.removeQueries({ queryKey: ["master-data", "areas", "summary", selectedAreaId] })
+      await qc.invalidateQueries({ queryKey: ["master-data", "areas", "tree"] })
+      await qc.invalidateQueries({ queryKey: ["master-data", "devices"] })
+    },
+    onError: (error) => toast.error("删除失败", { description: error instanceof Error ? error.message : "请稍后重试" }),
+  })
+
+  function confirmDeleteArea() {
+    const selected = summaryQuery.data?.area
+    if (!selected) return
+    if (!window.confirm(`确认删除区域“${areaLabel(selected)}”？删除前必须确保没有子区域和设备。`)) return
+    deleteArea.mutate()
+  }
+
   return (
     <PageContainer className="flex-1 space-y-4">
       <AdminPageHeader title="区域主数据工作台" />
@@ -623,6 +734,21 @@ export function MonitorAreaWorkbenchPage() {
                 <Button variant="outline" size="sm" onClick={() => disableArea.mutate()} disabled={!summaryQuery.data?.area || disableArea.isPending}>
                   停用
                 </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={confirmDeleteArea}
+                  disabled={
+                    !summaryQuery.data?.area ||
+                    summaryQuery.data.area.code === "ROOT" ||
+                    summaryQuery.data.children.length > 0 ||
+                    summaryQuery.data.devices.length > 0 ||
+                    deleteArea.isPending
+                  }
+                >
+                  <Trash2 className="mr-2 size-4" />
+                  删除
+                </Button>
               </>
             }
             contentClassName="space-y-5"
@@ -639,7 +765,7 @@ export function MonitorAreaWorkbenchPage() {
                 <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
                   <DetailCard title="基础信息">
                     <DetailRow label="编码" value={summaryQuery.data.area.code} />
-                    <DetailRow label="类型" value={summaryQuery.data.area.area_type ?? "-"} />
+                    <DetailRow label="类型" value={areaTypeLabel(summaryQuery.data.area.area_type)} />
                     <DetailRow label="上级区域" value={areaLabel(summaryQuery.data.area.parent ?? undefined)} />
                     <DetailRow label="负责人" value={summaryQuery.data.area.manager_name ?? "-"} />
                     <DetailRow label="归属部门" value={summaryQuery.data.area.owner_department ?? "-"} />
@@ -651,7 +777,7 @@ export function MonitorAreaWorkbenchPage() {
                     <div className="space-y-2 text-sm">
                       <div>子区域数：{summaryQuery.data.children.length}</div>
                       <div>本区域设备数：{summaryQuery.data.devices.length}</div>
-                      <div>删除前必须先清空子区域与设备。</div>
+                      <div>无子区域和设备时可删除；已投入使用的区域建议停用。</div>
                     </div>
                   </DetailCard>
                 </div>
@@ -670,7 +796,7 @@ export function MonitorAreaWorkbenchPage() {
                         >
                           <div className="font-medium">{areaLabel(child)}</div>
                           <div className="mt-1 text-xs text-muted-foreground">
-                            {child.area_type ?? "zone"} · {child.equipment_count ?? 0} 台设备
+                            {areaTypeLabel(child.area_type)} · {child.equipment_count ?? 0} 台设备
                           </div>
                         </button>
                       ))}
@@ -794,8 +920,14 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
   const [editingDevice, setEditingDevice] = useState<DeviceRow | null>(null)
   const [pointDialogOpen, setPointDialogOpen] = useState(false)
   const [editingPoint, setEditingPoint] = useState<DevicePointRow | null>(null)
+  const [bindingDialogOpen, setBindingDialogOpen] = useState(false)
+  const [editingBinding, setEditingBinding] = useState<MqttBindingRow | null>(null)
+  const [mappingDialogOpen, setMappingDialogOpen] = useState(false)
+  const [editingMapping, setEditingMapping] = useState<MqttMappingRow | null>(null)
   const [deviceForm, setDeviceForm] = useState<DeviceForm>(emptyDeviceForm())
   const [pointForm, setPointForm] = useState<DevicePointForm>(emptyPointForm())
+  const [bindingForm, setBindingForm] = useState<MqttBindingForm>(emptyMqttBindingForm())
+  const [mappingForm, setMappingForm] = useState<MqttMappingForm>(emptyMqttMappingForm())
   const [detailTab, setDetailTab] = useState(initialTab)
   const [ingestionCheckResult, setIngestionCheckResult] = useState<string | null>(null)
 
@@ -807,9 +939,15 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
     queryKey: ["master-data", "device-types", "tree"],
     queryFn: async () => (await request<{ items: DeviceTypeNode[] }>("/api/master-data/device-types/tree")).data,
   })
+  const energyTypesQuery = useQuery({
+    queryKey: ["energy", "types", "enabled"],
+    queryFn: async () => (await request<{ items: EnergyTypeOption[] }>("/api/energy/types")).data.items,
+  })
 
   const flatAreas = useMemo(() => flattenAreaTree(areaTreeQuery.data?.items ?? []), [areaTreeQuery.data?.items])
   const flatTypes = useMemo(() => flattenDeviceTypeTree(deviceTypeTreeQuery.data?.items ?? []), [deviceTypeTreeQuery.data?.items])
+  const energyTypes = energyTypesQuery.data ?? []
+  const energyTypeNameByCode = useMemo(() => new Map(energyTypes.map((item) => [item.code, item.name])), [energyTypes])
 
   const devicesQuery = useQuery<PageResult<DeviceRow>>({
     queryKey: ["master-data", "devices", { selectedAreaFilter, selectedTypeFilter, statusFilter, keyword }],
@@ -835,7 +973,7 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
 
   const detailQuery = useQuery({
     queryKey: ["master-data", "devices", "detail", selectedDeviceId],
-    queryFn: async () => (await request<DeviceDetail>(`/api/master-data/devices/${selectedDeviceId}`)).data,
+    queryFn: async ({ signal }) => (await request<DeviceDetail>(`/api/master-data/devices/${selectedDeviceId}`, { signal })).data,
     enabled: selectedDeviceId !== null,
   })
   const mqttSourcesQuery = useQuery<PageResult<MqttSourceRow>>({
@@ -883,6 +1021,10 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
     () => (mqttSourcesQuery.data?.items ?? []).find((source) => source.id === selectedMqttSubscription?.source_id) ?? null,
     [mqttSourcesQuery.data?.items, selectedMqttSubscription?.source_id],
   )
+  const defaultMqttSubscription = useMemo(
+    () => (mqttSubscriptionsQuery.data?.items ?? []).find((subscription) => subscription.enabled !== false) ?? null,
+    [mqttSubscriptionsQuery.data?.items],
+  )
   const selectedMqttMessages = useMemo(
     () =>
       (mqttMessagesQuery.data?.items ?? []).filter((message) => {
@@ -893,6 +1035,7 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
   )
   const latestMqttMessage = selectedMqttMessages[0] ?? null
   const canRunMqttTest = Boolean(currentUser?.isSuperuser)
+  const canDeleteDevice = Boolean(selectedDevice && detailQuery.data && detailQuery.data.children.length === 0 && selectedPoints.length === 0 && mqttBindings.length === 0)
   const ingestionIssues = useMemo(() => {
     if (!selectedDevice) return ["请先选择设备"]
     const issues: string[] = []
@@ -957,7 +1100,7 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
       manufacturer: device.manufacturer ?? "",
       owner_department: device.owner_department ?? "",
       maintainer_name: device.maintainer_name ?? "",
-      energy_type: device.energy_type ?? "",
+      energy_type: device.energy_type ?? EMPTY_ENERGY_TYPE_VALUE,
       protocol: device.protocol ?? "http_yunji",
       status: String(device.status ?? 0),
       commissioning_status: device.commissioning_status ?? "active",
@@ -991,6 +1134,71 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
     setPointDialogOpen(true)
   }
 
+  function openBindingDialog(binding?: MqttBindingRow) {
+    setEditingBinding(binding ?? null)
+    setDetailTab("ingestion")
+    setBindingForm(
+      binding
+        ? {
+            subscription_id: String(binding.subscription_id),
+            gateway_key: binding.gateway_key,
+            meter_key: binding.meter_key,
+            selector_name_pattern: binding.selector_name_pattern ?? "",
+            external_device_id: binding.external_device_id ?? selectedDevice?.external_device_id ?? selectedDevice?.code ?? "",
+            temporary_address: binding.temporary_address ?? "",
+            identity_status: binding.identity_status ?? "confirmed",
+            scaling_mode: binding.scaling_mode ?? "upstream_scaled",
+            multiplier: binding.multiplier == null ? "1" : String(binding.multiplier),
+          }
+        : emptyMqttBindingForm(selectedDevice, defaultMqttSubscription?.id),
+    )
+    setBindingDialogOpen(true)
+  }
+
+  function openMappingDialog(mapping?: MqttMappingRow) {
+    const firstPoint = selectedPoints[0] ?? null
+    setEditingMapping(mapping ?? null)
+    setDetailTab("ingestion")
+    setMappingForm(
+      mapping
+        ? {
+            source_tag: mapping.source_tag,
+            source_name_suffix: mapping.source_name_suffix ?? "",
+            point_code: mapping.point_code,
+            point_name: mapping.point_name ?? "",
+            unit: mapping.unit ?? "",
+            multiplier: mapping.multiplier == null ? "1" : String(mapping.multiplier),
+            mapping_version: mapping.mapping_version ?? "v1",
+            enabled: boolValue(mapping.enabled),
+          }
+        : emptyMqttMappingForm(firstPoint),
+    )
+    setMappingDialogOpen(true)
+  }
+
+  async function invalidateDeviceAndMqtt() {
+    await qc.invalidateQueries({ queryKey: ["master-data", "devices"] })
+    await qc.invalidateQueries({ queryKey: ["master-data", "devices", "detail", selectedDeviceId] })
+    await qc.invalidateQueries({ queryKey: ["iot-ingestion"] })
+    await qc.invalidateQueries({ queryKey: ["iot-monitoring", "points"] })
+  }
+
+  function confirmDeleteDevice() {
+    if (!selectedDevice) return
+    if (!canDeleteDevice) {
+      toast.warning("设备仍有关联对象", { description: "删除前请先清空子设备、测点和 MQTT 绑定；已投入使用的设备建议停用。" })
+      return
+    }
+    if (!window.confirm(`确认删除设备“${deviceLabel(selectedDevice)}”？`)) return
+    deleteDevice.mutate(selectedDevice.id)
+  }
+
+  function confirmDeleteBinding() {
+    if (!selectedMqttBinding) return
+    if (!window.confirm(`确认删除 MQTT 表计绑定“${selectedMqttBinding.gateway_key}/${selectedMqttBinding.meter_key}”？`)) return
+    deleteMqttBinding.mutate(selectedMqttBinding.id)
+  }
+
   const saveDevice = useMutation({
     mutationFn: async () => {
       const payload = {
@@ -1005,7 +1213,7 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
         manufacturer: deviceForm.manufacturer.trim() || null,
         owner_department: deviceForm.owner_department.trim() || null,
         maintainer_name: deviceForm.maintainer_name.trim() || null,
-        energy_type: deviceForm.energy_type.trim() || null,
+        energy_type: deviceForm.energy_type === EMPTY_ENERGY_TYPE_VALUE ? null : deviceForm.energy_type,
         protocol: deviceForm.protocol,
         status: Number(deviceForm.status),
         commissioning_status: deviceForm.commissioning_status,
@@ -1067,6 +1275,123 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
     },
     onError: (error) => toast.error("删除失败", { description: error instanceof Error ? error.message : "请稍后重试" }),
   })
+
+  const setDeviceEnabled = useMutation({
+    mutationFn: async ({ device, enabled }: { device: DeviceRow; enabled: boolean }) =>
+      request(`/api/master-data/devices/${device.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          is_enabled: enabled,
+          commissioning_status: enabled ? "active" : "retired",
+        }),
+      }),
+    onSuccess: async (_, variables) => {
+      toast.success(variables.enabled ? "设备已恢复" : "设备已停用")
+      await invalidateDeviceAndMqtt()
+    },
+    onError: (error) => toast.error("状态更新失败", { description: error instanceof Error ? error.message : "请稍后重试" }),
+  })
+
+  const deleteDevice = useMutation({
+    mutationFn: async (deviceId: number) => request(`/api/master-data/devices/${deviceId}`, { method: "DELETE" }),
+    onMutate: async (deviceId) => {
+      await qc.cancelQueries({ queryKey: ["master-data", "devices", "detail", deviceId] })
+      await qc.removeQueries({ queryKey: ["master-data", "devices", "detail", deviceId] })
+      const previousDeviceId = selectedDeviceId
+      setSelectedDeviceId(null)
+      return { previousDeviceId }
+    },
+    onSuccess: async (_, deviceId) => {
+      toast.success("设备已删除")
+      await qc.removeQueries({ queryKey: ["master-data", "devices", "detail", deviceId] })
+      await qc.invalidateQueries({ queryKey: ["master-data", "devices"] })
+      await qc.invalidateQueries({ queryKey: ["iot-ingestion"] })
+      await qc.invalidateQueries({ queryKey: ["iot-monitoring", "points"] })
+      await qc.invalidateQueries({ queryKey: ["master-data", "areas"] })
+    },
+    onError: (error, _deviceId, context) => {
+      setSelectedDeviceId(context?.previousDeviceId ?? null)
+      toast.error("删除失败", { description: error instanceof Error ? error.message : "请稍后重试" })
+    },
+  })
+
+  const saveMqttBinding = useMutation({
+    mutationFn: async () => {
+      if (!selectedDeviceId) throw new Error("请先选择设备")
+      const payload = {
+        subscription_id: Number(bindingForm.subscription_id),
+        gateway_key: bindingForm.gateway_key.trim(),
+        meter_key: bindingForm.meter_key.trim(),
+        selector_name_pattern: bindingForm.selector_name_pattern.trim(),
+        equipment_id: selectedDeviceId,
+        external_device_id: bindingForm.external_device_id.trim(),
+        temporary_address: bindingForm.temporary_address.trim(),
+        identity_status: bindingForm.identity_status,
+        scaling_mode: bindingForm.scaling_mode,
+        multiplier: Number(bindingForm.multiplier || 1),
+      }
+      return request(editingBinding ? `/api/iot-ingestion/mqtt-device-bindings/${editingBinding.id}` : "/api/iot-ingestion/mqtt-device-bindings", {
+        method: editingBinding ? "PATCH" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+    },
+    onSuccess: async () => {
+      toast.success(editingBinding ? "MQTT绑定已更新" : "MQTT绑定已创建")
+      setBindingDialogOpen(false)
+      await invalidateDeviceAndMqtt()
+    },
+    onError: (error) => toast.error("MQTT绑定保存失败", { description: error instanceof Error ? error.message : "请稍后重试" }),
+  })
+
+  const deleteMqttBinding = useMutation({
+    mutationFn: async (bindingId: number) => request(`/api/iot-ingestion/mqtt-device-bindings/${bindingId}`, { method: "DELETE" }),
+    onSuccess: async () => {
+      toast.success("MQTT绑定已删除")
+      await invalidateDeviceAndMqtt()
+    },
+    onError: (error) => toast.error("MQTT绑定删除失败", { description: error instanceof Error ? error.message : "请稍后重试" }),
+  })
+
+  const saveMqttMapping = useMutation({
+    mutationFn: async () => {
+      if (!selectedMqttBinding) throw new Error("请先绑定 MQTT 表计")
+      const selectedPoint = selectedPoints.find((point) => point.point_code === mappingForm.point_code)
+      const payload = {
+        binding_id: selectedMqttBinding.id,
+        source_tag: mappingForm.source_tag.trim(),
+        source_name_suffix: mappingForm.source_name_suffix.trim() || selectedPoint?.point_name || null,
+        point_code: mappingForm.point_code,
+        point_name: mappingForm.point_name.trim() || selectedPoint?.point_name || null,
+        unit: mappingForm.unit.trim() || selectedPoint?.unit || null,
+        multiplier: Number(mappingForm.multiplier || 1),
+        mapping_version: mappingForm.mapping_version.trim() || "v1",
+        enabled: mappingForm.enabled === "true",
+      }
+      return request(editingMapping ? `/api/iot-ingestion/mqtt-point-mappings/${editingMapping.id}` : "/api/iot-ingestion/mqtt-point-mappings", {
+        method: editingMapping ? "PATCH" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+    },
+    onSuccess: async () => {
+      toast.success(editingMapping ? "点位映射已更新" : "点位映射已创建")
+      setMappingDialogOpen(false)
+      await invalidateDeviceAndMqtt()
+    },
+    onError: (error) => toast.error("点位映射保存失败", { description: error instanceof Error ? error.message : "请稍后重试" }),
+  })
+
+  const deleteMqttMapping = useMutation({
+    mutationFn: async (mappingId: number) => request(`/api/iot-ingestion/mqtt-point-mappings/${mappingId}`, { method: "DELETE" }),
+    onSuccess: async () => {
+      toast.success("点位映射已删除")
+      await invalidateDeviceAndMqtt()
+    },
+    onError: (error) => toast.error("点位映射删除失败", { description: error instanceof Error ? error.message : "请稍后重试" }),
+  })
+
   const testMqttIngestion = useMutation({
     mutationFn: async () => {
       if (!selectedMqttBinding) throw new Error("当前设备未绑定 MQTT 表计")
@@ -1083,6 +1408,13 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
       return result.data
     },
     onSuccess: async (result) => {
+      if (result.message.status !== "processed") {
+        const message = `MQTT测试报文未通过：${result.message.error_detail || result.message.error_code || "请检查绑定和点位映射"}`
+        setIngestionCheckResult(message)
+        toast.warning("MQTT接入测试未通过", { description: result.message.error_detail || result.message.error_code || "请检查绑定和点位映射" })
+        await qc.invalidateQueries({ queryKey: ["iot-ingestion", "mqtt-messages"] })
+        return
+      }
       const reading = result.readings[0]
       setIngestionCheckResult(
         reading
@@ -1225,15 +1557,30 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
             className="min-h-[760px]"
             actions={
               detailQuery.data?.device ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (detailQuery.data?.device) openEditDevice(detailQuery.data.device)
-                  }}
-                >
-                  编辑
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (detailQuery.data?.device) openEditDevice(detailQuery.data.device)
+                    }}
+                  >
+                    编辑
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDeviceEnabled.mutate({ device: detailQuery.data.device, enabled: detailQuery.data.device.is_enabled === false })}
+                    disabled={setDeviceEnabled.isPending}
+                  >
+                    <RotateCcw className="mr-2 size-4" />
+                    {detailQuery.data.device.is_enabled === false ? "恢复" : "停用"}
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={confirmDeleteDevice} disabled={!canDeleteDevice || deleteDevice.isPending}>
+                    <Trash2 className="mr-2 size-4" />
+                    删除
+                  </Button>
+                </div>
               ) : null
             }
           >
@@ -1256,7 +1603,8 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
                   <DetailRow label="位置说明" value={detailQuery.data.device.location_desc ?? "-"} />
                   <DetailRow label="厂家/型号" value={`${detailQuery.data.device.manufacturer ?? "-"} / ${detailQuery.data.device.model ?? "-"}`} />
                   <DetailRow label="负责人" value={detailQuery.data.device.maintainer_name ?? "-"} />
-                  <DetailRow label="投运状态" value={detailQuery.data.device.commissioning_status ?? "-"} />
+                  <DetailRow label="启用状态" value={detailQuery.data.device.is_enabled === false ? "停用" : "启用"} />
+                  <DetailRow label="投运状态" value={commissioningLabel(detailQuery.data.device.commissioning_status)} />
                   <DetailRow label="备注" value={detailQuery.data.device.remark ?? "-"} />
                 </TabsContent>
 
@@ -1311,7 +1659,7 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
                             <TableCell>{point.point_code}</TableCell>
                             <TableCell>{point.point_name}</TableCell>
                             <TableCell>
-                              <div>{point.value_type ?? "-"}</div>
+                              <div>{valueTypeLabel(point.value_type)}</div>
                               <div className="text-muted-foreground text-xs">{point.source_field || "未配置来源字段"}</div>
                             </TableCell>
                             <TableCell className="space-x-2 text-right">
@@ -1337,11 +1685,11 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
                     <SummaryMetric label="配置问题" value={String(ingestionIssues.length)} />
                   </MetricStrip>
                   <DetailCard title="采集配置">
-                    <DetailRow label="采集协议" value={selectedDevice?.protocol ?? "-"} />
+                    <DetailRow label="采集协议" value={protocolLabel(selectedDevice?.protocol)} />
                     <DetailRow label="采集标识" value={selectedDevice?.external_device_id ?? "-"} />
-                    <DetailRow label="能源类型" value={selectedDevice?.energy_type ?? "-"} />
+                    <DetailRow label="能源类型" value={selectedDevice?.energy_type ? (energyTypeNameByCode.get(selectedDevice.energy_type) ?? selectedDevice.energy_type) : "-"} />
                     <DetailRow label="启用状态" value={selectedDevice?.is_enabled === false ? "停用" : "启用"} />
-                    <DetailRow label="投运状态" value={selectedDevice?.commissioning_status ?? "-"} />
+                    <DetailRow label="投运状态" value={commissioningLabel(selectedDevice?.commissioning_status)} />
                   </DetailCard>
                   <DetailCard title="MQTT接入">
                     {!isMqttDevice ? (
@@ -1350,6 +1698,19 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
                       <div className="text-sm text-muted-foreground">正在读取接入配置...</div>
                     ) : selectedMqttBinding ? (
                       <div className="space-y-3">
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" variant="outline" onClick={() => openBindingDialog(selectedMqttBinding)}>
+                            编辑绑定
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => openMappingDialog()} disabled={selectedPoints.length === 0}>
+                            <Plus className="mr-2 size-4" />
+                            新增映射
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={confirmDeleteBinding} disabled={deleteMqttBinding.isPending}>
+                            <Trash2 className="mr-2 size-4" />
+                            删除绑定
+                          </Button>
+                        </div>
                         <DetailRow
                           label="数据源"
                           value={selectedMqttSource ? `${selectedMqttSource.name}（${selectedMqttSource.broker_host}:${selectedMqttSource.broker_port ?? 1883}）` : "-"}
@@ -1371,14 +1732,22 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
                             <div className="text-sm text-muted-foreground">暂无 MQTT 点位映射</div>
                           ) : (
                             mqttMappings.map((mapping) => (
-                              <div key={mapping.id} className="flex items-center justify-between rounded-md border border-border/70 px-3 py-2 text-sm">
+                              <div key={mapping.id} className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-3 py-2 text-sm">
                                 <div>
                                   <div className="font-medium">{mapping.point_name || mapping.point_code}</div>
                                   <div className="text-xs text-muted-foreground">
                                     {mapping.source_tag} {"->"} {mapping.point_code}
                                   </div>
                                 </div>
-                                <Badge variant={mapping.enabled === false ? "outline" : "secondary"}>{mapping.unit || "-"}</Badge>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant={mapping.enabled === false ? "outline" : "secondary"}>{mapping.unit || "-"}</Badge>
+                                  <Button size="sm" variant="outline" onClick={() => openMappingDialog(mapping)}>
+                                    编辑
+                                  </Button>
+                                  <Button size="sm" variant="destructive" onClick={() => deleteMqttMapping.mutate(mapping.id)} disabled={deleteMqttMapping.isPending}>
+                                    删除
+                                  </Button>
+                                </div>
                               </div>
                             ))
                           )}
@@ -1392,7 +1761,14 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
                         )}
                       </div>
                     ) : (
-                      <div className="text-sm text-muted-foreground">当前设备尚未绑定 MQTT 表计。</div>
+                      <div className="space-y-3">
+                        <div className="text-sm text-muted-foreground">当前设备尚未绑定 MQTT 表计。</div>
+                        <Button size="sm" onClick={() => openBindingDialog()} disabled={!defaultMqttSubscription}>
+                          <Plus className="mr-2 size-4" />
+                          配置表计绑定
+                        </Button>
+                        {!defaultMqttSubscription && <div className="text-xs text-muted-foreground">请先维护 MQTT 接入通道和订阅主题。</div>}
+                      </div>
                     )}
                   </DetailCard>
                   <DetailCard title="接入校验">
@@ -1534,7 +1910,19 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
               <Input value={deviceForm.maintainer_name} onChange={(event) => setDeviceForm((state) => ({ ...state, maintainer_name: event.target.value }))} />
             </Field>
             <Field label="能源类型">
-              <Input value={deviceForm.energy_type} onChange={(event) => setDeviceForm((state) => ({ ...state, energy_type: event.target.value }))} />
+              <Select value={deviceForm.energy_type} onValueChange={(value) => setDeviceForm((state) => ({ ...state, energy_type: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={EMPTY_ENERGY_TYPE_VALUE}>无</SelectItem>
+                  {energyTypes.map((option) => (
+                    <SelectItem key={option.code} value={option.code}>
+                      {option.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
             <Field label="采集协议">
               <Select value={deviceForm.protocol} onValueChange={(value) => setDeviceForm((state) => ({ ...state, protocol: value }))}>
@@ -1696,6 +2084,180 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
               取消
             </Button>
             <Button onClick={() => savePoint.mutate()} disabled={savePoint.isPending || !pointForm.point_code.trim() || !pointForm.point_name.trim()}>
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bindingDialogOpen} onOpenChange={setBindingDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingBinding ? "编辑MQTT表计绑定" : "配置MQTT表计绑定"}</DialogTitle>
+            <DialogDescription className="sr-only">把外部网关和表计编号绑定到当前设备。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="接入通道" className="sm:col-span-2">
+              <Select value={bindingForm.subscription_id} onValueChange={(value) => setBindingForm((state) => ({ ...state, subscription_id: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择MQTT订阅主题" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(mqttSubscriptionsQuery.data?.items ?? []).map((subscription) => {
+                    const source = (mqttSourcesQuery.data?.items ?? []).find((item) => item.id === subscription.source_id)
+                    return (
+                      <SelectItem key={subscription.id} value={String(subscription.id)}>
+                        {`${source?.name ?? "MQTT数据源"} / ${subscription.topic_filter}`}
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="网关标识">
+              <Input value={bindingForm.gateway_key} onChange={(event) => setBindingForm((state) => ({ ...state, gateway_key: event.target.value }))} />
+            </Field>
+            <Field label="表计编号">
+              <Input value={bindingForm.meter_key} onChange={(event) => setBindingForm((state) => ({ ...state, meter_key: event.target.value }))} placeholder="例如 m901" />
+            </Field>
+            <Field label="匹配名称">
+              <Input value={bindingForm.selector_name_pattern} onChange={(event) => setBindingForm((state) => ({ ...state, selector_name_pattern: event.target.value }))} />
+            </Field>
+            <Field label="外部设备号">
+              <Input value={bindingForm.external_device_id} onChange={(event) => setBindingForm((state) => ({ ...state, external_device_id: event.target.value }))} />
+            </Field>
+            <Field label="临时地址">
+              <Input value={bindingForm.temporary_address} onChange={(event) => setBindingForm((state) => ({ ...state, temporary_address: event.target.value }))} />
+            </Field>
+            <Field label="绑定状态">
+              <Select value={bindingForm.identity_status} onValueChange={(value) => setBindingForm((state) => ({ ...state, identity_status: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MQTT_IDENTITY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="换算方式">
+              <Select value={bindingForm.scaling_mode} onValueChange={(value) => setBindingForm((state) => ({ ...state, scaling_mode: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MQTT_SCALING_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="倍率">
+              <Input type="number" value={bindingForm.multiplier} onChange={(event) => setBindingForm((state) => ({ ...state, multiplier: event.target.value }))} />
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBindingDialogOpen(false)}>
+              取消
+            </Button>
+            <Button
+              onClick={() => saveMqttBinding.mutate()}
+              disabled={
+                saveMqttBinding.isPending ||
+                !bindingForm.subscription_id ||
+                !bindingForm.gateway_key.trim() ||
+                !bindingForm.meter_key.trim() ||
+                !bindingForm.selector_name_pattern.trim() ||
+                !bindingForm.external_device_id.trim() ||
+                !bindingForm.temporary_address.trim()
+              }
+            >
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={mappingDialogOpen} onOpenChange={setMappingDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingMapping ? "编辑点位映射" : "新增点位映射"}</DialogTitle>
+            <DialogDescription className="sr-only">把 MQTT 报文里的 tag 映射到当前设备测点。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="来源Tag">
+              <Input value={mappingForm.source_tag} onChange={(event) => setMappingForm((state) => ({ ...state, source_tag: event.target.value }))} />
+            </Field>
+            <Field label="平台测点">
+              <Select
+                value={mappingForm.point_code}
+                onValueChange={(value) => {
+                  const point = selectedPoints.find((item) => item.point_code === value)
+                  setMappingForm((state) => ({
+                    ...state,
+                    point_code: value,
+                    point_name: point?.point_name ?? state.point_name,
+                    unit: point?.unit ?? state.unit,
+                    source_tag: state.source_tag || point?.source_field || "",
+                    source_name_suffix: state.source_name_suffix || point?.point_name || "",
+                  }))
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择当前设备测点" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedPoints.map((point) => (
+                    <SelectItem key={point.id} value={point.point_code}>
+                      {point.point_name} / {point.point_code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="测点名称">
+              <Input value={mappingForm.point_name} onChange={(event) => setMappingForm((state) => ({ ...state, point_name: event.target.value }))} />
+            </Field>
+            <Field label="来源名称">
+              <Input value={mappingForm.source_name_suffix} onChange={(event) => setMappingForm((state) => ({ ...state, source_name_suffix: event.target.value }))} />
+            </Field>
+            <Field label="单位">
+              <Input value={mappingForm.unit} onChange={(event) => setMappingForm((state) => ({ ...state, unit: event.target.value }))} />
+            </Field>
+            <Field label="倍率">
+              <Input type="number" value={mappingForm.multiplier} onChange={(event) => setMappingForm((state) => ({ ...state, multiplier: event.target.value }))} />
+            </Field>
+            <Field label="版本">
+              <Input value={mappingForm.mapping_version} onChange={(event) => setMappingForm((state) => ({ ...state, mapping_version: event.target.value }))} />
+            </Field>
+            <Field label="启用状态">
+              <Select value={mappingForm.enabled} onValueChange={(value) => setMappingForm((state) => ({ ...state, enabled: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ENABLE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMappingDialogOpen(false)}>
+              取消
+            </Button>
+            <Button
+              onClick={() => saveMqttMapping.mutate()}
+              disabled={saveMqttMapping.isPending || !selectedMqttBinding || !mappingForm.source_tag.trim() || !mappingForm.point_code}
+            >
               保存
             </Button>
           </DialogFooter>
