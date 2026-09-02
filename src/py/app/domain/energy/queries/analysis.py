@@ -127,15 +127,30 @@ class EnergyAnalysisQueryService:
         )
         trend_sql = text(
             f"""
+            with bucketed as (
+                select
+                    date_trunc(:bucket, period_start) as bucket_start,
+                    coalesce(sum(amount), 0) as total_energy,
+                    coalesce(sum(cost_cny), 0) as total_cost,
+                    count(distinct equipment_id)::int as equipment_count
+                from dataapp_energyintervalfact
+                {where_sql}
+                group by date_trunc(:bucket, period_start)
+            )
             select
-                to_char(period_start, case when :granularity = 'hour' then 'YYYY-MM-DD HH24:00' else 'YYYY-MM-DD' end) as period,
-                coalesce(sum(amount), 0) as total_energy,
-                coalesce(sum(cost_cny), 0) as total_cost,
-                count(distinct equipment_id)::int as equipment_count
-            from dataapp_energyintervalfact
-            {where_sql}
-            group by period_start
-            order by period_start asc
+                to_char(
+                    bucket_start,
+                    case
+                        when :analysis_granularity = 'hour' then 'YYYY-MM-DD HH24:00'
+                        when :analysis_granularity = 'month' then 'YYYY-MM'
+                        else 'YYYY-MM-DD'
+                    end
+                ) as period,
+                total_energy,
+                total_cost,
+                equipment_count
+            from bucketed
+            order by bucket_start asc
             limit 500
             """
         )
@@ -150,6 +165,9 @@ class EnergyAnalysisQueryService:
             where team_id = :team_id
               and ((:period_start)::timestamp is null or period_end >= (:period_start)::timestamp)
               and ((:period_end)::timestamp is null or period_start <= (:period_end)::timestamp)
+              and ((:area_id)::text is null or area_id = (:area_id)::text)
+              and ((:equipment_id)::bigint is null or equipment_id = (:equipment_id)::bigint)
+              and ((:use_system_code)::text is null or use_system_code = (:use_system_code)::text)
               and record_status = 'confirmed'
             """
         )
@@ -170,7 +188,19 @@ class EnergyAnalysisQueryService:
             for row in (await self._session.execute(by_tariff_sql, params)).mappings().all()
         ]
         trend = [
-            _jsonable_mapping(dict(row)) for row in (await self._session.execute(trend_sql, params)).mappings().all()
+            _jsonable_mapping(dict(row))
+            for row in (
+                await self._session.execute(
+                    trend_sql,
+                    {
+                        **params,
+                        "bucket": _analysis_bucket(query.granularity),
+                        "analysis_granularity": _analysis_granularity(query.granularity),
+                    },
+                )
+            )
+            .mappings()
+            .all()
         ]
         workload = _jsonable_mapping(
             dict(
@@ -181,6 +211,11 @@ class EnergyAnalysisQueryService:
                             "team_id": str(team_id),
                             "period_start": period_param(query.period_start),
                             "period_end": period_param(query.period_end),
+                            "area_id": query.area_id if query.area_id and query.area_id != "all" else None,
+                            "equipment_id": query.equipment_id if query.equipment_id and query.equipment_id != "all" else None,
+                            "use_system_code": query.use_system_code
+                            if query.use_system_code and query.use_system_code != "all"
+                            else None,
                         },
                     )
                 )
@@ -222,8 +257,12 @@ class EnergyAnalysisQueryService:
                 period_start=query.period_start,
                 period_end=query.period_end,
                 granularity=query.granularity,
+                energy_type_code=query.energy_type_code,
+                area_id=query.area_id,
                 use_system_code=query.use_system_code,
                 area_keyword=query.area_keyword,
+                equipment_id=query.equipment_id,
+                tariff_segment_type=query.tariff_segment_type,
             ),
             team_id=str(team_id),
         )
@@ -326,8 +365,12 @@ class EnergyAnalysisQueryService:
                 "period_start": query.period_start,
                 "period_end": query.period_end,
                 "granularity": _analysis_granularity(query.granularity),
+                "energy_type_code": query.energy_type_code,
+                "area_id": query.area_id,
                 "use_system_code": query.use_system_code,
                 "area_keyword": query.area_keyword,
+                "equipment_id": query.equipment_id,
+                "tariff_segment_type": query.tariff_segment_type,
             },
         }
 
@@ -338,7 +381,12 @@ class EnergyAnalysisQueryService:
                 period_start=query.period_start,
                 period_end=query.period_end,
                 granularity=query.granularity,
+                energy_type_code=query.energy_type_code,
+                area_id=query.area_id,
                 area_keyword=query.area_keyword,
+                equipment_id=query.equipment_id,
+                use_system_code=query.use_system_code,
+                tariff_segment_type=query.tariff_segment_type,
                 limit=20,
             )
         )
@@ -471,15 +519,22 @@ class EnergyAnalysisQueryService:
 
 
 def _analysis_granularity(value: str | None) -> str:
-    return value if value in {"hour", "day"} else "day"
+    return value if value in {"hour", "day", "month"} else "day"
+
+
+def _analysis_source_granularity(value: str | None) -> str:
+    return "hour" if _analysis_granularity(value) == "hour" else "day"
+
+
+def _analysis_bucket(value: str | None) -> str:
+    return "month" if _analysis_granularity(value) == "month" else _analysis_granularity(value)
 
 
 def _build_energy_interval_filters(query: EnergyAnalysisQuery, *, team_id: str) -> tuple[str, dict[str, Any]]:
     conditions: list[str] = ["team_id = :team_id", "is_current = true"]
     params: dict[str, Any] = {"team_id": team_id}
-    granularity_value = _analysis_granularity(query.granularity)
-    conditions.append("granularity = :granularity")
-    params["granularity"] = granularity_value
+    conditions.append("granularity = :source_granularity")
+    params["source_granularity"] = _analysis_source_granularity(query.granularity)
     if query.period_start:
         conditions.append("period_end >= (:period_start)::timestamp")
         params["period_start"] = period_param(query.period_start)

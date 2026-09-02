@@ -6,6 +6,13 @@ import { toast } from "sonner"
 
 import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, ContextBar, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, CompositeTrendChart, DiagnosticsPanel, DistributionChart, FlowGraph, fetchCarbonApi, RankingList } from "@/components/carbon/analytics-panels"
+import {
+  buildEnergyAnalysisSearchParams,
+  defaultEnergyAnalysisFilters,
+  EnergyAnalysisFilterBar,
+  type EnergyAnalysisFilterState,
+  EnergyAppliedFilterMeta,
+} from "@/components/carbon/energy-analysis-filters"
 import { JumpLinks } from "@/components/carbon/energy-carbon-center"
 import { type PageResult, PaginationBar, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
@@ -307,19 +314,6 @@ type EnergyTypeRow = {
   is_enabled: boolean
 }
 
-type EnergyUnitConversionRow = {
-  id: number
-  energy_type_code: string
-  from_unit: string
-  to_unit: string
-  multiply_factor: number
-  standard_code?: string | null
-  conversion_factor_source?: string | null
-  is_default: boolean
-  is_enabled: boolean
-  remark?: string | null
-}
-
 type EnergySummaryItem = {
   group_key: string
   group_label: string
@@ -344,6 +338,7 @@ type EnergyConsumptionSummary = {
     tce_amount: number | null
     co2e_amount: number | null
   }
+  group_by?: string[]
 }
 
 type EnergyIntensityDenominators = {
@@ -534,36 +529,20 @@ const formatEnergyValue = (value: number | null | undefined, digits = 4) =>
 const formatKgcePerM2 = (value: number | null | undefined, digits = 4) => formatEnergyValue(value === null || value === undefined ? null : value * 1000, digits)
 
 export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
-  const [periodStart, setPeriodStart] = useState("")
-  const [periodEnd, setPeriodEnd] = useState("")
-  const [scope, setScope] = useState("all")
-  const [energyTypeCode, setEnergyTypeCode] = useState("all")
-  const [status, setStatus] = useState("all")
-  const [areaKeyword, setAreaKeyword] = useState("")
-  const [sourceRecordType, setSourceRecordType] = useState("all")
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = useState(20)
-  const [appliedFilters, setAppliedFilters] = useState({
-    periodStart: "",
-    periodEnd: "",
-    scope: "all",
-    energyTypeCode: "all",
-    status: "all",
-    areaKeyword: "",
-    sourceRecordType: "all",
-  })
+  const [filters, setFilters] = useState<EnergyAnalysisFilterState>(defaultEnergyAnalysisFilters)
+  const [appliedFilters, setAppliedFilters] = useState<EnergyAnalysisFilterState>(defaultEnergyAnalysisFilters)
 
   const queryParams = useMemo(() => {
-    const qs = new URLSearchParams()
-    if (appliedFilters.periodStart) qs.set("period_start", appliedFilters.periodStart)
-    if (appliedFilters.periodEnd) qs.set("period_end", appliedFilters.periodEnd)
-    if (appliedFilters.scope !== "all") qs.set("scope", appliedFilters.scope)
-    if (appliedFilters.energyTypeCode !== "all") qs.set("energy_type_code", appliedFilters.energyTypeCode)
-    if (appliedFilters.status !== "all") qs.set("status", appliedFilters.status)
-    else qs.set("status", "all")
-    if (appliedFilters.areaKeyword.trim()) qs.set("area_keyword", appliedFilters.areaKeyword.trim())
-    if (appliedFilters.sourceRecordType !== "all") qs.set("source_record_type", appliedFilters.sourceRecordType)
-    return qs
+    return buildEnergyAnalysisSearchParams(appliedFilters, {
+      includeScope: true,
+      includeStatus: true,
+      includeSourceRecordType: true,
+      includeGroupBy: true,
+      includeAreaKeyword: true,
+      includeEquipmentNameAsKeyword: true,
+    })
   }, [appliedFilters])
 
   const summaryQuery = useQuery<ApiEnvelope<EnergyConsumptionSummary>>({
@@ -579,43 +558,18 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
         offset: pageIndex * pageSize,
       }),
   })
-  const energyTypesQuery = useQuery<ApiEnvelope<{ items: EnergyTypeRow[] }>>({
-    queryKey: ["energy", "types"],
-    queryFn: () => fetchCarbonApi<{ items: EnergyTypeRow[] }>("/api/energy/types"),
-  })
-  const unitConversionsQuery = useQuery<ApiEnvelope<{ items: EnergyUnitConversionRow[] }>>({
-    queryKey: ["energy", "unit-conversions"],
-    queryFn: () => fetchCarbonApi<{ items: EnergyUnitConversionRow[] }>("/api/energy/unit-conversions"),
-  })
-
-  const energyTypes = energyTypesQuery.data?.data.items ?? []
-  const unitConversions = unitConversionsQuery.data?.data.items ?? []
   const summary = summaryQuery.data?.data
   const facts = factsQuery.data?.items ?? []
   const exportUrl = `/api/energy/consumption/export?${queryParams.toString()}`
 
   function applyFilters() {
-    setAppliedFilters({ periodStart, periodEnd, scope, energyTypeCode, status, areaKeyword, sourceRecordType })
+    setAppliedFilters(filters)
     setPageIndex(0)
   }
 
   function resetFilters() {
-    setPeriodStart("")
-    setPeriodEnd("")
-    setScope("all")
-    setEnergyTypeCode("all")
-    setStatus("all")
-    setAreaKeyword("")
-    setSourceRecordType("all")
-    setAppliedFilters({
-      periodStart: "",
-      periodEnd: "",
-      scope: "all",
-      energyTypeCode: "all",
-      status: "all",
-      areaKeyword: "",
-      sourceRecordType: "all",
-    })
+    setFilters(defaultEnergyAnalysisFilters)
+    setAppliedFilters(defaultEnergyAnalysisFilters)
     setPageIndex(0)
   }
 
@@ -634,72 +588,22 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
           <AdminTabsList>
             <TabsTrigger value="summary">汇总查询</TabsTrigger>
             <TabsTrigger value="facts">明细追溯</TabsTrigger>
-            <TabsTrigger value="types">能源品种</TabsTrigger>
             <TabsTrigger value="export">导出记录</TabsTrigger>
           </AdminTabsList>
         }
         filters={
-          <ContextBar
-            actions={
-              <>
-                <Button variant="secondary" onClick={applyFilters} disabled={summaryQuery.isFetching || factsQuery.isFetching}>
-                  查询
-                </Button>
-                <Button variant="outline" onClick={resetFilters}>
-                  重置
-                </Button>
-              </>
-            }
-          >
-            <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
-            <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
-            <Select value={scope} onValueChange={setScope}>
-              <SelectTrigger>
-                <SelectValue placeholder="Scope" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部 Scope</SelectItem>
-                <SelectItem value="scope1">Scope1</SelectItem>
-                <SelectItem value="scope2">Scope2</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={energyTypeCode} onValueChange={setEnergyTypeCode}>
-              <SelectTrigger>
-                <SelectValue placeholder="能源品种" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部能源品种</SelectItem>
-                {energyTypes.map((item) => (
-                  <SelectItem key={item.code} value={item.code}>
-                    {item.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="状态" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部状态</SelectItem>
-                <SelectItem value="approved">已通过</SelectItem>
-                <SelectItem value="pending">待审核</SelectItem>
-                <SelectItem value="draft">草稿</SelectItem>
-                <SelectItem value="rejected">已驳回</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={sourceRecordType} onValueChange={setSourceRecordType}>
-              <SelectTrigger>
-                <SelectValue placeholder="来源类型" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部来源</SelectItem>
-                <SelectItem value="GhgActivityRecord">组织盘查活动</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="区域关键字" />
-          </ContextBar>
+          <EnergyAnalysisFilterBar
+            filters={filters}
+            onFiltersChange={setFilters}
+            onApply={applyFilters}
+            onReset={resetFilters}
+            fields={["periodPreset", "period", "energyType", "area", "device", "groupBy", "scope", "status", "sourceRecordType", "areaKeyword"]}
+            areaValueField="id"
+            defaultVisibleCount={6}
+            loading={summaryQuery.isFetching || factsQuery.isFetching}
+          />
         }
+        meta={<EnergyAppliedFilterMeta filters={appliedFilters} />}
       >
         <TabsContent value="summary" className="space-y-4">
           <MetricStrip className="md:grid-cols-4 xl:grid-cols-4">
@@ -709,12 +613,12 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
             <MetricTile label="CO2e" value={formatNumber(summary?.totals.co2e_amount, 2)} unit="kg" />
           </MetricStrip>
           <PageSection>
-            <AdminPanel title="按能源品种汇总" contentClassName="p-0">
+            <AdminPanel title={summary?.group_by?.[0] ? "能耗汇总" : "按能源品种汇总"} contentClassName="p-0">
               <AdminDataTable className="rounded-none border-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>能源品种</TableHead>
+                      <TableHead>汇总维度</TableHead>
                       <TableHead className="text-right">记录数</TableHead>
                       <TableHead className="text-right">原始量</TableHead>
                       <TableHead>单位</TableHead>
@@ -815,74 +719,6 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
                   }}
                 />
               </div>
-            </AdminPanel>
-          </PageSection>
-        </TabsContent>
-
-        <TabsContent value="types">
-          <PageSection>
-            <AdminPanel title="能源品种" contentClassName="p-0">
-              <AdminDataTable className="rounded-none border-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>编码</TableHead>
-                      <TableHead>名称</TableHead>
-                      <TableHead>类别</TableHead>
-                      <TableHead>默认 Scope</TableHead>
-                      <TableHead>折标基准单位</TableHead>
-                      <TableHead>标准单位</TableHead>
-                      <TableHead className="text-right">折标系数</TableHead>
-                      <TableHead>标准来源</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {energyTypes.map((item) => (
-                      <TableRow key={item.code}>
-                        <TableCell>{item.code}</TableCell>
-                        <TableCell>{item.name}</TableCell>
-                        <TableCell>{item.category}</TableCell>
-                        <TableCell>{item.default_scope}</TableCell>
-                        <TableCell>{item.original_unit || "-"}</TableCell>
-                        <TableCell>{item.standard_unit || "-"}</TableCell>
-                        <TableCell className="text-right">{formatNumber(item.standard_factor)}</TableCell>
-                        <TableCell>{item.standard_code || "-"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </AdminDataTable>
-            </AdminPanel>
-          </PageSection>
-          <PageSection>
-            <AdminPanel title="单位换算" contentClassName="p-0">
-              <AdminDataTable className="rounded-none border-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>能源品种</TableHead>
-                      <TableHead>业务单位</TableHead>
-                      <TableHead>折标基准单位</TableHead>
-                      <TableHead className="text-right">换算系数</TableHead>
-                      <TableHead>来源</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {unitConversions.length === 0 && <AdminTableStateRow colSpan={5}>暂无单位换算数据</AdminTableStateRow>}
-                    {unitConversions.map((item) => (
-                      <TableRow key={`${item.energy_type_code}-${item.from_unit}-${item.to_unit}`}>
-                        <TableCell>{energyTypes.find((type) => type.code === item.energy_type_code)?.name ?? item.energy_type_code}</TableCell>
-                        <TableCell>{item.from_unit}</TableCell>
-                        <TableCell>{item.to_unit}</TableCell>
-                        <TableCell className="text-right">{formatNumber(item.multiply_factor, 6)}</TableCell>
-                        <TableCell className="max-w-[420px] truncate" title={item.conversion_factor_source || item.remark || ""}>
-                          {item.conversion_factor_source || "-"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </AdminDataTable>
             </AdminPanel>
           </PageSection>
         </TabsContent>
@@ -1481,39 +1317,27 @@ export function EnergyIntensityPanel({ header }: { header?: ReactNode }) {
 }
 
 export function EnergyAnalysisPanel({ header }: { header?: ReactNode }) {
-  const [periodStart, setPeriodStart] = useState("")
-  const [periodEnd, setPeriodEnd] = useState("")
-  const [granularity, setGranularity] = useState("day")
-  const [areaKeyword, setAreaKeyword] = useState("")
-  const [useSystemCode, setUseSystemCode] = useState("all")
-  const [tariffSegmentType, setTariffSegmentType] = useState("all")
-  const [appliedFilters, setAppliedFilters] = useState({
-    periodStart: "",
-    periodEnd: "",
-    granularity: "day",
-    areaKeyword: "",
-    useSystemCode: "all",
-    tariffSegmentType: "all",
-  })
+  const [filters, setFilters] = useState<EnergyAnalysisFilterState>(defaultEnergyAnalysisFilters)
+  const [appliedFilters, setAppliedFilters] = useState<EnergyAnalysisFilterState>(defaultEnergyAnalysisFilters)
 
   const analysisParams = useMemo(() => {
-    const qs = new URLSearchParams()
-    if (appliedFilters.periodStart) qs.set("period_start", appliedFilters.periodStart)
-    if (appliedFilters.periodEnd) qs.set("period_end", appliedFilters.periodEnd)
-    qs.set("granularity", appliedFilters.granularity)
-    if (appliedFilters.areaKeyword.trim()) qs.set("area_keyword", appliedFilters.areaKeyword.trim())
-    if (appliedFilters.useSystemCode !== "all") qs.set("use_system_code", appliedFilters.useSystemCode)
-    if (appliedFilters.tariffSegmentType !== "all") qs.set("tariff_segment_type", appliedFilters.tariffSegmentType)
-    return qs
+    return buildEnergyAnalysisSearchParams(appliedFilters, {
+      includeGranularity: true,
+      includeAreaKeyword: true,
+      includeEquipmentId: true,
+      includeUseSystem: true,
+      includeTariff: true,
+    })
   }, [appliedFilters])
 
   const strategyParams = useMemo(() => {
-    const qs = new URLSearchParams()
-    if (appliedFilters.periodStart) qs.set("period_start", appliedFilters.periodStart)
-    if (appliedFilters.periodEnd) qs.set("period_end", appliedFilters.periodEnd)
-    qs.set("granularity", appliedFilters.granularity)
-    if (appliedFilters.areaKeyword.trim()) qs.set("area_keyword", appliedFilters.areaKeyword.trim())
-    return qs
+    return buildEnergyAnalysisSearchParams(appliedFilters, {
+      includeGranularity: true,
+      includeAreaKeyword: true,
+      includeEquipmentId: true,
+      includeUseSystem: true,
+      includeTariff: true,
+    })
   }, [appliedFilters])
 
   const summaryQuery = useQuery<ApiEnvelope<EnergyAnalysisSummary>>({
@@ -1532,28 +1356,15 @@ export function EnergyAnalysisPanel({ header }: { header?: ReactNode }) {
   const summary = summaryQuery.data?.data
   const anomalies = anomaliesQuery.data?.data
   const strategies = strategiesQuery.data?.data
-  const systemOptions = summary?.by_system ?? []
   const tariffLabel: Record<string, string> = { peak: "峰段", flat: "平段", valley: "谷段", none: "未分时" }
 
   function applyFilters() {
-    setAppliedFilters({ periodStart, periodEnd, granularity, areaKeyword, useSystemCode, tariffSegmentType })
+    setAppliedFilters(filters)
   }
 
   function resetFilters() {
-    setPeriodStart("")
-    setPeriodEnd("")
-    setGranularity("day")
-    setAreaKeyword("")
-    setUseSystemCode("all")
-    setTariffSegmentType("all")
-    setAppliedFilters({
-      periodStart: "",
-      periodEnd: "",
-      granularity: "day",
-      areaKeyword: "",
-      useSystemCode: "all",
-      tariffSegmentType: "all",
-    })
+    setFilters(defaultEnergyAnalysisFilters)
+    setAppliedFilters(defaultEnergyAnalysisFilters)
   }
 
   return (
@@ -1570,56 +1381,17 @@ export function EnergyAnalysisPanel({ header }: { header?: ReactNode }) {
           </AdminTabsList>
         }
         filters={
-          <ContextBar
-            actions={
-              <>
-                <Button onClick={applyFilters} disabled={summaryQuery.isFetching || anomaliesQuery.isFetching || strategiesQuery.isFetching}>
-                  查询
-                </Button>
-                <Button variant="outline" onClick={resetFilters}>
-                  重置
-                </Button>
-              </>
-            }
-          >
-            <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
-            <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
-            <Select value={granularity} onValueChange={setGranularity}>
-              <SelectTrigger>
-                <SelectValue placeholder="统计粒度" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="day">日</SelectItem>
-                <SelectItem value="hour">小时</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="筛选区域名称" />
-            <Select value={useSystemCode} onValueChange={setUseSystemCode}>
-              <SelectTrigger>
-                <SelectValue placeholder="用能系统" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部用能系统</SelectItem>
-                {systemOptions.map((item) => (
-                  <SelectItem key={item.use_system_code} value={item.use_system_code}>
-                    {item.use_system_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={tariffSegmentType} onValueChange={setTariffSegmentType}>
-              <SelectTrigger>
-                <SelectValue placeholder="分时时段" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部时段</SelectItem>
-                <SelectItem value="peak">峰段</SelectItem>
-                <SelectItem value="flat">平段</SelectItem>
-                <SelectItem value="valley">谷段</SelectItem>
-              </SelectContent>
-            </Select>
-          </ContextBar>
+          <EnergyAnalysisFilterBar
+            filters={filters}
+            onFiltersChange={setFilters}
+            onApply={applyFilters}
+            onReset={resetFilters}
+            fields={["periodPreset", "period", "granularity", "energyType", "area", "device", "useSystem", "tariff", "areaKeyword"]}
+            defaultVisibleCount={9}
+            loading={summaryQuery.isFetching || anomaliesQuery.isFetching || strategiesQuery.isFetching}
+          />
         }
+        meta={<EnergyAppliedFilterMeta filters={appliedFilters} />}
       >
         <TabsContent value="structure" className="space-y-4">
           <MetricStrip>
@@ -1813,19 +1585,9 @@ export function EnergyAnalysisPanel({ header }: { header?: ReactNode }) {
 }
 
 export function EnergyFlowPanel({ header }: { header?: ReactNode }) {
-  const [periodStart, setPeriodStart] = useState("")
-  const [periodEnd, setPeriodEnd] = useState("")
-  const [granularity, setGranularity] = useState("day")
-  const [areaKeyword, setAreaKeyword] = useState("")
-  const [lossThreshold, setLossThreshold] = useState("5")
-  const [filters, setFilters] = useState({
-    periodStart: "",
-    periodEnd: "",
-    granularity: "day",
-    areaKeyword: "",
-    lossThreshold: "5",
-  })
-  const queryString = useMemo(() => buildEnergyFlowQuery(filters), [filters])
+  const [filters, setFilters] = useState<EnergyAnalysisFilterState>(defaultEnergyAnalysisFilters)
+  const [appliedFilters, setAppliedFilters] = useState<EnergyAnalysisFilterState>(defaultEnergyAnalysisFilters)
+  const queryString = useMemo(() => buildEnergyFlowQuery(appliedFilters), [appliedFilters])
   const flowQuery = useQuery<ApiEnvelope<FlowData>>({
     queryKey: ["energy", "flow", "graph", queryString],
     queryFn: () => fetchCarbonApi<FlowData>(`/api/energy/flow/graph${queryString}`),
@@ -1857,39 +1619,20 @@ export function EnergyFlowPanel({ header }: { header?: ReactNode }) {
           </AdminTabsList>
         }
         filters={
-          <ContextBar
-            actions={
-              <Button
-                onClick={() =>
-                  setFilters({
-                    periodStart,
-                    periodEnd,
-                    granularity,
-                    areaKeyword,
-                    lossThreshold,
-                  })
-                }
-              >
-                查询
-              </Button>
-            }
-          >
-            <Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
-            <Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
-            <Select value={granularity} onValueChange={setGranularity}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="hour">小时</SelectItem>
-                <SelectItem value="day">日</SelectItem>
-                <SelectItem value="month">月</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input value={areaKeyword} onChange={(event) => setAreaKeyword(event.target.value)} placeholder="区域/设备" />
-            <Input value={lossThreshold} onChange={(event) => setLossThreshold(event.target.value)} placeholder="损耗阈值%" />
-          </ContextBar>
+          <EnergyAnalysisFilterBar
+            filters={filters}
+            onFiltersChange={setFilters}
+            onApply={() => setAppliedFilters(filters)}
+            onReset={() => {
+              setFilters(defaultEnergyAnalysisFilters)
+              setAppliedFilters(defaultEnergyAnalysisFilters)
+            }}
+            fields={["periodPreset", "period", "granularity", "energyType", "area", "device", "useSystem", "areaKeyword", "lossThreshold"]}
+            defaultVisibleCount={9}
+            loading={flowQuery.isFetching || balanceQuery.isFetching || lossesQuery.isFetching || reportQuery.isFetching}
+          />
         }
+        meta={<EnergyAppliedFilterMeta filters={appliedFilters} />}
       >
         <TabsContent value="graph" className="space-y-4">
           <MetricStrip>
@@ -2012,13 +1755,14 @@ function EnergyFlowKpi({ title, value, unit }: { title: string; value?: number |
   return <MetricTile label={title} value={formatEnergyValue(value, 2)} unit={unit} />
 }
 
-function buildEnergyFlowQuery(filters: { periodStart: string; periodEnd: string; granularity: string; areaKeyword: string; lossThreshold: string }) {
-  const params = new URLSearchParams()
-  if (filters.periodStart) params.set("period_start", filters.periodStart)
-  if (filters.periodEnd) params.set("period_end", filters.periodEnd)
-  if (filters.granularity) params.set("granularity", filters.granularity)
-  if (filters.areaKeyword.trim()) params.set("area_keyword", filters.areaKeyword.trim())
-  if (filters.lossThreshold.trim()) params.set("loss_threshold_pct", filters.lossThreshold.trim())
+function buildEnergyFlowQuery(filters: EnergyAnalysisFilterState) {
+  const params = buildEnergyAnalysisSearchParams(filters, {
+    includeGranularity: true,
+    includeAreaKeyword: true,
+    includeEquipmentId: true,
+    includeUseSystem: true,
+    includeLossThreshold: true,
+  })
   const text = params.toString()
   return text ? `?${text}` : ""
 }

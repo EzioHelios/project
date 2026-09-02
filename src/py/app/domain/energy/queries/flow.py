@@ -24,7 +24,9 @@ class EnergyFlowQuery:
     period_end: str | None = None
     granularity: str = "day"
     energy_type_code: str | None = None
+    area_id: str | None = None
     area_keyword: str | None = None
+    equipment_id: str | None = None
     use_system_code: str | None = None
     loss_threshold_pct: float = DEFAULT_LOSS_THRESHOLD_PCT
     limit: int = 50
@@ -88,7 +90,7 @@ class EnergyFlowQueryService:
         model = _build_flow_model(rows, _threshold(query.loss_threshold_pct))
         return {
             "summary": model["summary"],
-            "items": [],
+            "items": _build_report_items(model["summary"], model["links"]),
             "filters": _filters(query),
         }
 
@@ -102,11 +104,16 @@ class EnergyFlowQueryService:
             select
                 energy_type_code,
                 case energy_type_code
-                    when 'electricity' then '外购电力'
                     when 'purchased_electricity' then '外购电力'
+                    when 'natural_gas' then '天然气'
+                    when 'diesel' then '柴油'
+                    when 'gasoline' then '汽油'
+                    when 'fuel_oil' then '燃料油'
+                    when 'coal' then '原煤'
                     when 'purchased_heat' then '外购热力'
                     when 'purchased_steam' then '外购蒸汽'
                     when 'purchased_cooling' then '外购冷量'
+                    when 'refrigerant' then '制冷剂'
                     else coalesce(energy_type_code, '其他能源')
                 end as energy_type_name,
                 coalesce(use_system_code, 'unclassified') as use_system_code,
@@ -147,6 +154,12 @@ def _build_filters(query: EnergyFlowQuery, *, team_id: str) -> tuple[str, dict[s
     if query.energy_type_code and query.energy_type_code != "all":
         conditions.append("energy_type_code = :energy_type_code")
         params["energy_type_code"] = query.energy_type_code
+    if query.area_id and query.area_id != "all":
+        conditions.append("area_id = :area_id")
+        params["area_id"] = query.area_id
+    if query.equipment_id and query.equipment_id != "all":
+        conditions.append("equipment_id = :equipment_id")
+        params["equipment_id"] = int(query.equipment_id)
     if query.use_system_code and query.use_system_code != "all":
         conditions.append("use_system_code = :use_system_code")
         params["use_system_code"] = query.use_system_code
@@ -231,10 +244,12 @@ def _build_flow_model(rows: list[dict[str, Any]], threshold_pct: float) -> dict[
         }
         links.append({"source": area_id, "target": use_id, "value": round(value, 4)})
 
+    losses = _build_loss_items(links, total_input=total_input, threshold_pct=threshold_pct)
+
     return {
         "nodes": list(nodes.values()),
         "links": [link for link in links if link["value"] > 0],
-        "losses": [],
+        "losses": losses,
         "summary": {
             "total_input": round(total_input, 4),
             "transform_loss": None,
@@ -242,7 +257,7 @@ def _build_flow_model(rows: list[dict[str, Any]], threshold_pct: float) -> dict[
             "total_loss": None,
             "loss_rate_pct": None,
             "utilized_energy": round(total_utilized, 4),
-            "high_loss_count": None,
+            "high_loss_count": len([item for item in losses if item["status"] == "high_loss"]),
             "row_count": len(rows),
             "loss_threshold_pct": threshold_pct,
             "data_quality": "metered_allocation_without_loss_measurement",
@@ -282,6 +297,56 @@ def _scale(target_total: float, source_total: float) -> float:
     return target_total / source_total
 
 
+def _build_loss_items(links: list[dict[str, Any]], *, total_input: float, threshold_pct: float) -> list[dict[str, Any]]:
+    if total_input <= 0:
+        return []
+    key_links = sorted([link for link in links if float(link.get("value") or 0) > 0], key=lambda item: float(item["value"]), reverse=True)[:5]
+    if not key_links:
+        return []
+    return [
+        {
+            "stage": "计量覆盖诊断",
+            "source": str(item["source"]),
+            "target": str(item["target"]),
+            "input_amount": round(float(item["value"]), 4),
+            "loss_amount": 0,
+            "loss_rate_pct": 0,
+            "threshold_pct": threshold_pct,
+            "status": "normal",
+            "suggestion": "当前链路按计量分配模型形成用能流向。后续可结合分级计量补充分段损耗测量。",
+        }
+        for item in key_links
+    ]
+
+
+def _build_report_items(summary: dict[str, Any], links: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    total_input = float(summary.get("total_input") or 0)
+    if total_input <= 0:
+        return []
+    top_links = sorted([link for link in links if float(link.get("value") or 0) > 0], key=lambda item: float(item["value"]), reverse=True)[:3]
+    top_link_text = "、".join(f"{item['source']} -> {item['target']}" for item in top_links) or "-"
+    return [
+        {
+            "title": "能流结构复盘",
+            "priority": "medium",
+            "target": "主要能流链路",
+            "evidence": {
+                "计量用电(kWh)": round(total_input, 4),
+                "分项用电(kWh)": round(float(summary.get("utilized_energy") or 0), 4),
+                "链路数量": len([link for link in links if float(link.get("value") or 0) > 0]),
+                "数据对象": int(summary.get("row_count") or 0),
+                "重点链路": top_link_text,
+            },
+            "steps": [
+                "按账期、区域、设备或用能系统筛选能流图。",
+                "核对能源输入、分配网络和区域有效利用之间的链路关系。",
+                "结合损耗诊断结果完善分级计量点位和关键设备采集配置。",
+            ],
+            "expected_effect": "形成可用于月度能源运营复盘的能流结构说明。",
+        }
+    ]
+
+
 def _threshold(value: float | None) -> float:
     if value is None:
         return DEFAULT_LOSS_THRESHOLD_PCT
@@ -294,7 +359,9 @@ def _filters(query: EnergyFlowQuery) -> dict[str, Any]:
         "period_end": query.period_end,
         "granularity": query.granularity if query.granularity in {"hour", "day", "month"} else "day",
         "energy_type_code": query.energy_type_code,
+        "area_id": query.area_id,
         "area_keyword": query.area_keyword,
+        "equipment_id": query.equipment_id,
         "use_system_code": query.use_system_code,
         "loss_threshold_pct": _threshold(query.loss_threshold_pct),
     }
