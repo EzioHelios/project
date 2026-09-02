@@ -5,43 +5,60 @@ import {
   type BoundaryDiffResponse,
   type BoundarySelectionResponse,
   type GhgActivityResponse,
+  type GhgActivityWriteRequest,
   type GhgAnalyticsFlowResponse,
   type GhgAnalyticsOverviewResponse,
   type GhgAnalyticsTrendResponse,
   type GhgCalculationRunListResponse,
   type GhgCatalogResponse,
   type GhgComparisonResponse,
+  type GhgEmissionSourceResponse,
+  type GhgEmissionSourceWriteRequest,
   type GhgImportBatchResponse,
   type GhgInventoryReadinessResponse,
   type GhgInventoryReportListResponse,
+  type GhgInventoryWorkbenchResponse,
   type GhgResultDetailResponse,
   type GhgResultListResponse,
   type GhgResultSummaryResponse,
   ghgInventoryApproveReport,
   ghgInventoryArchiveReport,
   ghgInventoryCommitWorkbook,
+  ghgInventoryCreateActivity,
+  ghgInventoryCreateEmissionSource,
   ghgInventoryCreateReport,
+  ghgInventoryDeleteActivity,
+  ghgInventoryDeleteEmissionSource,
   ghgInventoryDownloadTemplate,
   ghgInventoryExportResults,
+  ghgInventoryGenerateActivities,
+  ghgInventoryGetActivity,
+  ghgInventoryGetActivityAllocations,
   ghgInventoryGetAnalyticsComparison,
   ghgInventoryGetAnalyticsFlow,
   ghgInventoryGetAnalyticsOverview,
   ghgInventoryGetAnalyticsTrend,
   ghgInventoryGetCatalog,
+  ghgInventoryGetEmissionSource,
   ghgInventoryGetReadiness,
   ghgInventoryGetResultDetail,
   ghgInventoryGetResultSummary,
+  ghgInventoryGetWorkbench,
   ghgInventoryListActivities,
   ghgInventoryListCalculationRuns,
+  ghgInventoryListEmissionSources,
   ghgInventoryListImportBatches,
   ghgInventoryListReports,
   ghgInventoryListResults,
   ghgInventoryPreviewWorkbook,
   ghgInventoryPublishReport,
   ghgInventoryRejectReport,
+  ghgInventoryReplaceActivityAllocations,
   ghgInventoryResubmitReport,
   ghgInventoryRunCalculation,
   ghgInventorySubmitReport,
+  ghgInventoryUpdateActivity,
+  ghgInventoryUpdateEmissionSource,
   organizationBoundaryCreateWorkingCopy,
   organizationBoundaryDiscardDraft,
   organizationBoundaryGetDiff,
@@ -54,6 +71,9 @@ import {
 export type GhgCatalog = GhgCatalogResponse
 export type GhgImportBatch = GhgImportBatchResponse
 export type GhgActivity = GhgActivityResponse
+export type GhgActivityWrite = GhgActivityWriteRequest
+export type GhgEmissionSource = GhgEmissionSourceResponse
+export type GhgEmissionSourceWrite = GhgEmissionSourceWriteRequest
 export type GhgAnalyticsOverview = GhgAnalyticsOverviewResponse
 export type GhgAnalyticsTrend = GhgAnalyticsTrendResponse
 export type GhgAnalyticsFlow = GhgAnalyticsFlowResponse
@@ -66,6 +86,7 @@ export type OrganizationBoundarySelection = BoundarySelectionResponse
 export type OrganizationBoundaryDiff = BoundaryDiffResponse
 export type GhgInventoryReadiness = GhgInventoryReadinessResponse
 export type GhgInventoryReportList = GhgInventoryReportListResponse
+export type GhgInventoryWorkbench = GhgInventoryWorkbenchResponse
 
 export type GhgImportContext = {
   inventoryCode: string
@@ -99,6 +120,92 @@ export function useGhgActivities(filters: { inventoryCode?: string; categoryCode
           throwOnError: true,
         })
       ).data,
+  })
+}
+
+export function useGhgActivity(filters: { inventoryCode?: string; recordCode?: string }) {
+  return useQuery({
+    queryKey: ["ghg-inventory", "activities", "detail", filters],
+    queryFn: async () => {
+      if (!filters.inventoryCode || !filters.recordCode) throw new Error("缺少活动记录上下文")
+      return (
+        await ghgInventoryGetActivity({
+          path: { record_code: filters.recordCode },
+          query: { inventory_code: filters.inventoryCode },
+          throwOnError: true,
+        })
+      ).data
+    },
+    enabled: Boolean(filters.inventoryCode && filters.recordCode),
+  })
+}
+
+export function useGhgEmissionSources(filters: { inventoryCode?: string; categoryCode?: string; status?: string; keyword?: string }) {
+  return useQuery({
+    queryKey: ["ghg-inventory", "emission-sources", filters],
+    queryFn: async () =>
+      (
+        await ghgInventoryListEmissionSources({
+          query: {
+            inventory_code: filters.inventoryCode,
+            category_code: filters.categoryCode,
+            status: filters.status,
+            keyword: filters.keyword,
+            limit: 300,
+          },
+          throwOnError: true,
+        })
+      ).data,
+  })
+}
+
+export function useGhgEmissionSource(filters: { inventoryCode?: string; sourceCode?: string }) {
+  return useQuery({
+    queryKey: ["ghg-inventory", "emission-sources", "detail", filters],
+    queryFn: async () => {
+      if (!filters.inventoryCode || !filters.sourceCode) throw new Error("缺少排放源上下文")
+      return (
+        await ghgInventoryGetEmissionSource({
+          path: { source_code: filters.sourceCode },
+          query: { inventory_code: filters.inventoryCode },
+          throwOnError: true,
+        })
+      ).data
+    },
+    enabled: Boolean(filters.inventoryCode && filters.sourceCode),
+  })
+}
+
+export function useGhgInventoryWorkbench(filters: { inventoryCode?: string; reportingPeriodId?: number }) {
+  return useQuery({
+    queryKey: ["ghg-inventory", "workbench", filters],
+    queryFn: async () =>
+      (
+        await ghgInventoryGetWorkbench({
+          query: {
+            inventory_code: filters.inventoryCode,
+            reporting_period_id: filters.reportingPeriodId,
+          },
+          throwOnError: true,
+        })
+      ).data,
+  })
+}
+
+export function useGhgActivityAllocations(filters: { inventoryCode?: string; recordCode?: string }) {
+  return useQuery({
+    queryKey: ["ghg-inventory", "activities", "allocations", filters],
+    queryFn: async () => {
+      if (!filters.inventoryCode || !filters.recordCode) throw new Error("缺少归集上下文")
+      return (
+        await ghgInventoryGetActivityAllocations({
+          path: { record_code: filters.recordCode },
+          query: { inventory_code: filters.inventoryCode },
+          throwOnError: true,
+        })
+      ).data
+    },
+    enabled: Boolean(filters.inventoryCode && filters.recordCode),
   })
 }
 
@@ -327,6 +434,108 @@ export function useGhgInventoryActions() {
   const queryClient = useQueryClient()
   const invalidate = async () => queryClient.invalidateQueries({ queryKey: ["ghg-inventory"] })
 
+  const createSource = useMutation({
+    mutationFn: async (body: GhgEmissionSourceWrite) => (await ghgInventoryCreateEmissionSource({ body, throwOnError: true })).data,
+    onSuccess: async () => {
+      await invalidate()
+      toast.success("排放源已保存")
+    },
+    onError: (error: Error) => toast.error("排放源保存失败", { description: error.message }),
+  })
+
+  const updateSource = useMutation({
+    mutationFn: async ({ sourceCode, body }: { sourceCode: string; body: GhgEmissionSourceWrite }) =>
+      (await ghgInventoryUpdateEmissionSource({ path: { source_code: sourceCode }, body, throwOnError: true })).data,
+    onSuccess: async () => {
+      await invalidate()
+      toast.success("排放源已更新")
+    },
+    onError: (error: Error) => toast.error("排放源更新失败", { description: error.message }),
+  })
+
+  const deleteSource = useMutation({
+    mutationFn: async ({ inventoryCode, sourceCode }: { inventoryCode: string; sourceCode: string }) =>
+      (await ghgInventoryDeleteEmissionSource({ path: { source_code: sourceCode }, query: { inventory_code: inventoryCode }, throwOnError: true })).data,
+    onSuccess: async (data) => {
+      await invalidate()
+      toast.success(data.deleted ? "排放源已删除" : "排放源已停用")
+    },
+    onError: (error: Error) => toast.error("排放源删除失败", { description: error.message }),
+  })
+
+  const createActivity = useMutation({
+    mutationFn: async (body: GhgActivityWrite) => (await ghgInventoryCreateActivity({ body, throwOnError: true })).data,
+    onSuccess: async () => {
+      await invalidate()
+      toast.success("活动数据已保存")
+    },
+    onError: (error: Error) => toast.error("活动数据保存失败", { description: error.message }),
+  })
+
+  const updateActivity = useMutation({
+    mutationFn: async ({ recordCode, body }: { recordCode: string; body: GhgActivityWrite }) =>
+      (await ghgInventoryUpdateActivity({ path: { record_code: recordCode }, body, throwOnError: true })).data,
+    onSuccess: async () => {
+      await invalidate()
+      toast.success("活动数据已更新")
+    },
+    onError: (error: Error) => toast.error("活动数据更新失败", { description: error.message }),
+  })
+
+  const deleteActivity = useMutation({
+    mutationFn: async ({ inventoryCode, recordCode }: { inventoryCode: string; recordCode: string }) =>
+      (await ghgInventoryDeleteActivity({ path: { record_code: recordCode }, query: { inventory_code: inventoryCode }, throwOnError: true })).data,
+    onSuccess: async (data) => {
+      await invalidate()
+      toast.success(data.deleted ? "活动数据已删除" : "活动数据已归档")
+    },
+    onError: (error: Error) => toast.error("活动数据删除失败", { description: error.message }),
+  })
+
+  const generateActivities = useMutation({
+    mutationFn: async (body: { inventoryCode: string; reportingPeriodId: number; organizationBoundaryId?: number; sourceTypes: string[] }) =>
+      (await ghgInventoryGenerateActivities({ body, throwOnError: true })).data,
+    onSuccess: async (data) => {
+      await invalidate()
+      toast.success("活动数据生成完成", { description: `新增 ${data.createdCount} 条，更新 ${data.updatedCount} 条，跳过 ${data.skippedCount} 条` })
+    },
+    onError: (error: Error) => toast.error("活动数据生成失败", { description: error.message }),
+  })
+
+  const replaceAllocations = useMutation({
+    mutationFn: async ({
+      inventoryCode,
+      recordCode,
+      allocations,
+    }: {
+      inventoryCode: string
+      recordCode: string
+      allocations: Array<{
+        allocationCode?: string
+        areaId: number
+        equipmentId?: number
+        measurementBoundaryId?: number
+        allocationRole: string
+        allocationRatio: string
+        externalFacilityCode?: string
+        externalFacilityName?: string
+        sourceKind?: string
+      }>
+    }) =>
+      (
+        await ghgInventoryReplaceActivityAllocations({
+          path: { record_code: recordCode },
+          body: { inventoryCode, allocations },
+          throwOnError: true,
+        })
+      ).data,
+    onSuccess: async () => {
+      await invalidate()
+      toast.success("区域设备归集已保存")
+    },
+    onError: (error: Error) => toast.error("归集保存失败", { description: error.message }),
+  })
+
   const downloadTemplate = useMutation({
     mutationFn: async (context: GhgImportContext) => {
       const response = await ghgInventoryDownloadTemplate({
@@ -420,7 +629,20 @@ export function useGhgInventoryActions() {
     onError: (error: Error) => toast.error("核算失败", { description: error.message }),
   })
 
-  return { downloadTemplate, preview, commit, calculate }
+  return {
+    createSource,
+    updateSource,
+    deleteSource,
+    createActivity,
+    updateActivity,
+    deleteActivity,
+    generateActivities,
+    replaceAllocations,
+    downloadTemplate,
+    preview,
+    commit,
+    calculate,
+  }
 }
 
 export function useGhgInventoryReportActions() {

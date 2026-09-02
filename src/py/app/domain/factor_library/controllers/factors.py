@@ -3,15 +3,25 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from litestar import Controller, get
+from litestar import Controller, delete, get, patch, post, put
+from litestar.exceptions import ClientException
 from litestar.params import Parameter
 from litestar.response import Response
 from sqlalchemy import func, or_, select
 
 from app.db import models as m
-from app.domain.carbon import services  # noqa: TC001
-from app.domain.carbon.controllers import _augment_raw_factor_record_dict, _list_page, model_to_dict
-from app.domain.carbon.deps import provide_emission_factor_service
+from app.domain.carbon.controllers import _augment_raw_factor_record_dict, model_to_dict
+from app.domain.factor_library.schemas import (
+    ActivityFactorCandidateListResponse,
+    ApplyActivityFactorRequest,
+    ApplyActivityFactorResponse,
+    CalculationFactorImportPreviewResponse,
+    CalculationFactorImportRequest,
+    CalculationFactorListResponse,
+    CalculationFactorResponse,
+    CalculationFactorWriteRequest,
+)
+from app.domain.factor_library.usecases.factors import TEMPLATE_TEXT, CalculationFactorMaintenance
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,39 +29,125 @@ if TYPE_CHECKING:
 
 class FactorLibraryController(Controller):
     tags = ["Factor Library"]
-    dependencies = {"emission_factor_service": provide_emission_factor_service}
 
     @get("/api/carbon/emission-factors")
     async def list_emission_factors(
         self,
-        emission_factor_service: services.EmissionFactorService,
+        db_session: AsyncSession,
         limit: int = 20,
         offset: int = 0,
         search: str | None = None,
         keyword: str | None = None,
         scope_filter: str | None = Parameter(query="scope", required=False),
+        category: str | None = None,
         is_active: bool | None = None,
+        owner: str | None = None,
         sort_field: str = "id",
         sort_order: str = "desc",
-    ) -> Response[dict]:
-        conditions = []
-        if scope_filter:
-            conditions.append(m.EmissionFactor.scope == scope_filter)
-        if is_active is not None:
-            conditions.append(m.EmissionFactor.is_active == is_active)
-        page = await _list_page(
-            emission_factor_service,
-            m.EmissionFactor,
-            limit=limit,
-            offset=offset,
-            search=search,
-            keyword=keyword,
-            search_fields=["scope", "category", "sub_category", "unit", "factor_unit", "source", "source_system"],
-            sort_field=sort_field,
-            sort_order=sort_order,
-            conditions=conditions,
+    ) -> CalculationFactorListResponse:
+        _ = sort_field, sort_order
+        return CalculationFactorListResponse(
+            **await CalculationFactorMaintenance(db_session).list_factors(
+                limit=limit,
+                offset=offset,
+                keyword=keyword or search,
+                scope=scope_filter,
+                category=category,
+                is_active=is_active,
+                owner=owner,
+            )
         )
-        return Response(content=page)
+
+    @get("/api/carbon/emission-factors/template")
+    async def download_emission_factor_template(self) -> Response[str]:
+        return Response(
+            content=TEMPLATE_TEXT,
+            media_type="text/csv; charset=utf-8",
+            headers={"content-disposition": 'attachment; filename="calculation-factor-template.csv"'},
+        )
+
+    @get("/api/carbon/emission-factors/{factor_id:int}")
+    async def get_emission_factor(self, db_session: AsyncSession, factor_id: int) -> CalculationFactorResponse:
+        return await CalculationFactorMaintenance(db_session).get_factor(factor_id)
+
+    @post("/api/carbon/emission-factors")
+    async def create_emission_factor(
+        self,
+        db_session: AsyncSession,
+        data: CalculationFactorWriteRequest,
+    ) -> CalculationFactorResponse:
+        return await CalculationFactorMaintenance(db_session).create_factor(data)
+
+    @patch("/api/carbon/emission-factors/{factor_id:int}")
+    async def update_emission_factor(
+        self,
+        db_session: AsyncSession,
+        factor_id: int,
+        data: CalculationFactorWriteRequest,
+    ) -> CalculationFactorResponse:
+        return await CalculationFactorMaintenance(db_session).update_factor(factor_id, data)
+
+    @delete("/api/carbon/emission-factors/{factor_id:int}", status_code=200)
+    async def delete_emission_factor(self, db_session: AsyncSession, factor_id: int) -> Response[dict]:
+        return Response(content=await CalculationFactorMaintenance(db_session).delete_factor(factor_id))
+
+    @post("/api/carbon/emission-factors/import/preview")
+    async def preview_emission_factor_import(
+        self,
+        db_session: AsyncSession,
+        data: CalculationFactorImportRequest,
+    ) -> CalculationFactorImportPreviewResponse:
+        return await CalculationFactorMaintenance(db_session).preview_import(
+            file_name=data.file_name,
+            csv_base64=data.csv_base64,
+        )
+
+    @post("/api/carbon/emission-factors/import/commit")
+    async def commit_emission_factor_import(
+        self,
+        db_session: AsyncSession,
+        data: CalculationFactorImportRequest,
+    ) -> CalculationFactorImportPreviewResponse:
+        return await CalculationFactorMaintenance(db_session).commit_import(
+            file_name=data.file_name,
+            csv_base64=data.csv_base64,
+        )
+
+    @get("/api/ghg-inventory/activities/{record_code:str}/factor-candidates")
+    async def list_activity_factor_candidates(
+        self,
+        db_session: AsyncSession,
+        record_code: str,
+        inventory_code: str,
+    ) -> ActivityFactorCandidateListResponse:
+        try:
+            result = await CalculationFactorMaintenance(db_session).factor_candidates(
+                inventory_code=inventory_code,
+                record_code=record_code,
+            )
+            return ActivityFactorCandidateListResponse(
+                items=result["items"],
+                current_parameters=result["current_parameters"],
+            )
+        except ValueError as exc:
+            raise ClientException(detail=str(exc), status_code=400) from exc
+
+    @put("/api/ghg-inventory/activities/{record_code:str}/factor-selection")
+    async def apply_activity_factor(
+        self,
+        db_session: AsyncSession,
+        record_code: str,
+        data: ApplyActivityFactorRequest,
+    ) -> ApplyActivityFactorResponse:
+        try:
+            return await CalculationFactorMaintenance(db_session).apply_activity_factor(
+                inventory_code=data.inventory_code,
+                record_code=record_code,
+                factor_id=data.factor_id,
+                parameter_code=data.parameter_code,
+            )
+        except ValueError as exc:
+            raise ClientException(detail=str(exc), status_code=400) from exc
 
     @get("/api/carbon/factor-library/overview")
     async def get_factor_library_overview(self, db_session: AsyncSession) -> Response[dict]:

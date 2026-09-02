@@ -11,7 +11,6 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } fr
 import { usePublicConfig } from "@/hooks/use-public-config"
 import { useAuthStore } from "@/lib/auth"
 import { listTeams, type Team } from "@/lib/generated/api"
-import { categoryRoute, GHG_CATEGORY_GROUPS } from "@/lib/ghg-categories"
 import { cn } from "@/lib/utils"
 
 export function AppSidebar({ className, ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -58,7 +57,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
     const isCarbonAssetRoute = pathname.startsWith("/carbon/assets")
     const isClimateReductionRoute = pathname.startsWith("/carbon/climate") || pathname.startsWith("/carbon/reduction")
     const isEnergyBudgetRoute = pathname === "/energy/budget" || pathname.startsWith("/data/energy-budget")
-    const isCarbonInventoryRoute = pathname.startsWith("/carbon-mgmt/activities") || pathname.startsWith("/carbon-mgmt/import") || pathname.startsWith("/carbon-mgmt/category")
+    const isCarbonInventoryRoute = pathname.startsWith("/carbon-mgmt")
     const isEnergyOperationsRoute =
       (pathname.startsWith("/energy") && !isEnergyBudgetRoute) ||
       pathname.startsWith("/data/energy-consumption") ||
@@ -126,15 +125,19 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
       },
       {
         title: "碳数据填报",
-        to: "/carbon-mgmt/activities",
+        to: "/carbon-mgmt/workbench",
         icon: FileInput,
         isActive: isCarbonInventoryRoute,
         items: [
-          { title: "全部活动", to: "/carbon-mgmt/activities" },
-          ...GHG_CATEGORY_GROUPS.flatMap((group) => [
-            { title: group.shortName, kind: "section" as const },
-            ...group.items.map((category) => ({ title: `${category.code} ${category.name}`, to: categoryRoute(category.code) })),
-          ]),
+          { title: "数据工作台", to: "/carbon-mgmt/workbench" },
+          { title: "排放源维护", to: "/carbon-mgmt/sources" },
+          { title: "活动数据台账", to: "/carbon-mgmt/activities" },
+          { title: "批量导入", to: "/carbon-mgmt/import" },
+          { title: "核算报告", kind: "section" as const },
+          { title: "核算边界", to: "/carbon/organization/boundary" },
+          { title: "核算结果", to: "/carbon/organization/records" },
+          { title: "组织碳总览", to: "/carbon/organization/overview" },
+          { title: "报告导出", to: "/carbon/verification" },
         ],
       },
       {

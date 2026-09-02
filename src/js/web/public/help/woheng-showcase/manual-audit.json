@@ -1,9 +1,9 @@
 {
   "title": "沃衡汽车能碳管理平台操作手册 截图审计",
-  "generatedAt": "2026-09-02T06:21:58.413Z",
+  "generatedAt": "2026-09-02T10:09:33.912Z",
   "screenshotRoot": "outputs/woheng-showcase-woheng-full-evidence/screenshots",
-  "totalEvidence": 142,
-  "availableScreenshots": 142,
+  "totalEvidence": 149,
+  "availableScreenshots": 149,
   "missingScreenshots": 0,
   "rows": [
     {
@@ -991,126 +991,6 @@
       "expectedEvidenceLevel": "A"
     },
     {
-      "section": "碳数据分类填报补充",
-      "title": "ISO 14064 类别1固定燃烧分类填报",
-      "route": "/carbon-mgmt/category/1.1",
-      "evidenceId": "EV-WH-043",
-      "screenshot": "EV-WH-043-iso-14064-类别1固定燃烧分类填报.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-043-iso-14064-类别1固定燃烧分类填报.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "1.1 固定燃烧",
-        "类别1",
-        "活动记录",
-        "记录 / 活动",
-        "活动量",
-        "质量",
-        "归集"
-      ],
-      "focus": "类别1固定燃烧分类台账的筛选区、指标卡和活动记录表",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "碳数据分类填报补充",
-      "title": "ISO 14064 类别2购入电力分类填报",
-      "route": "/carbon-mgmt/category/2.1",
-      "evidenceId": "EV-WH-044",
-      "screenshot": "EV-WH-044-iso-14064-类别2购入电力分类填报.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-044-iso-14064-类别2购入电力分类填报.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "2.1 购入电力",
-        "类别2",
-        "活动记录",
-        "记录 / 活动",
-        "活动量",
-        "质量",
-        "归集"
-      ],
-      "focus": "类别2购入电力分类台账的筛选区、指标卡和活动记录表",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "碳数据分类填报补充",
-      "title": "ISO 14064 类别3员工通勤分类填报",
-      "route": "/carbon-mgmt/category/3.3",
-      "evidenceId": "EV-WH-045",
-      "screenshot": "EV-WH-045-iso-14064-类别3员工通勤分类填报.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-045-iso-14064-类别3员工通勤分类填报.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "3.3 员工通勤",
-        "类别3",
-        "活动记录",
-        "记录 / 活动",
-        "活动量",
-        "质量",
-        "归集"
-      ],
-      "focus": "类别3员工通勤分类台账的筛选区、指标卡和活动记录表",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "碳数据分类填报补充",
-      "title": "ISO 14064 类别4采购商品分类填报",
-      "route": "/carbon-mgmt/category/4.1",
-      "evidenceId": "EV-WH-046",
-      "screenshot": "EV-WH-046-iso-14064-类别4采购商品分类填报.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-046-iso-14064-类别4采购商品分类填报.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "4.1 采购商品与服务",
-        "类别4",
-        "活动记录",
-        "记录 / 活动",
-        "活动量",
-        "质量",
-        "归集"
-      ],
-      "focus": "类别4采购商品与服务分类台账的筛选区、指标卡和活动记录表",
-      "expectedEvidenceLevel": "B"
-    },
-    {
-      "section": "碳数据分类填报补充",
-      "title": "ISO 14064 类别5售出产品加工分类填报",
-      "route": "/carbon-mgmt/category/5.1",
-      "evidenceId": "EV-WH-047",
-      "screenshot": "EV-WH-047-iso-14064-类别5售出产品加工分类填报.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-047-iso-14064-类别5售出产品加工分类填报.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "5.1 售出产品加工",
-        "类别5",
-        "活动记录",
-        "记录 / 活动",
-        "活动量",
-        "质量",
-        "归集"
-      ],
-      "focus": "类别5售出产品加工分类台账的筛选区、指标卡和活动记录表",
-      "expectedEvidenceLevel": "B"
-    },
-    {
-      "section": "碳数据分类填报补充",
-      "title": "ISO 14064 类别6其他间接排放分类填报",
-      "route": "/carbon-mgmt/category/6.1",
-      "evidenceId": "EV-WH-048",
-      "screenshot": "EV-WH-048-iso-14064-类别6其他间接排放分类填报.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-048-iso-14064-类别6其他间接排放分类填报.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "6.1 其他经确认的间接排放",
-        "类别6",
-        "活动记录",
-        "记录 / 活动",
-        "活动量",
-        "质量",
-        "归集"
-      ],
-      "focus": "类别6其他间接排放分类台账的筛选区、指标卡和活动记录表",
-      "expectedEvidenceLevel": "A"
-    },
-    {
       "section": "监测告警补充",
       "title": "数据采集与监测中心",
       "route": "/energy-carbon/monitor",
@@ -1739,6 +1619,81 @@
       "expectedEvidenceLevel": "A"
     },
     {
+      "section": "因子维护与核算",
+      "title": "查看企业计算因子库",
+      "route": "/carbon-mgmt/calculation-factors",
+      "evidenceId": "EV-WH-152",
+      "screenshot": "EV-WH-152-企业计算因子台账.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-152-企业计算因子台账.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "查看企业计算因子库",
+        "/carbon-mgmt/calculation-factors"
+      ],
+      "focus": "页面显示企业因子和共享因子，企业因子可维护，共享因子只读。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "因子维护与核算",
+      "title": "新增企业计算因子",
+      "route": "/carbon-mgmt/calculation-factors",
+      "evidenceId": "EV-WH-153",
+      "screenshot": "EV-WH-153-新增企业计算因子.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-153-新增企业计算因子.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增企业计算因子",
+        "/carbon-mgmt/calculation-factors"
+      ],
+      "focus": "新增表单显示企业计算因子完整维护字段。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "因子维护与核算",
+      "title": "编辑企业计算因子",
+      "route": "/carbon-mgmt/calculation-factors",
+      "evidenceId": "EV-WH-154",
+      "screenshot": "EV-WH-154-编辑企业计算因子结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-154-编辑企业计算因子结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "编辑企业计算因子",
+        "/carbon-mgmt/calculation-factors"
+      ],
+      "focus": "编辑后回到台账，因子值和企业归属正常回显。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "因子维护与核算",
+      "title": "模板导入企业计算因子",
+      "route": "/carbon-mgmt/calculation-factors",
+      "evidenceId": "EV-WH-155",
+      "screenshot": "EV-WH-155-企业计算因子模板导入预检.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-155-企业计算因子模板导入预检.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "模板导入企业计算因子",
+        "/carbon-mgmt/calculation-factors"
+      ],
+      "focus": "页面显示有效行、新增、更新和错误统计，预检通过后可提交导入。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "因子维护与核算",
+      "title": "活动数据采用计算因子",
+      "route": "/carbon-mgmt/activities",
+      "evidenceId": "EV-WH-156",
+      "screenshot": "EV-WH-156-活动数据采用计算因子结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-156-活动数据采用计算因子结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "活动数据采用计算因子",
+        "/carbon-mgmt/activities"
+      ],
+      "focus": "当前参数值回显，并进入活动数据核算参数集。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
       "section": "组织边界与核算边界维护",
       "title": "打开边界维护页面",
       "route": "/carbon/organization/boundary",
@@ -2336,6 +2291,126 @@
         "/energy/budget"
       ],
       "focus": "页面显示预算执行分析内容和维护预算入口。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织碳排放源与活动数据维护",
+      "title": "查看组织碳数据工作台",
+      "route": "/carbon-mgmt/workbench",
+      "evidenceId": "EV-WH-144",
+      "screenshot": "EV-WH-144-组织碳数据工作台.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-144-组织碳数据工作台.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "查看组织碳数据工作台",
+        "/carbon-mgmt/workbench"
+      ],
+      "focus": "页面显示组织碳数据工作台指标和排放源、活动数据、导入、生成入口。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织碳排放源与活动数据维护",
+      "title": "新增排放源",
+      "route": "/carbon-mgmt/sources",
+      "evidenceId": "EV-WH-145",
+      "screenshot": "EV-WH-145-排放源新增表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-145-排放源新增表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增排放源",
+        "/carbon-mgmt/sources"
+      ],
+      "focus": "新增排放源表单展示核心主数据字段。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织碳排放源与活动数据维护",
+      "title": "编辑排放源",
+      "route": "/carbon-mgmt/sources",
+      "evidenceId": "EV-WH-146",
+      "screenshot": "EV-WH-146-排放源编辑结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-146-排放源编辑结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "编辑排放源",
+        "/carbon-mgmt/sources"
+      ],
+      "focus": "保存后排放源列表回显更新后的排放源名称和关联活动数量。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织碳排放源与活动数据维护",
+      "title": "新增活动数据",
+      "route": "/carbon-mgmt/activities",
+      "evidenceId": "EV-WH-147",
+      "screenshot": "EV-WH-147-活动数据新增表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-147-活动数据新增表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增活动数据",
+        "/carbon-mgmt/activities"
+      ],
+      "focus": "新增活动数据表单按 ISO 分类显示动态字段。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织碳排放源与活动数据维护",
+      "title": "维护活动数据归集",
+      "route": "/carbon-mgmt/activities",
+      "evidenceId": "EV-WH-148",
+      "screenshot": "EV-WH-148-活动数据详情与归集.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-148-活动数据详情与归集.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "维护活动数据归集",
+        "/carbon-mgmt/activities"
+      ],
+      "focus": "活动数据详情显示分类字段和区域设备归集编辑区。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织碳排放源与活动数据维护",
+      "title": "编辑活动数据",
+      "route": "/carbon-mgmt/activities",
+      "evidenceId": "EV-WH-149",
+      "screenshot": "EV-WH-149-活动数据编辑结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-149-活动数据编辑结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "编辑活动数据",
+        "/carbon-mgmt/activities"
+      ],
+      "focus": "保存后活动台账回显新的活动量、质量状态和归集状态。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织碳排放源与活动数据维护",
+      "title": "生成活动数据",
+      "route": "/carbon-mgmt/workbench",
+      "evidenceId": "EV-WH-150",
+      "screenshot": "EV-WH-150-组织碳活动数据生成结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-150-组织碳活动数据生成结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "生成活动数据",
+        "/carbon-mgmt/workbench"
+      ],
+      "focus": "生成完成后工作台统计刷新，活动数据进入统一台账。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织碳排放源与活动数据维护",
+      "title": "删除活动数据和排放源",
+      "route": "/carbon-mgmt/activities",
+      "evidenceId": "EV-WH-151",
+      "screenshot": "EV-WH-151-活动与排放源删除结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-151-活动与排放源删除结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "删除活动数据和排放源",
+        "/carbon-mgmt/activities"
+      ],
+      "focus": "删除后活动台账查询结果不再显示验证记录。",
       "expectedEvidenceLevel": "A"
     }
   ]

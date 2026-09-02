@@ -101,10 +101,7 @@ function GhgInventoryImportPage() {
         topActions={
           <div className="flex gap-2">
             <Button asChild size="sm" variant="outline">
-              <Link
-                to={lockedCategoryCode ? "/carbon-mgmt/category/$categoryCode" : "/carbon-mgmt/activities"}
-                params={lockedCategoryCode ? { categoryCode: lockedCategoryCode } : {}}
-              >
+              <Link to="/carbon-mgmt/activities" search={lockedCategoryCode ? { category: lockedCategoryCode } : {}}>
                 <ListChecks />
                 活动台账
               </Link>

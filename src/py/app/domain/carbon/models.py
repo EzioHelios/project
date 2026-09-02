@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-# ruff: noqa: RUF002, RUF003
+# ruff: noqa: RUF002, RUF003, TC003
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from typing import Any
+from uuid import UUID
 
 from advanced_alchemy.base import BigIntAuditBase, BigIntBase
 from sqlalchemy import (
@@ -1456,7 +1457,19 @@ class EmissionFactor(BigIntAuditBase):
     """排放因子库（对应 Django dataapp.EmissionFactor）。"""
 
     __tablename__ = "dataapp_emissionfactor"
+    __table_args__ = (
+        UniqueConstraint(
+            "team_id",
+            "scope",
+            "category",
+            "sub_category",
+            "unit",
+            "year",
+            name="uq_dataapp_emissionfactor_team_business_key",
+        ),
+    )
 
+    team_id: Mapped[UUID | None] = mapped_column(ForeignKey("team.id", ondelete="CASCADE"), nullable=True, index=True)
     scope: Mapped[str] = mapped_column(String(10))
     category: Mapped[str] = mapped_column(String(20))
     sub_category: Mapped[str] = mapped_column(String(64))

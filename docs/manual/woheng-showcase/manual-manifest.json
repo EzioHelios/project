@@ -114,6 +114,11 @@
       "source": "06-organization-boundary-settings.md"
     },
     {
+      "pageId": "ghg-maintenance",
+      "title": "组织碳核算：排放源与活动数据维护",
+      "source": "06a-ghg-maintenance.md"
+    },
+    {
       "pageId": "organization-carbon-iso14064",
       "title": "组织碳管理与 ISO 14064 分类",
       "source": "07-organization-carbon-iso14064.md"
@@ -749,23 +754,53 @@
         },
         {
           "stepNumber": "4.2",
-          "title": "查看计算因子库",
+          "title": "查看企业计算因子库",
           "route": "/carbon-mgmt/calculation-factors",
-          "action": "进入计算因子库，查看范围、因子值、单位和启用状态。",
-          "expectedState": "页面显示可用于核算的计算因子列表。",
-          "evidenceId": "EV-WH-019",
-          "screenshot": "EV-WH-019-计算因子库.png",
-          "verificationStatus": "planned"
+          "action": "进入企业计算因子库，查看范围、类别、单位、年份、来源、归属和启用状态。",
+          "expectedState": "页面显示企业因子和共享因子，企业因子可维护，共享因子只读。",
+          "evidenceId": "EV-WH-152",
+          "screenshot": "EV-WH-152-企业计算因子台账.png",
+          "verificationStatus": "verified"
         },
         {
           "stepNumber": "4.3",
-          "title": "核对活动数据方法与参数",
-          "route": "/carbon-mgmt/import",
-          "action": "在导入预检后切换到方法与参数页签，查看参数集、采用值、来源版本和标准条款。",
-          "expectedState": "页面显示活动数据对应的核算方法、参数和来源信息。",
-          "evidenceId": "EV-WH-020",
-          "screenshot": "EV-WH-020-活动数据方法与参数解析.png",
-          "verificationStatus": "planned"
+          "title": "新增企业计算因子",
+          "route": "/carbon-mgmt/calculation-factors",
+          "action": "点击新增因子，维护范围、类别、子类、活动单位、因子值、年份、来源和状态。",
+          "expectedState": "新增表单显示企业计算因子完整维护字段。",
+          "evidenceId": "EV-WH-153",
+          "screenshot": "EV-WH-153-新增企业计算因子.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "4.4",
+          "title": "编辑企业计算因子",
+          "route": "/carbon-mgmt/calculation-factors",
+          "action": "选择企业因子编辑，更新因子值、来源、状态或备注。",
+          "expectedState": "编辑后回到台账，因子值和企业归属正常回显。",
+          "evidenceId": "EV-WH-154",
+          "screenshot": "EV-WH-154-编辑企业计算因子结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "4.5",
+          "title": "模板导入企业计算因子",
+          "route": "/carbon-mgmt/calculation-factors",
+          "action": "上传计算因子 CSV 模板并执行预检。",
+          "expectedState": "页面显示有效行、新增、更新和错误统计，预检通过后可提交导入。",
+          "evidenceId": "EV-WH-155",
+          "screenshot": "EV-WH-155-企业计算因子模板导入预检.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "4.6",
+          "title": "活动数据采用计算因子",
+          "route": "/carbon-mgmt/activities",
+          "action": "打开活动数据详情，在因子参数分区选择候选因子并采用。",
+          "expectedState": "当前参数值回显，并进入活动数据核算参数集。",
+          "evidenceId": "EV-WH-156",
+          "screenshot": "EV-WH-156-活动数据采用计算因子结果.png",
+          "verificationStatus": "verified"
         }
       ]
     },
@@ -1250,6 +1285,93 @@
       ]
     },
     {
+      "sectionId": "ghg-maintenance",
+      "title": "组织碳排放源与活动数据维护",
+      "summary": "用于说明组织碳数据工作台、排放源维护、活动数据台账、分类字段、区域设备归集、幂等生成和删除结果。",
+      "steps": [
+        {
+          "stepNumber": "15.1",
+          "title": "查看组织碳数据工作台",
+          "route": "/carbon-mgmt/workbench",
+          "action": "进入组织碳数据工作台，查看当前报告期的排放源、活动数据、待归集、待配参数、质量警告和待补证据。",
+          "expectedState": "页面显示组织碳数据工作台指标和排放源、活动数据、导入、生成入口。",
+          "evidenceId": "EV-WH-144",
+          "screenshot": "EV-WH-144-组织碳数据工作台.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.2",
+          "title": "新增排放源",
+          "route": "/carbon-mgmt/sources",
+          "action": "点击新增排放源，填写盘查任务、ISO 二级分类、排放源编号、排放源名称、组织、区域、设备、来源类型和状态。",
+          "expectedState": "新增排放源表单展示核心主数据字段。",
+          "evidenceId": "EV-WH-145",
+          "screenshot": "EV-WH-145-排放源新增表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.3",
+          "title": "编辑排放源",
+          "route": "/carbon-mgmt/sources",
+          "action": "在排放源列表中搜索目标排放源并编辑名称、分类、区域设备挂载或状态。",
+          "expectedState": "保存后排放源列表回显更新后的排放源名称和关联活动数量。",
+          "evidenceId": "EV-WH-146",
+          "screenshot": "EV-WH-146-排放源编辑结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.4",
+          "title": "新增活动数据",
+          "route": "/carbon-mgmt/activities",
+          "action": "点击新增活动，选择排放源，填写记录编号、活动名称、报告期、活动量、单位、数据来源、分类字段和测量方法。",
+          "expectedState": "新增活动数据表单按 ISO 分类显示动态字段。",
+          "evidenceId": "EV-WH-147",
+          "screenshot": "EV-WH-147-活动数据新增表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.5",
+          "title": "维护活动数据归集",
+          "route": "/carbon-mgmt/activities",
+          "action": "打开活动数据详情，在详情中维护区域、设备、计量边界和归集比例。",
+          "expectedState": "活动数据详情显示分类字段和区域设备归集编辑区。",
+          "evidenceId": "EV-WH-148",
+          "screenshot": "EV-WH-148-活动数据详情与归集.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.6",
+          "title": "编辑活动数据",
+          "route": "/carbon-mgmt/activities",
+          "action": "在活动台账中编辑活动量、来源、分类字段、测量方法或备注。",
+          "expectedState": "保存后活动台账回显新的活动量、质量状态和归集状态。",
+          "evidenceId": "EV-WH-149",
+          "screenshot": "EV-WH-149-活动数据编辑结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.7",
+          "title": "生成活动数据",
+          "route": "/carbon-mgmt/workbench",
+          "action": "点击生成活动数据，从购入电力能源事实和员工通勤台账生成组织碳活动数据。",
+          "expectedState": "生成完成后工作台统计刷新，活动数据进入统一台账。",
+          "evidenceId": "EV-WH-150",
+          "screenshot": "EV-WH-150-组织碳活动数据生成结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.8",
+          "title": "删除活动数据和排放源",
+          "route": "/carbon-mgmt/activities",
+          "action": "删除未引用的活动数据，再删除未关联活动的排放源，并按编号查询验证。",
+          "expectedState": "删除后活动台账查询结果不再显示验证记录。",
+          "evidenceId": "EV-WH-151",
+          "screenshot": "EV-WH-151-活动与排放源删除结果.png",
+          "verificationStatus": "verified"
+        }
+      ]
+    },
+    {
       "sectionId": "organization-carbon",
       "title": "组织碳管理与 ISO 14064 分类",
       "summary": "用于说明组织边界、核算边界、范围一二三、ISO 14064 类别 1-6、排放明细和核查支撑。",
@@ -1296,13 +1418,13 @@
         },
         {
           "stepNumber": "6.5",
-          "title": "查看 ISO 14064 类别填报",
-          "route": "/carbon-mgmt/category/1.1",
-          "action": "按类别 1-6 进入分类填报页，核对固定燃烧、购入电力、员工通勤、采购商品、售出产品加工和其他间接排放记录。",
-          "expectedState": "分类填报页面显示活动记录、活动量、质量状态和归集字段。",
-          "evidenceId": "EV-WH-043",
-          "screenshot": "EV-WH-043-iso-14064-类别1固定燃烧分类填报.png",
-          "verificationStatus": "planned"
+          "title": "按 ISO 14064 分类筛选活动数据",
+          "route": "/carbon-mgmt/activities",
+          "action": "进入活动数据台账，通过 ISO 二级分类筛选固定燃烧、购入电力、员工通勤、采购商品、售出产品加工和其他间接排放记录。",
+          "expectedState": "活动数据台账显示活动记录、活动量、质量状态、归集状态和分类字段。",
+          "evidenceId": "EV-WH-147",
+          "screenshot": "EV-WH-147-活动数据新增表单.png",
+          "verificationStatus": "verified"
         }
       ]
     },

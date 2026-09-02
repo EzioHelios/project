@@ -200,6 +200,7 @@ class GhgCatalogResponse(CamelizedBaseStruct):
 class GhgActivityResponse(CamelizedBaseStruct):
     record_code: str
     inventory_code: str
+    reporting_period_id: int | None
     organization_code: str
     facility_code: str
     source_code: str
@@ -213,10 +214,15 @@ class GhgActivityResponse(CamelizedBaseStruct):
     activity_amount: str
     activity_unit: str
     data_source_type: str
+    measurement_method: str
     quality_status: str
     status: str
     parameter_set_code: str | None
     organization_boundary_id: int | None
+    remarks: str | None
+    source_system: str
+    source_record_type: str | None
+    source_record_id: int | None
     allocation_status: str
     allocation_count: int
     allocated_area_names: list[str]
@@ -227,6 +233,143 @@ class GhgActivityResponse(CamelizedBaseStruct):
 class GhgActivityListResponse(CamelizedBaseStruct):
     items: list[GhgActivityResponse]
     total: int
+
+
+class GhgEmissionSourceResponse(CamelizedBaseStruct):
+    inventory_code: str
+    organization_code: str
+    facility_code: str
+    source_code: str
+    source_name: str
+    iso_category_code: str
+    source_mechanism: str
+    origin_kind: str
+    organization_boundary_id: int | None
+    reporting_period_id: int | None
+    default_area_id: int | None
+    default_equipment_id: int | None
+    default_measurement_boundary_id: int | None
+    default_allocation_role: str
+    external_facility_code: str | None
+    external_facility_name: str | None
+    valid_from: str | None
+    valid_to: str | None
+    source_system: str
+    source_payload: dict[str, Any]
+    status: str
+    activity_count: int
+
+
+class GhgEmissionSourceListResponse(CamelizedBaseStruct):
+    items: list[GhgEmissionSourceResponse]
+    total: int
+
+
+class GhgEmissionSourceWriteRequest(CamelizedBaseStruct, kw_only=True):
+    inventory_code: str
+    organization_code: str
+    facility_code: str
+    source_code: str
+    source_name: str
+    iso_category_code: str
+    source_mechanism: str | None = None
+    origin_kind: str = "internal"
+    organization_boundary_id: int | None = None
+    reporting_period_id: int | None = None
+    default_area_id: int | None = None
+    default_equipment_id: int | None = None
+    default_measurement_boundary_id: int | None = None
+    default_allocation_role: str = "responsibility"
+    external_facility_code: str | None = None
+    external_facility_name: str | None = None
+    valid_from: str | None = None
+    valid_to: str | None = None
+    source_system: str = "manual"
+    source_payload: dict[str, Any] | None = None
+    status: str = "active"
+
+    def __post_init__(self) -> None:
+        _bounded(self.inventory_code, "盘查任务编号", 96)
+        _bounded(self.organization_code, "组织编号", 96)
+        _bounded(self.facility_code, "设施编号", 96)
+        _bounded(self.source_code, "排放源编号", 96)
+        _bounded(self.source_name, "排放源名称", 255)
+
+
+class GhgActivityWriteRequest(CamelizedBaseStruct, kw_only=True):
+    record_code: str
+    inventory_code: str
+    organization_code: str
+    facility_code: str
+    source_code: str
+    activity_code: str
+    activity_name: str
+    period_start: str
+    period_end: str
+    iso_category_code: str
+    activity_amount: str
+    activity_unit: str
+    data_source_type: str
+    measurement_method: str
+    reporting_period_id: int | None = None
+    organization_boundary_id: int | None = None
+    emission_source_id: int | None = None
+    quality_status: str = "pass"
+    parameter_set_code: str | None = None
+    source_payload: dict[str, Any] | None = None
+    remarks: str | None = None
+    status: str = "approved"
+    source_system: str = "manual"
+    source_record_type: str | None = None
+    source_record_id: int | None = None
+
+    def __post_init__(self) -> None:
+        _bounded(self.record_code, "活动记录编号", 96)
+        _bounded(self.inventory_code, "盘查任务编号", 96)
+        _bounded(self.organization_code, "组织编号", 96)
+        _bounded(self.facility_code, "设施编号", 96)
+        _bounded(self.source_code, "排放源编号", 96)
+        _bounded(self.activity_code, "活动编号", 96)
+        _bounded(self.activity_name, "活动名称", 255)
+        _bounded(self.activity_unit, "活动量单位", 64)
+        _bounded(self.data_source_type, "数据来源类型", 32)
+        _bounded(self.measurement_method, "测量方法", 255)
+
+
+class GhgActivityGenerateRequest(CamelizedBaseStruct, kw_only=True):
+    inventory_code: str
+    reporting_period_id: int
+    organization_boundary_id: int | None = None
+    source_types: list[str]
+
+    def __post_init__(self) -> None:
+        _bounded(self.inventory_code, "盘查任务编号", 96)
+        if self.reporting_period_id <= 0:
+            msg = "报告期必须为有效主数据"
+            raise ValueError(msg)
+        if not self.source_types:
+            msg = "至少选择一种生成来源"
+            raise ValueError(msg)
+
+
+class GhgActivityGenerateResponse(CamelizedBaseStruct):
+    inventory_code: str
+    created_count: int
+    updated_count: int
+    skipped_count: int
+    failed_count: int
+    messages: list[str]
+
+
+class GhgInventoryWorkbenchResponse(CamelizedBaseStruct):
+    inventory_code: str | None
+    reporting_period_id: int | None
+    activity_count: int
+    source_count: int
+    unallocated_count: int
+    missing_parameter_count: int
+    warning_count: int
+    missing_evidence_count: int
 
 
 class GhgBoundaryPreview(CamelizedBaseStruct, kw_only=True):

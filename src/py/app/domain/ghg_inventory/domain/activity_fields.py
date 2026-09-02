@@ -45,7 +45,12 @@ CATEGORY_ACTIVITY_FIELDS: dict[str, tuple[ActivityFieldDefinition, ...]] = {
         ActivityFieldDefinition("recovery", "回收量"),
     ),
     "purchased_energy": (
-        ActivityFieldDefinition("energy_type", "能源种类", True),
+        ActivityFieldDefinition(
+            "energy_type",
+            "能源种类",
+            True,
+            choices=("electricity", "purchased_heat", "steam", "cooling"),
+        ),
         ActivityFieldDefinition("supplier_name", "供应商", True),
         ActivityFieldDefinition("meter_point", "计量点", True),
         ActivityFieldDefinition(

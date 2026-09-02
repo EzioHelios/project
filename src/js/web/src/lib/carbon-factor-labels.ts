@@ -42,8 +42,13 @@ const UNIT_LABELS: Record<string, string> = {
 }
 
 const SOURCE_SYSTEM_LABELS: Record<string, string> = {
+  enterprise: "企业维护",
+  custom_approved: "企业审定",
+  manual: "人工录入",
   ncsc_ghg_efdb: "NCSC官方因子库",
   ncsc_gwp_ar5: "NCSC GWP(AR5)",
+  ipcc: "IPCC",
+  ecoinvent: "ecoinvent",
 }
 
 const CONVERSION_STATUS_LABELS: Record<string, string> = {

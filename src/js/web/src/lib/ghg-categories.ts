@@ -76,7 +76,3 @@ export const GHG_CATEGORY_GROUPS: GhgCategoryNavigationGroup[] = [
     items: [{ code: "6.1", name: "其他经确认的间接排放" }],
   },
 ]
-
-export function categoryRoute(code: string) {
-  return `/carbon-mgmt/category/${code}`
-}

@@ -4,7 +4,6 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { resolveAdminDomain } from "@/lib/design-domain"
-import { GHG_CATEGORY_GROUPS } from "@/lib/ghg-categories"
 
 export function AppLayout() {
   const pathname = useRouterState({
@@ -85,14 +84,10 @@ export function AppLayout() {
       return { eyebrow: "定时任务", title: "定时任务" }
     }
     if (pathname.startsWith("/carbon-mgmt")) {
-      if (pathname === "/carbon-mgmt/activities") return { eyebrow: "温室气体盘查", title: "活动数据台账" }
-      if (pathname === "/carbon-mgmt/import") return { eyebrow: "温室气体盘查", title: "活动数据导入" }
-      if (pathname.startsWith("/carbon-mgmt/category/")) {
-        const pathSegments = pathname.split("/")
-        const categoryCode = pathSegments[pathSegments.length - 1]
-        const category = GHG_CATEGORY_GROUPS.flatMap((group) => group.items).find((item) => item.code === categoryCode)
-        return { eyebrow: "碳数据填报", title: category ? `${category.code} ${category.name}` : "活动数据分类" }
-      }
+      if (pathname === "/carbon-mgmt/workbench") return { eyebrow: "组织碳数据维护", title: "数据工作台" }
+      if (pathname === "/carbon-mgmt/sources") return { eyebrow: "组织碳数据维护", title: "排放源维护" }
+      if (pathname === "/carbon-mgmt/activities") return { eyebrow: "组织碳数据维护", title: "活动数据台账" }
+      if (pathname === "/carbon-mgmt/import") return { eyebrow: "组织碳数据维护", title: "活动数据导入" }
       if (pathname === "/carbon-mgmt/factors") return { eyebrow: "碳排放因子库", title: "排放因子库" }
       if (pathname === "/carbon-mgmt/calculation-factors") return { eyebrow: "碳排放因子库", title: "计算因子库" }
       return { eyebrow: "碳排放管理", title: "碳排放管理" }

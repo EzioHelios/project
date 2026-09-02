@@ -26,6 +26,8 @@
     "docs:manual:verify:energy-operations": "node ./scripts/manual/verify-energy-operations.mjs",
     "docs:manual:verify:energy-priority": "node ./scripts/manual/verify-energy-priority-maintenance.mjs",
     "docs:manual:verify:organization-boundary": "node ./scripts/manual/verify-organization-boundary-maintenance.mjs",
+    "docs:manual:verify:ghg-maintenance": "node ./scripts/manual/verify-ghg-maintenance.mjs",
+    "docs:manual:verify:factors": "node ./scripts/manual/verify-factor-maintenance.mjs",
     "docs:manual:verify:area-device": "node ./scripts/manual/verify-area-device-maintenance.mjs"
   },
   "dependencies": {

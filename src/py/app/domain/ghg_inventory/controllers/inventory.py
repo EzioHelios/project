@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import msgspec
-from litestar import Controller, get, post, put
+from litestar import Controller, delete, get, patch, post, put
 from litestar.exceptions import ClientException
 from litestar.response import Response
 from sqlalchemy import select
@@ -24,14 +24,22 @@ from app.domain.ghg_inventory.queries.analytics import GhgAnalyticsQueryService
 from app.domain.ghg_inventory.queries.inventory import GhgInventoryQueryService
 from app.domain.ghg_inventory.schemas import (
     GhgActivityAllocationListResponse,
+    GhgActivityGenerateRequest,
+    GhgActivityGenerateResponse,
     GhgActivityListResponse,
+    GhgActivityResponse,
+    GhgActivityWriteRequest,
     GhgAreaSummaryResponse,
     GhgCalculationRunListResponse,
     GhgCalculationRunRequest,
     GhgCalculationRunResponse,
     GhgCatalogResponse,
+    GhgEmissionSourceListResponse,
+    GhgEmissionSourceResponse,
+    GhgEmissionSourceWriteRequest,
     GhgImportBatchListResponse,
     GhgImportBatchResponse,
+    GhgInventoryWorkbenchResponse,
     ReplaceActivityAllocationsRequest,
     WorkbookCommitRequest,
     WorkbookPreviewRequest,
@@ -39,6 +47,7 @@ from app.domain.ghg_inventory.schemas import (
 from app.domain.ghg_inventory.usecases.allocations import ReplaceActivityAllocations
 from app.domain.ghg_inventory.usecases.calculation import RunInventoryCalculation
 from app.domain.ghg_inventory.usecases.import_workbook import CommitCategoryWorkbook, PreviewCategoryWorkbook
+from app.domain.ghg_inventory.usecases.maintenance import GhgInventoryMaintenance
 from app.domain.metering.models import MeasurementBoundary
 
 if TYPE_CHECKING:
@@ -157,6 +166,241 @@ class GhgInventoryController(Controller):
             offset=max(offset, 0),
         )
         return msgspec.convert(payload, type=GhgActivityListResponse)
+
+    @get(
+        "/workbench",
+        operation_id="GhgInventoryGetWorkbench",
+        guards=[requires_permission("carbon.inventory.view")],
+    )
+    async def workbench(
+        self,
+        db_session: AsyncSession,
+        inventory_code: str | None = None,
+        reporting_period_id: int | None = None,
+    ) -> GhgInventoryWorkbenchResponse:
+        payload = await GhgInventoryQueryService(db_session).workbench(
+            inventory_code=inventory_code,
+            reporting_period_id=reporting_period_id,
+        )
+        return msgspec.convert(payload, type=GhgInventoryWorkbenchResponse)
+
+    @get(
+        "/emission-sources",
+        operation_id="GhgInventoryListEmissionSources",
+        guards=[requires_permission("carbon.inventory.view")],
+    )
+    async def emission_sources(
+        self,
+        db_session: AsyncSession,
+        inventory_code: str | None = None,
+        category_code: str | None = None,
+        status: str | None = None,
+        keyword: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> GhgEmissionSourceListResponse:
+        payload = await GhgInventoryQueryService(db_session).emission_sources(
+            inventory_code=inventory_code,
+            category_code=category_code,
+            status=status,
+            keyword=keyword,
+            limit=min(max(limit, 1), 500),
+            offset=max(offset, 0),
+        )
+        return msgspec.convert(payload, type=GhgEmissionSourceListResponse)
+
+    @get(
+        "/emission-sources/{source_code:str}",
+        operation_id="GhgInventoryGetEmissionSource",
+        guards=[requires_permission("carbon.inventory.view")],
+    )
+    async def emission_source(
+        self,
+        db_session: AsyncSession,
+        source_code: str,
+        inventory_code: str,
+    ) -> GhgEmissionSourceResponse:
+        try:
+            payload = await GhgInventoryQueryService(db_session).emission_source(
+                inventory_code=inventory_code,
+                source_code=source_code,
+            )
+        except ValueError as exc:
+            raise ClientException(status_code=404, detail=str(exc)) from exc
+        return msgspec.convert(payload, type=GhgEmissionSourceResponse)
+
+    @post(
+        "/emission-sources",
+        operation_id="GhgInventoryCreateEmissionSource",
+        guards=[requires_permission("carbon.inventory.import")],
+    )
+    async def create_emission_source(
+        self,
+        db_session: AsyncSession,
+        data: GhgEmissionSourceWriteRequest,
+    ) -> GhgEmissionSourceResponse:
+        try:
+            source = await GhgInventoryMaintenance(db_session).create_source(data.to_dict())
+            payload = await GhgInventoryQueryService(db_session).emission_source(
+                inventory_code=source.inventory_code,
+                source_code=source.source_code,
+            )
+        except ValueError as exc:
+            raise ClientException(status_code=422, detail=str(exc)) from exc
+        return msgspec.convert(payload, type=GhgEmissionSourceResponse)
+
+    @patch(
+        "/emission-sources/{source_code:str}",
+        operation_id="GhgInventoryUpdateEmissionSource",
+        guards=[requires_permission("carbon.inventory.import")],
+    )
+    async def update_emission_source(
+        self,
+        db_session: AsyncSession,
+        source_code: str,
+        data: GhgEmissionSourceWriteRequest,
+    ) -> GhgEmissionSourceResponse:
+        try:
+            source = await GhgInventoryMaintenance(db_session).update_source(source_code, data.to_dict())
+            payload = await GhgInventoryQueryService(db_session).emission_source(
+                inventory_code=source.inventory_code,
+                source_code=source.source_code,
+            )
+        except ValueError as exc:
+            raise ClientException(status_code=422, detail=str(exc)) from exc
+        return msgspec.convert(payload, type=GhgEmissionSourceResponse)
+
+    @delete(
+        "/emission-sources/{source_code:str}",
+        operation_id="GhgInventoryDeleteEmissionSource",
+        guards=[requires_permission("carbon.inventory.import")],
+        status_code=200,
+    )
+    async def delete_emission_source(
+        self,
+        db_session: AsyncSession,
+        source_code: str,
+        inventory_code: str,
+    ) -> dict[str, object]:
+        try:
+            source = await GhgInventoryMaintenance(db_session).delete_source(
+                inventory_code=inventory_code,
+                source_code=source_code,
+            )
+        except ValueError as exc:
+            raise ClientException(status_code=422, detail=str(exc)) from exc
+        return {
+            "deleted": source is None,
+            "status": source.status if source is not None else "deleted",
+            "sourceCode": source_code,
+        }
+
+    @get(
+        "/activities/{record_code:str}",
+        operation_id="GhgInventoryGetActivity",
+        guards=[requires_permission("carbon.inventory.view")],
+    )
+    async def activity(
+        self,
+        db_session: AsyncSession,
+        record_code: str,
+        inventory_code: str,
+    ) -> GhgActivityResponse:
+        try:
+            payload = await GhgInventoryQueryService(db_session).activity(
+                inventory_code=inventory_code,
+                record_code=record_code,
+            )
+        except ValueError as exc:
+            raise ClientException(status_code=404, detail=str(exc)) from exc
+        return msgspec.convert(payload, type=GhgActivityResponse)
+
+    @post(
+        "/activities",
+        operation_id="GhgInventoryCreateActivity",
+        guards=[requires_permission("carbon.inventory.import")],
+    )
+    async def create_activity(
+        self,
+        db_session: AsyncSession,
+        data: GhgActivityWriteRequest,
+    ) -> GhgActivityResponse:
+        try:
+            activity = await GhgInventoryMaintenance(db_session).create_activity(data.to_dict())
+            payload = await GhgInventoryQueryService(db_session).activity(
+                inventory_code=activity.inventory_code,
+                record_code=activity.record_code,
+            )
+        except ValueError as exc:
+            raise ClientException(status_code=422, detail=str(exc)) from exc
+        return msgspec.convert(payload, type=GhgActivityResponse)
+
+    @patch(
+        "/activities/{record_code:str}",
+        operation_id="GhgInventoryUpdateActivity",
+        guards=[requires_permission("carbon.inventory.import")],
+    )
+    async def update_activity(
+        self,
+        db_session: AsyncSession,
+        record_code: str,
+        data: GhgActivityWriteRequest,
+    ) -> GhgActivityResponse:
+        try:
+            activity = await GhgInventoryMaintenance(db_session).update_activity(record_code, data.to_dict())
+            payload = await GhgInventoryQueryService(db_session).activity(
+                inventory_code=activity.inventory_code,
+                record_code=activity.record_code,
+            )
+        except ValueError as exc:
+            raise ClientException(status_code=422, detail=str(exc)) from exc
+        return msgspec.convert(payload, type=GhgActivityResponse)
+
+    @delete(
+        "/activities/{record_code:str}",
+        operation_id="GhgInventoryDeleteActivity",
+        guards=[requires_permission("carbon.inventory.import")],
+        status_code=200,
+    )
+    async def delete_activity(
+        self,
+        db_session: AsyncSession,
+        record_code: str,
+        inventory_code: str,
+    ) -> dict[str, object]:
+        try:
+            activity = await GhgInventoryMaintenance(db_session).delete_activity(
+                inventory_code=inventory_code,
+                record_code=record_code,
+            )
+        except ValueError as exc:
+            raise ClientException(status_code=422, detail=str(exc)) from exc
+        return {
+            "deleted": activity is None,
+            "status": activity.status if activity is not None else "deleted",
+            "recordCode": record_code,
+        }
+
+    @post(
+        "/activities/generate",
+        operation_id="GhgInventoryGenerateActivities",
+        guards=[requires_permission("carbon.inventory.import")],
+    )
+    async def generate_activities(
+        self,
+        db_session: AsyncSession,
+        data: GhgActivityGenerateRequest,
+    ) -> GhgActivityGenerateResponse:
+        try:
+            payload = await GhgInventoryMaintenance(db_session).generate_activities(
+                inventory_code=data.inventory_code,
+                reporting_period_id=data.reporting_period_id,
+                organization_boundary_id=data.organization_boundary_id,
+                source_types=data.source_types,
+            )
+        except ValueError as exc:
+            raise ClientException(status_code=422, detail=str(exc)) from exc
+        return msgspec.convert(payload, type=GhgActivityGenerateResponse)
 
     @get(
         "/import/template",

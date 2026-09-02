@@ -16,6 +16,7 @@ from app.domain.ghg_inventory.models import (
     GhgCalculationMethodDefinition,
     GhgCalculationResult,
     GhgCalculationRun,
+    GhgEmissionSource,
     GhgEvidenceLink,
     GhgImportBatch,
     GhgParameterAssignment,
@@ -78,43 +79,65 @@ class GhgInventoryQueryService:
             allocations_by_activity.setdefault(allocation.activity_id, []).append(allocation)
         return {
             "items": [
-                {
-                    "recordCode": row.record_code,
-                    "inventoryCode": row.inventory_code,
-                    "organizationCode": row.organization_code,
-                    "facilityCode": row.facility_code,
-                    "sourceCode": row.source_code,
-                    "activityCode": row.activity_code,
-                    "activityName": row.activity_name,
-                    "periodStart": row.period_start.isoformat(),
-                    "periodEnd": row.period_end.isoformat(),
-                    "isoCategoryCode": row.iso_category_code,
-                    "ghgScope": row.ghg_scope,
-                    "scope3Category": row.scope3_category,
-                    "activityAmount": str(row.activity_amount),
-                    "activityUnit": row.activity_unit,
-                    "dataSourceType": row.data_source_type,
-                    "qualityStatus": row.quality_status,
-                    "status": row.status,
-                    "parameterSetCode": row.parameter_set_code,
-                    "organizationBoundaryId": row.organization_boundary_id,
-                    "allocationStatus": "complete" if allocations_by_activity.get(row.id) else "unallocated",
-                    "allocationCount": len(allocations_by_activity.get(row.id, [])),
-                    "allocatedAreaNames": sorted(
-                        {item.area_name_snapshot for item in allocations_by_activity.get(row.id, [])}
-                    ),
-                    "allocatedEquipmentNames": sorted(
-                        {
-                            item.equipment_name_snapshot
-                            for item in allocations_by_activity.get(row.id, [])
-                            if item.equipment_name_snapshot
-                        }
-                    ),
-                    "activityDetails": self.activity_details(row),
-                }
+                self.activity_payload(row, allocations_by_activity.get(row.id, []))
                 for row in rows
             ],
             "total": int(total),
+        }
+
+    async def activity(self, *, inventory_code: str, record_code: str) -> dict[str, Any]:
+        row = await self.session.scalar(
+            select(GhgActivityRecord).where(
+                GhgActivityRecord.inventory_code == inventory_code,
+                GhgActivityRecord.record_code == record_code,
+            )
+        )
+        if row is None:
+            msg = "温室气体活动记录不存在"
+            raise ValueError(msg)
+        allocations = list(
+            (
+                await self.session.scalars(
+                    select(GhgActivityAllocation).where(GhgActivityAllocation.activity_id == row.id)
+                )
+            ).all()
+        )
+        return self.activity_payload(row, allocations)
+
+    def activity_payload(self, row: GhgActivityRecord, allocations: list[GhgActivityAllocation]) -> dict[str, Any]:
+        return {
+            "recordCode": row.record_code,
+            "inventoryCode": row.inventory_code,
+            "reportingPeriodId": row.reporting_period_id,
+            "organizationCode": row.organization_code,
+            "facilityCode": row.facility_code,
+            "sourceCode": row.source_code,
+            "activityCode": row.activity_code,
+            "activityName": row.activity_name,
+            "periodStart": row.period_start.isoformat(),
+            "periodEnd": row.period_end.isoformat(),
+            "isoCategoryCode": row.iso_category_code,
+            "ghgScope": row.ghg_scope,
+            "scope3Category": row.scope3_category,
+            "activityAmount": str(row.activity_amount),
+            "activityUnit": row.activity_unit,
+            "dataSourceType": row.data_source_type,
+            "measurementMethod": row.measurement_method,
+            "qualityStatus": row.quality_status,
+            "status": row.status,
+            "parameterSetCode": row.parameter_set_code,
+            "organizationBoundaryId": row.organization_boundary_id,
+            "remarks": row.remarks,
+            "sourceSystem": row.source_system,
+            "sourceRecordType": row.source_record_type,
+            "sourceRecordId": row.source_record_id,
+            "allocationStatus": "complete" if allocations else "unallocated",
+            "allocationCount": len(allocations),
+            "allocatedAreaNames": sorted({item.area_name_snapshot for item in allocations}),
+            "allocatedEquipmentNames": sorted(
+                {item.equipment_name_snapshot for item in allocations if item.equipment_name_snapshot}
+            ),
+            "activityDetails": self.activity_details(row),
         }
 
     @staticmethod
@@ -123,6 +146,143 @@ class GhgInventoryQueryService:
         category = CATEGORY_BY_CODE[row.iso_category_code]
         field_codes = {field.code for field in CATEGORY_ACTIVITY_FIELDS.get(category.package_code, ())}
         return {code: row.source_payload.get(code) for code in field_codes if row.source_payload.get(code) is not None}
+
+    async def emission_sources(
+        self,
+        *,
+        inventory_code: str | None,
+        category_code: str | None,
+        status: str | None,
+        keyword: str | None,
+        limit: int,
+        offset: int,
+    ) -> dict[str, Any]:
+        filters: list[ColumnElement[bool]] = []
+        if inventory_code:
+            filters.append(GhgEmissionSource.inventory_code == inventory_code)
+        if category_code:
+            filters.append(GhgEmissionSource.iso_category_code == category_code)
+        if status:
+            filters.append(GhgEmissionSource.status == status)
+        if keyword and keyword.strip():
+            pattern = f"%{keyword.strip()}%"
+            filters.append(GhgEmissionSource.source_code.ilike(pattern) | GhgEmissionSource.source_name.ilike(pattern))
+        total = await self.session.scalar(select(func.count()).select_from(GhgEmissionSource).where(*filters)) or 0
+        rows = list(
+            (
+                await self.session.scalars(
+                    select(GhgEmissionSource)
+                    .where(*filters)
+                    .order_by(GhgEmissionSource.iso_category_code, GhgEmissionSource.source_code)
+                    .limit(limit)
+                    .offset(offset)
+                )
+            ).all()
+        )
+        counts = await self._activity_counts_for_sources(rows)
+        return {"items": [self.source_payload(row, counts.get(row.source_code, 0)) for row in rows], "total": int(total)}
+
+    async def emission_source(self, *, inventory_code: str, source_code: str) -> dict[str, Any]:
+        row = await self.session.scalar(
+            select(GhgEmissionSource).where(
+                GhgEmissionSource.inventory_code == inventory_code,
+                GhgEmissionSource.source_code == source_code,
+            )
+        )
+        if row is None:
+            msg = "排放源不存在"
+            raise ValueError(msg)
+        count = await self.session.scalar(
+            select(func.count()).select_from(GhgActivityRecord).where(
+                GhgActivityRecord.inventory_code == inventory_code,
+                GhgActivityRecord.source_code == source_code,
+            )
+        )
+        return self.source_payload(row, int(count or 0))
+
+    async def workbench(self, *, inventory_code: str | None, reporting_period_id: int | None) -> dict[str, Any]:
+        activity_filters: list[ColumnElement[bool]] = []
+        source_filters: list[ColumnElement[bool]] = []
+        if inventory_code:
+            activity_filters.append(GhgActivityRecord.inventory_code == inventory_code)
+            source_filters.append(GhgEmissionSource.inventory_code == inventory_code)
+        if reporting_period_id:
+            activity_filters.append(GhgActivityRecord.reporting_period_id == reporting_period_id)
+            source_filters.append(GhgEmissionSource.reporting_period_id == reporting_period_id)
+        activity_count = int(await self.session.scalar(select(func.count()).select_from(GhgActivityRecord).where(*activity_filters)) or 0)
+        source_count = int(await self.session.scalar(select(func.count()).select_from(GhgEmissionSource).where(*source_filters)) or 0)
+        allocated_ids = select(GhgActivityAllocation.activity_id).where(GhgActivityAllocation.status == "active")
+        evidence_records = select(GhgEvidenceLink.record_code).where(GhgEvidenceLink.record_type == "activity")
+        return {
+            "inventoryCode": inventory_code,
+            "reportingPeriodId": reporting_period_id,
+            "activityCount": activity_count,
+            "sourceCount": source_count,
+            "unallocatedCount": int(
+                await self.session.scalar(
+                    select(func.count()).select_from(GhgActivityRecord).where(*activity_filters, GhgActivityRecord.id.not_in(allocated_ids))
+                )
+                or 0
+            ),
+            "missingParameterCount": int(
+                await self.session.scalar(
+                    select(func.count()).select_from(GhgActivityRecord).where(*activity_filters, GhgActivityRecord.parameter_set_code.is_(None))
+                )
+                or 0
+            ),
+            "warningCount": int(
+                await self.session.scalar(
+                    select(func.count()).select_from(GhgActivityRecord).where(*activity_filters, GhgActivityRecord.quality_status != "pass")
+                )
+                or 0
+            ),
+            "missingEvidenceCount": int(
+                await self.session.scalar(
+                    select(func.count()).select_from(GhgActivityRecord).where(*activity_filters, GhgActivityRecord.record_code.not_in(evidence_records))
+                )
+                or 0
+            ),
+        }
+
+    async def _activity_counts_for_sources(self, rows: list[GhgEmissionSource]) -> dict[str, int]:
+        if not rows:
+            return {}
+        result = await self.session.execute(
+            select(GhgActivityRecord.source_code, func.count())
+            .where(
+                GhgActivityRecord.inventory_code.in_({row.inventory_code for row in rows}),
+                GhgActivityRecord.source_code.in_({row.source_code for row in rows}),
+            )
+            .group_by(GhgActivityRecord.source_code)
+        )
+        return {str(source_code): int(count) for source_code, count in result.all()}
+
+    @staticmethod
+    def source_payload(row: GhgEmissionSource, activity_count: int) -> dict[str, Any]:
+        return {
+            "inventoryCode": row.inventory_code,
+            "organizationCode": row.organization_code,
+            "facilityCode": row.facility_code,
+            "sourceCode": row.source_code,
+            "sourceName": row.source_name,
+            "isoCategoryCode": row.iso_category_code,
+            "sourceMechanism": row.source_mechanism,
+            "originKind": row.origin_kind,
+            "organizationBoundaryId": row.organization_boundary_id,
+            "reportingPeriodId": row.reporting_period_id,
+            "defaultAreaId": row.default_area_id,
+            "defaultEquipmentId": row.default_equipment_id,
+            "defaultMeasurementBoundaryId": row.default_measurement_boundary_id,
+            "defaultAllocationRole": row.default_allocation_role,
+            "externalFacilityCode": row.external_facility_code,
+            "externalFacilityName": row.external_facility_name,
+            "validFrom": row.valid_from.isoformat() if row.valid_from else None,
+            "validTo": row.valid_to.isoformat() if row.valid_to else None,
+            "sourceSystem": row.source_system,
+            "sourcePayload": row.source_payload or {},
+            "status": row.status,
+            "activityCount": activity_count,
+        }
 
     async def activity_allocations(self, *, inventory_code: str, record_code: str) -> dict[str, Any]:
         activity = await self.session.scalar(

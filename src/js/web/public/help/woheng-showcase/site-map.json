@@ -122,6 +122,12 @@
       "href": "pages/organization-boundary-settings.html"
     },
     {
+      "pageId": "ghg-maintenance",
+      "title": "组织碳核算：排放源与活动数据维护",
+      "source": "06a-ghg-maintenance.md",
+      "href": "pages/ghg-maintenance.html"
+    },
+    {
       "pageId": "organization-carbon-iso14064",
       "title": "组织碳管理与 ISO 14064 分类",
       "source": "07-organization-carbon-iso14064.md",
