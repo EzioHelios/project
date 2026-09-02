@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>能源运营：能耗强度 - 沃衡汽车能碳管理平台操作手册</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-name">沃衡汽车能碳管理平台</div>
+      <div class="brand-subtitle">操作手册</div>
+    </div>
+    <nav><a class="" href="../index.html">01 平台概览</a><a class="" href="../pages/green-factory-score-items.html">02 绿色工厂评分项功能索引</a><a class="" href="../pages/access-and-tenant.html">03 登录、首页与租户切换</a><a class="" href="../pages/energy-overview.html">04 能源运营总览</a><a class="" href="../pages/data-maintenance-mqtt.html">05 能源运营：区域、设备与 MQTT 电表接入</a><a class="" href="../pages/energy-master-data.html">06 能源运营：能源主数据维护</a><a class="" href="../pages/energy-data-maintenance.html">07 能源运营：能源事实数据维护</a><a class="" href="../pages/energy-consumption-query.html">08 能源运营：能耗查询</a><a class="active" href="../pages/energy-intensity.html">09 能源运营：能耗强度</a><a class="" href="../pages/energy-use-analysis.html">10 能源运营：用能分析</a><a class="" href="../pages/energy-flow-analysis.html">11 能源运营：能流分析</a><a class="" href="../pages/energy-benchmark-settings.html">12 能源运营：能效对标配置</a><a class="" href="../pages/energy-benchmark.html">13 能源运营：能效对标</a><a class="" href="../pages/energy-balance.html">14 能源运营：能效平衡</a><a class="" href="../pages/energy-budget-settings.html">15 能源运营：能碳预算维护</a><a class="" href="../pages/energy-budget.html">16 能源运营：能碳预算</a><a class="" href="../pages/bigscreen.html">17 态势大屏</a><a class="" href="../pages/activity-ledgers-import.html">18 经营活动台账与非电数据导入</a><a class="" href="../pages/factors-calculation.html">19 因子维护与核算准备</a><a class="" href="../pages/organization-carbon-iso14064.html">20 组织碳管理与 ISO 14064 分类</a><a class="" href="../pages/product-supply-chain-carbon.html">21 碳足迹与供应链碳管理</a><a class="" href="../pages/monitoring-alerts.html">22 监测告警与处理留痕</a><a class="" href="../pages/verification-report-export.html">23 核查材料与报告导出</a><a class="" href="../pages/reduction-carbon-asset.html">24 减排绩效与公开碳价模拟</a><a class="" href="../pages/demo-script.html">25 下午演示脚本</a><a class="" href="../pages/screenshot-index.html">26 功能页面与截图索引</a></nav>
+  </aside>
+  <main class="page">
+    <header class="page-header">
+      <div class="eyebrow">沃衡汽车有限公司</div>
+      <h1>能源运营：能耗强度</h1>
+      <div class="page-meta">操作手册 · 生成时间 2026/9/2 13:44:15</div>
+    </header>
+    <article class="content"><h2>能耗强度</h2>
+<p>本章说明如何查看综合能耗、折标煤、外购电力、面积强度、区域设备层级和趋势。能耗强度用于回答“单位面积、区域或设备层级的用能水平如何”。</p>
+<h3>菜单位置</h3>
+<ul>
+<li>首页工作台：在 <code>/home</code> 的「<strong>能源运营</strong>」区域点击「<strong>能耗强度</strong>」进入。</li>
+<li>侧边栏：进入「<strong>能源运营 / 能耗强度</strong>」，打开 <code>/energy/intensity</code>。</li>
+</ul>
+<h3>消费量汇总</h3>
+<p>进入 <code>/energy/intensity</code>，查看能源消费量和强度指标。页面提供开始日期、结束日期、统计周期数、统计粒度、状态、Scope、能源品种、产品、业务类型、产线编码、区域 ID、设备编码和价格口径等条件。</p>
+<p>「<strong>消费量汇总</strong>」用于查看综合能耗、折标煤、外购电力和记录数，并按能源品种展示原始量、综合能耗和记录数。该页用于确认纳入强度计算的能源事实数据范围。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-104</span><span>/energy/intensity</span><span>能耗强度</span></div><img src="../assets/screenshots/EV-WH-104-能源强度消费量汇总.png" alt="能源强度消费量汇总" /><figcaption>能源强度消费量汇总</figcaption></figure>
+<h3>面积强度</h3>
+<p>切换到「<strong>面积强度</strong>」页签，查看仓储面积折标强度、园区面积折标强度、仓储面积电力强度和园区面积电力强度。页面同时展示仓储面积、园区面积等分母数据，便于说明强度指标对应的面积口径。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-105</span><span>/energy/intensity</span><span>能耗强度</span></div><img src="../assets/screenshots/EV-WH-105-能源强度面积强度.png" alt="能源强度面积强度" /><figcaption>能源强度面积强度</figcaption></figure>
+<h3>区域设备</h3>
+<p>切换到「<strong>区域设备</strong>」页签，按企业、区域、设备/设施层级查看综合能耗、外购电力和记录数。该页适合查看仓储区域和关键设备对用能强度的影响。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-106</span><span>/energy/intensity</span><span>能耗强度</span></div><img src="../assets/screenshots/EV-WH-106-能源强度区域设备层级.png" alt="能源强度区域设备层级" /><figcaption>能源强度区域设备层级</figcaption></figure>
+<h3>趋势分析</h3>
+<p>切换到「<strong>趋势分析</strong>」页签，查看综合能耗、面积折标强度、外购电力和仓储面积电力强度趋势。用户可通过统计粒度和周期数控制趋势展示范围。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-107</span><span>/energy/intensity</span><span>能耗强度</span></div><img src="../assets/screenshots/EV-WH-107-能源强度趋势分析.png" alt="能源强度趋势分析" /><figcaption>能源强度趋势分析</figcaption></figure>
+<h3>操作要点</h3>
+<ul>
+<li>强度指标依赖能源事实数据和分母数据。</li>
+<li>仓储运营展示优先使用面积强度、区域设备和趋势分析。</li>
+<li>产品强度、产值强度用于生产制造场景，可在具备对应业务数据后使用。</li>
+</ul></article>
+    <nav class="pager">
+      <a href="../pages/energy-consumption-query.html">上一页：能源运营：能耗查询</a>
+      <a href="../pages/energy-use-analysis.html">下一页：能源运营：用能分析</a>
+    </nav>
+  </main>
+</body>
+</html>

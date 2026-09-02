@@ -1,9 +1,9 @@
 {
   "title": "沃衡汽车能碳管理平台操作手册 截图审计",
-  "generatedAt": "2026-09-01T10:33:44.865Z",
+  "generatedAt": "2026-09-02T05:44:15.353Z",
   "screenshotRoot": "outputs/woheng-showcase-woheng-full-evidence/screenshots",
-  "totalEvidence": 57,
-  "availableScreenshots": 57,
+  "totalEvidence": 131,
+  "availableScreenshots": 131,
   "missingScreenshots": 0,
   "rows": [
     {
@@ -89,6 +89,163 @@
       ],
       "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
       "expectedEvidenceLevel": "B"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "区域新增表单",
+      "route": "/data/monitor-area",
+      "evidenceId": "EV-WH-066",
+      "screenshot": "EV-WH-066-区域新增表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-066-区域新增表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增区域",
+        "区域编码",
+        "区域名称",
+        "区域类型"
+      ],
+      "focus": "区域新增表单填写态，展示区域编码、名称、类型、负责人、面积和备注字段。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "区域详情与层级回显",
+      "route": "/data/monitor-area",
+      "evidenceId": "EV-WH-067",
+      "screenshot": "EV-WH-067-区域详情与层级回显.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-067-区域详情与层级回显.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "区域主数据工作台",
+        "区域树",
+        "基础信息",
+        "本区域设备"
+      ],
+      "focus": "区域编辑后详情、层级关系、状态和设备统计回显。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "设备新增表单与区域挂载",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-068",
+      "screenshot": "EV-WH-068-设备新增表单与区域挂载.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-068-设备新增表单与区域挂载.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增设备",
+        "设备编码",
+        "所属区域",
+        "采集协议",
+        "能源类型"
+      ],
+      "focus": "设备新增表单填写态，展示设备挂载区域、设备类型、采集协议和能源类型。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "设备详情与采集配置",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-069",
+      "screenshot": "EV-WH-069-设备详情与采集配置.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-069-设备详情与采集配置.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "设备详情",
+        "基础信息",
+        "采集配置",
+        "MQTT"
+      ],
+      "focus": "设备新增并编辑后的详情回显，展示区域归属、采集配置和生命周期动作。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "测点新增表单",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-070",
+      "screenshot": "EV-WH-070-测点新增表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-070-测点新增表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增测点",
+        "测点编码",
+        "测点名称",
+        "值类型",
+        "来源字段"
+      ],
+      "focus": "设备详情内的测点新增表单填写态，展示平台测点和报文来源字段。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "测点编辑后回显",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-071",
+      "screenshot": "EV-WH-071-测点编辑后回显.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-071-测点编辑后回显.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "测点",
+        "正向有功总电能",
+        "来源字段",
+        "启用"
+      ],
+      "focus": "测点编辑保存后的列表回显，展示测点编码、名称、单位和来源字段。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "MQTT表计绑定表单",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-072",
+      "screenshot": "EV-WH-072-MQTT表计绑定表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-072-MQTT表计绑定表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "配置MQTT表计绑定",
+        "接入通道",
+        "网关标识",
+        "表计编号",
+        "倍率"
+      ],
+      "focus": "设备详情接入页签内的 MQTT 表计绑定表单填写态。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "MQTT点位映射表单",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-073",
+      "screenshot": "EV-WH-073-MQTT点位映射表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-073-MQTT点位映射表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增点位映射",
+        "来源Tag",
+        "平台测点",
+        "倍率",
+        "启用状态"
+      ],
+      "focus": "MQTT 来源 Tag 到当前设备平台测点的映射表单填写态。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "数据维护与治理",
+      "title": "MQTT接入测试结果",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-074",
+      "screenshot": "EV-WH-074-MQTT接入测试结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-074-MQTT接入测试结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "MQTT接入",
+        "测试报文",
+        "已处理",
+        "点位映射"
+      ],
+      "focus": "MQTT 绑定、点位映射和测试报文处理后的结果态。",
+      "expectedEvidenceLevel": "A"
     },
     {
       "section": "数据维护与治理",
@@ -279,6 +436,133 @@
       ],
       "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
       "expectedEvidenceLevel": "B"
+    },
+    {
+      "section": "能源数据维护专题",
+      "title": "能源数据维护列表与查询",
+      "route": "/data/energy-consumption",
+      "evidenceId": "EV-WH-059",
+      "screenshot": "EV-WH-059-能源数据维护列表与查询.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-059-能源数据维护列表与查询.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能源数据维护",
+        "能源数据维护列表",
+        "查询",
+        "新增",
+        "导入能源数据",
+        "导出",
+        "记录编码",
+        "能源用量"
+      ],
+      "focus": "能源事实列表、查询入口、手工维护入口、CSV 导入入口和导出动作",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源数据维护专题",
+      "title": "能源数据新增表单",
+      "route": "/data/energy-consumption",
+      "evidenceId": "EV-WH-060",
+      "screenshot": "EV-WH-060-能源数据新增表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-060-能源数据新增表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增能源数据维护",
+        "MANUAL-ENERGY-CRUD-20260901",
+        "外购电力",
+        "1280.5",
+        "泰州生产基地/总装仓储区"
+      ],
+      "focus": "新增能源数据表单填写态",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源数据维护专题",
+      "title": "能源数据详情回显",
+      "route": "/data/energy-consumption",
+      "evidenceId": "EV-WH-061",
+      "screenshot": "EV-WH-061-能源数据详情回显.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-061-能源数据详情回显.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能源数据维护详情",
+        "MANUAL-ENERGY-CRUD-20260901",
+        "外购电力",
+        "手工录入验证"
+      ],
+      "focus": "能源数据详情抽屉的字段回显",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源数据维护专题",
+      "title": "能源数据编辑表单",
+      "route": "/data/energy-consumption",
+      "evidenceId": "EV-WH-065",
+      "screenshot": "EV-WH-065-能源数据编辑表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-065-能源数据编辑表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "编辑能源数据维护",
+        "MANUAL-ENERGY-CRUD-20260901",
+        "外购电力",
+        "1368.75",
+        "编辑后验证"
+      ],
+      "focus": "能源数据编辑表单填写态",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源数据维护专题",
+      "title": "能源数据编辑后回显",
+      "route": "/data/energy-consumption",
+      "evidenceId": "EV-WH-062",
+      "screenshot": "EV-WH-062-能源数据编辑后回显.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-062-能源数据编辑后回显.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能源数据维护详情",
+        "MANUAL-ENERGY-CRUD-20260901",
+        "外购电力",
+        "1368.75",
+        "编辑后验证"
+      ],
+      "focus": "编辑能源数据保存后的列表查询结果",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源数据维护专题",
+      "title": "能源数据CSV导入结果",
+      "route": "/data/energy-consumption",
+      "evidenceId": "EV-WH-063",
+      "screenshot": "EV-WH-063-能源数据csv导入结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-063-能源数据CSV导入结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "导入能源数据",
+        "已读取 1 条记录",
+        "服务端入库",
+        "接收 1",
+        "导入 1",
+        "跳过 0"
+      ],
+      "focus": "能源数据 CSV 上传后的服务端入库结果态",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源数据维护专题",
+      "title": "能源数据导出结果",
+      "route": "/data/energy-consumption",
+      "evidenceId": "EV-WH-064",
+      "screenshot": "EV-WH-064-能源数据导出结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-064-能源数据导出结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能源数据维护",
+        "记录编码",
+        "能源用量"
+      ],
+      "focus": "能源数据 CSV 导出动作和下载文件校验",
+      "expectedEvidenceLevel": "A"
     },
     {
       "section": "因子维护与计算",
@@ -1017,6 +1301,876 @@
         "置信等级"
       ],
       "focus": "产品与产线/设备绑定关系及置信等级字段",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源运营总览",
+      "title": "首页工作台能源运营入口",
+      "route": "/home",
+      "evidenceId": "EV-WH-117",
+      "screenshot": "EV-WH-117-首页工作台能源运营入口.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-117-首页工作台能源运营入口.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "首页工作台能源运营入口",
+        "/home"
+      ],
+      "focus": "首页工作台展示能源运营 6 个核心分析入口。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源运营总览",
+      "title": "数据管理平台能源入口",
+      "route": "/platform",
+      "evidenceId": "EV-WH-118",
+      "screenshot": "EV-WH-118-数据管理平台能源入口.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-118-数据管理平台能源入口.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "数据管理平台能源入口",
+        "/platform"
+      ],
+      "focus": "页面展示能源种类、单位换算、能源数据维护、能耗查询、设备台账、电表电量和预警规则入口。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源运营总览",
+      "title": "侧边栏能源运营菜单",
+      "route": "/energy/consumption",
+      "evidenceId": "EV-WH-119",
+      "screenshot": "EV-WH-119-侧边栏能源运营菜单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-119-侧边栏能源运营菜单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "侧边栏能源运营菜单",
+        "/energy/consumption"
+      ],
+      "focus": "侧边栏展示能源运营一级菜单和完整二级菜单。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "区域、设备与 MQTT 电表接入配置",
+      "title": "区域编辑表单",
+      "route": "/data/monitor-area",
+      "evidenceId": "EV-WH-075",
+      "screenshot": "EV-WH-075-区域编辑表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-075-区域编辑表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "区域编辑表单",
+        "/data/monitor-area"
+      ],
+      "focus": "编辑表单回填原字段，保存后区域详情显示更新结果。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "区域、设备与 MQTT 电表接入配置",
+      "title": "区域停用状态",
+      "route": "/data/monitor-area",
+      "evidenceId": "EV-WH-076",
+      "screenshot": "EV-WH-076-区域停用状态.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-076-区域停用状态.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "区域停用状态",
+        "/data/monitor-area"
+      ],
+      "focus": "区域状态变为停用，接口回读状态一致。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "区域、设备与 MQTT 电表接入配置",
+      "title": "区域删除结果",
+      "route": "/data/monitor-area",
+      "evidenceId": "EV-WH-077",
+      "screenshot": "EV-WH-077-区域删除后结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-077-区域删除后结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "区域删除结果",
+        "/data/monitor-area"
+      ],
+      "focus": "区域树和接口回读中不再出现该区域。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "区域、设备与 MQTT 电表接入配置",
+      "title": "设备编辑表单",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-078",
+      "screenshot": "EV-WH-078-设备编辑表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-078-设备编辑表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "设备编辑表单",
+        "/data/terminals"
+      ],
+      "focus": "编辑表单回填原字段，保存后设备详情和列表显示更新结果。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "区域、设备与 MQTT 电表接入配置",
+      "title": "设备停用状态",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-079",
+      "screenshot": "EV-WH-079-设备停用状态.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-079-设备停用状态.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "设备停用状态",
+        "/data/terminals"
+      ],
+      "focus": "设备状态变为停用，接口回读状态一致。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "区域、设备与 MQTT 电表接入配置",
+      "title": "设备恢复状态",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-080",
+      "screenshot": "EV-WH-080-设备恢复状态.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-080-设备恢复状态.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "设备恢复状态",
+        "/data/terminals"
+      ],
+      "focus": "设备恢复为启用状态，接口回读状态一致。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "区域、设备与 MQTT 电表接入配置",
+      "title": "设备删除结果",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-081",
+      "screenshot": "EV-WH-081-设备删除后结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-081-设备删除后结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "设备删除结果",
+        "/data/terminals"
+      ],
+      "focus": "设备列表和接口回读中不再出现该设备。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "区域、设备与 MQTT 电表接入配置",
+      "title": "测点编辑表单",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-082",
+      "screenshot": "EV-WH-082-测点编辑表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-082-测点编辑表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "测点编辑表单",
+        "/data/terminals"
+      ],
+      "focus": "编辑表单回填原字段，保存后测点列表显示更新结果。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "区域、设备与 MQTT 电表接入配置",
+      "title": "测点删除结果",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-083",
+      "screenshot": "EV-WH-083-测点删除后结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-083-测点删除后结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "测点删除结果",
+        "/data/terminals"
+      ],
+      "focus": "测点列表和接口回读中不再出现该测点。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "区域、设备与 MQTT 电表接入配置",
+      "title": "MQTT 表计绑定回显",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-084",
+      "screenshot": "EV-WH-084-MQTT表计绑定保存后回显.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-084-MQTT表计绑定保存后回显.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "MQTT 表计绑定回显",
+        "/data/terminals"
+      ],
+      "focus": "接入页签显示表计绑定和倍率配置。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "区域、设备与 MQTT 电表接入配置",
+      "title": "MQTT 表计绑定编辑",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-085",
+      "screenshot": "EV-WH-085-MQTT表计绑定编辑表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-085-MQTT表计绑定编辑表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "MQTT 表计绑定编辑",
+        "/data/terminals"
+      ],
+      "focus": "编辑表单可保存，接口回读更新结果。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "区域、设备与 MQTT 电表接入配置",
+      "title": "MQTT 点位映射回显",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-086",
+      "screenshot": "EV-WH-086-MQTT点位映射保存后回显.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-086-MQTT点位映射保存后回显.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "MQTT 点位映射回显",
+        "/data/terminals"
+      ],
+      "focus": "映射记录可回读、可编辑。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "区域、设备与 MQTT 电表接入配置",
+      "title": "MQTT 点位映射编辑",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-087",
+      "screenshot": "EV-WH-087-MQTT点位映射编辑表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-087-MQTT点位映射编辑表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "MQTT 点位映射编辑",
+        "/data/terminals"
+      ],
+      "focus": "编辑保存后接口回读版本和字段更新结果。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "区域、设备与 MQTT 电表接入配置",
+      "title": "MQTT 点位映射删除",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-088",
+      "screenshot": "EV-WH-088-MQTT点位映射删除后结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-088-MQTT点位映射删除后结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "MQTT 点位映射删除",
+        "/data/terminals"
+      ],
+      "focus": "映射列表和接口回读中不再出现该映射。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "区域、设备与 MQTT 电表接入配置",
+      "title": "MQTT 表计绑定删除",
+      "route": "/data/terminals",
+      "evidenceId": "EV-WH-089",
+      "screenshot": "EV-WH-089-MQTT表计绑定删除后结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-089-MQTT表计绑定删除后结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "MQTT 表计绑定删除",
+        "/data/terminals"
+      ],
+      "focus": "设备接入页签回到未绑定状态。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源主数据维护",
+      "title": "查看能源种类列表",
+      "route": "/data/energy-types",
+      "evidenceId": "EV-WH-090",
+      "screenshot": "EV-WH-090-能源种类列表与查询.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-090-能源种类列表与查询.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "查看能源种类列表",
+        "/data/energy-types"
+      ],
+      "focus": "页面显示非空能源种类列表，并可按能源编码、名称、类别或标准依据查询。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源主数据维护",
+      "title": "新增能源种类",
+      "route": "/data/energy-types",
+      "evidenceId": "EV-WH-091",
+      "screenshot": "EV-WH-091-能源种类新增表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-091-能源种类新增表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增能源种类",
+        "/data/energy-types"
+      ],
+      "focus": "新增表单字段完整，保存后能源种类可在列表和详情中回读。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源主数据维护",
+      "title": "查看能源种类详情",
+      "route": "/data/energy-types",
+      "evidenceId": "EV-WH-092",
+      "screenshot": "EV-WH-092-能源种类详情回显.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-092-能源种类详情回显.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "查看能源种类详情",
+        "/data/energy-types"
+      ],
+      "focus": "详情抽屉展示编码、名称、类别、范围、单位、折标系数、标准依据和启用状态。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源主数据维护",
+      "title": "编辑能源种类",
+      "route": "/data/energy-types",
+      "evidenceId": "EV-WH-093",
+      "screenshot": "EV-WH-093-能源种类编辑表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-093-能源种类编辑表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "编辑能源种类",
+        "/data/energy-types"
+      ],
+      "focus": "编辑表单回填原字段，保存后可查询回显。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源主数据维护",
+      "title": "删除能源种类",
+      "route": "/data/energy-types",
+      "evidenceId": "EV-WH-094",
+      "screenshot": "EV-WH-094-能源种类删除结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-094-能源种类删除结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "删除能源种类",
+        "/data/energy-types"
+      ],
+      "focus": "删除后按能源编码查询，列表不再显示该记录。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源主数据维护",
+      "title": "查看单位换算列表",
+      "route": "/data/energy-unit-conversions",
+      "evidenceId": "EV-WH-095",
+      "screenshot": "EV-WH-095-单位换算列表与查询.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-095-单位换算列表与查询.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "查看单位换算列表",
+        "/data/energy-unit-conversions"
+      ],
+      "focus": "页面显示非空单位换算列表，并可按能源编码、单位或标准依据查询。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源主数据维护",
+      "title": "新增单位换算",
+      "route": "/data/energy-unit-conversions",
+      "evidenceId": "EV-WH-096",
+      "screenshot": "EV-WH-096-单位换算新增表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-096-单位换算新增表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增单位换算",
+        "/data/energy-unit-conversions"
+      ],
+      "focus": "新增表单字段完整，保存后单位换算可在列表和详情中回读。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源主数据维护",
+      "title": "查看单位换算详情",
+      "route": "/data/energy-unit-conversions",
+      "evidenceId": "EV-WH-097",
+      "screenshot": "EV-WH-097-单位换算详情回显.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-097-单位换算详情回显.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "查看单位换算详情",
+        "/data/energy-unit-conversions"
+      ],
+      "focus": "详情抽屉展示能源种类、来源单位、目标单位、换算系数、标准依据、默认换算和启用状态。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源主数据维护",
+      "title": "编辑单位换算",
+      "route": "/data/energy-unit-conversions",
+      "evidenceId": "EV-WH-098",
+      "screenshot": "EV-WH-098-单位换算编辑表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-098-单位换算编辑表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "编辑单位换算",
+        "/data/energy-unit-conversions"
+      ],
+      "focus": "编辑表单回填原字段，保存后可查询回显。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源主数据维护",
+      "title": "删除单位换算",
+      "route": "/data/energy-unit-conversions",
+      "evidenceId": "EV-WH-099",
+      "screenshot": "EV-WH-099-单位换算删除结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-099-单位换算删除结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "删除单位换算",
+        "/data/energy-unit-conversions"
+      ],
+      "focus": "删除后按能源编码查询，列表不再显示该记录。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能源事实数据维护",
+      "title": "删除能源数据",
+      "route": "/data/energy-consumption",
+      "evidenceId": "EV-WH-100",
+      "screenshot": "EV-WH-100-能源数据删除结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-100-能源数据删除结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "删除能源数据",
+        "/data/energy-consumption"
+      ],
+      "focus": "删除后按记录编码查询，列表不再显示该记录。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能耗查询",
+      "title": "能耗汇总查询",
+      "route": "/energy/consumption",
+      "evidenceId": "EV-WH-101",
+      "screenshot": "EV-WH-101-能耗查询汇总筛选与结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-101-能耗查询汇总筛选与结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能耗汇总查询",
+        "/energy/consumption"
+      ],
+      "focus": "页面显示记录数、原始消费量、折标煤、CO2e 和能耗汇总表。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能耗查询",
+      "title": "能耗明细追溯",
+      "route": "/energy/consumption",
+      "evidenceId": "EV-WH-102",
+      "screenshot": "EV-WH-102-能耗查询明细追溯.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-102-能耗查询明细追溯.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能耗明细追溯",
+        "/energy/consumption"
+      ],
+      "focus": "页面显示非空能源消费明细，并可通过打开入口回到来源台账。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能耗查询",
+      "title": "能耗查询导出",
+      "route": "/energy/consumption",
+      "evidenceId": "EV-WH-103",
+      "screenshot": "EV-WH-103-能耗查询导出记录.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-103-能耗查询导出记录.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能耗查询导出",
+        "/energy/consumption"
+      ],
+      "focus": "页面显示导出入口，下载文件包含能源消费关键字段。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能耗强度",
+      "title": "能源强度消费量汇总",
+      "route": "/energy/intensity",
+      "evidenceId": "EV-WH-104",
+      "screenshot": "EV-WH-104-能源强度消费量汇总.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-104-能源强度消费量汇总.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能源强度消费量汇总",
+        "/energy/intensity"
+      ],
+      "focus": "页面显示综合能耗、折标煤、外购电力、记录数和能源品种汇总。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能耗强度",
+      "title": "能源强度面积强度",
+      "route": "/energy/intensity",
+      "evidenceId": "EV-WH-105",
+      "screenshot": "EV-WH-105-能源强度面积强度.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-105-能源强度面积强度.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能源强度面积强度",
+        "/energy/intensity"
+      ],
+      "focus": "页面显示仓储面积折标强度、园区面积折标强度、仓储面积电力强度和园区面积电力强度。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能耗强度",
+      "title": "能源强度区域设备层级",
+      "route": "/energy/intensity",
+      "evidenceId": "EV-WH-106",
+      "screenshot": "EV-WH-106-能源强度区域设备层级.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-106-能源强度区域设备层级.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能源强度区域设备层级",
+        "/energy/intensity"
+      ],
+      "focus": "页面显示对象层级、占比、综合能耗、外购电力和记录数。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能耗强度",
+      "title": "能源强度趋势分析",
+      "route": "/energy/intensity",
+      "evidenceId": "EV-WH-107",
+      "screenshot": "EV-WH-107-能源强度趋势分析.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-107-能源强度趋势分析.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能源强度趋势分析",
+        "/energy/intensity"
+      ],
+      "focus": "页面显示综合能耗和面积折标强度趋势、外购电力专项强度趋势。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "用能分析",
+      "title": "用能结构分析",
+      "route": "/energy/analysis",
+      "evidenceId": "EV-WH-108",
+      "screenshot": "EV-WH-108-用能结构分析.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-108-用能结构分析.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "用能结构分析",
+        "/energy/analysis"
+      ],
+      "focus": "页面显示总用电量、用能系统数、设备数、区域数、用能系统排行、结构图和区域设备排行。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "用能分析",
+      "title": "用能成本分析",
+      "route": "/energy/analysis",
+      "evidenceId": "EV-WH-109",
+      "screenshot": "EV-WH-109-用能成本分析.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-109-用能成本分析.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "用能成本分析",
+        "/energy/analysis"
+      ],
+      "focus": "页面显示分时时段下的成本和电量结构。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "用能分析",
+      "title": "用能能效分析",
+      "route": "/energy/analysis",
+      "evidenceId": "EV-WH-110",
+      "screenshot": "EV-WH-110-用能能效分析.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-110-用能能效分析.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "用能能效分析",
+        "/energy/analysis"
+      ],
+      "focus": "页面显示趋势图和设备能效排行表。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "用能分析",
+      "title": "用能异常诊断",
+      "route": "/energy/analysis",
+      "evidenceId": "EV-WH-111",
+      "screenshot": "EV-WH-111-用能异常诊断.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-111-用能异常诊断.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "用能异常诊断",
+        "/energy/analysis"
+      ],
+      "focus": "页面显示异常时段数量、告警数量和异常明细字段。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "用能分析",
+      "title": "用能策略建议",
+      "route": "/energy/analysis",
+      "evidenceId": "EV-WH-112",
+      "screenshot": "EV-WH-112-用能策略建议.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-112-用能策略建议.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "用能策略建议",
+        "/energy/analysis"
+      ],
+      "focus": "页面显示基于当前筛选条件生成的策略建议。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能流分析",
+      "title": "能流图分析",
+      "route": "/energy/flow",
+      "evidenceId": "EV-WH-113",
+      "screenshot": "EV-WH-113-能流图分析.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-113-能流图分析.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能流图分析",
+        "/energy/flow"
+      ],
+      "focus": "页面显示计量用电、分项用电、总损耗率、高损耗链路、能流图和关键链路贡献。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能流分析",
+      "title": "能流能量平衡表",
+      "route": "/energy/flow",
+      "evidenceId": "EV-WH-114",
+      "screenshot": "EV-WH-114-能流能量平衡表.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-114-能流能量平衡表.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能流能量平衡表",
+        "/energy/flow"
+      ],
+      "focus": "页面显示能量平衡表和平衡诊断。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能流分析",
+      "title": "能流损耗诊断",
+      "route": "/energy/flow",
+      "evidenceId": "EV-WH-115",
+      "screenshot": "EV-WH-115-能流损耗诊断.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-115-能流损耗诊断.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能流损耗诊断",
+        "/energy/flow"
+      ],
+      "focus": "页面显示损耗诊断表，并按损耗阈值展示链路状态。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能流分析",
+      "title": "能流分析报告",
+      "route": "/energy/flow",
+      "evidenceId": "EV-WH-116",
+      "screenshot": "EV-WH-116-能流分析报告.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-116-能流分析报告.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "能流分析报告",
+        "/energy/flow"
+      ],
+      "focus": "页面显示可用于运营复盘的分析报告条目。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能效对标配置",
+      "title": "查看标杆方案列表",
+      "route": "/data/energy-benchmark",
+      "evidenceId": "EV-WH-120",
+      "screenshot": "EV-WH-120-能效对标配置方案列表.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-120-能效对标配置方案列表.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "查看标杆方案列表",
+        "/data/energy-benchmark"
+      ],
+      "focus": "页面显示标杆方案列表和配置操作入口。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能效对标配置",
+      "title": "新增标杆方案",
+      "route": "/data/energy-benchmark",
+      "evidenceId": "EV-WH-121",
+      "screenshot": "EV-WH-121-能效对标配置新增方案.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-121-能效对标配置新增方案.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增标杆方案",
+        "/data/energy-benchmark"
+      ],
+      "focus": "新增表单展示标杆方案字段，保存后可在列表回显。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能效对标配置",
+      "title": "查看标杆方案详情",
+      "route": "/data/energy-benchmark",
+      "evidenceId": "EV-WH-122",
+      "screenshot": "EV-WH-122-能效对标配置方案详情.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-122-能效对标配置方案详情.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "查看标杆方案详情",
+        "/data/energy-benchmark"
+      ],
+      "focus": "详情抽屉回显行业、适用范围、来源、状态和备注。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能效对标配置",
+      "title": "新增标杆项",
+      "route": "/data/energy-benchmark",
+      "evidenceId": "EV-WH-123",
+      "screenshot": "EV-WH-123-能效对标配置新增标杆项.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-123-能效对标配置新增标杆项.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增标杆项",
+        "/data/energy-benchmark"
+      ],
+      "focus": "新增表单展示对象选择、指标选择和阈值字段。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能效对标配置",
+      "title": "编辑标杆项",
+      "route": "/data/energy-benchmark",
+      "evidenceId": "EV-WH-124",
+      "screenshot": "EV-WH-124-能效对标配置标杆项编辑回显.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-124-能效对标配置标杆项编辑回显.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "编辑标杆项",
+        "/data/energy-benchmark"
+      ],
+      "focus": "列表回显更新后的标杆值。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能效对标配置",
+      "title": "生成历史基线标杆",
+      "route": "/data/energy-benchmark",
+      "evidenceId": "EV-WH-125",
+      "screenshot": "EV-WH-125-能效对标配置历史基线生成.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-125-能效对标配置历史基线生成.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "生成历史基线标杆",
+        "/data/energy-benchmark"
+      ],
+      "focus": "页面提示历史基线标杆已生成。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能效对标",
+      "title": "查看能效对标结果与维护入口",
+      "route": "/energy/benchmark",
+      "evidenceId": "EV-WH-126",
+      "screenshot": "EV-WH-126-能效对标分析维护入口.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-126-能效对标分析维护入口.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "查看能效对标结果与维护入口",
+        "/energy/benchmark"
+      ],
+      "focus": "页面显示对标分析内容和维护标杆入口。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能碳预算维护",
+      "title": "查看年度预算目标",
+      "route": "/data/energy-budget",
+      "evidenceId": "EV-WH-127",
+      "screenshot": "EV-WH-127-能碳预算维护年度目标列表.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-127-能碳预算维护年度目标列表.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "查看年度预算目标",
+        "/data/energy-budget"
+      ],
+      "focus": "页面显示年度预算目标列表和维护操作入口。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能碳预算维护",
+      "title": "新增年度预算目标",
+      "route": "/data/energy-budget",
+      "evidenceId": "EV-WH-128",
+      "screenshot": "EV-WH-128-能碳预算维护新增年度目标.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-128-能碳预算维护新增年度目标.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增年度预算目标",
+        "/data/energy-budget"
+      ],
+      "focus": "新增表单展示年度预算目标字段，保存后可在列表回显。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能碳预算维护",
+      "title": "生成并编辑月度预算",
+      "route": "/data/energy-budget",
+      "evidenceId": "EV-WH-129",
+      "screenshot": "EV-WH-129-能碳预算维护月度分解编辑.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-129-能碳预算维护月度分解编辑.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "生成并编辑月度预算",
+        "/data/energy-budget"
+      ],
+      "focus": "列表展示 12 个月预算分解，并回显单月编辑结果。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能碳预算维护",
+      "title": "新增并编辑预算调整",
+      "route": "/data/energy-budget",
+      "evidenceId": "EV-WH-130",
+      "screenshot": "EV-WH-130-能碳预算维护调整记录编辑.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-130-能碳预算维护调整记录编辑.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增并编辑预算调整",
+        "/data/energy-budget"
+      ],
+      "focus": "调整记录列表回显调整类型、调整后预算和状态。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能碳预算维护",
+      "title": "删除预算调整记录",
+      "route": "/data/energy-budget",
+      "evidenceId": "EV-WH-132",
+      "screenshot": "EV-WH-132-能碳预算维护调整记录删除.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-132-能碳预算维护调整记录删除.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "删除预算调整记录",
+        "/data/energy-budget"
+      ],
+      "focus": "删除后列表刷新，并在没有调整记录时显示空状态。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "能碳预算",
+      "title": "查看能碳预算执行与维护入口",
+      "route": "/energy/budget",
+      "evidenceId": "EV-WH-131",
+      "screenshot": "EV-WH-131-能碳预算分析维护入口.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-131-能碳预算分析维护入口.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "查看能碳预算执行与维护入口",
+        "/energy/budget"
+      ],
+      "focus": "页面显示预算执行分析内容和维护预算入口。",
       "expectedEvidenceLevel": "A"
     }
   ]

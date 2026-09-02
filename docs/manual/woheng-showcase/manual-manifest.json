@@ -29,14 +29,74 @@
       "source": "01-access-and-tenant.md"
     },
     {
-      "pageId": "bigscreen",
-      "title": "态势大屏",
-      "source": "02-bigscreen.md"
+      "pageId": "energy-overview",
+      "title": "能源运营总览",
+      "source": "02-energy-navigation-map.md"
     },
     {
       "pageId": "data-maintenance-mqtt",
-      "title": "数据维护与 MQTT 电表接入",
+      "title": "能源运营：区域、设备与 MQTT 电表接入",
       "source": "03-data-maintenance-mqtt.md"
+    },
+    {
+      "pageId": "energy-master-data",
+      "title": "能源运营：能源主数据维护",
+      "source": "04-energy-master-data.md"
+    },
+    {
+      "pageId": "energy-data-maintenance",
+      "title": "能源运营：能源事实数据维护",
+      "source": "03-energy-data-maintenance.md"
+    },
+    {
+      "pageId": "energy-consumption-query",
+      "title": "能源运营：能耗查询",
+      "source": "06-energy-consumption-query.md"
+    },
+    {
+      "pageId": "energy-intensity",
+      "title": "能源运营：能耗强度",
+      "source": "07-energy-intensity.md"
+    },
+    {
+      "pageId": "energy-use-analysis",
+      "title": "能源运营：用能分析",
+      "source": "08-energy-use-analysis.md"
+    },
+    {
+      "pageId": "energy-flow-analysis",
+      "title": "能源运营：能流分析",
+      "source": "09-energy-flow-analysis.md"
+    },
+    {
+      "pageId": "energy-benchmark-settings",
+      "title": "能源运营：能效对标配置",
+      "source": "10a-energy-benchmark-settings.md"
+    },
+    {
+      "pageId": "energy-benchmark",
+      "title": "能源运营：能效对标",
+      "source": "10-energy-benchmark.md"
+    },
+    {
+      "pageId": "energy-balance",
+      "title": "能源运营：能效平衡",
+      "source": "11-energy-balance.md"
+    },
+    {
+      "pageId": "energy-budget-settings",
+      "title": "能源运营：能碳预算维护",
+      "source": "12a-energy-budget-settings.md"
+    },
+    {
+      "pageId": "energy-budget",
+      "title": "能源运营：能碳预算",
+      "source": "12-energy-budget.md"
+    },
+    {
+      "pageId": "bigscreen",
+      "title": "态势大屏",
+      "source": "02-bigscreen.md"
     },
     {
       "pageId": "activity-ledgers-import",
@@ -47,11 +107,6 @@
       "pageId": "factors-calculation",
       "title": "因子维护与核算准备",
       "source": "05-factors-calculation.md"
-    },
-    {
-      "pageId": "energy-management",
-      "title": "能源管理",
-      "source": "06-energy-management.md"
     },
     {
       "pageId": "organization-carbon-iso14064",
@@ -118,6 +173,43 @@
       ]
     },
     {
+      "sectionId": "energy-overview",
+      "title": "能源运营总览",
+      "summary": "用于说明能源运营功能在首页工作台、数据管理入口页和左侧侧边栏中的模块关系。",
+      "steps": [
+        {
+          "stepNumber": "2.1",
+          "title": "首页工作台能源运营入口",
+          "route": "/home",
+          "action": "进入首页工作台，查看能源运营区域中的能耗查询、能耗强度、用能分析、能效对标、能流分析和能效平衡入口。",
+          "expectedState": "首页工作台展示能源运营 6 个核心分析入口。",
+          "evidenceId": "EV-WH-117",
+          "screenshot": "EV-WH-117-首页工作台能源运营入口.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "2.2",
+          "title": "数据管理平台能源入口",
+          "route": "/platform",
+          "action": "进入数据管理平台入口页，查看能源运营、监测与告警、平台配置分组中的能源相关入口。",
+          "expectedState": "页面展示能源种类、单位换算、能源数据维护、能耗查询、设备台账、电表电量和预警规则入口。",
+          "evidenceId": "EV-WH-118",
+          "screenshot": "EV-WH-118-数据管理平台能源入口.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "2.3",
+          "title": "侧边栏能源运营菜单",
+          "route": "/energy/consumption",
+          "action": "展开侧边栏能源运营一级菜单，查看能源种类、单位换算、能源数据维护、能耗查询、能耗强度、用能分析、能效对标、能流分析和能效平衡。",
+          "expectedState": "侧边栏展示能源运营一级菜单和完整二级菜单。",
+          "evidenceId": "EV-WH-119",
+          "screenshot": "EV-WH-119-侧边栏能源运营菜单.png",
+          "verificationStatus": "verified"
+        }
+      ]
+    },
+    {
       "sectionId": "bigscreen",
       "title": "态势大屏展示",
       "summary": "用于展示能耗、碳排、区域运行和电力专题的综合态势。",
@@ -156,42 +248,262 @@
     },
     {
       "sectionId": "data-maintenance",
-      "title": "数据维护与采集配置",
-      "summary": "用于说明电表接入、测点映射、区域主数据、非电活动数据导入和审计留痕。",
+      "title": "区域、设备与 MQTT 电表接入配置",
+      "summary": "用于说明区域、设备、测点、MQTT 表计绑定、点位映射、测试报文和采集结果查看。",
       "steps": [
         {
           "stepNumber": "3.1",
-          "title": "维护设备主数据与采集协议",
-          "route": "/data/terminals",
-          "action": "在设备台账中按区域选择电表、制冷机组、输送线、照明配电柜、充电桩等设备，查看或编辑设备编码、所属区域、采集标识、采集协议和投运状态。",
-          "expectedState": "设备详情显示区域归属、采集标识、采集协议、能源类型和启用状态，并能说明区域、设备和测点的绑定关系。",
-          "evidenceId": "EV-WH-006",
-          "screenshot": "EV-WH-006-泰州设备主数据与采集协议配置.png",
-          "verificationStatus": "planned"
+          "title": "区域新增",
+          "route": "/data/monitor-area",
+          "action": "在区域主数据工作台选择父级区域，新增子区域并填写区域编码、区域名称、区域类型、负责人、归属部门、位置说明和备注。",
+          "expectedState": "新增区域保存后出现在区域树和区域详情中。",
+          "evidenceId": "EV-WH-066",
+          "screenshot": "EV-WH-066-区域新增表单.png",
+          "verificationStatus": "verified"
         },
         {
           "stepNumber": "3.2",
-          "title": "维护测点映射与接入校验",
-          "route": "/data/terminals",
-          "action": "进入设备台账，选择 MQTT 电表后切换到接入页签，查看数据源、订阅主题、网关/表计、点位映射和接入校验。",
-          "expectedState": "页面显示 MQTT 接入配置、来源字段到业务点位的映射关系，并可执行测试报文或进入实时读数页面。",
-          "evidenceId": "EV-WH-007",
-          "screenshot": "EV-WH-007-泰州测点映射与接入校验.png",
-          "verificationStatus": "planned"
+          "title": "区域编辑表单",
+          "route": "/data/monitor-area",
+          "action": "打开区域详情并进入编辑区域表单，调整区域名称、负责人、归属部门、位置说明或备注。",
+          "expectedState": "编辑表单回填原字段，保存后区域详情显示更新结果。",
+          "evidenceId": "EV-WH-075",
+          "screenshot": "EV-WH-075-区域编辑表单.png",
+          "verificationStatus": "verified"
         },
         {
           "stepNumber": "3.3",
-          "title": "查看电表电量采集结果",
+          "title": "区域详情回显",
+          "route": "/data/monitor-area",
+          "action": "保存区域编辑后，在区域详情查看编码、名称、类型、上级区域、负责人、位置说明、备注和本区域设备统计。",
+          "expectedState": "区域层级、基础信息和设备统计可回读。",
+          "evidenceId": "EV-WH-067",
+          "screenshot": "EV-WH-067-区域详情与层级回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.4",
+          "title": "区域停用状态",
+          "route": "/data/monitor-area",
+          "action": "点击区域详情中的停用动作。",
+          "expectedState": "区域状态变为停用，接口回读状态一致。",
+          "evidenceId": "EV-WH-076",
+          "screenshot": "EV-WH-076-区域停用状态.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.5",
+          "title": "区域删除结果",
+          "route": "/data/monitor-area",
+          "action": "在无子区域、无已挂载设备时删除区域。",
+          "expectedState": "区域树和接口回读中不再出现该区域。",
+          "evidenceId": "EV-WH-077",
+          "screenshot": "EV-WH-077-区域删除后结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.6",
+          "title": "设备新增",
+          "route": "/data/terminals",
+          "action": "新增设备并填写设备编码、设备名称、所属区域、设备类型、采集协议、采集标识、能源类型、维护负责人和安装位置。",
+          "expectedState": "设备保存后可按编码查询，并挂载到选择的区域。",
+          "evidenceId": "EV-WH-068",
+          "screenshot": "EV-WH-068-设备新增表单与区域挂载.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.7",
+          "title": "设备详情回显",
+          "route": "/data/terminals",
+          "action": "打开新增设备详情，查看基础信息、所属区域、设备类型、采集配置、能源类型、启用状态和投运状态。",
+          "expectedState": "设备详情字段与新增数据一致。",
+          "evidenceId": "EV-WH-069",
+          "screenshot": "EV-WH-069-设备详情与采集配置.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.8",
+          "title": "设备编辑表单",
+          "route": "/data/terminals",
+          "action": "进入设备编辑表单，调整设备名称、维护负责人、备注或其他主数据字段。",
+          "expectedState": "编辑表单回填原字段，保存后设备详情和列表显示更新结果。",
+          "evidenceId": "EV-WH-078",
+          "screenshot": "EV-WH-078-设备编辑表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.9",
+          "title": "设备停用状态",
+          "route": "/data/terminals",
+          "action": "点击设备详情中的停用动作。",
+          "expectedState": "设备状态变为停用，接口回读状态一致。",
+          "evidenceId": "EV-WH-079",
+          "screenshot": "EV-WH-079-设备停用状态.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.10",
+          "title": "设备恢复状态",
+          "route": "/data/terminals",
+          "action": "点击设备详情中的恢复动作。",
+          "expectedState": "设备恢复为启用状态，接口回读状态一致。",
+          "evidenceId": "EV-WH-080",
+          "screenshot": "EV-WH-080-设备恢复状态.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.11",
+          "title": "设备删除结果",
+          "route": "/data/terminals",
+          "action": "清理测点和 MQTT 绑定后删除设备。",
+          "expectedState": "设备列表和接口回读中不再出现该设备。",
+          "evidenceId": "EV-WH-081",
+          "screenshot": "EV-WH-081-设备删除后结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.12",
+          "title": "测点新增",
+          "route": "/data/terminals",
+          "action": "在设备详情的测点页签新增测点，填写测点编码、测点名称、数值类型、单位、来源字段、采样周期、上下限和备注。",
+          "expectedState": "测点保存后挂载在当前设备下。",
+          "evidenceId": "EV-WH-070",
+          "screenshot": "EV-WH-070-测点新增表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.13",
+          "title": "测点编辑表单",
+          "route": "/data/terminals",
+          "action": "打开测点编辑表单，调整测点名称、来源字段或备注。",
+          "expectedState": "编辑表单回填原字段，保存后测点列表显示更新结果。",
+          "evidenceId": "EV-WH-082",
+          "screenshot": "EV-WH-082-测点编辑表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.14",
+          "title": "测点编辑后回显",
+          "route": "/data/terminals",
+          "action": "保存测点编辑后，在测点列表查看测点编码、业务名称、单位和来源字段。",
+          "expectedState": "测点字段在列表和接口中可回读。",
+          "evidenceId": "EV-WH-071",
+          "screenshot": "EV-WH-071-测点编辑后回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.15",
+          "title": "测点删除结果",
+          "route": "/data/terminals",
+          "action": "删除设备测点。",
+          "expectedState": "测点列表和接口回读中不再出现该测点。",
+          "evidenceId": "EV-WH-083",
+          "screenshot": "EV-WH-083-测点删除后结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.16",
+          "title": "MQTT 表计绑定新增",
+          "route": "/data/terminals",
+          "action": "在设备详情接入页签配置接入通道、网关标识、表计编号、匹配名称、外部设备号、临时地址、绑定状态、换算方式和倍率。",
+          "expectedState": "保存后当前设备显示 MQTT 数据源、订阅主题、网关/表计和绑定状态。",
+          "evidenceId": "EV-WH-072",
+          "screenshot": "EV-WH-072-MQTT表计绑定表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.17",
+          "title": "MQTT 表计绑定回显",
+          "route": "/data/terminals",
+          "action": "保存 MQTT 表计绑定后，在接入页签查看绑定详情。",
+          "expectedState": "接入页签显示表计绑定和倍率配置。",
+          "evidenceId": "EV-WH-084",
+          "screenshot": "EV-WH-084-MQTT表计绑定保存后回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.18",
+          "title": "MQTT 表计绑定编辑",
+          "route": "/data/terminals",
+          "action": "打开编辑绑定表单，调整临时地址、匹配名称、绑定状态、换算方式或倍率。",
+          "expectedState": "编辑表单可保存，接口回读更新结果。",
+          "evidenceId": "EV-WH-085",
+          "screenshot": "EV-WH-085-MQTT表计绑定编辑表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.19",
+          "title": "MQTT 点位映射新增",
+          "route": "/data/terminals",
+          "action": "新增点位映射，将 MQTT 来源 Tag 映射到当前设备平台测点。",
+          "expectedState": "映射保存后显示来源 Tag 到平台测点的转换关系。",
+          "evidenceId": "EV-WH-073",
+          "screenshot": "EV-WH-073-MQTT点位映射表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.20",
+          "title": "MQTT 点位映射回显",
+          "route": "/data/terminals",
+          "action": "保存点位映射后，在映射列表查看来源 Tag、平台测点、单位、倍率和启用状态。",
+          "expectedState": "映射记录可回读、可编辑。",
+          "evidenceId": "EV-WH-086",
+          "screenshot": "EV-WH-086-MQTT点位映射保存后回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.21",
+          "title": "MQTT 点位映射编辑",
+          "route": "/data/terminals",
+          "action": "打开映射编辑表单，调整来源名称、单位、倍率、版本或启用状态。",
+          "expectedState": "编辑保存后接口回读版本和字段更新结果。",
+          "evidenceId": "EV-WH-087",
+          "screenshot": "EV-WH-087-MQTT点位映射编辑表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.22",
+          "title": "MQTT 接入测试",
+          "route": "/data/terminals",
+          "action": "发送 MQTT 测试报文，查看入站消息状态、处理结果和投影后的测点读数。",
+          "expectedState": "测试报文进入已处理状态，并生成平台点位读数。",
+          "evidenceId": "EV-WH-074",
+          "screenshot": "EV-WH-074-MQTT接入测试结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.23",
+          "title": "MQTT 点位映射删除",
+          "route": "/data/terminals",
+          "action": "删除 MQTT 点位映射。",
+          "expectedState": "映射列表和接口回读中不再出现该映射。",
+          "evidenceId": "EV-WH-088",
+          "screenshot": "EV-WH-088-MQTT点位映射删除后结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.24",
+          "title": "MQTT 表计绑定删除",
+          "route": "/data/terminals",
+          "action": "删除 MQTT 表计绑定。",
+          "expectedState": "设备接入页签回到未绑定状态。",
+          "evidenceId": "EV-WH-089",
+          "screenshot": "EV-WH-089-MQTT表计绑定删除后结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "3.25",
+          "title": "电表电量采集结果",
           "route": "/data/meter",
           "action": "进入电表电量页面，查看最新采集时间、采样数、电表数量、分时电量和用电趋势。",
-          "expectedState": "页面显示非空电量数据和趋势图，可证明电表读数进入统计口径。",
+          "expectedState": "页面显示非空电量数据和趋势图。",
           "evidenceId": "EV-WH-008",
           "screenshot": "EV-WH-008-泰州电表电量采集结果.png",
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "3.4",
-          "title": "查看点位监测与来源追溯",
+          "stepNumber": "3.26",
+          "title": "点位监测与来源追溯",
           "route": "/data/point-monitoring",
           "action": "进入点位监测页面，按设备、点位或来源编码筛选关键测点，查看趋势图、最近读数和来源追溯。",
           "expectedState": "页面显示有效点位、最新读数、时序趋势、设备编码、网关、表计、订阅主题和映射版本。",
@@ -200,24 +512,218 @@
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "3.5",
-          "title": "导入非电活动数据",
-          "route": "/carbon-mgmt/import",
-          "action": "下载分类模板，填写燃料、制冷剂、运输、通勤、采购材料等非电活动数据后上传预检。",
-          "expectedState": "预检结果显示活动数据预览、区域设备归集、方法与参数和证据覆盖。",
-          "evidenceId": "EV-WH-013",
-          "screenshot": "EV-WH-013-非电活动数据预检结果.png",
+          "stepNumber": "3.27",
+          "title": "既有设备主数据示例",
+          "route": "/data/terminals",
+          "action": "查看生产基地已有设备示例。",
+          "expectedState": "页面显示设备主数据、采集协议和接入状态。",
+          "evidenceId": "EV-WH-006",
+          "screenshot": "EV-WH-006-泰州设备主数据与采集协议配置.png",
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "3.6",
-          "title": "查看经营活动台账",
-          "route": "/data/inbound",
-          "action": "进入入库、出库、员工通勤、产量、产品价格等经营活动台账，核对业务活动数据。",
-          "expectedState": "台账页面显示单据编号、物料、数量、金额、车辆动力类型、产量或价格等业务字段。",
-          "evidenceId": "EV-WH-054",
-          "screenshot": "EV-WH-054-入库经营活动台账.png",
+          "stepNumber": "3.28",
+          "title": "既有区域主数据示例",
+          "route": "/data/monitor-area",
+          "action": "查看生产基地已有区域层级。",
+          "expectedState": "页面显示区域层级、基础信息和本区域设备分布。",
+          "evidenceId": "EV-WH-010",
+          "screenshot": "EV-WH-010-湖州区域主数据.png",
           "verificationStatus": "planned"
+        }
+      ]
+    },
+    {
+      "sectionId": "energy-master-data",
+      "title": "能源主数据维护",
+      "summary": "用于验证能源种类和单位换算的查询、新增、详情、编辑和删除。",
+      "steps": [
+        {
+          "stepNumber": "4.1",
+          "title": "查看能源种类列表",
+          "route": "/data/energy-types",
+          "action": "进入能源种类页面，查看能源编码、能源名称、类别、默认范围、原始单位、折标单位、折标系数、标准依据和启用状态。",
+          "expectedState": "页面显示非空能源种类列表，并可按能源编码、名称、类别或标准依据查询。",
+          "evidenceId": "EV-WH-090",
+          "screenshot": "EV-WH-090-能源种类列表与查询.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "4.2",
+          "title": "新增能源种类",
+          "route": "/data/energy-types",
+          "action": "点击新增，填写能源编码、能源名称、类别、默认范围、单位、折标系数、标准依据、系数来源和备注。",
+          "expectedState": "新增表单字段完整，保存后能源种类可在列表和详情中回读。",
+          "evidenceId": "EV-WH-091",
+          "screenshot": "EV-WH-091-能源种类新增表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "4.3",
+          "title": "查看能源种类详情",
+          "route": "/data/energy-types",
+          "action": "在能源种类列表中点击详情。",
+          "expectedState": "详情抽屉展示编码、名称、类别、范围、单位、折标系数、标准依据和启用状态。",
+          "evidenceId": "EV-WH-092",
+          "screenshot": "EV-WH-092-能源种类详情回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "4.4",
+          "title": "编辑能源种类",
+          "route": "/data/energy-types",
+          "action": "点击编辑，调整能源名称、折标系数、启用状态或备注。",
+          "expectedState": "编辑表单回填原字段，保存后可查询回显。",
+          "evidenceId": "EV-WH-093",
+          "screenshot": "EV-WH-093-能源种类编辑表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "4.5",
+          "title": "删除能源种类",
+          "route": "/data/energy-types",
+          "action": "删除未被能源事实数据引用的能源种类。",
+          "expectedState": "删除后按能源编码查询，列表不再显示该记录。",
+          "evidenceId": "EV-WH-094",
+          "screenshot": "EV-WH-094-能源种类删除结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "4.6",
+          "title": "查看单位换算列表",
+          "route": "/data/energy-unit-conversions",
+          "action": "进入单位换算页面，查看能源种类、来源单位、目标单位、换算系数、标准依据、默认换算和启用状态。",
+          "expectedState": "页面显示非空单位换算列表，并可按能源编码、单位或标准依据查询。",
+          "evidenceId": "EV-WH-095",
+          "screenshot": "EV-WH-095-单位换算列表与查询.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "4.7",
+          "title": "新增单位换算",
+          "route": "/data/energy-unit-conversions",
+          "action": "点击新增，选择能源种类，填写来源单位、目标单位、换算系数、标准依据、系数来源和备注。",
+          "expectedState": "新增表单字段完整，保存后单位换算可在列表和详情中回读。",
+          "evidenceId": "EV-WH-096",
+          "screenshot": "EV-WH-096-单位换算新增表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "4.8",
+          "title": "查看单位换算详情",
+          "route": "/data/energy-unit-conversions",
+          "action": "在单位换算列表中点击详情。",
+          "expectedState": "详情抽屉展示能源种类、来源单位、目标单位、换算系数、标准依据、默认换算和启用状态。",
+          "evidenceId": "EV-WH-097",
+          "screenshot": "EV-WH-097-单位换算详情回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "4.9",
+          "title": "编辑单位换算",
+          "route": "/data/energy-unit-conversions",
+          "action": "点击编辑，调整换算系数、默认换算、启用状态或备注。",
+          "expectedState": "编辑表单回填原字段，保存后可查询回显。",
+          "evidenceId": "EV-WH-098",
+          "screenshot": "EV-WH-098-单位换算编辑表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "4.10",
+          "title": "删除单位换算",
+          "route": "/data/energy-unit-conversions",
+          "action": "删除不再使用的单位换算记录。",
+          "expectedState": "删除后按能源编码查询，列表不再显示该记录。",
+          "evidenceId": "EV-WH-099",
+          "screenshot": "EV-WH-099-单位换算删除结果.png",
+          "verificationStatus": "verified"
+        }
+      ]
+    },
+    {
+      "sectionId": "energy-data-maintenance",
+      "title": "能源事实数据维护",
+      "summary": "用于验证能源事实数据查询、新增、详情、编辑、CSV 导入、CSV 导出和删除。",
+      "steps": [
+        {
+          "stepNumber": "5.1",
+          "title": "查看能源数据列表并查询",
+          "route": "/data/energy-consumption",
+          "action": "进入能源数据维护页面，查看能源事实列表，并按记录编码、能源种类、区域或设备查询。",
+          "expectedState": "页面显示非空能源事实数据，可见记录编码、能源种类、能源用量、单位、周期、区域、设备、数据质量和来源。",
+          "evidenceId": "EV-WH-059",
+          "screenshot": "EV-WH-059-能源数据维护列表与查询.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "5.2",
+          "title": "填写能源数据新增表单",
+          "route": "/data/energy-consumption",
+          "action": "点击新增，填写记录编码、能源种类、用量、单位、周期、数据来源、区域、设备、用能系统和备注。",
+          "expectedState": "新增表单显示完整能源事实字段，能源种类、区域和设备以选择器展示。保存后可按记录编码查询回读。",
+          "evidenceId": "EV-WH-060",
+          "screenshot": "EV-WH-060-能源数据新增表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "5.3",
+          "title": "查看能源数据详情",
+          "route": "/data/energy-consumption",
+          "action": "在查询结果中点击详情，查看字段回显。",
+          "expectedState": "详情抽屉显示记录编码、能源种类、用量、周期、区域、设备、数据质量、来源和备注。",
+          "evidenceId": "EV-WH-061",
+          "screenshot": "EV-WH-061-能源数据详情回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "5.4",
+          "title": "填写能源数据编辑表单",
+          "route": "/data/energy-consumption",
+          "action": "点击编辑，打开编辑表单，调整能源用量或备注。",
+          "expectedState": "编辑表单显示原记录回填字段，能源种类、时间粒度、数据质量以中文选项展示。",
+          "evidenceId": "EV-WH-065",
+          "screenshot": "EV-WH-065-能源数据编辑表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "5.5",
+          "title": "编辑保存后回显",
+          "route": "/data/energy-consumption",
+          "action": "保存编辑表单后重新查询记录并打开详情。",
+          "expectedState": "详情抽屉显示更新后的能源用量和备注内容。",
+          "evidenceId": "EV-WH-062",
+          "screenshot": "EV-WH-062-能源数据编辑后回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "5.6",
+          "title": "导入能源数据",
+          "route": "/data/energy-consumption",
+          "action": "点击导入能源数据，上传 CSV 文件并确认导入。",
+          "expectedState": "导入结果显示接收、导入、跳过数量，导入记录可按记录编码查询回读。",
+          "evidenceId": "EV-WH-063",
+          "screenshot": "EV-WH-063-能源数据CSV导入结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "5.7",
+          "title": "导出能源数据",
+          "route": "/data/energy-consumption",
+          "action": "点击导出，下载当前租户能源数据 CSV 文件。",
+          "expectedState": "浏览器生成 CSV 下载文件，文件包含能源数据关键表头。",
+          "evidenceId": "EV-WH-064",
+          "screenshot": "EV-WH-064-能源数据导出结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "5.8",
+          "title": "删除能源数据",
+          "route": "/data/energy-consumption",
+          "action": "删除手工验证或误录入的能源事实记录。",
+          "expectedState": "删除后按记录编码查询，列表不再显示该记录。",
+          "evidenceId": "EV-WH-100",
+          "screenshot": "EV-WH-100-能源数据删除结果.png",
+          "verificationStatus": "verified"
         }
       ]
     },
@@ -259,39 +765,365 @@
       ]
     },
     {
-      "sectionId": "energy-management",
-      "title": "能源管理",
-      "summary": "用于说明能耗查询、强度计算、用能分析、能效对标、能流和平衡优化。",
+      "sectionId": "energy-consumption-query",
+      "title": "能耗查询",
+      "summary": "用于说明能耗汇总查询、明细追溯和 CSV 导出。",
       "steps": [
         {
-          "stepNumber": "5.1",
-          "title": "查询能耗数据",
+          "stepNumber": "6.1",
+          "title": "能耗汇总查询",
           "route": "/energy/consumption",
-          "action": "进入能耗查询页面，按时间、能源品种和区域筛选能耗记录。",
-          "expectedState": "页面显示记录数、能源品种和能耗明细。",
-          "evidenceId": "EV-WH-021",
-          "screenshot": "EV-WH-021-能耗查询.png",
-          "verificationStatus": "planned"
+          "action": "进入能耗查询页面，在汇总查询页签按时间范围、能源品种、区域、设备和汇总维度筛选能源消费数据。",
+          "expectedState": "页面显示记录数、原始消费量、折标煤、CO2e 和能耗汇总表。",
+          "evidenceId": "EV-WH-101",
+          "screenshot": "EV-WH-101-能耗查询汇总筛选与结果.png",
+          "verificationStatus": "verified"
         },
         {
-          "stepNumber": "5.2",
-          "title": "查看能源消费量和强度",
+          "stepNumber": "6.2",
+          "title": "能耗明细追溯",
+          "route": "/energy/consumption",
+          "action": "切换到明细追溯页签，查看来源、Scope、能源品种、折标量、期间、区域/设施、状态和追溯入口。",
+          "expectedState": "页面显示非空能源消费明细，并可通过打开入口回到来源台账。",
+          "evidenceId": "EV-WH-102",
+          "screenshot": "EV-WH-102-能耗查询明细追溯.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "6.3",
+          "title": "能耗查询导出",
+          "route": "/energy/consumption",
+          "action": "切换到导出记录页签，按当前筛选条件导出能源消费 CSV。",
+          "expectedState": "页面显示导出入口，下载文件包含能源消费关键字段。",
+          "evidenceId": "EV-WH-103",
+          "screenshot": "EV-WH-103-能耗查询导出记录.png",
+          "verificationStatus": "verified"
+        }
+      ]
+    },
+    {
+      "sectionId": "energy-intensity",
+      "title": "能耗强度",
+      "summary": "用于说明消费量汇总、面积强度、区域设备层级和趋势分析。",
+      "steps": [
+        {
+          "stepNumber": "7.1",
+          "title": "能源强度消费量汇总",
           "route": "/energy/intensity",
-          "action": "进入强度计算页面，查看综合能耗和能源品种汇总。",
-          "expectedState": "页面显示综合能耗、强度指标和汇总结果。",
-          "evidenceId": "EV-WH-022",
-          "screenshot": "EV-WH-022-能源消费量和强度计算.png",
-          "verificationStatus": "planned"
+          "action": "进入强度计算页面，在消费量汇总页签按期间、统计粒度、状态、Scope 和能源品种查询。",
+          "expectedState": "页面显示综合能耗、折标煤、外购电力、记录数和能源品种汇总。",
+          "evidenceId": "EV-WH-104",
+          "screenshot": "EV-WH-104-能源强度消费量汇总.png",
+          "verificationStatus": "verified"
         },
         {
-          "stepNumber": "5.3",
-          "title": "查看能流和平衡优化",
+          "stepNumber": "7.2",
+          "title": "能源强度面积强度",
+          "route": "/energy/intensity",
+          "action": "切换到面积强度页签，查看仓储面积、园区面积和面积强度指标。",
+          "expectedState": "页面显示仓储面积折标强度、园区面积折标强度、仓储面积电力强度和园区面积电力强度。",
+          "evidenceId": "EV-WH-105",
+          "screenshot": "EV-WH-105-能源强度面积强度.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "7.3",
+          "title": "能源强度区域设备层级",
+          "route": "/energy/intensity",
+          "action": "切换到区域设备页签，查看企业、区域、设备/设施层级能耗。",
+          "expectedState": "页面显示对象层级、占比、综合能耗、外购电力和记录数。",
+          "evidenceId": "EV-WH-106",
+          "screenshot": "EV-WH-106-能源强度区域设备层级.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "7.4",
+          "title": "能源强度趋势分析",
+          "route": "/energy/intensity",
+          "action": "切换到趋势分析页签，查看综合能耗、面积强度和外购电力专项趋势。",
+          "expectedState": "页面显示综合能耗和面积折标强度趋势、外购电力专项强度趋势。",
+          "evidenceId": "EV-WH-107",
+          "screenshot": "EV-WH-107-能源强度趋势分析.png",
+          "verificationStatus": "verified"
+        }
+      ]
+    },
+    {
+      "sectionId": "energy-use-analysis",
+      "title": "用能分析",
+      "summary": "用于说明用能结构、成本、能效、异常诊断和策略建议。",
+      "steps": [
+        {
+          "stepNumber": "8.1",
+          "title": "用能结构分析",
+          "route": "/energy/analysis",
+          "action": "进入用能分析页面，在结构分析页签按时间、粒度、能源品种、区域、设备、用能系统和分时时段查询。",
+          "expectedState": "页面显示总用电量、用能系统数、设备数、区域数、用能系统排行、结构图和区域设备排行。",
+          "evidenceId": "EV-WH-108",
+          "screenshot": "EV-WH-108-用能结构分析.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "8.2",
+          "title": "用能成本分析",
+          "route": "/energy/analysis",
+          "action": "切换到成本分析页签，查看估算电费、平均电价、计费记录、分时成本结构和分时电量排行。",
+          "expectedState": "页面显示分时时段下的成本和电量结构。",
+          "evidenceId": "EV-WH-109",
+          "screenshot": "EV-WH-109-用能成本分析.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "8.3",
+          "title": "用能能效分析",
+          "route": "/energy/analysis",
+          "action": "切换到能效分析页签，查看运行小时、单位运行小时电耗、作业量记录、能耗成本趋势和设备能效排行。",
+          "expectedState": "页面显示趋势图和设备能效排行表。",
+          "evidenceId": "EV-WH-110",
+          "screenshot": "EV-WH-110-用能能效分析.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "8.4",
+          "title": "用能异常诊断",
+          "route": "/energy/analysis",
+          "action": "切换到异常诊断页签，查看异常时段、能源告警和异常时段明细。",
+          "expectedState": "页面显示异常时段数量、告警数量和异常明细字段。",
+          "evidenceId": "EV-WH-111",
+          "screenshot": "EV-WH-111-用能异常诊断.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "8.5",
+          "title": "用能策略建议",
+          "route": "/energy/analysis",
+          "action": "切换到策略建议页签，查看策略数、证据电量、证据成本、异常证据、目标对象和实施步骤。",
+          "expectedState": "页面显示基于当前筛选条件生成的策略建议。",
+          "evidenceId": "EV-WH-112",
+          "screenshot": "EV-WH-112-用能策略建议.png",
+          "verificationStatus": "verified"
+        }
+      ]
+    },
+    {
+      "sectionId": "energy-flow-analysis",
+      "title": "能流分析",
+      "summary": "用于说明能流图、能量平衡表、损耗诊断和分析报告。",
+      "steps": [
+        {
+          "stepNumber": "9.1",
+          "title": "能流图分析",
           "route": "/energy/flow",
-          "action": "进入能流分析和能效平衡页面，查看计量用电、分项用电、关键链路贡献和能量平衡表。",
-          "expectedState": "页面显示能流分析图表、平衡表和来源类型。",
-          "evidenceId": "EV-WH-025",
-          "screenshot": "EV-WH-025-能流分析.png",
+          "action": "进入能流分析页面，在能流图页签按时间、粒度、能源品种、区域、设备、用能系统和损耗阈值查询。",
+          "expectedState": "页面显示计量用电、分项用电、总损耗率、高损耗链路、能流图和关键链路贡献。",
+          "evidenceId": "EV-WH-113",
+          "screenshot": "EV-WH-113-能流图分析.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "9.2",
+          "title": "能流能量平衡表",
+          "route": "/energy/flow",
+          "action": "切换到能量平衡表页签，查看能量输入、利用、损耗和诊断字段。",
+          "expectedState": "页面显示能量平衡表和平衡诊断。",
+          "evidenceId": "EV-WH-114",
+          "screenshot": "EV-WH-114-能流能量平衡表.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "9.3",
+          "title": "能流损耗诊断",
+          "route": "/energy/flow",
+          "action": "切换到损耗诊断页签，查看链路输入电量、损耗电量、损耗率、状态和建议。",
+          "expectedState": "页面显示损耗诊断表，并按损耗阈值展示链路状态。",
+          "evidenceId": "EV-WH-115",
+          "screenshot": "EV-WH-115-能流损耗诊断.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "9.4",
+          "title": "能流分析报告",
+          "route": "/energy/flow",
+          "action": "切换到分析报告页签，查看分析条目、证据字段和动作建议。",
+          "expectedState": "页面显示可用于运营复盘的分析报告条目。",
+          "evidenceId": "EV-WH-116",
+          "screenshot": "EV-WH-116-能流分析报告.png",
+          "verificationStatus": "verified"
+        }
+      ]
+    },
+    {
+      "sectionId": "energy-benchmark-settings",
+      "title": "能效对标配置",
+      "summary": "用于说明标杆方案、标杆项和历史基线生成维护。",
+      "steps": [
+        {
+          "stepNumber": "10.1",
+          "title": "查看标杆方案列表",
+          "route": "/data/energy-benchmark",
+          "action": "进入能效对标配置页面，查看标杆方案列表、查询、查看对标和新增方案入口。",
+          "expectedState": "页面显示标杆方案列表和配置操作入口。",
+          "evidenceId": "EV-WH-120",
+          "screenshot": "EV-WH-120-能效对标配置方案列表.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "10.2",
+          "title": "新增标杆方案",
+          "route": "/data/energy-benchmark",
+          "action": "点击新增方案，维护行业、适用范围、来源和备注。",
+          "expectedState": "新增表单展示标杆方案字段，保存后可在列表回显。",
+          "evidenceId": "EV-WH-121",
+          "screenshot": "EV-WH-121-能效对标配置新增方案.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "10.3",
+          "title": "查看标杆方案详情",
+          "route": "/data/energy-benchmark",
+          "action": "点击标杆方案详情，查看已保存字段。",
+          "expectedState": "详情抽屉回显行业、适用范围、来源、状态和备注。",
+          "evidenceId": "EV-WH-122",
+          "screenshot": "EV-WH-122-能效对标配置方案详情.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "10.4",
+          "title": "新增标杆项",
+          "route": "/data/energy-benchmark",
+          "action": "进入标杆项页签，按设备选择对象和指标，维护标杆值、优秀值、阈值和来源。",
+          "expectedState": "新增表单展示对象选择、指标选择和阈值字段。",
+          "evidenceId": "EV-WH-123",
+          "screenshot": "EV-WH-123-能效对标配置新增标杆项.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "10.5",
+          "title": "编辑标杆项",
+          "route": "/data/energy-benchmark",
+          "action": "编辑标杆项的标杆值或阈值，保存后返回列表。",
+          "expectedState": "列表回显更新后的标杆值。",
+          "evidenceId": "EV-WH-124",
+          "screenshot": "EV-WH-124-能效对标配置标杆项编辑回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "10.6",
+          "title": "生成历史基线标杆",
+          "route": "/data/energy-benchmark",
+          "action": "进入历史基线生成页签，选择对象类型和指标后生成历史基线。",
+          "expectedState": "页面提示历史基线标杆已生成。",
+          "evidenceId": "EV-WH-125",
+          "screenshot": "EV-WH-125-能效对标配置历史基线生成.png",
+          "verificationStatus": "verified"
+        }
+      ]
+    },
+    {
+      "sectionId": "energy-benchmark",
+      "title": "能效对标",
+      "summary": "用于说明设备或工序能效对标结果查看和配置入口。",
+      "steps": [
+        {
+          "stepNumber": "11.1",
+          "title": "查看能效对标结果与维护入口",
+          "route": "/energy/benchmark",
+          "action": "进入能效对标页面，查看分析结果并确认可进入标杆维护。",
+          "expectedState": "页面显示对标分析内容和维护标杆入口。",
+          "evidenceId": "EV-WH-126",
+          "screenshot": "EV-WH-126-能效对标分析维护入口.png",
+          "verificationStatus": "verified"
+        }
+      ]
+    },
+    {
+      "sectionId": "energy-balance",
+      "title": "能效平衡",
+      "summary": "用于说明平衡简表、数据质量、优化测算和优化记录。",
+      "steps": [
+        {
+          "stepNumber": "11.1",
+          "title": "查看能效平衡与优化",
+          "route": "/energy/balance",
+          "action": "进入能效平衡页面，查看输入、有效利用、损耗、平衡差异、优化测算和优化记录。",
+          "expectedState": "页面显示平衡简表、数据质量、优化测算和优化记录。",
+          "evidenceId": "EV-WH-026",
+          "screenshot": "EV-WH-026-能效平衡与优化.png",
           "verificationStatus": "planned"
+        }
+      ]
+    },
+    {
+      "sectionId": "energy-budget-settings",
+      "title": "能碳预算维护",
+      "summary": "用于说明年度目标、月度分解和调整记录维护。",
+      "steps": [
+        {
+          "stepNumber": "13.1",
+          "title": "查看年度预算目标",
+          "route": "/data/energy-budget",
+          "action": "进入能碳预算维护页面，查看年度目标列表、年度筛选、查看执行和新增目标入口。",
+          "expectedState": "页面显示年度预算目标列表和维护操作入口。",
+          "evidenceId": "EV-WH-127",
+          "screenshot": "EV-WH-127-能碳预算维护年度目标列表.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "13.2",
+          "title": "新增年度预算目标",
+          "route": "/data/energy-budget",
+          "action": "点击新增目标，维护年度、适用范围、能耗预算、碳排预算和分母计划。",
+          "expectedState": "新增表单展示年度预算目标字段，保存后可在列表回显。",
+          "evidenceId": "EV-WH-128",
+          "screenshot": "EV-WH-128-能碳预算维护新增年度目标.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "13.3",
+          "title": "生成并编辑月度预算",
+          "route": "/data/energy-budget",
+          "action": "进入月度分解页签，生成月度预算并编辑单月预算。",
+          "expectedState": "列表展示 12 个月预算分解，并回显单月编辑结果。",
+          "evidenceId": "EV-WH-129",
+          "screenshot": "EV-WH-129-能碳预算维护月度分解编辑.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "13.4",
+          "title": "新增并编辑预算调整",
+          "route": "/data/energy-budget",
+          "action": "进入调整记录页签，新增预算调整并编辑状态。",
+          "expectedState": "调整记录列表回显调整类型、调整后预算和状态。",
+          "evidenceId": "EV-WH-130",
+          "screenshot": "EV-WH-130-能碳预算维护调整记录编辑.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "13.5",
+          "title": "删除预算调整记录",
+          "route": "/data/energy-budget",
+          "action": "在调整记录列表中删除不再使用的预算调整记录。",
+          "expectedState": "删除后列表刷新，并在没有调整记录时显示空状态。",
+          "evidenceId": "EV-WH-132",
+          "screenshot": "EV-WH-132-能碳预算维护调整记录删除.png",
+          "verificationStatus": "verified"
+        }
+      ]
+    },
+    {
+      "sectionId": "energy-budget",
+      "title": "能碳预算",
+      "summary": "用于说明年度目标、月度预算和执行情况查看。",
+      "steps": [
+        {
+          "stepNumber": "14.1",
+          "title": "查看能碳预算执行与维护入口",
+          "route": "/energy/budget",
+          "action": "进入能碳预算页面，查看年度目标、月度预算、执行偏差、预测超限和调整记录。",
+          "expectedState": "页面显示预算执行分析内容和维护预算入口。",
+          "evidenceId": "EV-WH-131",
+          "screenshot": "EV-WH-131-能碳预算分析维护入口.png",
+          "verificationStatus": "verified"
         }
       ]
     },

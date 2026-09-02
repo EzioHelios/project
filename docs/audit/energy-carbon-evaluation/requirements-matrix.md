@@ -8,12 +8,12 @@
 | 2 | 项目中心 | `/home`, `/data/company`, `/data/monitor-area` | 待取证 | 需要确认是否有单项目中心和项目级配置闭环。 |
 | 3 | 监测中心 | `/energy-carbon/monitor`, `/data/point-monitoring`, `/data/meter`, `/data/video`, `/data/terminals` | 部分有效 | P1 已完成第一轮整改：设备台账新增接入与质量主线；监测中心 360 详情仍待增强。 |
 | 4 | 告警中心 | `/energy-carbon/alerts`, `/data/alarm-rules` | 部分有效 | P1 已完成第一轮整改：告警中心可确认、转工单、关闭；规则页已改业务表单；工单深度闭环待复核。 |
-| 5 | 能源消费量与强度计算 | `/energy/intensity` | 待审查 | P2 审查。 |
-| 6 | 能耗双控管理 | `/energy/budget` | 待审查 | P2 审查。 |
-| 7 | 能源消费分析与策略推荐 | `/energy/analysis` | 待审查 | P2 审查。 |
-| 8 | 能流分析 | `/energy/flow` | 待审查 | P2 审查。 |
-| 9 | 能效对标 | `/energy/benchmark` | 待审查 | P2 审查。 |
-| 10 | 能效平衡与优化 | `/energy/balance` | 待审查 | P2 审查。 |
+| 5 | 能源消费量与强度计算 | `/energy/intensity`, `/energy/consumption`, `/data/meter`, `/data/production-output` | 部分有效 | P2A 先验证自动计量、能源事实、活动数据和作业量分母维护；P2B 再补业务对象选择、强度计算明细、来源追溯。 |
+| 6 | 能耗双控管理 | `/energy/budget` | 部分有效 | P2 已完成代码级预审：补目标编辑/停用/删除、动作式审批、对象选择和建议转调整。 |
+| 7 | 能源消费分析与策略推荐 | `/energy/analysis` | 部分有效 | P2 已完成代码级预审：补异常详情、来源下钻、策略转整改/预算调整/工单闭环。 |
+| 8 | 能流分析 | `/energy/flow` | 部分有效 | P2 已完成代码级预审：补能流关系维护口径、损耗阈值来源、报告保存或导出。 |
+| 9 | 能效对标 | `/energy/benchmark` | 部分有效 | P2 已完成代码级预审：补标杆对象选择、编辑动作、整改建议转措施或任务。 |
+| 10 | 能效平衡与优化 | `/energy/balance` | 部分有效 | P2 已完成代码级预审：验证模拟保存回读，补对象选择、状态流转和效果复核。 |
 | 11 | 综能智控即时控制 | `/microgrid/operations`, `/microgrid/optimization` | 待审查 | P3 重点判断是否存在真实控制动作。 |
 | 12 | 综能智控场景控制 | `/microgrid/settings`, `/microgrid/dispatch` | 待审查 | P3 重点判断策略配置和执行记录。 |
 | 13 | 碳盘查支撑 | `/carbon/verification`, `/carbon/organization/*`, `/carbon-mgmt/*` | 待审查 | P4 审查。 |
@@ -33,10 +33,10 @@
 | 27 | 供应商碳盘查任务管理 | `/carbon/supply-chain` | 待审查 | P6 审查。 |
 | 28 | 下游客户碳足迹披露 | `/carbon/supply-chain`, `/carbon/product-footprint` | 待审查 | P6 审查。 |
 | 29 | 供应链碳分析 | `/carbon/supply-chain` | 待审查 | P6 审查。 |
-| 30 | 数据采集方式覆盖 | `/data/terminals`, `/data/point-monitoring`, `/data/meter`, `/carbon-mgmt/import` | 部分有效 | P1 已完成第一轮整改：客户侧设备入口合并到设备台账，设备详情内承载接入配置。 |
-| 31 | 数据质量校验 | `/data/terminals`, `/data/point-monitoring`, `/data/meter`, `/carbon-mgmt/import`, `/carbon/verification` | 部分有效 | P1 已完成第一轮整改：设备台账增加质量 Tab；跨能耗/碳核算的质量阻断仍待建设。 |
+| 30 | 数据采集方式覆盖 | `/data/terminals`, `/data/point-monitoring`, `/data/meter`, `/carbon-mgmt/import`, `/api/energy/imports/datasets`, `/data/production-output` | 部分有效 | P1 已完成区域、设备、测点和基于已有接入通道的 MQTT 绑定/映射/测试；P2A 继续验证非电表能源导入、活动数据导入、作业量分母维护和经营台账来源。 |
+| 31 | 数据质量校验 | `/data/terminals`, `/data/point-monitoring`, `/data/meter`, `/carbon-mgmt/import`, `/energy/consumption`, `/carbon/verification` | 部分有效 | P1 已完成设备台账质量 Tab；P2A 需验证读数质量、能源事实质量、导入预检、活动质量与后续计算阻断关系。 |
 | 32 | 因子库管理 | `/carbon-mgmt/factors`, `/carbon-mgmt/calculation-factors` | 待审查 | P4 审查。 |
-| 33 | 数据导出与追溯 | `/data/terminals`, `/data/point-monitoring`, `/data/meter`, `/energy/consumption`, `/carbon/verification` | 部分有效 | P1 已完成第一轮整改：设备台账提供进入实时读数/监测/告警的主线动作；统一追溯链路仍待建设。 |
+| 33 | 数据导出与追溯 | `/data/terminals`, `/data/point-monitoring`, `/data/meter`, `/energy/consumption`, `/carbon-mgmt/activities`, `/carbon/verification` | 部分有效 | P2A 先按来源类型验证追溯：自动读数、能源事实、活动记录、作业量分母和经营台账；统一追溯链路仍待建设。 |
 | 34 | 光功率预测 | `/microgrid/forecast` | 待审查 | P3 审查。 |
 | 35 | 关口功率预测 | `/microgrid/forecast` | 待审查 | P3 审查。 |
 | 36 | 负荷预测 | `/microgrid/forecast` | 待审查 | P3 审查。 |
@@ -56,8 +56,8 @@
 | 50 | 规划结果 | `/carbon/climate`, `/carbon/reduction/overview` | 待审查 | P5 审查。 |
 | 51 | 规划分析 | `/carbon/climate`, `/carbon/reduction/overview` | 待审查 | P5 审查。 |
 | 52 | 规划配置 | `/carbon/climate`, `/carbon/reduction/methodologies` | 待审查 | P5 审查。 |
-| 53 | 设备库管理 | `/data/terminals` | 待审查 | P7 审查。 |
-| 54 | 设备台账管理 | `/data/terminals` | 待审查 | P7 审查。 |
+| 53 | 设备库管理 | `/data/terminals` | 已闭环 | 已验证设备新增、编辑、挂区域、停用、恢复、删除、测点维护和 MQTT 绑定/映射。 |
+| 54 | 设备台账管理 | `/data/terminals` | 已闭环 | 已验证设备列表、详情、基础信息编辑、采集配置展示和设备生命周期动作。 |
 | 55 | 个人信息管理 | `/profile` | 待审查 | P7 审查。 |
 | 56 | 组织与成员管理 | `/admin/teams`, `/teams` | 待审查 | P7 审查。 |
 | 57 | 角色管理 | `/auth/roles`, `/admin/roles` | 待审查 | P7 审查。 |

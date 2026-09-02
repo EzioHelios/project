@@ -20,16 +20,88 @@
       "href": "pages/access-and-tenant.html"
     },
     {
+      "pageId": "energy-overview",
+      "title": "能源运营总览",
+      "source": "02-energy-navigation-map.md",
+      "href": "pages/energy-overview.html"
+    },
+    {
+      "pageId": "data-maintenance-mqtt",
+      "title": "能源运营：区域、设备与 MQTT 电表接入",
+      "source": "03-data-maintenance-mqtt.md",
+      "href": "pages/data-maintenance-mqtt.html"
+    },
+    {
+      "pageId": "energy-master-data",
+      "title": "能源运营：能源主数据维护",
+      "source": "04-energy-master-data.md",
+      "href": "pages/energy-master-data.html"
+    },
+    {
+      "pageId": "energy-data-maintenance",
+      "title": "能源运营：能源事实数据维护",
+      "source": "03-energy-data-maintenance.md",
+      "href": "pages/energy-data-maintenance.html"
+    },
+    {
+      "pageId": "energy-consumption-query",
+      "title": "能源运营：能耗查询",
+      "source": "06-energy-consumption-query.md",
+      "href": "pages/energy-consumption-query.html"
+    },
+    {
+      "pageId": "energy-intensity",
+      "title": "能源运营：能耗强度",
+      "source": "07-energy-intensity.md",
+      "href": "pages/energy-intensity.html"
+    },
+    {
+      "pageId": "energy-use-analysis",
+      "title": "能源运营：用能分析",
+      "source": "08-energy-use-analysis.md",
+      "href": "pages/energy-use-analysis.html"
+    },
+    {
+      "pageId": "energy-flow-analysis",
+      "title": "能源运营：能流分析",
+      "source": "09-energy-flow-analysis.md",
+      "href": "pages/energy-flow-analysis.html"
+    },
+    {
+      "pageId": "energy-benchmark-settings",
+      "title": "能源运营：能效对标配置",
+      "source": "10a-energy-benchmark-settings.md",
+      "href": "pages/energy-benchmark-settings.html"
+    },
+    {
+      "pageId": "energy-benchmark",
+      "title": "能源运营：能效对标",
+      "source": "10-energy-benchmark.md",
+      "href": "pages/energy-benchmark.html"
+    },
+    {
+      "pageId": "energy-balance",
+      "title": "能源运营：能效平衡",
+      "source": "11-energy-balance.md",
+      "href": "pages/energy-balance.html"
+    },
+    {
+      "pageId": "energy-budget-settings",
+      "title": "能源运营：能碳预算维护",
+      "source": "12a-energy-budget-settings.md",
+      "href": "pages/energy-budget-settings.html"
+    },
+    {
+      "pageId": "energy-budget",
+      "title": "能源运营：能碳预算",
+      "source": "12-energy-budget.md",
+      "href": "pages/energy-budget.html"
+    },
+    {
       "pageId": "bigscreen",
       "title": "态势大屏",
       "source": "02-bigscreen.md",
       "href": "pages/bigscreen.html"
-    },
-    {
-      "pageId": "data-maintenance-mqtt",
-      "title": "数据维护与 MQTT 电表接入",
-      "source": "03-data-maintenance-mqtt.md",
-      "href": "pages/data-maintenance-mqtt.html"
     },
     {
       "pageId": "activity-ledgers-import",
@@ -42,12 +114,6 @@
       "title": "因子维护与核算准备",
       "source": "05-factors-calculation.md",
       "href": "pages/factors-calculation.html"
-    },
-    {
-      "pageId": "energy-management",
-      "title": "能源管理",
-      "source": "06-energy-management.md",
-      "href": "pages/energy-management.html"
     },
     {
       "pageId": "organization-carbon-iso14064",

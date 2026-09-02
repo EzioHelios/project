@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>数据维护与 MQTT 电表接入 - 沃衡汽车能碳管理平台操作手册</title>
+  <title>能源运营：区域、设备与 MQTT 电表接入 - 沃衡汽车能碳管理平台操作手册</title>
   <link rel="stylesheet" href="../styles.css" />
 </head>
 <body>
@@ -12,44 +12,106 @@
       <div class="brand-name">沃衡汽车能碳管理平台</div>
       <div class="brand-subtitle">操作手册</div>
     </div>
-    <nav><a class="" href="../index.html">01 平台概览</a><a class="" href="../pages/green-factory-score-items.html">02 绿色工厂评分项功能索引</a><a class="" href="../pages/access-and-tenant.html">03 登录、首页与租户切换</a><a class="" href="../pages/bigscreen.html">04 态势大屏</a><a class="active" href="../pages/data-maintenance-mqtt.html">05 数据维护与 MQTT 电表接入</a><a class="" href="../pages/activity-ledgers-import.html">06 经营活动台账与非电数据导入</a><a class="" href="../pages/factors-calculation.html">07 因子维护与核算准备</a><a class="" href="../pages/energy-management.html">08 能源管理</a><a class="" href="../pages/organization-carbon-iso14064.html">09 组织碳管理与 ISO 14064 分类</a><a class="" href="../pages/product-supply-chain-carbon.html">10 碳足迹与供应链碳管理</a><a class="" href="../pages/monitoring-alerts.html">11 监测告警与处理留痕</a><a class="" href="../pages/verification-report-export.html">12 核查材料与报告导出</a><a class="" href="../pages/reduction-carbon-asset.html">13 减排绩效与公开碳价模拟</a><a class="" href="../pages/demo-script.html">14 下午演示脚本</a><a class="" href="../pages/screenshot-index.html">15 功能页面与截图索引</a></nav>
+    <nav><a class="" href="../index.html">01 平台概览</a><a class="" href="../pages/green-factory-score-items.html">02 绿色工厂评分项功能索引</a><a class="" href="../pages/access-and-tenant.html">03 登录、首页与租户切换</a><a class="" href="../pages/energy-overview.html">04 能源运营总览</a><a class="active" href="../pages/data-maintenance-mqtt.html">05 能源运营：区域、设备与 MQTT 电表接入</a><a class="" href="../pages/energy-master-data.html">06 能源运营：能源主数据维护</a><a class="" href="../pages/energy-data-maintenance.html">07 能源运营：能源事实数据维护</a><a class="" href="../pages/energy-consumption-query.html">08 能源运营：能耗查询</a><a class="" href="../pages/energy-intensity.html">09 能源运营：能耗强度</a><a class="" href="../pages/energy-use-analysis.html">10 能源运营：用能分析</a><a class="" href="../pages/energy-flow-analysis.html">11 能源运营：能流分析</a><a class="" href="../pages/energy-benchmark-settings.html">12 能源运营：能效对标配置</a><a class="" href="../pages/energy-benchmark.html">13 能源运营：能效对标</a><a class="" href="../pages/energy-balance.html">14 能源运营：能效平衡</a><a class="" href="../pages/energy-budget-settings.html">15 能源运营：能碳预算维护</a><a class="" href="../pages/energy-budget.html">16 能源运营：能碳预算</a><a class="" href="../pages/bigscreen.html">17 态势大屏</a><a class="" href="../pages/activity-ledgers-import.html">18 经营活动台账与非电数据导入</a><a class="" href="../pages/factors-calculation.html">19 因子维护与核算准备</a><a class="" href="../pages/organization-carbon-iso14064.html">20 组织碳管理与 ISO 14064 分类</a><a class="" href="../pages/product-supply-chain-carbon.html">21 碳足迹与供应链碳管理</a><a class="" href="../pages/monitoring-alerts.html">22 监测告警与处理留痕</a><a class="" href="../pages/verification-report-export.html">23 核查材料与报告导出</a><a class="" href="../pages/reduction-carbon-asset.html">24 减排绩效与公开碳价模拟</a><a class="" href="../pages/demo-script.html">25 下午演示脚本</a><a class="" href="../pages/screenshot-index.html">26 功能页面与截图索引</a></nav>
   </aside>
   <main class="page">
     <header class="page-header">
       <div class="eyebrow">沃衡汽车有限公司</div>
-      <h1>数据维护与 MQTT 电表接入</h1>
-      <div class="page-meta">操作手册 · 生成时间 2026/9/1 18:33:44</div>
+      <h1>能源运营：区域、设备与 MQTT 电表接入</h1>
+      <div class="page-meta">操作手册 · 生成时间 2026/9/2 13:44:15</div>
     </header>
-    <article class="content"><h2>数据维护与 MQTT 电表接入</h2>
-<p>数据维护用于把仓储现场的区域、设备、测点和采集数据统一到平台主数据中。能源和碳数据进入平台主要有两类路径：一类来自 MQTT 电表、采集终端和测点映射；另一类来自经营活动台账和活动数据导入。电表接入完成后，实时读数可进入点位监测、电表电量、分区分项用能、告警和组织碳核算链路。</p>
-<h3>设备主数据</h3>
-<p>进入 <code>/data/terminals</code>，先在左侧区域树选择生产基地、能源站、仓库、充电区等区域，再在设备列表中选择电表、制冷机组、输送线、照明配电柜、充电桩等设备。设备主数据应维护设备编码、设备名称、所属区域、采集标识、采集协议、能源类型和投运状态。</p>
-<p>对于 MQTT 电表，重点核对三层关系：区域承载设备，设备承载测点，测点通过来源字段映射到采集报文。设备配置完成后，可支撑电量趋势、分区分项能耗、监测告警和组织碳核算。</p>
-<figure class="evidence"><div class="evidence-meta"><span>EV-WH-006</span><span>/data/terminals</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-006-泰州设备主数据与采集协议配置.png" alt="泰州设备主数据与采集协议配置" /><figcaption>泰州设备主数据与采集协议配置</figcaption></figure>
-<h3>测点映射与接入校验</h3>
-<p>在设备台账中选择已配置 MQTT 的电表设备，切换到“接入”页签。页面展示采集协议、采集标识、数据源、订阅主题、网关/表计、绑定状态和点位映射。测点映射用于把报文中的 <code>P</code>、<code>EPI</code> 等来源字段转换为有功功率、正向有功总电能等业务点位。</p>
-<p>管理员可在该页发送测试报文，验证 MQTT 报文能够被采集服务处理并写入点位读数。普通运维人员可查看接入配置和实时读数，确认该设备已具备进入监测链路的条件。</p>
-<figure class="evidence"><div class="evidence-meta"><span>EV-WH-007</span><span>/data/terminals</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-007-泰州测点映射与接入校验.png" alt="泰州测点映射与接入校验" /><figcaption>泰州测点映射与接入校验</figcaption></figure>
-<h3>电表电量采集结果</h3>
-<p>进入 <code>/data/meter</code>，查看最新采集、采样数、电表数量和用电趋势。该页面用于说明 MQTT 采集数据已经进入业务系统，并能按时间和设备形成统计。</p>
+    <article class="content"><h2>区域、设备与 MQTT 电表接入配置</h2>
+<p>本章说明自动计量数据的维护闭环。对象关系为：区域承载设备，设备承载测点，MQTT 表计绑定到设备，MQTT 点位映射把报文来源 Tag 转换为平台测点，测试报文处理成功后形成点位读数，并进入点位监测和电表电量统计。</p>
+<h3>菜单位置</h3>
+<p>区域、设备与 MQTT 接入配置涉及三个侧边栏一级菜单：</p>
+<ul>
+<li>从「<strong>组织档案 / 监测区域</strong>」进入 <code>/data/monitor-area</code>，维护生产基地、车间、仓储区、装卸区、充电区、能源站等区域层级。</li>
+<li>从「<strong>设备与测点 / 设备台账</strong>」进入 <code>/data/terminals</code>，维护设备、设备测点、MQTT 表计绑定和 MQTT 点位映射。</li>
+<li>从「<strong>设备与测点 / 点位监测</strong>」进入 <code>/data/point-monitoring</code>，查看测点实时值、历史趋势和来源追溯。</li>
+<li>从「<strong>设备与测点 / 电表电量</strong>」进入 <code>/data/meter</code>，查看电表聚合后的用电量和采集统计。</li>
+</ul>
+<p>本章只处理自动计量链路。能源种类、单位换算和账期能源事实数据分别在“能源主数据维护”和“能源事实数据维护”章节处理。</p>
+<h3>对象边界</h3>
+<ul>
+<li>区域：维护生产基地、车间、仓库、能源站、充电区等空间层级，用于设备挂载、分区分项用能和告警定位。</li>
+<li>设备：维护电表、配电柜、制冷机组、输送线、充电桩等业务设备，用于承载采集协议、采集标识、能源类型和投运状态。</li>
+<li>设备测点：维护设备上的平台测点，例如正向有功总电能、有功功率、温度、压力等，用于监测、统计和告警。</li>
+<li>MQTT 表计绑定：维护外部网关、表计编号和平台设备之间的绑定关系。</li>
+<li>MQTT 点位映射：维护报文来源 Tag 与平台测点之间的转换关系。</li>
+<li>接入测试：发送测试报文并查看处理结果，确认绑定和映射能够生成平台读数。</li>
+</ul>
+<h3>区域维护</h3>
+<p>进入 <code>/data/monitor-area</code>。在区域树中选择父级区域，点击“新增子区域”，填写区域编码、区域名称、区域类型、负责人、归属部门、位置说明和备注。保存后，新区域应出现在区域树中。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-066</span><span>/data/monitor-area</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-066-区域新增表单.png" alt="区域新增表单" /><figcaption>区域新增表单</figcaption></figure>
+<p>点击“编辑区域”，调整区域名称、负责人、归属部门、位置说明或备注。编辑表单应回填原有字段，保存后在区域详情中回显更新后的名称、层级、状态和设备统计。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-075</span><span>/data/monitor-area</span><span>区域、设备与 MQTT 电表接入配置</span></div><img src="../assets/screenshots/EV-WH-075-区域编辑表单.png" alt="区域编辑表单" /><figcaption>区域编辑表单</figcaption></figure>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-067</span><span>/data/monitor-area</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-067-区域详情与层级回显.png" alt="区域详情与层级回显" /><figcaption>区域详情与层级回显</figcaption></figure>
+<p>点击“停用”，区域详情应显示停用后的状态。停用用于暂停区域参与后续业务选择，不删除已有历史数据。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-076</span><span>/data/monitor-area</span><span>区域、设备与 MQTT 电表接入配置</span></div><img src="../assets/screenshots/EV-WH-076-区域停用状态.png" alt="区域停用状态" /><figcaption>区域停用状态</figcaption></figure>
+<p>删除区域前，页面会校验是否存在子区域或已挂载设备。无子区域、无设备后，点击“删除”并确认，区域树和接口回读中不再出现该区域。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-077</span><span>/data/monitor-area</span><span>区域、设备与 MQTT 电表接入配置</span></div><img src="../assets/screenshots/EV-WH-077-区域删除结果.png" alt="区域删除结果" /><figcaption>区域删除结果</figcaption></figure>
+<h3>设备维护</h3>
+<p>进入 <code>/data/terminals</code>，点击“新增设备”。填写设备编码、设备名称、所属区域、设备类型、资产编码、采集标识、厂家、型号、归属部门、维护负责人、能源类型、采集协议、在线状态、投运状态和位置说明。对于 MQTT 电表，所属区域、采集协议、采集标识和能源类型是后续采集归集的关键字段。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-068</span><span>/data/terminals</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-068-设备新增表单与区域挂载.png" alt="设备新增表单与区域挂载" /><figcaption>设备新增表单与区域挂载</figcaption></figure>
+<p>保存后按设备编码查询并打开设备详情。详情页应显示基础信息、所属区域、设备类型、采集配置、能源类型、启用状态、投运状态和关联测点。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-069</span><span>/data/terminals</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-069-设备详情与采集配置.png" alt="设备详情与采集配置" /><figcaption>设备详情与采集配置</figcaption></figure>
+<p>点击“编辑”，调整设备名称、维护负责人、备注或其他主数据字段。编辑表单应回填原字段，保存后设备详情和列表应显示更新结果。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-078</span><span>/data/terminals</span><span>区域、设备与 MQTT 电表接入配置</span></div><img src="../assets/screenshots/EV-WH-078-设备编辑表单.png" alt="设备编辑表单" /><figcaption>设备编辑表单</figcaption></figure>
+<p>设备支持停用和恢复。停用后设备不再作为正常运行设备参与展示；恢复后设备重新进入启用状态。删除设备前需要先清理子设备、测点和 MQTT 绑定。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-079</span><span>/data/terminals</span><span>区域、设备与 MQTT 电表接入配置</span></div><img src="../assets/screenshots/EV-WH-079-设备停用状态.png" alt="设备停用状态" /><figcaption>设备停用状态</figcaption></figure>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-080</span><span>/data/terminals</span><span>区域、设备与 MQTT 电表接入配置</span></div><img src="../assets/screenshots/EV-WH-080-设备恢复状态.png" alt="设备恢复状态" /><figcaption>设备恢复状态</figcaption></figure>
+<p>清理关联对象后点击“删除”并确认，设备列表和接口回读中不再出现该设备。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-081</span><span>/data/terminals</span><span>区域、设备与 MQTT 电表接入配置</span></div><img src="../assets/screenshots/EV-WH-081-设备删除结果.png" alt="设备删除结果" /><figcaption>设备删除结果</figcaption></figure>
+<h3>设备测点维护</h3>
+<p>在设备详情中切换到“测点”页签，点击“新增测点”。填写测点编码、测点名称、数值类型、单位、来源字段、采样周期、启用状态、告警启用、上下限和备注。测点应挂载在当前设备下。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-070</span><span>/data/terminals</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-070-测点新增表单.png" alt="测点新增表单" /><figcaption>测点新增表单</figcaption></figure>
+<p>点击测点行内“编辑”，调整测点名称、来源字段或备注。编辑表单应回填原字段，保存后测点列表显示更新后的业务名称和来源字段。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-082</span><span>/data/terminals</span><span>区域、设备与 MQTT 电表接入配置</span></div><img src="../assets/screenshots/EV-WH-082-测点编辑表单.png" alt="测点编辑表单" /><figcaption>测点编辑表单</figcaption></figure>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-071</span><span>/data/terminals</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-071-测点编辑后回显.png" alt="测点编辑后回显" /><figcaption>测点编辑后回显</figcaption></figure>
+<p>点击测点行内“删除”，测点列表和接口回读中不再出现该测点。删除测点前，应确认该测点不再被 MQTT 映射或告警规则引用。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-083</span><span>/data/terminals</span><span>区域、设备与 MQTT 电表接入配置</span></div><img src="../assets/screenshots/EV-WH-083-测点删除结果.png" alt="测点删除结果" /><figcaption>测点删除结果</figcaption></figure>
+<h3>MQTT 表计绑定</h3>
+<p>在设备详情中切换到“接入”页签，点击“配置表计绑定”。选择接入通道，填写网关标识、表计编号、匹配名称、外部设备号、临时地址、绑定状态、换算方式和倍率。保存后，当前设备应显示 MQTT 数据源、订阅主题、网关/表计、绑定状态和倍率配置。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-072</span><span>/data/terminals</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-072-mqtt表计绑定表单.png" alt="MQTT表计绑定表单" /><figcaption>MQTT表计绑定表单</figcaption></figure>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-084</span><span>/data/terminals</span><span>区域、设备与 MQTT 电表接入配置</span></div><img src="../assets/screenshots/EV-WH-084-mqtt-表计绑定回显.png" alt="MQTT 表计绑定回显" /><figcaption>MQTT 表计绑定回显</figcaption></figure>
+<p>点击“编辑绑定”，可调整临时地址、匹配名称、绑定状态、换算方式或倍率。保存后，绑定记录应在接入页签和接口中回显更新结果。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-085</span><span>/data/terminals</span><span>区域、设备与 MQTT 电表接入配置</span></div><img src="../assets/screenshots/EV-WH-085-mqtt-表计绑定编辑.png" alt="MQTT 表计绑定编辑" /><figcaption>MQTT 表计绑定编辑</figcaption></figure>
+<p>删除表计绑定前，应先删除其下的点位映射。删除绑定后，设备接入页签回到未绑定状态。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-089</span><span>/data/terminals</span><span>区域、设备与 MQTT 电表接入配置</span></div><img src="../assets/screenshots/EV-WH-089-mqtt-表计绑定删除.png" alt="MQTT 表计绑定删除" /><figcaption>MQTT 表计绑定删除</figcaption></figure>
+<h3>MQTT 点位映射</h3>
+<p>表计绑定完成后，点击“新增映射”。填写来源 Tag、平台测点、测点名称、来源名称、单位、倍率、版本和启用状态。保存后，映射列表应显示“来源 Tag -&gt; 平台测点”的转换关系。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-073</span><span>/data/terminals</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-073-mqtt点位映射表单.png" alt="MQTT点位映射表单" /><figcaption>MQTT点位映射表单</figcaption></figure>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-086</span><span>/data/terminals</span><span>区域、设备与 MQTT 电表接入配置</span></div><img src="../assets/screenshots/EV-WH-086-mqtt-点位映射回显.png" alt="MQTT 点位映射回显" /><figcaption>MQTT 点位映射回显</figcaption></figure>
+<p>点击映射行内“编辑”，可调整来源名称、单位、倍率、版本或启用状态。保存后，映射记录应回显更新结果。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-087</span><span>/data/terminals</span><span>区域、设备与 MQTT 电表接入配置</span></div><img src="../assets/screenshots/EV-WH-087-mqtt-点位映射编辑.png" alt="MQTT 点位映射编辑" /><figcaption>MQTT 点位映射编辑</figcaption></figure>
+<p>点击映射行内“删除”，映射列表和接口回读中不再出现该映射。删除映射后，该来源 Tag 不再参与平台测点投影。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-088</span><span>/data/terminals</span><span>区域、设备与 MQTT 电表接入配置</span></div><img src="../assets/screenshots/EV-WH-088-mqtt-点位映射删除.png" alt="MQTT 点位映射删除" /><figcaption>MQTT 点位映射删除</figcaption></figure>
+<h3>接入测试与采集结果</h3>
+<p>完成表计绑定和点位映射后，点击“发送测试报文”。结果态应显示 MQTT 测试报文已处理，并能看到入站消息状态、处理结果和投影后的测点读数。若测试报文被拒绝，页面会显示拒绝原因，需按来源 Tag、测点编码或倍率配置重新调整后再测试。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-074</span><span>/data/terminals</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-074-mqtt接入测试结果.png" alt="MQTT接入测试结果" /><figcaption>MQTT接入测试结果</figcaption></figure>
+<p>进入 <code>/data/meter</code>，查看最新采集、采样数、电表数量和用电趋势。该页面用于说明 MQTT 采集数据已经进入电表统计口径，并能按时间和设备形成电量统计。</p>
 <figure class="evidence"><div class="evidence-meta"><span>EV-WH-008</span><span>/data/meter</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-008-泰州电表电量采集结果.png" alt="泰州电表电量采集结果" /><figcaption>泰州电表电量采集结果</figcaption></figure>
-<h3>点位监测与来源追溯</h3>
 <p>进入 <code>/data/point-monitoring</code>，按设备、点位或来源编码搜索关键测点，查看总点位、有效点位、超时未更新点位、点位列表、趋势图、最近读数和来源追溯。演示时可选择正向有功总电能，说明读数已经从 MQTT 接入链路进入实时监测，并保留设备编码、网关、表计、订阅主题和映射版本等追溯信息。</p>
 <figure class="evidence"><div class="evidence-meta"><span>EV-WH-009</span><span>/data/point-monitoring</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-009-泰州点位监测与来源追溯.png" alt="泰州点位监测与来源追溯" /><figcaption>泰州点位监测与来源追溯</figcaption></figure>
-<h3>区域主数据</h3>
-<p>进入 <code>/data/monitor-area</code>，查看区域树、基础信息和本区域设备。区域主数据用于支撑分区分项用能、区域碳排归集和告警定位。</p>
+<h3>既有数据展示</h3>
+<p>除新增验证数据外，设备台账中还保留生产基地已有设备示例，可用于展示演示租户下的设备主数据、采集协议和接入状态。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-006</span><span>/data/terminals</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-006-泰州设备主数据与采集协议配置.png" alt="泰州设备主数据与采集协议配置" /><figcaption>泰州设备主数据与采集协议配置</figcaption></figure>
+<p>区域主数据页可用于展示生产基地已有区域层级、基础信息和本区域设备分布。</p>
 <figure class="evidence"><div class="evidence-meta"><span>EV-WH-010</span><span>/data/monitor-area</span><span>数据维护与治理</span></div><img src="../assets/screenshots/EV-WH-010-湖州区域主数据.png" alt="湖州区域主数据" /><figcaption>湖州区域主数据</figcaption></figure>
-<h3>数据维护检查项</h3>
+<h3>覆盖结论</h3>
 <ul>
-<li>区域树、设备列表和设备详情中的所属区域应保持一致。</li>
-<li>MQTT 电表应具备采集协议、采集标识、数据源、订阅主题、网关/表计和点位映射。</li>
-<li>接入校验应显示配置问题为 0，或明确列出需补充的配置项。</li>
-<li>电表电量页面应显示非空采样数据和用电趋势。</li>
-<li>点位监测页面应显示最近读数、趋势图和来源追溯。</li>
-</ul></article>
+<li>区域 CRUD 已覆盖：新增、详情回显、编辑、停用、删除。</li>
+<li>设备 CRUD 已覆盖：新增、详情回显、编辑、停用、恢复、删除。</li>
+<li>设备测点 CRUD 已覆盖：新增、编辑、回显、删除。</li>
+<li>MQTT 表计绑定 CRUD 已覆盖：新增、保存后回显、编辑、删除。</li>
+<li>MQTT 点位映射 CRUD 已覆盖：新增、保存后回显、编辑、删除。</li>
+<li>接入测试已覆盖：测试报文处理、点位读数生成、点位监测和电表电量查看。</li>
+</ul>
+<h3>当前边界</h3>
+<p>本章覆盖设备侧自动计量接入闭环。MQTT 接入通道源和订阅主题的维护属于接入通道管理配置，当前手册按演示租户已有接入通道执行。</p></article>
     <nav class="pager">
-      <a href="../pages/bigscreen.html">上一页：态势大屏</a>
-      <a href="../pages/activity-ledgers-import.html">下一页：经营活动台账与非电数据导入</a>
+      <a href="../pages/energy-overview.html">上一页：能源运营总览</a>
+      <a href="../pages/energy-master-data.html">下一页：能源运营：能源主数据维护</a>
     </nav>
   </main>
 </body>

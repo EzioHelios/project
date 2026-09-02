@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>能源运营：能碳预算维护 - 沃衡汽车能碳管理平台操作手册</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-name">沃衡汽车能碳管理平台</div>
+      <div class="brand-subtitle">操作手册</div>
+    </div>
+    <nav><a class="" href="../index.html">01 平台概览</a><a class="" href="../pages/green-factory-score-items.html">02 绿色工厂评分项功能索引</a><a class="" href="../pages/access-and-tenant.html">03 登录、首页与租户切换</a><a class="" href="../pages/energy-overview.html">04 能源运营总览</a><a class="" href="../pages/data-maintenance-mqtt.html">05 能源运营：区域、设备与 MQTT 电表接入</a><a class="" href="../pages/energy-master-data.html">06 能源运营：能源主数据维护</a><a class="" href="../pages/energy-data-maintenance.html">07 能源运营：能源事实数据维护</a><a class="" href="../pages/energy-consumption-query.html">08 能源运营：能耗查询</a><a class="" href="../pages/energy-intensity.html">09 能源运营：能耗强度</a><a class="" href="../pages/energy-use-analysis.html">10 能源运营：用能分析</a><a class="" href="../pages/energy-flow-analysis.html">11 能源运营：能流分析</a><a class="" href="../pages/energy-benchmark-settings.html">12 能源运营：能效对标配置</a><a class="" href="../pages/energy-benchmark.html">13 能源运营：能效对标</a><a class="" href="../pages/energy-balance.html">14 能源运营：能效平衡</a><a class="active" href="../pages/energy-budget-settings.html">15 能源运营：能碳预算维护</a><a class="" href="../pages/energy-budget.html">16 能源运营：能碳预算</a><a class="" href="../pages/bigscreen.html">17 态势大屏</a><a class="" href="../pages/activity-ledgers-import.html">18 经营活动台账与非电数据导入</a><a class="" href="../pages/factors-calculation.html">19 因子维护与核算准备</a><a class="" href="../pages/organization-carbon-iso14064.html">20 组织碳管理与 ISO 14064 分类</a><a class="" href="../pages/product-supply-chain-carbon.html">21 碳足迹与供应链碳管理</a><a class="" href="../pages/monitoring-alerts.html">22 监测告警与处理留痕</a><a class="" href="../pages/verification-report-export.html">23 核查材料与报告导出</a><a class="" href="../pages/reduction-carbon-asset.html">24 减排绩效与公开碳价模拟</a><a class="" href="../pages/demo-script.html">25 下午演示脚本</a><a class="" href="../pages/screenshot-index.html">26 功能页面与截图索引</a></nav>
+  </aside>
+  <main class="page">
+    <header class="page-header">
+      <div class="eyebrow">沃衡汽车有限公司</div>
+      <h1>能源运营：能碳预算维护</h1>
+      <div class="page-meta">操作手册 · 生成时间 2026/9/2 13:44:15</div>
+    </header>
+    <article class="content"><h2>能碳预算维护</h2>
+<p>本章说明如何维护年度能碳预算目标、生成月度预算分解，并记录预算调整。预算维护用于形成预算口径和月度控制目标，预算分析页面用于查看执行进度、偏差和预测。</p>
+<h3>菜单位置</h3>
+<ul>
+<li>侧边栏：进入「<strong>气候与减碳 / 预算维护</strong>」，打开 <code>/data/energy-budget</code>。</li>
+<li>数据管理入口页：进入 <code>/platform</code> 的「<strong>能源运营</strong>」分组，点击「<strong>能碳预算维护</strong>」。</li>
+<li>能碳预算分析页：在 <code>/energy/budget</code> 点击「<strong>维护预算</strong>」进入维护页。</li>
+</ul>
+<h3>年度目标维护</h3>
+<p>进入 <code>/data/energy-budget</code>，在「<strong>年度目标</strong>」页签查看年度预算目标。可按年度筛选，列表展示预算对象、能耗预算、碳排预算和状态。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-127</span><span>/data/energy-budget</span><span>能碳预算维护</span></div><img src="../assets/screenshots/EV-WH-127-查看年度预算目标.png" alt="查看年度预算目标" /><figcaption>查看年度预算目标</figcaption></figure>
+<p>点击「<strong>新增目标</strong>」，维护目标名称、年度、适用范围、能耗预算、碳排预算、分母计划、分母单位、来源和备注。保存后，年度目标进入预算目标列表。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-128</span><span>/data/energy-budget</span><span>能碳预算维护</span></div><img src="../assets/screenshots/EV-WH-128-新增年度预算目标.png" alt="新增年度预算目标" /><figcaption>新增年度预算目标</figcaption></figure>
+<h3>月度预算分解</h3>
+<p>切换到「<strong>月度分解</strong>」页签，点击「<strong>生成月度预算</strong>」，平台根据年度目标生成 12 个月的预算分解。用户可编辑单月能耗预算、碳排预算、分母预算、状态、来源和备注。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-129</span><span>/data/energy-budget</span><span>能碳预算维护</span></div><img src="../assets/screenshots/EV-WH-129-生成并编辑月度预算.png" alt="生成并编辑月度预算" /><figcaption>生成并编辑月度预算</figcaption></figure>
+<h3>调整记录维护</h3>
+<p>切换到「<strong>调整记录</strong>」页签，点击「<strong>新增调整</strong>」。选择月份后，维护调整类型、调整后能耗、调整后碳排、申请人、批准人、状态和原因。保存后可继续编辑状态，用于记录预算调整过程。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-130</span><span>/data/energy-budget</span><span>能碳预算维护</span></div><img src="../assets/screenshots/EV-WH-130-新增并编辑预算调整.png" alt="新增并编辑预算调整" /><figcaption>新增并编辑预算调整</figcaption></figure>
+<p>对不再使用的调整记录，可在列表操作列点击删除。删除后列表实时刷新，当前年度目标下没有调整记录时显示空状态。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-132</span><span>/data/energy-budget</span><span>能碳预算维护</span></div><img src="../assets/screenshots/EV-WH-132-删除预算调整记录.png" alt="删除预算调整记录" /><figcaption>删除预算调整记录</figcaption></figure>
+<h3>分析页入口</h3>
+<p>进入 <code>/energy/budget</code> 查看年度目标、月度预算、执行偏差、预测超限和调整记录。页面右上角提供「<strong>维护预算</strong>」入口，用户可从分析页面回到预算维护页。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-131</span><span>/energy/budget</span><span>能碳预算</span></div><img src="../assets/screenshots/EV-WH-131-查看能碳预算执行与维护入口.png" alt="查看能碳预算执行与维护入口" /><figcaption>查看能碳预算执行与维护入口</figcaption></figure>
+<h3>操作要点</h3>
+<ul>
+<li>年度目标是预算管理的主记录，月度分解和调整记录均挂载在年度目标下。</li>
+<li>月度预算由年度目标生成，生成后可按月修订。</li>
+<li>调整记录用于记录预算调整原因和状态，不替代能源事实数据录入。</li>
+<li>调整记录支持独立删除；年度目标删除时，其月度分解和调整记录同步清理。</li>
+<li>预算执行查看在 <code>/energy/budget</code> 完成，预算维护在 <code>/data/energy-budget</code> 完成。</li>
+</ul></article>
+    <nav class="pager">
+      <a href="../pages/energy-balance.html">上一页：能源运营：能效平衡</a>
+      <a href="../pages/energy-budget.html">下一页：能源运营：能碳预算</a>
+    </nav>
+  </main>
+</body>
+</html>

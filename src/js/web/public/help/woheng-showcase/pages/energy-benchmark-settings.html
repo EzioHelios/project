@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>能源运营：能效对标配置 - 沃衡汽车能碳管理平台操作手册</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-name">沃衡汽车能碳管理平台</div>
+      <div class="brand-subtitle">操作手册</div>
+    </div>
+    <nav><a class="" href="../index.html">01 平台概览</a><a class="" href="../pages/green-factory-score-items.html">02 绿色工厂评分项功能索引</a><a class="" href="../pages/access-and-tenant.html">03 登录、首页与租户切换</a><a class="" href="../pages/energy-overview.html">04 能源运营总览</a><a class="" href="../pages/data-maintenance-mqtt.html">05 能源运营：区域、设备与 MQTT 电表接入</a><a class="" href="../pages/energy-master-data.html">06 能源运营：能源主数据维护</a><a class="" href="../pages/energy-data-maintenance.html">07 能源运营：能源事实数据维护</a><a class="" href="../pages/energy-consumption-query.html">08 能源运营：能耗查询</a><a class="" href="../pages/energy-intensity.html">09 能源运营：能耗强度</a><a class="" href="../pages/energy-use-analysis.html">10 能源运营：用能分析</a><a class="" href="../pages/energy-flow-analysis.html">11 能源运营：能流分析</a><a class="active" href="../pages/energy-benchmark-settings.html">12 能源运营：能效对标配置</a><a class="" href="../pages/energy-benchmark.html">13 能源运营：能效对标</a><a class="" href="../pages/energy-balance.html">14 能源运营：能效平衡</a><a class="" href="../pages/energy-budget-settings.html">15 能源运营：能碳预算维护</a><a class="" href="../pages/energy-budget.html">16 能源运营：能碳预算</a><a class="" href="../pages/bigscreen.html">17 态势大屏</a><a class="" href="../pages/activity-ledgers-import.html">18 经营活动台账与非电数据导入</a><a class="" href="../pages/factors-calculation.html">19 因子维护与核算准备</a><a class="" href="../pages/organization-carbon-iso14064.html">20 组织碳管理与 ISO 14064 分类</a><a class="" href="../pages/product-supply-chain-carbon.html">21 碳足迹与供应链碳管理</a><a class="" href="../pages/monitoring-alerts.html">22 监测告警与处理留痕</a><a class="" href="../pages/verification-report-export.html">23 核查材料与报告导出</a><a class="" href="../pages/reduction-carbon-asset.html">24 减排绩效与公开碳价模拟</a><a class="" href="../pages/demo-script.html">25 下午演示脚本</a><a class="" href="../pages/screenshot-index.html">26 功能页面与截图索引</a></nav>
+  </aside>
+  <main class="page">
+    <header class="page-header">
+      <div class="eyebrow">沃衡汽车有限公司</div>
+      <h1>能源运营：能效对标配置</h1>
+      <div class="page-meta">操作手册 · 生成时间 2026/9/2 13:44:15</div>
+    </header>
+    <article class="content"><h2>能效对标配置</h2>
+<p>本章说明如何维护能效对标所需的标杆方案、标杆项和历史基线。对标配置用于明确“拿什么对象、什么指标、什么阈值进行比较”，分析页面只展示结果，不直接维护配置数据。</p>
+<h3>菜单位置</h3>
+<ul>
+<li>侧边栏：进入「<strong>能源运营 / 对标配置</strong>」，打开 <code>/data/energy-benchmark</code>。</li>
+<li>数据管理入口页：进入 <code>/platform</code> 的「<strong>能源运营</strong>」分组，点击「<strong>能效对标配置</strong>」。</li>
+<li>能效对标分析页：在 <code>/energy/benchmark</code> 点击「<strong>维护标杆</strong>」进入配置页。</li>
+</ul>
+<h3>标杆方案维护</h3>
+<p>进入 <code>/data/energy-benchmark</code>，在「<strong>标杆方案</strong>」页签查看已维护的对标方案。可按方案名称、行业或适用范围查询，并通过详情查看方案字段。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-120</span><span>/data/energy-benchmark</span><span>能效对标配置</span></div><img src="../assets/screenshots/EV-WH-120-查看标杆方案列表.png" alt="查看标杆方案列表" /><figcaption>查看标杆方案列表</figcaption></figure>
+<p>点击「<strong>新增方案</strong>」，维护方案名称、行业、适用范围、来源、状态和备注。保存后，方案出现在标杆方案列表中。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-121</span><span>/data/energy-benchmark</span><span>能效对标配置</span></div><img src="../assets/screenshots/EV-WH-121-新增标杆方案.png" alt="新增标杆方案" /><figcaption>新增标杆方案</figcaption></figure>
+<p>点击方案行的「<strong>详情</strong>」，查看已保存字段的回显，用于确认方案来源、适用范围和启用状态。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-122</span><span>/data/energy-benchmark</span><span>能效对标配置</span></div><img src="../assets/screenshots/EV-WH-122-查看标杆方案详情.png" alt="查看标杆方案详情" /><figcaption>查看标杆方案详情</figcaption></figure>
+<h3>标杆项维护</h3>
+<p>切换到「<strong>标杆项</strong>」页签，先选择一个标杆方案，再点击「<strong>新增标杆项</strong>」。标杆项可按设备、区域、企业等对象维护指标、标杆值、优秀值、预警阈值、重点偏差阈值和来源。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-123</span><span>/data/energy-benchmark</span><span>能效对标配置</span></div><img src="../assets/screenshots/EV-WH-123-新增标杆项.png" alt="新增标杆项" /><figcaption>新增标杆项</figcaption></figure>
+<p>保存后可在列表中查看标杆项，并通过「<strong>编辑</strong>」调整标杆值、阈值或来源。列表回显更新后的结果。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-124</span><span>/data/energy-benchmark</span><span>能效对标配置</span></div><img src="../assets/screenshots/EV-WH-124-编辑标杆项.png" alt="编辑标杆项" /><figcaption>编辑标杆项</figcaption></figure>
+<h3>历史基线生成</h3>
+<p>切换到「<strong>历史基线生成</strong>」页签，选择对象类型和指标后，可按最优基线、P25 或均值方式生成历史基线标杆。该操作用于将已有能源运行数据沉淀为企业自有对标口径。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-125</span><span>/data/energy-benchmark</span><span>能效对标配置</span></div><img src="../assets/screenshots/EV-WH-125-生成历史基线标杆.png" alt="生成历史基线标杆" /><figcaption>生成历史基线标杆</figcaption></figure>
+<h3>分析页入口</h3>
+<p>进入 <code>/energy/benchmark</code> 查看对标分析结果。页面右上角提供「<strong>维护标杆</strong>」入口，用户可从分析结果返回配置页调整对标方案和标杆项。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-126</span><span>/energy/benchmark</span><span>能效对标</span></div><img src="../assets/screenshots/EV-WH-126-查看能效对标结果与维护入口.png" alt="查看能效对标结果与维护入口" /><figcaption>查看能效对标结果与维护入口</figcaption></figure>
+<h3>操作要点</h3>
+<ul>
+<li>标杆方案用于管理口径，标杆项用于管理具体对象和指标。</li>
+<li>设备和区域应从主数据中选择，避免手工输入造成对象不一致。</li>
+<li>历史基线生成依赖已有能源运行数据；没有连续数据时，应先补齐能源事实数据。</li>
+<li>对标结果查看在 <code>/energy/benchmark</code> 完成，配置维护在 <code>/data/energy-benchmark</code> 完成。</li>
+</ul></article>
+    <nav class="pager">
+      <a href="../pages/energy-flow-analysis.html">上一页：能源运营：能流分析</a>
+      <a href="../pages/energy-benchmark.html">下一页：能源运营：能效对标</a>
+    </nav>
+  </main>
+</body>
+</html>

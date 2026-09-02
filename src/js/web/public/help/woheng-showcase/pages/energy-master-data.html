@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>能源运营：能源主数据维护 - 沃衡汽车能碳管理平台操作手册</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-name">沃衡汽车能碳管理平台</div>
+      <div class="brand-subtitle">操作手册</div>
+    </div>
+    <nav><a class="" href="../index.html">01 平台概览</a><a class="" href="../pages/green-factory-score-items.html">02 绿色工厂评分项功能索引</a><a class="" href="../pages/access-and-tenant.html">03 登录、首页与租户切换</a><a class="" href="../pages/energy-overview.html">04 能源运营总览</a><a class="" href="../pages/data-maintenance-mqtt.html">05 能源运营：区域、设备与 MQTT 电表接入</a><a class="active" href="../pages/energy-master-data.html">06 能源运营：能源主数据维护</a><a class="" href="../pages/energy-data-maintenance.html">07 能源运营：能源事实数据维护</a><a class="" href="../pages/energy-consumption-query.html">08 能源运营：能耗查询</a><a class="" href="../pages/energy-intensity.html">09 能源运营：能耗强度</a><a class="" href="../pages/energy-use-analysis.html">10 能源运营：用能分析</a><a class="" href="../pages/energy-flow-analysis.html">11 能源运营：能流分析</a><a class="" href="../pages/energy-benchmark-settings.html">12 能源运营：能效对标配置</a><a class="" href="../pages/energy-benchmark.html">13 能源运营：能效对标</a><a class="" href="../pages/energy-balance.html">14 能源运营：能效平衡</a><a class="" href="../pages/energy-budget-settings.html">15 能源运营：能碳预算维护</a><a class="" href="../pages/energy-budget.html">16 能源运营：能碳预算</a><a class="" href="../pages/bigscreen.html">17 态势大屏</a><a class="" href="../pages/activity-ledgers-import.html">18 经营活动台账与非电数据导入</a><a class="" href="../pages/factors-calculation.html">19 因子维护与核算准备</a><a class="" href="../pages/organization-carbon-iso14064.html">20 组织碳管理与 ISO 14064 分类</a><a class="" href="../pages/product-supply-chain-carbon.html">21 碳足迹与供应链碳管理</a><a class="" href="../pages/monitoring-alerts.html">22 监测告警与处理留痕</a><a class="" href="../pages/verification-report-export.html">23 核查材料与报告导出</a><a class="" href="../pages/reduction-carbon-asset.html">24 减排绩效与公开碳价模拟</a><a class="" href="../pages/demo-script.html">25 下午演示脚本</a><a class="" href="../pages/screenshot-index.html">26 功能页面与截图索引</a></nav>
+  </aside>
+  <main class="page">
+    <header class="page-header">
+      <div class="eyebrow">沃衡汽车有限公司</div>
+      <h1>能源运营：能源主数据维护</h1>
+      <div class="page-meta">操作手册 · 生成时间 2026/9/2 13:44:15</div>
+    </header>
+    <article class="content"><h2>能源主数据维护</h2>
+<p>本章用于维护平台识别能源消费数据时使用的基础字典。能源主数据只处理能源种类和单位换算，不录入具体能耗数值，也不维护碳排放因子；碳排放因子在“因子维护与核算准备”章节中处理。</p>
+<h3>菜单位置</h3>
+<ul>
+<li>从左侧侧边栏进入「<strong>能源运营 / 能源种类</strong>」，打开 <code>/data/energy-types</code>，维护平台可识别的能源品种、单位、折标系数和启用状态。</li>
+<li>从左侧侧边栏进入「<strong>能源运营 / 单位换算</strong>」，打开 <code>/data/energy-unit-conversions</code>，维护同一能源在原始单位、折标单位和统计单位之间的换算关系。</li>
+<li>也可从 <code>/platform</code> 的「<strong>能源运营</strong>」分组进入能源种类和单位换算页面，适合在集中维护主数据时使用。</li>
+</ul>
+<p>能源主数据先于能源事实数据维护。能源种类停用或换算关系调整后，后续新增能源事实记录和分析查询会按最新启用口径选择和展示。</p>
+<h3>能源种类列表</h3>
+<p>进入 <code>/data/energy-types</code>，查看能源种类列表。列表展示能源编码、能源名称、类别、默认范围、原始单位、折标单位、折标系数、标准依据和启用状态。可按能源编码、名称、类别或标准依据进行查询。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-090</span><span>/data/energy-types</span><span>能源主数据维护</span></div><img src="../assets/screenshots/EV-WH-090-查看能源种类列表.png" alt="查看能源种类列表" /><figcaption>查看能源种类列表</figcaption></figure>
+<h3>新增能源种类</h3>
+<p>点击「<strong>新增</strong>」，填写能源编码、能源名称、类别、默认范围、原始单位、折标单位、折标系数、标准依据、系数来源和备注。保存后，系统将该能源种类纳入能源数据维护、单位换算维护和后续能耗统计的可选范围。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-091</span><span>/data/energy-types</span><span>能源主数据维护</span></div><img src="../assets/screenshots/EV-WH-091-新增能源种类.png" alt="新增能源种类" /><figcaption>新增能源种类</figcaption></figure>
+<h3>查看能源种类详情</h3>
+<p>在能源种类列表中点击「<strong>详情</strong>」，系统打开详情抽屉并展示保存后的字段。通过详情页核对编码、名称、类别、范围、单位、折标系数、标准依据和启用状态。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-092</span><span>/data/energy-types</span><span>能源主数据维护</span></div><img src="../assets/screenshots/EV-WH-092-查看能源种类详情.png" alt="查看能源种类详情" /><figcaption>查看能源种类详情</figcaption></figure>
+<h3>编辑能源种类</h3>
+<p>在能源种类列表中点击「<strong>编辑</strong>」，系统回填原有字段。可调整能源名称、类别、默认范围、单位、折标系数、标准依据、启用状态和备注。保存后重新查询能源编码，确认列表和详情内容已更新。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-093</span><span>/data/energy-types</span><span>能源主数据维护</span></div><img src="../assets/screenshots/EV-WH-093-编辑能源种类.png" alt="编辑能源种类" /><figcaption>编辑能源种类</figcaption></figure>
+<h3>删除能源种类</h3>
+<p>在能源种类未被能源事实数据使用时，可点击「<strong>删除</strong>」清理该能源种类。若能源种类已经被能源数据引用，系统会阻止删除，应改为停用或先处理关联数据。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-094</span><span>/data/energy-types</span><span>能源主数据维护</span></div><img src="../assets/screenshots/EV-WH-094-删除能源种类.png" alt="删除能源种类" /><figcaption>删除能源种类</figcaption></figure>
+<h3>单位换算列表</h3>
+<p>进入 <code>/data/energy-unit-conversions</code>，查看单位换算列表。列表展示能源种类、来源单位、目标单位、换算系数、标准依据、默认换算和启用状态。该页面用于维护同一种能源在原始单位和折标单位之间的换算关系。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-095</span><span>/data/energy-unit-conversions</span><span>能源主数据维护</span></div><img src="../assets/screenshots/EV-WH-095-查看单位换算列表.png" alt="查看单位换算列表" /><figcaption>查看单位换算列表</figcaption></figure>
+<h3>新增单位换算</h3>
+<p>点击「<strong>新增</strong>」，选择能源种类，填写来源单位、目标单位、换算系数、标准依据、系数来源和备注。保存后，该换算关系可用于能源数据归一化和折标统计。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-096</span><span>/data/energy-unit-conversions</span><span>能源主数据维护</span></div><img src="../assets/screenshots/EV-WH-096-新增单位换算.png" alt="新增单位换算" /><figcaption>新增单位换算</figcaption></figure>
+<h3>查看单位换算详情</h3>
+<p>在单位换算列表中点击「<strong>详情</strong>」，核对能源种类、来源单位、目标单位、换算系数、标准依据、默认换算和启用状态。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-097</span><span>/data/energy-unit-conversions</span><span>能源主数据维护</span></div><img src="../assets/screenshots/EV-WH-097-查看单位换算详情.png" alt="查看单位换算详情" /><figcaption>查看单位换算详情</figcaption></figure>
+<h3>编辑单位换算</h3>
+<p>在单位换算列表中点击「<strong>编辑</strong>」，系统回填原字段。可调整换算系数、标准依据、默认换算、启用状态和备注。保存后重新查询能源编码，确认更新结果已回显。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-098</span><span>/data/energy-unit-conversions</span><span>能源主数据维护</span></div><img src="../assets/screenshots/EV-WH-098-编辑单位换算.png" alt="编辑单位换算" /><figcaption>编辑单位换算</figcaption></figure>
+<h3>删除单位换算</h3>
+<p>对不再使用的单位换算记录点击「<strong>删除</strong>」。删除后按能源编码查询，列表不再显示该换算记录。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-099</span><span>/data/energy-unit-conversions</span><span>能源主数据维护</span></div><img src="../assets/screenshots/EV-WH-099-删除单位换算.png" alt="删除单位换算" /><figcaption>删除单位换算</figcaption></figure></article>
+    <nav class="pager">
+      <a href="../pages/data-maintenance-mqtt.html">上一页：能源运营：区域、设备与 MQTT 电表接入</a>
+      <a href="../pages/energy-data-maintenance.html">下一页：能源运营：能源事实数据维护</a>
+    </nav>
+  </main>
+</body>
+</html>

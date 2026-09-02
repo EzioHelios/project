@@ -90,6 +90,33 @@ const evidenceDefinitions = [
     rejectTexts: ["暂无时序数据"],
   }),
   shot("EV-WH-010", "湖州区域主数据", "/data/monitor-area", "huzhou", ["区域主数据工作台", "区域树", "基础信息", "本区域设备"], "A", "数据维护与治理"),
+  shot("EV-WH-059", "能源数据维护列表与查询", "/data/energy-consumption", "taizhou", ["能源数据维护", "能源数据维护列表", "查询", "新增", "导入能源数据", "导出", "记录编码", "能源用量"], "A", "能源数据维护专题", {
+    focus: "能源事实列表、查询入口、手工维护入口、CSV 导入入口和导出动作",
+  }),
+  shot("EV-WH-060", "能源数据新增表单", "/data/energy-consumption", "taizhou", ["新增能源数据维护", "MANUAL-ENERGY-CRUD-20260901", "外购电力", "1280.5", "泰州生产基地/总装仓储区"], "A", "能源数据维护专题", {
+    action: openEnergyCrudCreateForm,
+    focus: "新增能源数据表单填写态",
+  }),
+  shot("EV-WH-061", "能源数据详情回显", "/data/energy-consumption", "taizhou", ["能源数据维护详情", "MANUAL-ENERGY-CRUD-20260901", "外购电力", "手工录入验证"], "A", "能源数据维护专题", {
+    action: openEnergyCrudEvidenceDetail,
+    focus: "能源数据详情抽屉的字段回显",
+  }),
+  shot("EV-WH-065", "能源数据编辑表单", "/data/energy-consumption", "taizhou", ["编辑能源数据维护", "MANUAL-ENERGY-CRUD-20260901", "外购电力", "1368.75", "编辑后验证"], "A", "能源数据维护专题", {
+    action: openEnergyCrudEditForm,
+    focus: "能源数据编辑表单填写态",
+  }),
+  shot("EV-WH-062", "能源数据编辑后回显", "/data/energy-consumption", "taizhou", ["能源数据维护详情", "MANUAL-ENERGY-CRUD-20260901", "外购电力", "1368.75", "编辑后验证"], "A", "能源数据维护专题", {
+    action: editEnergyCrudEvidenceRecord,
+    focus: "编辑能源数据保存后的列表查询结果",
+  }),
+  shot("EV-WH-063", "能源数据CSV导入结果", "/data/energy-consumption", "taizhou", ["导入能源数据", "已读取 1 条记录", "服务端入库", "接收 1", "导入 1", "跳过 0"], "A", "能源数据维护专题", {
+    action: importEnergyCrudEvidenceRecord,
+    focus: "能源数据 CSV 上传后的服务端入库结果态",
+  }),
+  shot("EV-WH-064", "能源数据导出结果", "/data/energy-consumption", "taizhou", ["能源数据维护", "记录编码", "能源用量"], "A", "能源数据维护专题", {
+    action: exportEnergyCrudEvidenceRecords,
+    focus: "能源数据 CSV 导出动作和下载文件校验",
+  }),
   shot("EV-WH-011", "湖州测点映射与接入质量", "/data/terminals", "huzhou", ["设备台账", "质量", "测点", "数据质量"], "A", "数据维护与治理", { allowPartial: true }),
   shot("EV-WH-012", "非电活动数据导入入口", "/carbon-mgmt/import", "huzhou", ["活动数据导入", "盘查期", "组织", "活动分类", "下载分类模板"], "B", "数据维护与治理", {
     allowPartial: true,
@@ -511,7 +538,12 @@ async function captureEvidence(definition) {
       })
     }
     const screenshotPath = path.join(screenshotDir, definition.filename)
-    await page.screenshot({ path: screenshotPath, fullPage: false })
+    const toastStyle = await hideToastForScreenshot()
+    try {
+      await page.screenshot({ path: screenshotPath, fullPage: false })
+    } finally {
+      await toastStyle.evaluate((element) => element.remove()).catch(() => {})
+    }
     const bytes = await fs.readFile(screenshotPath)
     const recentFailures = apiFailures.slice(failureOffset)
     const partialReasons = definition.allowPartial ? collectPartialReasons(definition) : []
@@ -569,6 +601,9 @@ async function captureEvidence(definition) {
   } finally {
     activeEvidence = null
     await page.keyboard.press("Escape").catch(() => {})
+    await cleanupEnergyCrudEvidenceArtifacts(definition).catch((error) => {
+      console.warn(`[evidence:cleanup-warning] ${definition.evidenceId} ${error instanceof Error ? error.message : String(error)}`)
+    })
   }
 }
 
@@ -615,6 +650,26 @@ async function waitForPageReady() {
   await page.evaluate(async () => {
     await document.fonts.ready
   })
+  await waitForUiSettled()
+}
+
+async function waitForUiSettled() {
+  await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const animations = document.getAnimations().filter((animation) => animation.playState !== "finished")
+        if (animations.length === 0) {
+          resolve(undefined)
+          return
+        }
+        const timeout = window.setTimeout(() => resolve(undefined), 900)
+        Promise.all(animations.map((animation) => animation.finished.catch(() => undefined))).then(() => {
+          window.clearTimeout(timeout)
+          resolve(undefined)
+        })
+      }),
+  )
+  await page.waitForTimeout(120)
 }
 
 async function waitForStableCharts(definition) {
@@ -925,6 +980,183 @@ async function openFirstDeviceEditor({ page }) {
   await rows.first().click()
   await page.getByRole("button", { name: "编辑" }).click()
   await page.getByText("编辑设备", { exact: true }).waitFor({ timeout: 20_000 })
+}
+
+const energyCrudRecordCode = "MANUAL-ENERGY-CRUD-20260901"
+const energyImportRecordCode = "MANUAL-ENERGY-IMPORT-20260901"
+const energyCrudSourceSystem = "manual-verification"
+
+async function openEnergyCrudCreateForm({ page }) {
+  await cleanupEnergyEvidenceRecord(energyCrudRecordCode)
+  await page.getByRole("button", { name: "新增" }).click()
+  const dialog = page.getByRole("dialog").filter({ hasText: "新增能源数据维护" })
+  await dialog.waitFor({ state: "visible", timeout: 20_000 })
+  await fillEnergyInput(dialog, "记录编码", energyCrudRecordCode)
+  await selectEnergyOption(page, dialog, "能源种类", "外购电力")
+  await fillEnergyInput(dialog, "能源用量", "1280.5")
+  await fillEnergyInput(dialog, "单位", "kWh")
+  await fillEnergyInput(dialog, "开始日期", "2026-09-01")
+  await fillEnergyInput(dialog, "结束日期", "2026-09-01")
+  await selectEnergyOption(page, dialog, "时间粒度", "日")
+  await selectEnergyOption(page, dialog, "数据质量", "手工")
+  await fillEnergyInput(dialog, "数据来源", energyCrudSourceSystem)
+  await fillEnergyInput(dialog, "区域名称", "泰州生产基地/总装仓储区")
+  await fillEnergyInput(dialog, "设备编码", "TZ-MANUAL-METER-001")
+  await fillEnergyInput(dialog, "设备名称", "手工验证电表")
+  await fillEnergyInput(dialog, "用能系统名称", "仓储照明")
+  await fillEnergyInput(dialog, "备注", "手工录入验证")
+  await scrollDialogToTop(dialog)
+}
+
+async function createEnergyCrudEvidenceRecord({ page }) {
+  await openEnergyCrudCreateForm({ page })
+  const dialog = page.getByRole("dialog").filter({ hasText: "新增能源数据维护" })
+  await dialog.getByRole("button", { name: "保存" }).click()
+  await page.getByText("新增成功", { exact: false }).waitFor({ state: "visible", timeout: 20_000 })
+  await searchEnergyEvidenceRecord(page, energyCrudRecordCode)
+}
+
+async function openEnergyCrudEvidenceDetail({ page }) {
+  await ensureEnergyCrudEvidenceRecord(page)
+  await searchEnergyEvidenceRecord(page, energyCrudRecordCode)
+  await energyEvidenceRow(page, energyCrudRecordCode).getByRole("button", { name: "详情" }).click()
+  await page.getByText("能源数据维护详情", { exact: false }).waitFor({ state: "visible", timeout: 20_000 })
+}
+
+async function openEnergyCrudEditForm({ page }) {
+  await ensureEnergyCrudEvidenceRecord(page)
+  await searchEnergyEvidenceRecord(page, energyCrudRecordCode)
+  await energyEvidenceRow(page, energyCrudRecordCode).getByRole("button", { name: "编辑" }).click()
+  const dialog = page.getByRole("dialog").filter({ hasText: "编辑能源数据维护" })
+  await dialog.waitFor({ state: "visible", timeout: 20_000 })
+  await fillEnergyInput(dialog, "能源用量", "1368.75")
+  await fillEnergyInput(dialog, "备注", "编辑后验证")
+  await scrollDialogToTop(dialog)
+}
+
+async function editEnergyCrudEvidenceRecord({ page }) {
+  await openEnergyCrudEditForm({ page })
+  const dialog = page.getByRole("dialog").filter({ hasText: "编辑能源数据维护" })
+  await dialog.getByRole("button", { name: "保存" }).click()
+  await page.getByText("更新成功", { exact: false }).waitFor({ state: "visible", timeout: 20_000 })
+  await searchEnergyEvidenceRecord(page, energyCrudRecordCode)
+  await energyEvidenceRow(page, energyCrudRecordCode).getByRole("button", { name: "详情" }).click()
+  await page.getByText("能源数据维护详情", { exact: false }).waitFor({ state: "visible", timeout: 20_000 })
+}
+
+async function importEnergyCrudEvidenceRecord({ page }) {
+  await cleanupEnergyEvidenceRecord(energyImportRecordCode)
+  const fixturePath = path.join(outputDir, "fixtures", "energy-data-import-verification.csv")
+  await fs.mkdir(path.dirname(fixturePath), { recursive: true })
+  await fs.writeFile(
+    fixturePath,
+    [
+      "记录编码,能源种类编码,开始时间,结束时间,能源用量,单位,数据来源,设备编码,设备名称,区域名称,用能系统名称,时间粒度,数据质量,备注",
+      `${energyImportRecordCode},diesel,2026-09-01,2026-09-01,86.4,L,${energyCrudSourceSystem},TZ-FORKLIFT-DIESEL-001,柴油叉车,泰州生产基地/装卸区,叉车作业,day,imported,CSV导入验证`,
+      "",
+    ].join("\n"),
+  )
+  await page.getByTestId("energy-interval-import-trigger").click()
+  await page.getByTestId("energy-interval-import-file").setInputFiles(fixturePath)
+  await page.getByText("已读取 1 条记录", { exact: false }).waitFor({ state: "visible", timeout: 20_000 })
+  await page.getByTestId("energy-interval-import-submit").click()
+  await page.getByText("导入完成", { exact: false }).waitFor({ state: "visible", timeout: 20_000 })
+}
+
+async function exportEnergyCrudEvidenceRecords({ page }) {
+  const [download] = await Promise.all([
+    page.waitForEvent("download", { timeout: 20_000 }),
+    page.getByRole("button", { name: "导出" }).click(),
+  ])
+  const exportPath = path.join(outputDir, "manual-verification", download.suggestedFilename())
+  await fs.mkdir(path.dirname(exportPath), { recursive: true })
+  await download.saveAs(exportPath)
+  const text = await fs.readFile(exportPath, "utf8")
+  if (!text.includes("source_record_id") || !text.includes("energy_type_code") || !text.includes("amount")) {
+    throw new Error("导出 CSV 缺少能源数据关键表头")
+  }
+  await page.getByText("导出成功", { exact: false }).waitFor({ state: "visible", timeout: 20_000 })
+}
+
+async function ensureEnergyCrudEvidenceRecord(page) {
+  const existing = await getEnergyEvidenceRecord(energyCrudRecordCode)
+  if (existing?.id) return existing
+  await createEnergyCrudEvidenceRecord({ page })
+  return getEnergyEvidenceRecord(energyCrudRecordCode)
+}
+
+async function searchEnergyEvidenceRecord(page, code) {
+  await page.getByPlaceholder("搜索记录编码、能源种类、区域、设备").fill(code)
+  await page.getByRole("button", { name: "查询" }).click()
+  await page.getByText(code, { exact: false }).waitFor({ state: "visible", timeout: 20_000 })
+}
+
+function energyEvidenceRow(page, code) {
+  return page.locator("tbody tr").filter({ hasText: code }).first()
+}
+
+async function fillEnergyInput(scope, label, value) {
+  const labelLocator = scope.locator("label", { hasText: label }).first()
+  const control = labelLocator.locator("xpath=ancestor::div[contains(@class, 'grid')][1]//*[self::input or self::textarea]").first()
+  const readonly = await control.evaluate((element) => element instanceof HTMLInputElement && element.readOnly).catch(() => false)
+  const placeholder = await control.getAttribute("placeholder").catch(() => null)
+  if (readonly && placeholder === "选择日期") {
+    await selectEnergyDate(control, value)
+    return
+  }
+  await control.fill(value)
+}
+
+async function selectEnergyDate(control, value) {
+  const match = /^\d{4}-\d{2}-(\d{2})$/.exec(value)
+  if (!match) throw new Error(`日期值格式无效：${value}`)
+  await control.click()
+  await control.page().locator(".rounded-lg.border.border-border.bg-popover").last().getByRole("button", { name: String(Number(match[1])), exact: true }).first().click()
+}
+
+async function selectEnergyOption(page, scope, label, option) {
+  const labelLocator = scope.locator("label", { hasText: label }).first()
+  await labelLocator.locator("xpath=ancestor::div[contains(@class, 'grid')][1]//button[@role='combobox']").first().click()
+  await page.getByRole("option", { name: option, exact: true }).click()
+}
+
+async function hideToastForScreenshot() {
+  return page.addStyleTag({
+    content: `
+        [data-sonner-toast] {
+          display: none !important;
+          visibility: hidden !important;
+        }
+      `,
+  })
+}
+
+async function scrollDialogToTop(dialog) {
+  await dialog.evaluate((element) => {
+    element.scrollTop = 0
+    for (const child of element.querySelectorAll("*")) {
+      if (child instanceof HTMLElement && child.scrollHeight > child.clientHeight) child.scrollTop = 0
+    }
+  })
+}
+
+async function cleanupEnergyEvidenceRecord(code) {
+  const row = await getEnergyEvidenceRecord(code)
+  if (!row?.id) return
+  const result = await fetchJson(`/api/energy/interval-facts/${row.id}`, { method: "DELETE" })
+  if (!result.ok && result.status !== 404) throw new Error(`清理能源验证记录失败：${code} HTTP ${result.status}`)
+}
+
+async function cleanupEnergyCrudEvidenceArtifacts(definition) {
+  if (!["EV-WH-060", "EV-WH-061", "EV-WH-062", "EV-WH-063", "EV-WH-064", "EV-WH-065"].includes(definition.evidenceId)) return
+  await cleanupEnergyEvidenceRecord(energyCrudRecordCode)
+  await cleanupEnergyEvidenceRecord(energyImportRecordCode)
+}
+
+async function getEnergyEvidenceRecord(code) {
+  const result = await fetchJson(`/api/energy/interval-facts?search=${encodeURIComponent(code)}&limit=20`)
+  if (!result.ok) throw new Error(`查询能源验证记录失败：${code} HTTP ${result.status}`)
+  return (result.data?.items ?? []).find((item) => item.source_record_id === code) ?? null
 }
 
 async function fetchJson(url, options = {}) {

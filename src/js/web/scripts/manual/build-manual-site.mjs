@@ -13,7 +13,7 @@ const outputDir = path.resolve(repositoryRoot, args.outputDir ?? manifest.siteOu
 const screenshotRoot = path.resolve(repositoryRoot, args.screenshots ?? manifest.defaultScreenshotRoot ?? "")
 const pagesRoot = path.resolve(repositoryRoot, manifest.pagesRoot)
 const screenshotIndex = await buildScreenshotIndex(screenshotRoot)
-const evidencePlan = await readEvidencePlan(manifest.sourceEvidencePlan)
+const evidencePlan = mergeEvidencePlan(await readEvidencePlan(manifest.sourceEvidencePlan), manifest)
 const audit = buildAudit(manifest, screenshotIndex, evidencePlan)
 const screenshotAssets = await copyScreenshots(audit.rows)
 const pageRecords = []
@@ -56,6 +56,29 @@ async function readEvidencePlan(planPath) {
     for (const item of section.items ?? []) items.push({ ...item, section: section.section })
   }
   return { items, byId: new Map(items.map((item) => [item.evidenceId, item])) }
+}
+
+function mergeEvidencePlan(plan, manualManifest) {
+  const items = [...plan.items]
+  const byId = new Map(plan.byId)
+  for (const section of manualManifest.sections ?? []) {
+    for (const step of section.steps ?? []) {
+      if (!step.evidenceId || byId.has(step.evidenceId)) continue
+      const item = {
+        section: section.title ?? section.sectionId ?? "",
+        title: step.title ?? step.evidenceId,
+        route: step.route ?? "",
+        evidenceId: step.evidenceId,
+        plannedFilename: step.screenshot ?? "",
+        mustVisibleContents: [step.title, step.route].filter(Boolean),
+        focus: step.expectedState ?? "",
+        expectedEvidenceLevel: step.verificationStatus === "verified" ? "A" : "B",
+      }
+      items.push(item)
+      byId.set(item.evidenceId, item)
+    }
+  }
+  return { items, byId }
 }
 
 function buildAudit(_manualManifest, screenshots, plan) {

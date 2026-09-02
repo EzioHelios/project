@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>能源运营：能流分析 - 沃衡汽车能碳管理平台操作手册</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-name">沃衡汽车能碳管理平台</div>
+      <div class="brand-subtitle">操作手册</div>
+    </div>
+    <nav><a class="" href="../index.html">01 平台概览</a><a class="" href="../pages/green-factory-score-items.html">02 绿色工厂评分项功能索引</a><a class="" href="../pages/access-and-tenant.html">03 登录、首页与租户切换</a><a class="" href="../pages/energy-overview.html">04 能源运营总览</a><a class="" href="../pages/data-maintenance-mqtt.html">05 能源运营：区域、设备与 MQTT 电表接入</a><a class="" href="../pages/energy-master-data.html">06 能源运营：能源主数据维护</a><a class="" href="../pages/energy-data-maintenance.html">07 能源运营：能源事实数据维护</a><a class="" href="../pages/energy-consumption-query.html">08 能源运营：能耗查询</a><a class="" href="../pages/energy-intensity.html">09 能源运营：能耗强度</a><a class="" href="../pages/energy-use-analysis.html">10 能源运营：用能分析</a><a class="active" href="../pages/energy-flow-analysis.html">11 能源运营：能流分析</a><a class="" href="../pages/energy-benchmark-settings.html">12 能源运营：能效对标配置</a><a class="" href="../pages/energy-benchmark.html">13 能源运营：能效对标</a><a class="" href="../pages/energy-balance.html">14 能源运营：能效平衡</a><a class="" href="../pages/energy-budget-settings.html">15 能源运营：能碳预算维护</a><a class="" href="../pages/energy-budget.html">16 能源运营：能碳预算</a><a class="" href="../pages/bigscreen.html">17 态势大屏</a><a class="" href="../pages/activity-ledgers-import.html">18 经营活动台账与非电数据导入</a><a class="" href="../pages/factors-calculation.html">19 因子维护与核算准备</a><a class="" href="../pages/organization-carbon-iso14064.html">20 组织碳管理与 ISO 14064 分类</a><a class="" href="../pages/product-supply-chain-carbon.html">21 碳足迹与供应链碳管理</a><a class="" href="../pages/monitoring-alerts.html">22 监测告警与处理留痕</a><a class="" href="../pages/verification-report-export.html">23 核查材料与报告导出</a><a class="" href="../pages/reduction-carbon-asset.html">24 减排绩效与公开碳价模拟</a><a class="" href="../pages/demo-script.html">25 下午演示脚本</a><a class="" href="../pages/screenshot-index.html">26 功能页面与截图索引</a></nav>
+  </aside>
+  <main class="page">
+    <header class="page-header">
+      <div class="eyebrow">沃衡汽车有限公司</div>
+      <h1>能源运营：能流分析</h1>
+      <div class="page-meta">操作手册 · 生成时间 2026/9/2 13:44:15</div>
+    </header>
+    <article class="content"><h2>能流分析</h2>
+<p>本章说明如何查看能源从总表到区域、设备和用能系统的流向关系，并核对能量平衡表、损耗诊断和分析报告。能流分析用于回答“能源从哪里来、流向哪里、哪些链路存在损耗”。</p>
+<h3>菜单位置</h3>
+<ul>
+<li>首页工作台：在 <code>/home</code> 的「<strong>能源运营</strong>」区域点击「<strong>能流分析</strong>」进入。</li>
+<li>侧边栏：进入「<strong>能源运营 / 能流分析</strong>」，打开 <code>/energy/flow</code>。</li>
+</ul>
+<h3>能流图</h3>
+<p>进入 <code>/energy/flow</code>，默认打开「<strong>能流图</strong>」页签。页面顶部提供时间范围、统计粒度、能源品种、区域、设备、用能系统、区域关键字和损耗阈值筛选。点击「<strong>查询</strong>」后，系统按当前条件刷新能流图、平衡表、损耗诊断和分析报告。</p>
+<p>「<strong>能流图</strong>」展示计量用电、分项用电、总损耗率和高损耗链路，并用图形呈现总表、区域、设备和用能系统之间的能量流向。下方「<strong>关键链路贡献</strong>」用于查看主要链路的电量贡献。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-113</span><span>/energy/flow</span><span>能流分析</span></div><img src="../assets/screenshots/EV-WH-113-能流图分析.png" alt="能流图分析" /><figcaption>能流图分析</figcaption></figure>
+<h3>能量平衡表</h3>
+<p>切换到「<strong>能量平衡表</strong>」页签，查看能量输入、利用、损耗和诊断字段。该页用于从表格角度核对能流图中的输入、输出和损耗项目。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-114</span><span>/energy/flow</span><span>能流分析</span></div><img src="../assets/screenshots/EV-WH-114-能流能量平衡表.png" alt="能流能量平衡表" /><figcaption>能流能量平衡表</figcaption></figure>
+<h3>损耗诊断</h3>
+<p>切换到「<strong>损耗诊断</strong>」页签，查看各链路的输入电量、损耗电量、损耗率、状态和建议。用户可通过损耗阈值筛选不同敏感度下的高损耗链路。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-115</span><span>/energy/flow</span><span>能流分析</span></div><img src="../assets/screenshots/EV-WH-115-能流损耗诊断.png" alt="能流损耗诊断" /><figcaption>能流损耗诊断</figcaption></figure>
+<h3>分析报告</h3>
+<p>切换到「<strong>分析报告</strong>」页签，查看平台形成的能流分析条目。每条报告展示证据字段和动作建议，可用于运维复盘、节能专项沟通和后续整改跟踪。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-116</span><span>/energy/flow</span><span>能流分析</span></div><img src="../assets/screenshots/EV-WH-116-能流分析报告.png" alt="能流分析报告" /><figcaption>能流分析报告</figcaption></figure>
+<h3>操作要点</h3>
+<ul>
+<li>能流图用于理解总表、区域、设备和用能系统的流向关系。</li>
+<li>能量平衡表用于核对输入、利用和损耗。</li>
+<li>损耗诊断用于定位损耗率较高的链路。</li>
+<li>分析报告用于沉淀本期能源流向和诊断结论。</li>
+</ul></article>
+    <nav class="pager">
+      <a href="../pages/energy-use-analysis.html">上一页：能源运营：用能分析</a>
+      <a href="../pages/energy-benchmark-settings.html">下一页：能源运营：能效对标配置</a>
+    </nav>
+  </main>
+</body>
+</html>
