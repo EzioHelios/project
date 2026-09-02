@@ -20,7 +20,12 @@
     "qa:evidence:woheng-showcase:isolated": "node ./scripts/run-demo-capture.mjs --package woheng-showcase --namespace woheng --profile full --brand woheng",
     "qa:evidence:chery-org-carbon": "node ./scripts/run-demo-capture.mjs --package chery-org-carbon-tender --namespace chery --profile tender --brand chery --no-server",
     "qa:evidence:chery-org-carbon:isolated": "node ./scripts/run-demo-capture.mjs --package chery-org-carbon-tender --namespace chery --profile tender --brand chery",
-    "docs:manual:woheng": "node ./scripts/manual/build-manual-site.mjs --manifest docs/manual/woheng-showcase/manual-manifest.json"
+    "docs:manual:woheng": "node ./scripts/manual/build-manual-site.mjs --manifest docs/manual/woheng-showcase/manual-manifest.json",
+    "docs:manual:verify:energy-data": "node ./scripts/manual/verify-energy-data-maintenance.mjs",
+    "docs:manual:verify:energy-master-data": "node ./scripts/manual/verify-energy-master-data-maintenance.mjs",
+    "docs:manual:verify:energy-operations": "node ./scripts/manual/verify-energy-operations.mjs",
+    "docs:manual:verify:energy-priority": "node ./scripts/manual/verify-energy-priority-maintenance.mjs",
+    "docs:manual:verify:area-device": "node ./scripts/manual/verify-area-device-maintenance.mjs"
   },
   "dependencies": {
     "@dagrejs/dagre": "^2.0.4",

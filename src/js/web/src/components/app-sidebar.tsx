@@ -57,8 +57,14 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
       pathname.startsWith("/carbon/verification")
     const isCarbonAssetRoute = pathname.startsWith("/carbon/assets")
     const isClimateReductionRoute = pathname.startsWith("/carbon/climate") || pathname.startsWith("/carbon/reduction")
-    const isEnergyBudgetRoute = pathname === "/energy/budget"
+    const isEnergyBudgetRoute = pathname === "/energy/budget" || pathname.startsWith("/data/energy-budget")
     const isCarbonInventoryRoute = pathname.startsWith("/carbon-mgmt/activities") || pathname.startsWith("/carbon-mgmt/import") || pathname.startsWith("/carbon-mgmt/category")
+    const isEnergyOperationsRoute =
+      (pathname.startsWith("/energy") && !isEnergyBudgetRoute) ||
+      pathname.startsWith("/data/energy-consumption") ||
+      pathname.startsWith("/data/energy-types") ||
+      pathname.startsWith("/data/energy-unit-conversions") ||
+      pathname.startsWith("/data/energy-benchmark")
     const items: React.ComponentProps<typeof NavMain>["items"] = [
       {
         title: "工作台",
@@ -89,14 +95,18 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
       },
       {
         title: "能源运营",
-        to: "/energy/consumption",
+        to: "/data/energy-consumption",
         icon: Zap,
-        isActive: pathname.startsWith("/energy") && !isEnergyBudgetRoute,
+        isActive: isEnergyOperationsRoute,
         items: [
+          { title: "能源种类", to: "/data/energy-types" },
+          { title: "单位换算", to: "/data/energy-unit-conversions" },
+          { title: "能源数据维护", to: "/data/energy-consumption" },
           { title: "能耗查询", to: "/energy/consumption" },
           { title: "能耗强度", to: "/energy/intensity" },
           { title: "用能分析", to: "/energy/analysis" },
           { title: "能效对标", to: "/energy/benchmark" },
+          { title: "对标配置", to: "/data/energy-benchmark" },
           { title: "能流分析", to: "/energy/flow" },
           { title: "能效平衡", to: "/energy/balance" },
         ],
@@ -166,6 +176,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
         items: [
           { title: "气候目标与披露", to: "/carbon/climate" },
           { title: "能碳预算", to: "/energy/budget" },
+          { title: "预算维护", to: "/data/energy-budget" },
           { title: "减排概览", to: "/carbon/reduction/overview" },
           { title: "减排项目库", to: "/carbon/reduction/projects" },
           { title: "方法学与CCER", to: "/carbon/reduction/methodologies" },
@@ -220,16 +231,11 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
         to: "/data/terminals",
         icon: Cpu,
         isActive:
-          pathname.startsWith("/data/terminals") ||
-          pathname.startsWith("/data/point-monitoring") ||
-          pathname.startsWith("/data/meter") ||
-          pathname.startsWith("/data/energy-consumption") ||
-          pathname.startsWith("/data/video"),
+          pathname.startsWith("/data/terminals") || pathname.startsWith("/data/point-monitoring") || pathname.startsWith("/data/meter") || pathname.startsWith("/data/video"),
         items: [
           { title: "设备台账", to: "/data/terminals" },
           { title: "点位监测", to: "/data/point-monitoring" },
           { title: "电表电量", to: "/data/meter" },
-          { title: "能源消费明细", to: "/data/energy-consumption" },
           { title: "视频监控", to: "/data/video" },
         ],
       },

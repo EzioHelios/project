@@ -3,7 +3,25 @@
  * 结构：快捷操作（图标宫格） + 最近动作
  */
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { AlarmClock, ArrowRight, Building2, Camera, Database, HardDrive, KeyRound, MapPinned, PlugZap, ShieldCheck, Truck, Users, Video, Warehouse } from "lucide-react"
+import {
+  AlarmClock,
+  ArrowRight,
+  BarChart3,
+  Building2,
+  Camera,
+  Database,
+  Gauge,
+  HardDrive,
+  KeyRound,
+  MapPinned,
+  PlugZap,
+  ShieldCheck,
+  Truck,
+  Users,
+  Video,
+  Warehouse,
+  Zap,
+} from "lucide-react"
 
 import { AdminEmptyState, AdminPageHeader, AdminPanel } from "@/components/admin-ui"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
@@ -29,6 +47,17 @@ const platformGroups = [
       { title: "监测区域", to: "/data/monitor-area", icon: MapPinned },
       { title: "入库管理", to: "/data/inbound", icon: Warehouse },
       { title: "出库管理", to: "/data/outbound", icon: HardDrive },
+    ],
+  },
+  {
+    title: "能源运营",
+    items: [
+      { title: "能源种类", to: "/data/energy-types", icon: Database },
+      { title: "单位换算", to: "/data/energy-unit-conversions", icon: ShieldCheck },
+      { title: "能源数据维护", to: "/data/energy-consumption", icon: Zap },
+      { title: "能耗查询", to: "/energy/consumption", icon: PlugZap },
+      { title: "能效对标配置", to: "/data/energy-benchmark", icon: Gauge },
+      { title: "能碳预算维护", to: "/data/energy-budget", icon: BarChart3 },
     ],
   },
   {
