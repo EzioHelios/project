@@ -88,11 +88,13 @@ function ChineseDateInput({ className, value, defaultValue, onChange, disabled, 
   const [internalValue, setInternalValue] = React.useState(() => asInputValue(defaultValue))
   const currentValue = value !== undefined ? asInputValue(value) : internalValue
   const selectedDate = parseIsoDate(currentValue)
+  const selectedYear = selectedDate?.getFullYear()
+  const selectedMonth = selectedDate?.getMonth()
   const [cursor, setCursor] = React.useState(() => selectedDate ?? new Date())
 
   React.useEffect(() => {
-    if (selectedDate) setCursor(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1))
-  }, [selectedDate])
+    if (selectedYear !== undefined && selectedMonth !== undefined) setCursor(new Date(selectedYear, selectedMonth, 1))
+  }, [selectedMonth, selectedYear])
 
   React.useEffect(() => {
     if (!open) return

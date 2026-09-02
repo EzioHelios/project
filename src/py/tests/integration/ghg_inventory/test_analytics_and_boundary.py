@@ -429,3 +429,21 @@ async def test_boundary_working_copy_is_idempotent_and_selection_is_validated(se
     assert saved.status == "draft"
     assert saved.operational_boundary is not None
     assert saved.operational_boundary["scope2Methods"] == ["location", "market"]
+
+    deletable = await use_case.create_boundary(
+        {
+            "reporting_org_id": organization.id,
+            "period_id": period.id,
+            "boundary_no": "BOUNDARY-DELETE-DRAFT",
+            "boundary_name": "可删除草稿边界",
+        }
+    )
+    assert deletable.operational_boundary is not None
+    assert deletable.operational_boundary["scopes"] == ["scope1", "scope2", "scope3"]
+    assert deletable.operational_boundary["isoCategories"] == ["1", "2", "3", "4", "5", "6"]
+
+    await use_case.delete_boundary(deletable.id)
+    assert await session.get(m.OrganizationBoundary, deletable.id) is None
+
+    with pytest.raises(ValueError, match="已发布边界不可删除"):
+        await use_case.delete_boundary(boundary.id)

@@ -82,6 +82,19 @@ class OrganizationBoundaryController(Controller):
             return _error(exc)
         return Response(content=ok_data(model_to_dict(obj)))
 
+    @delete(
+        "/api/carbon/organization-boundary/organizations/{organization_id:int}",
+        operation_id="OrganizationBoundaryDeleteOrganization",
+        guards=[requires_permission("carbon.inventory.calculate")],
+        status_code=200,
+    )
+    async def delete_organization(self, db_session: AsyncSession, organization_id: int) -> Response[dict[str, object]]:
+        try:
+            await OrganizationBoundaryUseCase(db_session).delete_organization(organization_id)
+        except ValueError as exc:
+            return _error(exc)
+        return Response(content=ok_data({"deleted": True}))
+
     @get("/api/carbon/organization-boundary/periods", operation_id="OrganizationBoundaryListPeriods")
     async def list_periods(
         self,
@@ -126,6 +139,19 @@ class OrganizationBoundaryController(Controller):
         except ValueError as exc:
             return _error(exc)
         return Response(content=ok_data(model_to_dict(obj)))
+
+    @delete(
+        "/api/carbon/organization-boundary/periods/{period_id:int}",
+        operation_id="OrganizationBoundaryDeletePeriod",
+        guards=[requires_permission("carbon.inventory.calculate")],
+        status_code=200,
+    )
+    async def delete_period(self, db_session: AsyncSession, period_id: int) -> Response[dict[str, object]]:
+        try:
+            await OrganizationBoundaryUseCase(db_session).delete_period(period_id)
+        except ValueError as exc:
+            return _error(exc)
+        return Response(content=ok_data({"deleted": True}))
 
     @get("/api/carbon/organization-boundary/boundaries", operation_id="OrganizationBoundaryListBoundaries")
     async def list_boundaries(
@@ -180,6 +206,19 @@ class OrganizationBoundaryController(Controller):
         except ValueError as exc:
             return _error(exc)
         return Response(content=ok_data(model_to_dict(obj)))
+
+    @delete(
+        "/api/carbon/organization-boundary/boundaries/{boundary_id:int}",
+        operation_id="OrganizationBoundaryDeleteBoundary",
+        guards=[requires_permission("carbon.inventory.calculate")],
+        status_code=200,
+    )
+    async def delete_boundary(self, db_session: AsyncSession, boundary_id: int) -> Response[dict[str, object]]:
+        try:
+            await OrganizationBoundaryUseCase(db_session).delete_boundary(boundary_id)
+        except ValueError as exc:
+            return _error(exc)
+        return Response(content=ok_data({"deleted": True}))
 
     @post(
         "/api/carbon/organization-boundary/boundaries/{boundary_id:int}/publish",

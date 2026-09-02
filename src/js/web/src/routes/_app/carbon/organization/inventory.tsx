@@ -3,7 +3,6 @@ import { Archive, Calculator, Eye, FileCheck2, FileText, RotateCcw } from "lucid
 import { useState } from "react"
 
 import { AdminEmptyState, AdminPageScaffold, AdminPanel, MetricStrip, MetricTile } from "@/components/admin-ui"
-import { OrganizationBoundaryPanel } from "@/components/carbon/organization-boundary-panel"
 import { formatDateTime, formatPercent, formatTonnes, InventoryStatusBadge, OrganizationRunFilterBar, type Scope2Method } from "@/components/carbon/organization-inventory-common"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -227,7 +226,6 @@ function OrganizationInventoryPage() {
             </Table>
           )}
         </AdminPanel>
-        <OrganizationBoundaryPanel />
       </div>
       <Dialog open={Boolean(rejectingReport)} onOpenChange={(open) => !open && setRejectingReport(undefined)}>
         <DialogContent>

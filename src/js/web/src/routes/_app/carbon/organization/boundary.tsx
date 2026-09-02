@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { GitCompare, Save } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { AdminEmptyState, AdminPageScaffold, AdminPanel, MetricStrip, MetricTile } from "@/components/admin-ui"
+import { OrganizationBoundaryPanel } from "@/components/carbon/organization-boundary-panel"
 import { InventoryStatusBadge, OrganizationRunFilterBar, organizationCarbonSearchSchema } from "@/components/carbon/organization-inventory-common"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,13 +30,21 @@ function OrganizationBoundaryPage() {
   const diff = useOrganizationBoundaryDiff(boundaryId)
   const [form, setForm] = useState<SaveBoundarySelectionRequest>()
   const [diffOpen, setDiffOpen] = useState(false)
+  const appliedSelectionKeyRef = useRef("")
 
   useEffect(() => {
-    if (!selection.data) return
+    const data = selection.data
+    const selectionKey = data ? JSON.stringify(data) : ""
+    if (selectionKey === appliedSelectionKeyRef.current) return
+    appliedSelectionKeyRef.current = selectionKey
+    if (!data) {
+      setForm(undefined)
+      return
+    }
     setForm({
-      operationalBoundary: selection.data.operationalBoundary,
-      areas: selection.data.areas.map((item) => ({ areaId: item.areaId, included: item.included, exclusionReason: item.exclusionReason })),
-      equipment: selection.data.equipment.map((item) => ({ equipmentId: item.equipmentId, areaId: item.areaId, included: item.included, exclusionReason: item.exclusionReason })),
+      operationalBoundary: data.operationalBoundary,
+      areas: data.areas.map((item) => ({ areaId: item.areaId, included: item.included, exclusionReason: item.exclusionReason })),
+      equipment: data.equipment.map((item) => ({ equipmentId: item.equipmentId, areaId: item.areaId, included: item.included, exclusionReason: item.exclusionReason })),
     })
   }, [selection.data])
 
@@ -141,113 +150,116 @@ function OrganizationBoundaryPage() {
         </MetricStrip>
       }
     >
-      {!selection.data || !form ? (
-        <AdminEmptyState title="暂无可配置的核算边界" />
-      ) : (
-        <div className="grid gap-3">
-          <AdminPanel title="边界口径">
-            <div className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
-              <BoundaryFact label="控制方法" value={boundaryMethodLabel(selection.data.boundary.boundaryMethod)} />
-              <BoundaryFact label="边界类型" value={boundaryTypeLabel(selection.data.boundary.boundaryType)} />
-              <BoundaryFact label="报告期" value={selectedRun?.reportingPeriodName ?? "-"} />
-              <BoundaryFact label="版本状态" value={`V${selection.data.boundary.version} · ${selection.data.boundary.status === "published" ? "已发布" : "工作草稿"}`} />
-              <BoundaryFact label="边界编号" value={selection.data.boundary.boundaryNo} />
-              <BoundaryFact label="边界名称" value={selection.data.boundary.boundaryName} />
-              <BoundaryFact label="发布时间" value={selection.data.boundary.publishedAt ? formatBoundaryDate(selection.data.boundary.publishedAt) : "尚未发布"} />
-              <BoundaryFact label="核算运行" value={selectedRun?.runCode ?? "-"} />
-            </div>
-          </AdminPanel>
-          <div className="grid gap-3 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.75fr)]">
-            <AdminPanel title="区域与设备边界" contentClassName="p-0">
-              <div className="divide-y">
-                {(catalog.data?.areas ?? []).map((area) => {
-                  const areaItem = areaSelection.get(area.id)
-                  const areaIncluded = areaItem?.included ?? false
-                  const equipment = (catalog.data?.equipment ?? []).filter((item) => item.areaId === area.id)
-                  return (
-                    <div key={area.id} className="py-2">
-                      <div className="flex items-center gap-3 px-4" style={{ paddingLeft: `${16 + area.level * 18}px` }}>
-                        <input
-                          type="checkbox"
-                          className="size-4 accent-primary"
-                          checked={areaIncluded}
-                          disabled={!isDraft}
-                          onChange={(event) => updateArea(area.id, { included: event.target.checked, exclusionReason: event.target.checked ? null : "不属于本期运营边界" })}
-                        />
-                        <span className="min-w-0 flex-1 font-medium">{area.name}</span>
-                        <span className="text-xs text-muted-foreground">{area.code}</span>
-                      </div>
-                      {!areaIncluded && areaItem && (
-                        <div className="px-4 pt-2" style={{ paddingLeft: `${46 + area.level * 18}px` }}>
-                          <Input
-                            disabled={!isDraft}
-                            value={areaItem.exclusionReason ?? ""}
-                            onChange={(event) => updateArea(area.id, { exclusionReason: event.target.value })}
-                            placeholder="排除原因"
-                          />
-                        </div>
-                      )}
-                      {equipment.map((item) => {
-                        const equipmentItem = equipmentSelection.get(item.id)
-                        const included = equipmentItem?.included ?? false
-                        return (
-                          <div key={item.id} className="mt-2 flex items-center gap-3 px-4 pl-14 text-sm">
-                            <input
-                              type="checkbox"
-                              className="size-4 accent-primary"
-                              checked={included}
-                              disabled={!isDraft}
-                              onChange={(event) =>
-                                updateEquipment(item.id, area.id, { included: event.target.checked, exclusionReason: event.target.checked ? null : "不属于本期运营边界" })
-                              }
-                            />
-                            <span className="min-w-0 flex-1">{item.name}</span>
-                            <span className="text-xs text-muted-foreground">{item.code}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )
-                })}
+      <div className="grid gap-3">
+        <OrganizationBoundaryPanel />
+        {!selection.data || !form ? (
+          <AdminEmptyState title="暂无可配置的核算边界" />
+        ) : (
+          <>
+            <AdminPanel title="边界口径">
+              <div className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                <BoundaryFact label="控制方法" value={boundaryMethodLabel(selection.data.boundary.boundaryMethod)} />
+                <BoundaryFact label="边界类型" value={boundaryTypeLabel(selection.data.boundary.boundaryType)} />
+                <BoundaryFact label="报告期" value={selectedRun?.reportingPeriodName ?? "-"} />
+                <BoundaryFact label="版本状态" value={`V${selection.data.boundary.version} · ${selection.data.boundary.status === "published" ? "已发布" : "工作草稿"}`} />
+                <BoundaryFact label="边界编号" value={selection.data.boundary.boundaryNo} />
+                <BoundaryFact label="边界名称" value={selection.data.boundary.boundaryName} />
+                <BoundaryFact label="发布时间" value={selection.data.boundary.publishedAt ? formatBoundaryDate(selection.data.boundary.publishedAt) : "尚未发布"} />
+                <BoundaryFact label="核算运行" value={selectedRun?.runCode ?? "-"} />
               </div>
             </AdminPanel>
-            <div className="grid content-start gap-3">
-              <SelectionPanel
-                title="GHG Protocol 范围"
-                options={[...Array(3)].map((_, index) => ({ value: `scope${index + 1}`, label: `Scope ${index + 1}` }))}
-                values={form.operationalBoundary.scopes ?? []}
-                disabled={!isDraft}
-                onChange={(value, checked) => toggleOperational("scopes", value, checked)}
-              />
-              <SelectionPanel
-                title="Scope 2 核算方法"
-                options={[
-                  { value: "location", label: "地点法" },
-                  { value: "market", label: "市场法" },
-                ]}
-                values={form.operationalBoundary.scope2Methods ?? []}
-                disabled={!isDraft}
-                onChange={(value, checked) => toggleOperational("scope2Methods", value, checked)}
-              />
-              <SelectionPanel
-                title="ISO 14064-1 六类别"
-                options={[...Array(6)].map((_, index) => ({ value: String(index + 1), label: `类别 ${index + 1}` }))}
-                values={form.operationalBoundary.isoCategories ?? []}
-                disabled={!isDraft}
-                onChange={(value, checked) => toggleOperational("isoCategories", value, checked)}
-              />
-              <SelectionPanel
-                title="Scope 3 类别"
-                options={[...Array(15)].map((_, index) => ({ value: index + 1, label: `类别 ${index + 1}` }))}
-                values={form.operationalBoundary.scope3Categories ?? []}
-                disabled={!isDraft}
-                columns="grid-cols-3"
-                onChange={(value, checked) => toggleOperational("scope3Categories", value, checked)}
-              />
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.75fr)]">
+              <AdminPanel title="区域与设备边界" contentClassName="p-0">
+                <div className="divide-y">
+                  {(catalog.data?.areas ?? []).map((area) => {
+                    const areaItem = areaSelection.get(area.id)
+                    const areaIncluded = areaItem?.included ?? false
+                    const equipment = (catalog.data?.equipment ?? []).filter((item) => item.areaId === area.id)
+                    return (
+                      <div key={area.id} className="py-2">
+                        <div className="flex items-center gap-3 px-4" style={{ paddingLeft: `${16 + area.level * 18}px` }}>
+                          <input
+                            type="checkbox"
+                            className="size-4 accent-primary"
+                            checked={areaIncluded}
+                            disabled={!isDraft}
+                            onChange={(event) => updateArea(area.id, { included: event.target.checked, exclusionReason: event.target.checked ? null : "不属于本期运营边界" })}
+                          />
+                          <span className="min-w-0 flex-1 font-medium">{area.name}</span>
+                          <span className="text-xs text-muted-foreground">{area.code}</span>
+                        </div>
+                        {!areaIncluded && areaItem && (
+                          <div className="px-4 pt-2" style={{ paddingLeft: `${46 + area.level * 18}px` }}>
+                            <Input
+                              disabled={!isDraft}
+                              value={areaItem.exclusionReason ?? ""}
+                              onChange={(event) => updateArea(area.id, { exclusionReason: event.target.value })}
+                              placeholder="排除原因"
+                            />
+                          </div>
+                        )}
+                        {equipment.map((item) => {
+                          const equipmentItem = equipmentSelection.get(item.id)
+                          const included = equipmentItem?.included ?? false
+                          return (
+                            <div key={item.id} className="mt-2 flex items-center gap-3 px-4 pl-14 text-sm">
+                              <input
+                                type="checkbox"
+                                className="size-4 accent-primary"
+                                checked={included}
+                                disabled={!isDraft}
+                                onChange={(event) =>
+                                  updateEquipment(item.id, area.id, { included: event.target.checked, exclusionReason: event.target.checked ? null : "不属于本期运营边界" })
+                                }
+                              />
+                              <span className="min-w-0 flex-1">{item.name}</span>
+                              <span className="text-xs text-muted-foreground">{item.code}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })}
+                </div>
+              </AdminPanel>
+              <div className="grid content-start gap-3">
+                <SelectionPanel
+                  title="GHG Protocol 范围"
+                  options={[...Array(3)].map((_, index) => ({ value: `scope${index + 1}`, label: `Scope ${index + 1}` }))}
+                  values={form.operationalBoundary.scopes ?? []}
+                  disabled={!isDraft}
+                  onChange={(value, checked) => toggleOperational("scopes", value, checked)}
+                />
+                <SelectionPanel
+                  title="Scope 2 核算方法"
+                  options={[
+                    { value: "location", label: "地点法" },
+                    { value: "market", label: "市场法" },
+                  ]}
+                  values={form.operationalBoundary.scope2Methods ?? []}
+                  disabled={!isDraft}
+                  onChange={(value, checked) => toggleOperational("scope2Methods", value, checked)}
+                />
+                <SelectionPanel
+                  title="ISO 14064-1 六类别"
+                  options={[...Array(6)].map((_, index) => ({ value: String(index + 1), label: `类别 ${index + 1}` }))}
+                  values={form.operationalBoundary.isoCategories ?? []}
+                  disabled={!isDraft}
+                  onChange={(value, checked) => toggleOperational("isoCategories", value, checked)}
+                />
+                <SelectionPanel
+                  title="Scope 3 类别"
+                  options={[...Array(15)].map((_, index) => ({ value: index + 1, label: `类别 ${index + 1}` }))}
+                  values={form.operationalBoundary.scope3Categories ?? []}
+                  disabled={!isDraft}
+                  columns="grid-cols-3"
+                  onChange={(value, checked) => toggleOperational("scope3Categories", value, checked)}
+                />
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </div>
       <Sheet open={diffOpen} onOpenChange={setDiffOpen}>
         <SheetContent size="wide" className="overflow-y-auto">
           <SheetHeader>

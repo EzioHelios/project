@@ -7,7 +7,7 @@ import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -165,6 +165,10 @@ export function OrganizationBoundaryPanel() {
   const [periodOpen, setPeriodOpen] = useState(false)
   const [boundaryOpen, setBoundaryOpen] = useState(false)
   const [facilityOpen, setFacilityOpen] = useState(false)
+  const [editingOrganizationId, setEditingOrganizationId] = useState<number | null>(null)
+  const [editingPeriodId, setEditingPeriodId] = useState<number | null>(null)
+  const [editingBoundaryId, setEditingBoundaryId] = useState<number | null>(null)
+  const [editingFacilityId, setEditingFacilityId] = useState<number | null>(null)
   const [organizationForm, setOrganizationForm] = useState<OrganizationForm>(defaultOrganizationForm)
   const [periodForm, setPeriodForm] = useState<PeriodForm>(defaultPeriodForm)
   const [boundaryForm, setBoundaryForm] = useState<BoundaryForm>(defaultBoundaryForm)
@@ -201,85 +205,151 @@ export function OrganizationBoundaryPanel() {
   const periodById = useMemo(() => new Map(periods.map((item) => [item.id, item])), [periods])
   const boundaryById = useMemo(() => new Map(boundaries.map((item) => [item.id, item])), [boundaries])
 
-  const createOrganization = useMutation({
+  const saveOrganization = useMutation({
     mutationFn: () =>
-      postCarbonApi<ReportingOrganization>("/api/carbon/organization-boundary/organizations", {
-        code: organizationForm.code.trim(),
-        name: organizationForm.name.trim(),
-        legal_entity_code: optional(organizationForm.legal_entity_code),
-        control_method: organizationForm.control_method,
-        source_name: "enterprise_inventory",
-      }),
+      writeCarbonApi<ReportingOrganization>(
+        editingOrganizationId ? "PATCH" : "POST",
+        editingOrganizationId ? `/api/carbon/organization-boundary/organizations/${editingOrganizationId}` : "/api/carbon/organization-boundary/organizations",
+        {
+          code: organizationForm.code.trim(),
+          name: organizationForm.name.trim(),
+          legal_entity_code: optional(organizationForm.legal_entity_code),
+          control_method: organizationForm.control_method,
+          source_name: "enterprise_inventory",
+        },
+      ),
     onSuccess: async () => {
-      toast.success("报告主体已创建")
-      setOrganizationOpen(false)
-      setOrganizationForm(defaultOrganizationForm)
+      toast.success(editingOrganizationId ? "报告主体已更新" : "报告主体已创建")
+      closeOrganizationDialog()
       await invalidateBoundary(qc)
     },
-    onError: toastError("创建报告主体失败"),
+    onError: toastError("保存报告主体失败"),
   })
 
-  const createPeriod = useMutation({
-    mutationFn: () =>
-      postCarbonApi<ReportingPeriod>("/api/carbon/organization-boundary/periods", {
-        reporting_org_id: toNumber(periodForm.reporting_org_id),
-        code: periodForm.code.trim(),
-        name: periodForm.name.trim(),
-        period_start: periodForm.period_start,
-        period_end: periodForm.period_end,
-        period_type: "annual",
-        source_name: "enterprise_inventory",
-      }),
+  const deleteOrganization = useMutation({
+    mutationFn: (organizationId: number) => deleteCarbonApi(`/api/carbon/organization-boundary/organizations/${organizationId}`),
     onSuccess: async () => {
-      toast.success("报告期已创建")
-      setPeriodOpen(false)
-      setPeriodForm(defaultPeriodForm)
+      toast.success("报告主体已删除")
       await invalidateBoundary(qc)
     },
-    onError: toastError("创建报告期失败"),
+    onError: toastError("删除报告主体失败"),
   })
 
-  const createBoundary = useMutation({
+  const savePeriod = useMutation({
     mutationFn: () =>
-      postCarbonApi<BoundaryVersion>("/api/carbon/organization-boundary/boundaries", {
-        reporting_org_id: toNumber(boundaryForm.reporting_org_id),
-        period_id: toNumber(boundaryForm.period_id),
-        boundary_no: boundaryForm.boundary_no.trim(),
-        boundary_name: boundaryForm.boundary_name.trim(),
-        boundary_method: boundaryForm.boundary_method,
-        boundary_type: "organization",
-        status: "draft",
-        source_name: "enterprise_inventory",
-        confidence_level: "medium",
-      }),
+      writeCarbonApi<ReportingPeriod>(
+        editingPeriodId ? "PATCH" : "POST",
+        editingPeriodId ? `/api/carbon/organization-boundary/periods/${editingPeriodId}` : "/api/carbon/organization-boundary/periods",
+        {
+          reporting_org_id: toNumber(periodForm.reporting_org_id),
+          code: periodForm.code.trim(),
+          name: periodForm.name.trim(),
+          period_start: periodForm.period_start,
+          period_end: periodForm.period_end,
+          period_type: "annual",
+          source_name: "enterprise_inventory",
+        },
+      ),
     onSuccess: async () => {
-      toast.success("边界版本已创建")
-      setBoundaryOpen(false)
-      setBoundaryForm(defaultBoundaryForm)
+      toast.success(editingPeriodId ? "报告期已更新" : "报告期已创建")
+      closePeriodDialog()
       await invalidateBoundary(qc)
     },
-    onError: toastError("创建边界版本失败"),
+    onError: toastError("保存报告期失败"),
   })
 
-  const createFacility = useMutation({
-    mutationFn: () =>
-      postCarbonApi<BoundaryFacility>("/api/carbon/organization-boundary/facilities", {
-        boundary_id: toNumber(facilityForm.boundary_id),
-        facility_type: facilityForm.facility_type,
-        facility_code: optional(facilityForm.facility_code),
-        facility_name: optional(facilityForm.facility_name),
-        facility_role: optional(facilityForm.facility_role),
-        included: facilityForm.included === "true",
-        exclusion_reason: optional(facilityForm.exclusion_reason),
-        source_name: "enterprise_inventory",
-      }),
+  const deletePeriod = useMutation({
+    mutationFn: (periodId: number) => deleteCarbonApi(`/api/carbon/organization-boundary/periods/${periodId}`),
     onSuccess: async () => {
-      toast.success("边界设施已维护")
-      setFacilityOpen(false)
-      setFacilityForm(defaultFacilityForm)
+      toast.success("报告期已删除")
+      await invalidateBoundary(qc)
+    },
+    onError: toastError("删除报告期失败"),
+  })
+
+  const archivePeriod = useMutation({
+    mutationFn: (periodId: number) => patchCarbonApi<ReportingPeriod>(`/api/carbon/organization-boundary/periods/${periodId}`, { status: "archived" }),
+    onSuccess: async () => {
+      toast.success("报告期已归档")
+      await invalidateBoundary(qc)
+    },
+    onError: toastError("归档报告期失败"),
+  })
+
+  const saveBoundary = useMutation({
+    mutationFn: () =>
+      writeCarbonApi<BoundaryVersion>(
+        editingBoundaryId ? "PATCH" : "POST",
+        editingBoundaryId ? `/api/carbon/organization-boundary/boundaries/${editingBoundaryId}` : "/api/carbon/organization-boundary/boundaries",
+        {
+          reporting_org_id: toNumber(boundaryForm.reporting_org_id),
+          period_id: toNumber(boundaryForm.period_id),
+          boundary_no: boundaryForm.boundary_no.trim(),
+          boundary_name: boundaryForm.boundary_name.trim(),
+          boundary_method: boundaryForm.boundary_method,
+          boundary_type: "organization",
+          status: editingBoundaryId ? undefined : "draft",
+          source_name: "enterprise_inventory",
+          confidence_level: "medium",
+        },
+      ),
+    onSuccess: async () => {
+      toast.success(editingBoundaryId ? "边界版本已更新" : "边界版本已创建")
+      closeBoundaryDialog()
+      await invalidateBoundary(qc)
+    },
+    onError: toastError("保存边界版本失败"),
+  })
+
+  const deleteBoundary = useMutation({
+    mutationFn: (boundaryId: number) => deleteCarbonApi(`/api/carbon/organization-boundary/boundaries/${boundaryId}`),
+    onSuccess: async () => {
+      toast.success("边界版本已删除")
+      await invalidateBoundary(qc)
+    },
+    onError: toastError("删除边界版本失败"),
+  })
+
+  const archiveBoundary = useMutation({
+    mutationFn: (boundaryId: number) => patchCarbonApi<BoundaryVersion>(`/api/carbon/organization-boundary/boundaries/${boundaryId}`, { status: "archived" }),
+    onSuccess: async () => {
+      toast.success("边界版本已归档")
+      await invalidateBoundary(qc)
+    },
+    onError: toastError("归档边界版本失败"),
+  })
+
+  const saveFacility = useMutation({
+    mutationFn: () =>
+      writeCarbonApi<BoundaryFacility>(
+        editingFacilityId ? "PATCH" : "POST",
+        editingFacilityId ? `/api/carbon/organization-boundary/facilities/${editingFacilityId}` : "/api/carbon/organization-boundary/facilities",
+        {
+          boundary_id: toNumber(facilityForm.boundary_id),
+          facility_type: facilityForm.facility_type,
+          facility_code: optional(facilityForm.facility_code),
+          facility_name: optional(facilityForm.facility_name),
+          facility_role: optional(facilityForm.facility_role),
+          included: facilityForm.included === "true",
+          exclusion_reason: optional(facilityForm.exclusion_reason),
+          source_name: "enterprise_inventory",
+        },
+      ),
+    onSuccess: async () => {
+      toast.success(editingFacilityId ? "边界设施已更新" : "边界设施已维护")
+      closeFacilityDialog()
       await invalidateBoundary(qc)
     },
     onError: toastError("维护边界设施失败"),
+  })
+
+  const deleteFacility = useMutation({
+    mutationFn: (facilityId: number) => deleteCarbonApi(`/api/carbon/organization-boundary/facilities/${facilityId}`),
+    onSuccess: async () => {
+      toast.success("边界设施已删除")
+      await invalidateBoundary(qc)
+    },
+    onError: toastError("删除边界设施失败"),
   })
 
   const publishBoundary = useMutation({
@@ -306,6 +376,95 @@ export function OrganizationBoundaryPanel() {
   const boundaryReady = boundaryForm.reporting_org_id && boundaryForm.period_id && boundaryForm.boundary_no.trim() && boundaryForm.boundary_name.trim()
   const facilityReady = facilityForm.boundary_id && (facilityForm.included === "true" || facilityForm.exclusion_reason.trim())
 
+  function closeOrganizationDialog() {
+    setOrganizationOpen(false)
+    setEditingOrganizationId(null)
+    setOrganizationForm(defaultOrganizationForm)
+  }
+
+  function openOrganizationDialog(item?: ReportingOrganization) {
+    setEditingOrganizationId(item?.id ?? null)
+    setOrganizationForm(
+      item
+        ? {
+            code: item.code,
+            name: item.name,
+            legal_entity_code: item.legal_entity_code ?? "",
+            control_method: item.control_method ?? "operational_control",
+          }
+        : defaultOrganizationForm,
+    )
+    setOrganizationOpen(true)
+  }
+
+  function closePeriodDialog() {
+    setPeriodOpen(false)
+    setEditingPeriodId(null)
+    setPeriodForm(defaultPeriodForm)
+  }
+
+  function openPeriodDialog(item?: ReportingPeriod) {
+    setEditingPeriodId(item?.id ?? null)
+    setPeriodForm(
+      item
+        ? {
+            reporting_org_id: String(item.reporting_org_id),
+            code: item.code,
+            name: item.name,
+            period_start: item.period_start,
+            period_end: item.period_end,
+          }
+        : defaultPeriodForm,
+    )
+    setPeriodOpen(true)
+  }
+
+  function closeBoundaryDialog() {
+    setBoundaryOpen(false)
+    setEditingBoundaryId(null)
+    setBoundaryForm(defaultBoundaryForm)
+  }
+
+  function openBoundaryDialog(item?: BoundaryVersion) {
+    setEditingBoundaryId(item?.id ?? null)
+    setBoundaryForm(
+      item
+        ? {
+            reporting_org_id: String(item.reporting_org_id),
+            period_id: String(item.period_id),
+            boundary_no: item.boundary_no,
+            boundary_name: item.boundary_name,
+            boundary_method: item.boundary_method ?? "operational_control",
+          }
+        : defaultBoundaryForm,
+    )
+    setBoundaryOpen(true)
+  }
+
+  function closeFacilityDialog() {
+    setFacilityOpen(false)
+    setEditingFacilityId(null)
+    setFacilityForm(defaultFacilityForm)
+  }
+
+  function openFacilityDialog(item?: BoundaryFacility) {
+    setEditingFacilityId(item?.id ?? null)
+    setFacilityForm(
+      item
+        ? {
+            boundary_id: String(item.boundary_id),
+            facility_type: item.facility_type ?? "area",
+            facility_code: item.facility_code ?? "",
+            facility_name: item.facility_name ?? "",
+            facility_role: item.facility_role ?? "",
+            included: item.included === false ? "false" : "true",
+            exclusion_reason: item.exclusion_reason ?? "",
+          }
+        : defaultFacilityForm,
+    )
+    setFacilityOpen(true)
+  }
+
   return (
     <div className="space-y-4">
       <MetricGrid
@@ -321,13 +480,13 @@ export function OrganizationBoundaryPanel() {
         <AdminPanel
           title="报告主体"
           actions={
-            <Dialog open={organizationOpen} onOpenChange={setOrganizationOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm">新增主体</Button>
-              </DialogTrigger>
+            <Dialog open={organizationOpen} onOpenChange={(open) => (open ? setOrganizationOpen(true) : closeOrganizationDialog())}>
+              <Button size="sm" onClick={() => openOrganizationDialog()}>
+                新增主体
+              </Button>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>新增报告主体</DialogTitle>
+                  <DialogTitle>{editingOrganizationId ? "编辑报告主体" : "新增报告主体"}</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4">
                   <Field label="主体编号" value={organizationForm.code} onChange={(code) => setOrganizationForm((state) => ({ ...state, code }))} />
@@ -340,10 +499,10 @@ export function OrganizationBoundaryPanel() {
                   <MethodSelect value={organizationForm.control_method} onChange={(control_method) => setOrganizationForm((state) => ({ ...state, control_method }))} />
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setOrganizationOpen(false)}>
+                  <Button variant="outline" onClick={closeOrganizationDialog}>
                     取消
                   </Button>
-                  <Button disabled={!organizationReady || createOrganization.isPending} onClick={() => createOrganization.mutate()}>
+                  <Button disabled={!organizationReady || saveOrganization.isPending} onClick={() => saveOrganization.mutate()}>
                     保存
                   </Button>
                 </DialogFooter>
@@ -360,6 +519,7 @@ export function OrganizationBoundaryPanel() {
                   <TableHead>名称</TableHead>
                   <TableHead>控制方法</TableHead>
                   <TableHead>状态</TableHead>
+                  <TableHead className="text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -371,9 +531,39 @@ export function OrganizationBoundaryPanel() {
                     <TableCell>
                       <CarbonStatusBadge status={item.status || "active"} />
                     </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => openOrganizationDialog(item)}>
+                          编辑
+                        </Button>
+                        {item.status !== "inactive" && item.status !== "archived" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              patchCarbonApi<ReportingOrganization>(`/api/carbon/organization-boundary/organizations/${item.id}`, { status: "inactive" })
+                                .then(() => invalidateBoundary(qc))
+                                .then(() => toast.success("报告主体已停用"))
+                                .catch(toastError("停用报告主体失败"))
+                            }
+                          >
+                            停用
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            if (window.confirm("确认删除该报告主体？仅未被报告期和核算记录引用的主体可删除。")) deleteOrganization.mutate(item.id)
+                          }}
+                        >
+                          删除
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
-                <EmptyRow visible={!organizations.length} colSpan={4} label="暂无报告主体" />
+                <EmptyRow visible={!organizations.length} colSpan={5} label="暂无报告主体" />
               </TableBody>
             </Table>
           </AdminDataTable>
@@ -382,13 +572,13 @@ export function OrganizationBoundaryPanel() {
         <AdminPanel
           title="报告期"
           actions={
-            <Dialog open={periodOpen} onOpenChange={setPeriodOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm">新增报告期</Button>
-              </DialogTrigger>
+            <Dialog open={periodOpen} onOpenChange={(open) => (open ? setPeriodOpen(true) : closePeriodDialog())}>
+              <Button size="sm" onClick={() => openPeriodDialog()}>
+                新增报告期
+              </Button>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>新增报告期</DialogTitle>
+                  <DialogTitle>{editingPeriodId ? "编辑报告期" : "新增报告期"}</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4">
                   <OrgSelect
@@ -402,10 +592,10 @@ export function OrganizationBoundaryPanel() {
                   <DateField label="结束日期" value={periodForm.period_end} onChange={(period_end) => setPeriodForm((state) => ({ ...state, period_end }))} />
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setPeriodOpen(false)}>
+                  <Button variant="outline" onClick={closePeriodDialog}>
                     取消
                   </Button>
-                  <Button disabled={!periodReady || createPeriod.isPending} onClick={() => createPeriod.mutate()}>
+                  <Button disabled={!periodReady || savePeriod.isPending} onClick={() => savePeriod.mutate()}>
                     保存
                   </Button>
                 </DialogFooter>
@@ -423,6 +613,7 @@ export function OrganizationBoundaryPanel() {
                   <TableHead>主体</TableHead>
                   <TableHead>期间</TableHead>
                   <TableHead>状态</TableHead>
+                  <TableHead className="text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -435,9 +626,31 @@ export function OrganizationBoundaryPanel() {
                     <TableCell>
                       <CarbonStatusBadge status={item.status || "draft"} />
                     </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button size="sm" variant="ghost" disabled={item.status === "locked"} onClick={() => openPeriodDialog(item)}>
+                          编辑
+                        </Button>
+                        {item.status !== "archived" && (
+                          <Button size="sm" variant="ghost" disabled={archivePeriod.isPending || item.status === "locked"} onClick={() => archivePeriod.mutate(item.id)}>
+                            归档
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={item.status === "locked"}
+                          onClick={() => {
+                            if (window.confirm("确认删除该报告期？仅未被组织边界和核算记录引用的报告期可删除。")) deletePeriod.mutate(item.id)
+                          }}
+                        >
+                          删除
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
-                <EmptyRow visible={!periods.length} colSpan={5} label="暂无报告期" />
+                <EmptyRow visible={!periods.length} colSpan={6} label="暂无报告期" />
               </TableBody>
             </Table>
           </AdminDataTable>
@@ -447,13 +660,13 @@ export function OrganizationBoundaryPanel() {
       <AdminPanel
         title="组织边界版本"
         actions={
-          <Dialog open={boundaryOpen} onOpenChange={setBoundaryOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm">新增边界</Button>
-            </DialogTrigger>
+          <Dialog open={boundaryOpen} onOpenChange={(open) => (open ? setBoundaryOpen(true) : closeBoundaryDialog())}>
+            <Button size="sm" onClick={() => openBoundaryDialog()}>
+              新增边界
+            </Button>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>新增边界版本</DialogTitle>
+                <DialogTitle>{editingBoundaryId ? "编辑边界版本" : "新增边界版本"}</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4">
                 <OrgSelect
@@ -467,10 +680,10 @@ export function OrganizationBoundaryPanel() {
                 <MethodSelect value={boundaryForm.boundary_method} onChange={(boundary_method) => setBoundaryForm((state) => ({ ...state, boundary_method }))} />
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setBoundaryOpen(false)}>
+                <Button variant="outline" onClick={closeBoundaryDialog}>
                   取消
                 </Button>
-                <Button disabled={!boundaryReady || createBoundary.isPending} onClick={() => createBoundary.mutate()}>
+                <Button disabled={!boundaryReady || saveBoundary.isPending} onClick={() => saveBoundary.mutate()}>
                   保存
                 </Button>
               </DialogFooter>
@@ -509,6 +722,9 @@ export function OrganizationBoundaryPanel() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Button size="sm" variant="ghost" disabled={item.status === "published"} onClick={() => openBoundaryDialog(item)}>
+                        编辑
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -519,6 +735,21 @@ export function OrganizationBoundaryPanel() {
                       </Button>
                       <Button size="sm" variant="outline" disabled={item.status === "published" || publishBoundary.isPending} onClick={() => publishBoundary.mutate(item.id)}>
                         发布
+                      </Button>
+                      {item.status !== "archived" && (
+                        <Button size="sm" variant="ghost" disabled={archiveBoundary.isPending} onClick={() => archiveBoundary.mutate(item.id)}>
+                          归档
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={item.status === "published"}
+                        onClick={() => {
+                          if (window.confirm("确认删除该边界版本？已发布或已被核算引用的边界不能删除。")) deleteBoundary.mutate(item.id)
+                        }}
+                      >
+                        删除
                       </Button>
                     </div>
                   </TableCell>
@@ -533,13 +764,13 @@ export function OrganizationBoundaryPanel() {
       <AdminPanel
         title="边界设施"
         actions={
-          <Dialog open={facilityOpen} onOpenChange={setFacilityOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm">维护设施</Button>
-            </DialogTrigger>
+          <Dialog open={facilityOpen} onOpenChange={(open) => (open ? setFacilityOpen(true) : closeFacilityDialog())}>
+            <Button size="sm" onClick={() => openFacilityDialog()}>
+              维护设施
+            </Button>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>维护边界设施</DialogTitle>
+                <DialogTitle>{editingFacilityId ? "编辑边界设施" : "维护边界设施"}</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4">
                 <BoundarySelect boundaries={boundaries} value={facilityForm.boundary_id} onChange={(boundary_id) => setFacilityForm((state) => ({ ...state, boundary_id }))} />
@@ -551,10 +782,10 @@ export function OrganizationBoundaryPanel() {
                 <Field label="排除原因" value={facilityForm.exclusion_reason} onChange={(exclusion_reason) => setFacilityForm((state) => ({ ...state, exclusion_reason }))} />
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setFacilityOpen(false)}>
+                <Button variant="outline" onClick={closeFacilityDialog}>
                   取消
                 </Button>
-                <Button disabled={!facilityReady || createFacility.isPending} onClick={() => createFacility.mutate()}>
+                <Button disabled={!facilityReady || saveFacility.isPending} onClick={() => saveFacility.mutate()}>
                   保存
                 </Button>
               </DialogFooter>
@@ -574,6 +805,7 @@ export function OrganizationBoundaryPanel() {
                 <TableHead>角色</TableHead>
                 <TableHead>纳入</TableHead>
                 <TableHead>排除原因</TableHead>
+                <TableHead className="text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -588,9 +820,26 @@ export function OrganizationBoundaryPanel() {
                     <Badge variant={item.included === false ? "secondary" : "default"}>{item.included === false ? "排除" : "纳入"}</Badge>
                   </TableCell>
                   <TableCell>{item.exclusion_reason || "-"}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="ghost" disabled={boundaryById.get(item.boundary_id)?.status === "published"} onClick={() => openFacilityDialog(item)}>
+                        编辑
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={boundaryById.get(item.boundary_id)?.status === "published"}
+                        onClick={() => {
+                          if (window.confirm("确认删除该边界设施？")) deleteFacility.mutate(item.id)
+                        }}
+                      >
+                        删除
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
-              <EmptyRow visible={!facilities.length} colSpan={7} label="暂无边界设施" />
+              <EmptyRow visible={!facilities.length} colSpan={8} label="暂无边界设施" />
             </TableBody>
           </Table>
         </AdminDataTable>
@@ -752,8 +1001,26 @@ function EmptyRow({ visible, colSpan, label }: { visible: boolean; colSpan: numb
 }
 
 async function postCarbonApi<T>(url: string, payload: Record<string, unknown>) {
+  return writeCarbonApi<T>("POST", url, payload)
+}
+
+async function patchCarbonApi<T>(url: string, payload: Record<string, unknown>) {
+  return writeCarbonApi<T>("PATCH", url, payload)
+}
+
+async function deleteCarbonApi(url: string) {
+  const res = await fetch(url, { method: "DELETE" })
+  const text = await res.text()
+  const raw = text ? JSON.parse(text) : {}
+  if (!res.ok || (raw.code && raw.code >= 400)) {
+    throw new Error(raw.msg || raw.detail || `HTTP ${res.status}`)
+  }
+  return raw as ApiEnvelope<{ deleted: boolean }>
+}
+
+async function writeCarbonApi<T>(method: "POST" | "PATCH", url: string, payload: Record<string, unknown>) {
   const res = await fetch(url, {
-    method: "POST",
+    method,
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
   })

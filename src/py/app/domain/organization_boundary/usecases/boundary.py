@@ -109,6 +109,23 @@ class OrganizationBoundaryUseCase:
         await self._session.refresh(obj)
         return obj
 
+    async def delete_organization(self, organization_id: int) -> None:
+        obj = await self._get_or_raise(m.ReportingOrganization, organization_id, "报告主体不存在")
+        if await self._has_refs(m.ReportingPeriod, m.ReportingPeriod.reporting_org_id == obj.id):
+            msg = "报告主体已有报告期, 请先清理报告期或将主体停用"
+            raise ValueError(msg)
+        if await self._has_refs(m.GhgCalculationRun, m.GhgCalculationRun.reporting_org_id == obj.id):
+            msg = "报告主体已有核算运行引用, 请将主体停用"
+            raise ValueError(msg)
+        if await self._has_refs(m.GhgInventoryReport, m.GhgInventoryReport.reporting_org_id == obj.id):
+            msg = "报告主体已有盘查报告引用, 请将主体停用"
+            raise ValueError(msg)
+        if await self._has_refs(m.CarbonVerificationProject, m.CarbonVerificationProject.reporting_org_id == obj.id):
+            msg = "报告主体已有核查项目引用, 请将主体停用"
+            raise ValueError(msg)
+        await self._session.delete(obj)
+        await self._session.commit()
+
     async def create_period(self, data: dict[str, Any]) -> m.ReportingPeriod:
         payload = _payload(data, PERIOD_FIELDS, required={"reporting_org_id", "code", "name", "period_start", "period_end"})
         await self._get_or_raise(m.ReportingOrganization, int(payload["reporting_org_id"]), "报告主体不存在")
@@ -138,6 +155,29 @@ class OrganizationBoundaryUseCase:
         await self._session.refresh(obj)
         return obj
 
+    async def delete_period(self, period_id: int) -> None:
+        obj = await self._get_or_raise(m.ReportingPeriod, period_id, "报告期不存在")
+        if obj.status == "locked":
+            msg = "已锁定报告期不可删除"
+            raise ValueError(msg)
+        if await self._has_refs(m.OrganizationBoundary, m.OrganizationBoundary.period_id == obj.id):
+            msg = "报告期已有组织边界, 请先清理边界版本或归档报告期"
+            raise ValueError(msg)
+        if await self._has_refs(m.GhgActivityRecord, m.GhgActivityRecord.reporting_period_id == obj.id):
+            msg = "报告期已有活动数据引用, 请归档报告期"
+            raise ValueError(msg)
+        if await self._has_refs(m.GhgCalculationRun, m.GhgCalculationRun.reporting_period_id == obj.id):
+            msg = "报告期已有核算运行引用, 请归档报告期"
+            raise ValueError(msg)
+        if await self._has_refs(m.GhgInventoryReport, m.GhgInventoryReport.reporting_period_id == obj.id):
+            msg = "报告期已有盘查报告引用, 请归档报告期"
+            raise ValueError(msg)
+        if await self._has_refs(m.CarbonVerificationProject, m.CarbonVerificationProject.period_id == obj.id):
+            msg = "报告期已有核查项目引用, 请归档报告期"
+            raise ValueError(msg)
+        await self._session.delete(obj)
+        await self._session.commit()
+
     async def create_boundary(self, data: dict[str, Any]) -> m.OrganizationBoundary:
         payload = _payload(data, BOUNDARY_FIELDS, required={"reporting_org_id", "period_id", "boundary_no", "boundary_name"})
         await self._get_or_raise(m.ReportingOrganization, int(payload["reporting_org_id"]), "报告主体不存在")
@@ -147,6 +187,13 @@ class OrganizationBoundaryUseCase:
             raise ValueError(msg)
         validate_boundary_method(str(payload.get("boundary_method") or "operational_control"))
         validate_boundary_status(str(payload.get("status") or "draft"))
+        payload.setdefault("operational_boundary", _default_operational_boundary())
+        if "version" not in payload:
+            payload["version"] = await self._next_version(
+                int(payload["reporting_org_id"]),
+                int(payload["period_id"]),
+                str(payload.get("boundary_type") or "organization"),
+            )
         obj = m.OrganizationBoundary(**payload)
         self._session.add(obj)
         await self._session.commit()
@@ -155,10 +202,10 @@ class OrganizationBoundaryUseCase:
 
     async def update_boundary(self, boundary_id: int, data: dict[str, Any]) -> m.OrganizationBoundary:
         obj = await self._get_or_raise(m.OrganizationBoundary, boundary_id, "组织边界不存在")
-        if obj.status == "published":
+        payload = _payload(data, BOUNDARY_FIELDS - {"reporting_org_id", "period_id"})
+        if obj.status == "published" and set(payload) != {"status"}:
             msg = "已发布边界不可直接修改, 请创建新版本"
             raise ValueError(msg)
-        payload = _payload(data, BOUNDARY_FIELDS - {"reporting_org_id", "period_id"})
         if "boundary_method" in payload:
             validate_boundary_method(str(payload["boundary_method"]))
         if "status" in payload:
@@ -167,6 +214,26 @@ class OrganizationBoundaryUseCase:
         await self._session.commit()
         await self._session.refresh(obj)
         return obj
+
+    async def delete_boundary(self, boundary_id: int) -> None:
+        obj = await self._get_or_raise(m.OrganizationBoundary, boundary_id, "组织边界不存在")
+        if obj.status == "published":
+            msg = "已发布边界不可删除, 请创建新版本或归档"
+            raise ValueError(msg)
+        if await self._has_refs(m.GhgActivityRecord, m.GhgActivityRecord.organization_boundary_id == obj.id):
+            msg = "组织边界已有活动数据引用, 请归档边界版本"
+            raise ValueError(msg)
+        if await self._has_refs(m.GhgCalculationRun, m.GhgCalculationRun.organization_boundary_id == obj.id):
+            msg = "组织边界已有核算运行引用, 请归档边界版本"
+            raise ValueError(msg)
+        if await self._has_refs(m.GhgInventoryReport, m.GhgInventoryReport.organization_boundary_id == obj.id):
+            msg = "组织边界已有盘查报告引用, 请归档边界版本"
+            raise ValueError(msg)
+        if await self._has_refs(m.CarbonVerificationProject, m.CarbonVerificationProject.boundary_id == obj.id):
+            msg = "组织边界已有核查项目引用, 请归档边界版本"
+            raise ValueError(msg)
+        await self._session.delete(obj)
+        await self._session.commit()
 
     async def publish_boundary(self, boundary_id: int) -> m.OrganizationBoundary:
         obj = await self._get_or_raise(m.OrganizationBoundary, boundary_id, "组织边界不存在")
@@ -434,6 +501,20 @@ class OrganizationBoundaryUseCase:
             raise ValueError(message)
         return obj
 
+    async def _has_refs(self, model: type[Any], *conditions: Any) -> bool:
+        count = await self._session.scalar(select(func.count()).select_from(model).where(*conditions))
+        return bool(count)
+
+    async def _next_version(self, reporting_org_id: int, period_id: int, boundary_type: str) -> int:
+        latest_version = await self._session.scalar(
+            select(func.max(m.OrganizationBoundary.version)).where(
+                m.OrganizationBoundary.reporting_org_id == reporting_org_id,
+                m.OrganizationBoundary.period_id == period_id,
+                m.OrganizationBoundary.boundary_type == boundary_type,
+            )
+        )
+        return int(latest_version or 0) + 1
+
 
 def _payload(data: dict[str, Any], fields: set[str], required: set[str] | None = None) -> dict[str, Any]:
     payload = {key: _coerce_value(key, value) for key, value in data.items() if key in fields and value is not None}
@@ -502,6 +583,16 @@ def _validate_operational_boundary(value: dict[str, Any] | None) -> None:
     if any(not isinstance(item, int) or item < 1 or item > MAX_SCOPE3_CATEGORY for item in scope3_categories):
         msg = "Scope 3类别取值应为1至15"
         raise ValueError(msg)
+
+
+def _default_operational_boundary() -> dict[str, Any]:
+    return {
+        "schemaVersion": "organization-boundary-v1",
+        "scopes": ["scope1", "scope2", "scope3"],
+        "scope2Methods": ["location"],
+        "isoCategories": ["1", "2", "3", "4", "5", "6"],
+        "scope3Categories": [1, 2, 3, 4, 5, 6],
+    }
 
 
 def _string_values(value: Any) -> set[str]:
