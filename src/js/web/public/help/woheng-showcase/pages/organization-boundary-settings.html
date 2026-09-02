@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>组织碳核算：组织边界与核算边界维护 - 沃衡汽车能碳管理平台操作手册</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-name">沃衡汽车能碳管理平台</div>
+      <div class="brand-subtitle">操作手册</div>
+    </div>
+    <nav><a class="" href="../index.html">01 平台概览</a><a class="" href="../pages/green-factory-score-items.html">02 绿色工厂评分项功能索引</a><a class="" href="../pages/access-and-tenant.html">03 登录、首页与租户切换</a><a class="" href="../pages/energy-overview.html">04 能源运营总览</a><a class="" href="../pages/data-maintenance-mqtt.html">05 能源运营：区域、设备与 MQTT 电表接入</a><a class="" href="../pages/energy-master-data.html">06 能源运营：能源主数据维护</a><a class="" href="../pages/energy-data-maintenance.html">07 能源运营：能源事实数据维护</a><a class="" href="../pages/energy-consumption-query.html">08 能源运营：能耗查询</a><a class="" href="../pages/energy-intensity.html">09 能源运营：能耗强度</a><a class="" href="../pages/energy-use-analysis.html">10 能源运营：用能分析</a><a class="" href="../pages/energy-flow-analysis.html">11 能源运营：能流分析</a><a class="" href="../pages/energy-benchmark-settings.html">12 能源运营：能效对标配置</a><a class="" href="../pages/energy-benchmark.html">13 能源运营：能效对标</a><a class="" href="../pages/energy-balance.html">14 能源运营：能效平衡</a><a class="" href="../pages/energy-budget-settings.html">15 能源运营：能碳预算维护</a><a class="" href="../pages/energy-budget.html">16 能源运营：能碳预算</a><a class="" href="../pages/bigscreen.html">17 态势大屏</a><a class="" href="../pages/activity-ledgers-import.html">18 经营活动台账与非电数据导入</a><a class="" href="../pages/factors-calculation.html">19 因子维护与核算准备</a><a class="active" href="../pages/organization-boundary-settings.html">20 组织碳核算：组织边界与核算边界维护</a><a class="" href="../pages/organization-carbon-iso14064.html">21 组织碳管理与 ISO 14064 分类</a><a class="" href="../pages/product-supply-chain-carbon.html">22 碳足迹与供应链碳管理</a><a class="" href="../pages/monitoring-alerts.html">23 监测告警与处理留痕</a><a class="" href="../pages/verification-report-export.html">24 核查材料与报告导出</a><a class="" href="../pages/reduction-carbon-asset.html">25 减排绩效与公开碳价模拟</a><a class="" href="../pages/demo-script.html">26 下午演示脚本</a><a class="" href="../pages/screenshot-index.html">27 功能页面与截图索引</a></nav>
+  </aside>
+  <main class="page">
+    <header class="page-header">
+      <div class="eyebrow">沃衡汽车有限公司</div>
+      <h1>组织碳核算：组织边界与核算边界维护</h1>
+      <div class="page-meta">操作手册 · 生成时间 2026/9/2 14:21:58</div>
+    </header>
+    <article class="content"><h2>组织碳核算：组织边界与核算边界维护</h2>
+<p>本章用于维护组织温室气体盘查的基础口径。使用顺序为：先维护报告主体，再建立报告期，随后创建组织边界版本，最后维护纳入边界的区域、设备或其他设施。边界版本发布后进入正式核算口径，后续调整通过新版本或归档处理。</p>
+<h3>打开边界维护页面</h3>
+<p>进入 <code>/carbon/organization/boundary</code>。页面集中展示报告主体、报告期、组织边界版本、边界设施，以及下方的核算边界配置区。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-133</span><span>/carbon/organization/boundary</span><span>组织边界与核算边界维护</span></div><img src="../assets/screenshots/EV-WH-133-打开边界维护页面.png" alt="打开边界维护页面" /><figcaption>打开边界维护页面</figcaption></figure>
+<h3>维护报告主体</h3>
+<p>点击「<strong>新增主体</strong>」，填写主体编号、主体名称、统一社会信用代码和控制方法。报告主体用于承载一个法人主体、生产基地或经确认的盘查组织。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-134</span><span>/carbon/organization/boundary</span><span>组织边界与核算边界维护</span></div><img src="../assets/screenshots/EV-WH-134-新增报告主体.png" alt="新增报告主体" /><figcaption>新增报告主体</figcaption></figure>
+<p>在报告主体列表点击「<strong>编辑</strong>」，可调整主体名称、社会信用代码和控制方法。保存后列表回显更新后的主体信息。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-135</span><span>/carbon/organization/boundary</span><span>组织边界与核算边界维护</span></div><img src="../assets/screenshots/EV-WH-135-编辑报告主体.png" alt="编辑报告主体" /><figcaption>编辑报告主体</figcaption></figure>
+<h3>维护报告期</h3>
+<p>点击「<strong>新增报告期</strong>」，选择报告主体，填写报告期编号、报告期名称和起止日期。报告期用于限定本次组织盘查和后续报告生成的时间范围。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-136</span><span>/carbon/organization/boundary</span><span>组织边界与核算边界维护</span></div><img src="../assets/screenshots/EV-WH-136-新增报告期.png" alt="新增报告期" /><figcaption>新增报告期</figcaption></figure>
+<p>在报告期列表点击「<strong>编辑</strong>」，可调整报告期名称和日期范围。保存后列表回显更新后的报告期信息。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-137</span><span>/carbon/organization/boundary</span><span>组织边界与核算边界维护</span></div><img src="../assets/screenshots/EV-WH-137-编辑报告期.png" alt="编辑报告期" /><figcaption>编辑报告期</figcaption></figure>
+<h3>维护组织边界版本</h3>
+<p>点击「<strong>新增边界</strong>」，选择报告主体和报告期，填写边界编号、边界名称和边界方法。新建边界默认包含 Scope 1、Scope 2、Scope 3 和 ISO 14064-1 类别 1-6，可在核算边界配置区继续调整。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-138</span><span>/carbon/organization/boundary</span><span>组织边界与核算边界维护</span></div><img src="../assets/screenshots/EV-WH-138-新增组织边界版本.png" alt="新增组织边界版本" /><figcaption>新增组织边界版本</figcaption></figure>
+<p>在组织边界版本列表点击「<strong>编辑</strong>」，可调整草稿边界的编号、名称和方法。已发布边界不直接编辑，按版本方式管理。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-139</span><span>/carbon/organization/boundary</span><span>组织边界与核算边界维护</span></div><img src="../assets/screenshots/EV-WH-139-编辑组织边界版本.png" alt="编辑组织边界版本" /><figcaption>编辑组织边界版本</figcaption></figure>
+<h3>维护边界设施</h3>
+<p>点击「<strong>维护设施</strong>」，选择组织边界版本，填写设施类型、设施编号、设施名称、设施角色和纳入状态。边界设施用于明确哪些区域、设备或其他设施纳入本期核算。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-140</span><span>/carbon/organization/boundary</span><span>组织边界与核算边界维护</span></div><img src="../assets/screenshots/EV-WH-140-维护边界设施.png" alt="维护边界设施" /><figcaption>维护边界设施</figcaption></figure>
+<p>在边界设施列表点击「<strong>编辑</strong>」，可调整设施名称、角色、纳入状态和排除原因。排除设施时需填写排除原因。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-141</span><span>/carbon/organization/boundary</span><span>组织边界与核算边界维护</span></div><img src="../assets/screenshots/EV-WH-141-编辑边界设施.png" alt="编辑边界设施" /><figcaption>编辑边界设施</figcaption></figure>
+<h3>发布和清理边界版本</h3>
+<p>组织边界版本至少包含一个纳入设施后可以发布。发布后页面显示已发布状态和纳入设施数量。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-142</span><span>/carbon/organization/boundary</span><span>组织边界与核算边界维护</span></div><img src="../assets/screenshots/EV-WH-142-发布组织边界.png" alt="发布组织边界" /><figcaption>发布组织边界</figcaption></figure>
+<p>未被活动数据、核算运行、盘查报告和核查项目引用的边界版本可删除。已发布边界先归档，再按权限执行删除。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-143</span><span>/carbon/organization/boundary</span><span>组织边界与核算边界维护</span></div><img src="../assets/screenshots/EV-WH-143-删除未引用边界版本.png" alt="删除未引用边界版本" /><figcaption>删除未引用边界版本</figcaption></figure></article>
+    <nav class="pager">
+      <a href="../pages/factors-calculation.html">上一页：因子维护与核算准备</a>
+      <a href="../pages/organization-carbon-iso14064.html">下一页：组织碳管理与 ISO 14064 分类</a>
+    </nav>
+  </main>
+</body>
+</html>

@@ -109,6 +109,11 @@
       "source": "05-factors-calculation.md"
     },
     {
+      "pageId": "organization-boundary-settings",
+      "title": "组织碳核算：组织边界与核算边界维护",
+      "source": "06-organization-boundary-settings.md"
+    },
+    {
       "pageId": "organization-carbon-iso14064",
       "title": "组织碳管理与 ISO 14064 分类",
       "source": "07-organization-carbon-iso14064.md"
@@ -761,6 +766,123 @@
           "evidenceId": "EV-WH-020",
           "screenshot": "EV-WH-020-活动数据方法与参数解析.png",
           "verificationStatus": "planned"
+        }
+      ]
+    },
+    {
+      "sectionId": "organization-boundary-settings",
+      "title": "组织边界与核算边界维护",
+      "summary": "用于验证报告主体、报告期、组织边界版本、边界设施、发布和删除的维护闭环。",
+      "steps": [
+        {
+          "stepNumber": "15.1",
+          "title": "打开边界维护页面",
+          "route": "/carbon/organization/boundary",
+          "action": "进入核算边界页面，查看报告主体、报告期、组织边界版本和边界设施。",
+          "expectedState": "页面展示边界维护台账和核算边界配置区。",
+          "evidenceId": "EV-WH-133",
+          "screenshot": "EV-WH-133-组织与核算边界维护页.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.2",
+          "title": "新增报告主体",
+          "route": "/carbon/organization/boundary",
+          "action": "点击新增主体，填写主体编号、主体名称、统一社会信用代码和控制方法。",
+          "expectedState": "新增表单展示报告主体字段，保存后列表可回显。",
+          "evidenceId": "EV-WH-134",
+          "screenshot": "EV-WH-134-报告主体新增表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.3",
+          "title": "编辑报告主体",
+          "route": "/carbon/organization/boundary",
+          "action": "在报告主体列表点击编辑，调整主体名称并保存。",
+          "expectedState": "列表回显更新后的报告主体名称。",
+          "evidenceId": "EV-WH-135",
+          "screenshot": "EV-WH-135-报告主体编辑回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.4",
+          "title": "新增报告期",
+          "route": "/carbon/organization/boundary",
+          "action": "点击新增报告期，选择报告主体并填写报告期编号、名称和起止日期。",
+          "expectedState": "报告期挂接到报告主体，保存后列表可回显。",
+          "evidenceId": "EV-WH-136",
+          "screenshot": "EV-WH-136-报告期新增表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.5",
+          "title": "编辑报告期",
+          "route": "/carbon/organization/boundary",
+          "action": "在报告期列表点击编辑，调整报告期名称并保存。",
+          "expectedState": "列表回显更新后的报告期名称和期间。",
+          "evidenceId": "EV-WH-137",
+          "screenshot": "EV-WH-137-报告期编辑回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.6",
+          "title": "新增组织边界版本",
+          "route": "/carbon/organization/boundary",
+          "action": "点击新增边界，选择报告主体和报告期，填写边界编号、名称和边界方法。",
+          "expectedState": "边界版本挂接到报告主体和报告期，默认具备完整核算口径。",
+          "evidenceId": "EV-WH-138",
+          "screenshot": "EV-WH-138-组织边界版本新增表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.7",
+          "title": "编辑组织边界版本",
+          "route": "/carbon/organization/boundary",
+          "action": "在草稿边界版本列表点击编辑，调整边界名称并保存。",
+          "expectedState": "列表回显更新后的边界版本名称。",
+          "evidenceId": "EV-WH-139",
+          "screenshot": "EV-WH-139-组织边界版本编辑回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.8",
+          "title": "维护边界设施",
+          "route": "/carbon/organization/boundary",
+          "action": "点击维护设施，选择边界版本并填写设施类型、编号、名称、角色和纳入状态。",
+          "expectedState": "边界设施挂接到组织边界版本，保存后列表可回显。",
+          "evidenceId": "EV-WH-140",
+          "screenshot": "EV-WH-140-边界设施维护表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.9",
+          "title": "编辑边界设施",
+          "route": "/carbon/organization/boundary",
+          "action": "在边界设施列表点击编辑，调整设施名称并保存。",
+          "expectedState": "列表回显更新后的设施名称。",
+          "evidenceId": "EV-WH-141",
+          "screenshot": "EV-WH-141-边界设施编辑回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.10",
+          "title": "发布组织边界",
+          "route": "/carbon/organization/boundary",
+          "action": "为组织边界生成来源设施后点击发布。",
+          "expectedState": "边界版本状态变为已发布，并显示纳入设施数量。",
+          "evidenceId": "EV-WH-142",
+          "screenshot": "EV-WH-142-组织边界发布结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "15.11",
+          "title": "删除未引用边界版本",
+          "route": "/carbon/organization/boundary",
+          "action": "对未被核算结果引用的边界版本执行归档和删除。",
+          "expectedState": "删除后列表不再显示该边界版本。",
+          "evidenceId": "EV-WH-143",
+          "screenshot": "EV-WH-143-组织边界删除结果.png",
+          "verificationStatus": "verified"
         }
       ]
     },

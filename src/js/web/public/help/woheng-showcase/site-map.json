@@ -116,6 +116,12 @@
       "href": "pages/factors-calculation.html"
     },
     {
+      "pageId": "organization-boundary-settings",
+      "title": "组织碳核算：组织边界与核算边界维护",
+      "source": "06-organization-boundary-settings.md",
+      "href": "pages/organization-boundary-settings.html"
+    },
+    {
       "pageId": "organization-carbon-iso14064",
       "title": "组织碳管理与 ISO 14064 分类",
       "source": "07-organization-carbon-iso14064.md",
