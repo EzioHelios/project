@@ -143,7 +143,7 @@ def _build_filters(query: EnergyFlowQuery, *, team_id: str) -> tuple[str, dict[s
     conditions = ["team_id = :team_id", "is_current = true", "granularity = :source_granularity"]
     params: dict[str, Any] = {
         "team_id": team_id,
-        "source_granularity": "hour" if query.granularity == "hour" else "day",
+        "source_granularity": query.granularity if query.granularity in {"hour", "day", "month"} else "day",
     }
     if query.period_start:
         conditions.append("period_end >= (:period_start)::timestamp")
@@ -300,7 +300,11 @@ def _scale(target_total: float, source_total: float) -> float:
 def _build_loss_items(links: list[dict[str, Any]], *, total_input: float, threshold_pct: float) -> list[dict[str, Any]]:
     if total_input <= 0:
         return []
-    key_links = sorted([link for link in links if float(link.get("value") or 0) > 0], key=lambda item: float(item["value"]), reverse=True)[:5]
+    key_links = sorted(
+        [link for link in links if float(link.get("value") or 0) > 0],
+        key=lambda item: float(item["value"]),
+        reverse=True,
+    )[:5]
     if not key_links:
         return []
     return [
@@ -323,7 +327,11 @@ def _build_report_items(summary: dict[str, Any], links: list[dict[str, Any]]) ->
     total_input = float(summary.get("total_input") or 0)
     if total_input <= 0:
         return []
-    top_links = sorted([link for link in links if float(link.get("value") or 0) > 0], key=lambda item: float(item["value"]), reverse=True)[:3]
+    top_links = sorted(
+        [link for link in links if float(link.get("value") or 0) > 0],
+        key=lambda item: float(item["value"]),
+        reverse=True,
+    )[:3]
     top_link_text = "、".join(f"{item['source']} -> {item['target']}" for item in top_links) or "-"
     return [
         {

@@ -64,7 +64,7 @@ class EnergyConsumptionQuery:
     period_end: str | None = None
     energy_type_code: str | None = None
     scope: str | None = None
-    status: str | None = "approved"
+    status: str | None = "all"
     area_id: str | None = None
     area_keyword: str | None = None
     source_record_type: str | None = None
@@ -90,7 +90,9 @@ class EnergyConsumptionQueryService:
         order_direction = "asc" if query.sort_order == "asc" else "desc"
         total = int(
             (
-                await self._session.execute(text(f"select count(*) from energy_consumption_fact_v {where_sql}"), params)
+                await self._session.execute(
+                    text(f"select count(*) from {_energy_fact_source_sql()} {where_sql}"), params
+                )
             ).scalar_one()
             or 0
         )
@@ -101,7 +103,7 @@ class EnergyConsumptionQueryService:
                         f"""
                     select
                         {", ".join(ENERGY_CONSUMPTION_EXPORT_HEADERS)}
-                    from energy_consumption_fact_v
+                    from {_energy_fact_source_sql()}
                     {where_sql}
                     order by {order_field} {order_direction}, source_record_id desc
                     limit :limit offset :offset
@@ -152,7 +154,7 @@ class EnergyConsumptionQueryService:
                         max(standard_unit) as standard_unit,
                         sum(tce_amount) as tce_amount,
                         sum(co2e_amount) as co2e_amount
-                    from energy_consumption_fact_v
+                    from {_energy_fact_source_sql()}
                     {where_sql}
                     group by {", ".join(group_parts)}
                     order by sum(tce_amount) desc nulls last, sum(original_amount) desc nulls last
@@ -194,7 +196,7 @@ class EnergyConsumptionQueryService:
                                 sum(standard_amount) as standard_amount,
                                 sum(tce_amount) as tce_amount,
                                 sum(co2e_amount) as co2e_amount
-                            from energy_consumption_fact_v
+                            from {_energy_fact_source_sql()}
                             {where_sql}
                             """
                         ),
@@ -225,7 +227,7 @@ class EnergyConsumptionQueryService:
                         f"""
                     select
                         {", ".join(ENERGY_CONSUMPTION_EXPORT_HEADERS)}
-                    from energy_consumption_fact_v
+                    from {_energy_fact_source_sql()}
                     {where_sql}
                     order by period_start desc, source_record_id desc
                     limit 5000
@@ -281,6 +283,79 @@ def build_energy_fact_filters(query: EnergyConsumptionQuery, *, team_id: UUID | 
         )
         params["keyword"] = f"%{query.keyword.strip()}%"
     return (f"where {' and '.join(conditions)}" if conditions else ""), params
+
+
+def _energy_fact_source_sql() -> str:
+    """Return the canonical energy fact projection used by energy-operation query pages."""
+    return """
+        (
+            select
+                f.team_id,
+                'EnergyIntervalFact'::text as source_record_type,
+                f.source_record_id::text as source_record_id,
+                et.default_scope::text as scope,
+                null::text as emission_category,
+                f.energy_type_code::text as energy_type_code,
+                coalesce(et.name, f.energy_type_code)::text as energy_type_name,
+                f.amount::numeric as original_amount,
+                f.unit::text as original_unit,
+                case
+                    when f.amount is null or et.original_unit is null then null::numeric
+                    when lower(replace(replace(trim(coalesce(f.unit, '')), '³', '3'), ' ', '')) =
+                         lower(replace(replace(trim(coalesce(et.original_unit, '')), '³', '3'), ' ', '')) then f.amount
+                    when conversion.multiply_factor is not null then f.amount * conversion.multiply_factor
+                    else null::numeric
+                end as factor_amount,
+                et.original_unit::text as factor_unit,
+                conversion.multiply_factor::numeric as unit_conversion_factor,
+                conversion.conversion_factor_source::text as unit_conversion_source,
+                case
+                    when et.standard_factor is null then null::numeric
+                    when f.amount is null or et.original_unit is null then null::numeric
+                    when lower(replace(replace(trim(coalesce(f.unit, '')), '³', '3'), ' ', '')) =
+                         lower(replace(replace(trim(coalesce(et.original_unit, '')), '³', '3'), ' ', '')) then f.amount * et.standard_factor
+                    when conversion.multiply_factor is not null then f.amount * conversion.multiply_factor * et.standard_factor
+                    else null::numeric
+                end as standard_amount,
+                et.standard_unit::text as standard_unit,
+                case
+                    when et.standard_unit = 'kgce' and et.standard_factor is not null then
+                        case
+                            when lower(replace(replace(trim(coalesce(f.unit, '')), '³', '3'), ' ', '')) =
+                                 lower(replace(replace(trim(coalesce(et.original_unit, '')), '³', '3'), ' ', '')) then f.amount * et.standard_factor / 1000
+                            when conversion.multiply_factor is not null then f.amount * conversion.multiply_factor * et.standard_factor / 1000
+                            else null::numeric
+                        end
+                    else null::numeric
+                end as tce_amount,
+                null::numeric as co2e_amount,
+                f.period_start,
+                f.period_end,
+                f.area_id::text as area_id,
+                f.area_name::text as area_name,
+                coalesce(f.equipment_name, f.equipment_code)::text as facility_or_device_name,
+                f.data_quality::text as status,
+                et.standard_code::text as standard_code,
+                et.conversion_factor_source::text as conversion_factor_source,
+                null::text as emission_factor_source
+            from dataapp_energyintervalfact f
+            left join dataapp_energytype et on et.code = f.energy_type_code and et.is_enabled = true
+            left join lateral (
+                select c.multiply_factor, c.conversion_factor_source
+                from dataapp_energyunitconversion c
+                where c.energy_type_code = f.energy_type_code
+                  and c.is_enabled = true
+                  and lower(replace(replace(trim(c.from_unit), '³', '3'), ' ', '')) =
+                      lower(replace(replace(trim(coalesce(f.unit, '')), '³', '3'), ' ', ''))
+                  and lower(replace(replace(trim(c.to_unit), '³', '3'), ' ', '')) =
+                      lower(replace(replace(trim(coalesce(et.original_unit, '')), '³', '3'), ' ', ''))
+                order by c.is_default desc, c.id
+                limit 1
+            ) conversion on true
+            where f.is_current = true
+              and f.granularity = 'month'
+        ) energy_facts
+    """
 
 
 def filters_payload(query: EnergyConsumptionQuery) -> dict[str, Any]:

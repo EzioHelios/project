@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query"
 import { RotateCcw, Search } from "lucide-react"
-import { useMemo } from "react"
 
 import { AdminFilterBar, type AdminFilterField } from "@/components/admin-ui"
-import { type PageResult, type Row, request, requestPage } from "@/components/platform/data-admin-pages"
+import { request } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -64,10 +63,29 @@ export const defaultEnergyAnalysisFilters: EnergyAnalysisFilterState = {
   lossThreshold: "5",
 }
 
-type Option = {
-  value: string
-  label: string
-  data?: Row
+type EnergyFactFacet = {
+  code?: string
+  id?: string
+  name?: string
+  area_id?: string
+  area_name?: string
+  record_count?: number
+}
+
+type EnergyFactCombination = {
+  energy_type_code?: string
+  area_id?: string
+  equipment_id?: string
+  use_system_code?: string
+  record_count?: number
+}
+
+type EnergyFactFacetsPayload = {
+  energy_types: EnergyFactFacet[]
+  areas: EnergyFactFacet[]
+  devices: EnergyFactFacet[]
+  use_systems: EnergyFactFacet[]
+  combinations: EnergyFactCombination[]
 }
 
 type EnergyAnalysisFilterBarProps = {
@@ -115,16 +133,17 @@ const scopeOptions = [
 ] as const
 
 const statusOptions = [
-  { value: "all", label: "全部状态" },
-  { value: "approved", label: "已通过" },
-  { value: "pending", label: "待审核" },
-  { value: "draft", label: "草稿" },
-  { value: "rejected", label: "已驳回" },
+  { value: "all", label: "全部数据质量" },
+  { value: "measured", label: "实测" },
+  { value: "imported", label: "导入" },
+  { value: "generated", label: "生成" },
+  { value: "estimated", label: "估算" },
+  { value: "provisional", label: "临时" },
 ] as const
 
 const sourceRecordTypeOptions = [
   { value: "all", label: "全部来源" },
-  { value: "GhgActivityRecord", label: "组织盘查活动" },
+  { value: "EnergyIntervalFact", label: "能源事实" },
 ] as const
 
 const tariffOptions = [
@@ -148,7 +167,7 @@ export function EnergyAnalysisFilterBar({
   onApply,
   onReset,
   fields,
-  areaValueField = "code",
+  areaValueField = "id",
   loading = false,
   granularityOptions = [
     { value: "day", label: "日" },
@@ -157,7 +176,7 @@ export function EnergyAnalysisFilterBar({
   ],
   defaultVisibleCount = 4,
 }: EnergyAnalysisFilterBarProps) {
-  const { energyTypeOptions, areaOptions, deviceOptions, useSystemOptions } = useEnergyAnalysisFilterOptions(areaValueField)
+  const { energyTypeOptions, areaOptions, deviceOptions, useSystemOptions } = useEnergyAnalysisFilterOptions(areaValueField, filters)
   const nodes: AdminFilterField[] = []
   const hasField = (field: EnergyAnalysisFilterField) => fields.includes(field)
   const update = (patch: Partial<EnergyAnalysisFilterState>) => onFiltersChange({ ...filters, ...patch })
@@ -537,58 +556,70 @@ function FilterField({ label, children }: { label: string; children: React.React
   )
 }
 
-function useEnergyAnalysisFilterOptions(areaValueField: "id" | "code") {
-  const energyTypesQuery = useQuery({
-    queryKey: ["energy", "types", "analysis-filter-options"],
-    queryFn: async () => (await request<{ items: Row[] }>("/api/energy/types?limit=500")).data.items,
+function useEnergyAnalysisFilterOptions(areaValueField: "id" | "code", filters: EnergyAnalysisFilterState) {
+  const facetsQuery = useQuery({
+    queryKey: ["energy", "interval-facts", "facets", filters.periodStart, filters.periodEnd],
+    queryFn: async () => {
+      const qs = new URLSearchParams()
+      if (filters.periodStart) qs.set("period_start", filters.periodStart)
+      if (filters.periodEnd) qs.set("period_end", filters.periodEnd)
+      return (await request<EnergyFactFacetsPayload>(`/api/energy/interval-facts/facets?${qs.toString()}`)).data
+    },
   })
-  const areasQuery = useQuery({
-    queryKey: ["master-data", "areas", "tree", "analysis-filter-options"],
-    queryFn: async () => (await request<{ items: Row[] }>("/api/master-data/areas/tree")).data.items,
-  })
-  const devicesQuery = useQuery<PageResult<Row>>({
-    queryKey: ["master-data", "devices", "analysis-filter-options"],
-    queryFn: async () => requestPage<Row>("/api/master-data/devices", { limit: 500, offset: 0 }),
-  })
-
-  const energyTypeOptions = useMemo(
-    () =>
-      (energyTypesQuery.data ?? [])
-        .filter((item) => item.code)
-        .map((item) => ({
-          value: String(item.code),
-          label: `${display(item.name) || energyTypeFallbackLabels[String(item.code)] || String(item.code)} · ${String(item.code)}`,
-          data: item,
-        })),
-    [energyTypesQuery.data],
-  )
-  const areaOptions = useMemo(
-    () =>
-      flattenRows(areasQuery.data ?? [])
-        .map((item) => ({ value: String((areaValueField === "id" ? item.id : item.code) ?? item.id ?? ""), label: areaOptionLabel(item), data: item }))
-        .filter((item) => item.value),
-    [areaValueField, areasQuery.data],
-  )
-  const deviceOptions = useMemo(
-    () =>
-      (devicesQuery.data?.items ?? [])
-        .filter((item) => item.id)
-        .map((item) => ({
-          value: String(item.id),
-          label: [display(item.name), display(item.code), display(item.area_name)].filter(Boolean).join(" · "),
-          data: item,
-        })),
-    [devicesQuery.data?.items],
-  )
-  const useSystemOptions = useMemo(() => {
-    const options = new Map<string, Option>()
-    for (const item of devicesQuery.data?.items ?? []) {
-      const code = String(item.use_system_code ?? "")
-      if (!code) continue
-      options.set(code, { value: code, label: String(item.use_system_name ?? code), data: item })
+  const facets = facetsQuery.data
+  const combinations = facets?.combinations ?? []
+  const countBy = (field: keyof EnergyFactCombination, value: string) =>
+    combinations.filter((item) => String(item[field] ?? "") === value).reduce((total, item) => total + Number(item.record_count ?? 0), 0)
+  const matchesCurrentSelection = (item: EnergyFactCombination, except: keyof EnergyFactCombination) => {
+    if (except !== "energy_type_code" && filters.energyTypeCode !== "all" && item.energy_type_code !== filters.energyTypeCode) return false
+    if (except !== "area_id" && filters.areaId !== "all" && item.area_id !== filters.areaId) return false
+    if (except !== "equipment_id" && filters.equipmentId !== "all" && item.equipment_id !== filters.equipmentId) return false
+    if (except !== "use_system_code" && filters.useSystemCode !== "all" && item.use_system_code !== filters.useSystemCode) return false
+    return true
+  }
+  const availableValues = (field: keyof EnergyFactCombination) => {
+    const values = new Set<string>()
+    for (const item of combinations) {
+      if (!matchesCurrentSelection(item, field)) continue
+      const value = String(item[field] ?? "")
+      if (value) values.add(value)
     }
-    return Array.from(options.values())
-  }, [devicesQuery.data?.items])
+    return values
+  }
+
+  const availableEnergyTypes = availableValues("energy_type_code")
+  const energyTypeOptions = (facets?.energy_types ?? [])
+    .filter((item) => item.code && (availableEnergyTypes.size === 0 || availableEnergyTypes.has(String(item.code))))
+    .map((item) => ({
+      value: String(item.code),
+      label: `${display(item.name) || energyTypeFallbackLabels[String(item.code)] || String(item.code)} · ${countBy("energy_type_code", String(item.code))}条`,
+      data: item,
+    }))
+  const availableAreas = availableValues("area_id")
+  const areaOptions = (facets?.areas ?? [])
+    .map((item) => ({
+      value: String((areaValueField === "id" ? item.id : item.code) ?? item.id ?? ""),
+      label: `${display(item.name) || display(item.id)} · ${countBy("area_id", String(item.id ?? ""))}条`,
+      data: item,
+    }))
+    .filter((item) => item.value)
+    .filter((item) => availableAreas.size === 0 || availableAreas.has(item.value))
+  const availableDevices = availableValues("equipment_id")
+  const deviceOptions = (facets?.devices ?? [])
+    .filter((item) => item.id)
+    .filter((item) => availableDevices.size === 0 || availableDevices.has(String(item.id)))
+    .map((item) => ({
+      value: String(item.id),
+      label: [display(item.name), display(item.code), display(item.area_name), `${countBy("equipment_id", String(item.id))}条`].filter(Boolean).join(" · "),
+      data: item,
+    }))
+  const availableUseSystems = availableValues("use_system_code")
+  const useSystemOptions = (facets?.use_systems ?? []).flatMap((item) => {
+    const code = String(item.code ?? "")
+    if (!code) return []
+    if (availableUseSystems.size > 0 && !availableUseSystems.has(code)) return []
+    return [{ value: code, label: `${display(item.name) || code} · ${countBy("use_system_code", code)}条`, data: item }]
+  })
   return { energyTypeOptions, areaOptions, deviceOptions, useSystemOptions }
 }
 
@@ -616,14 +647,4 @@ function toDateInputValue(value: Date) {
 function display(value: unknown) {
   if (value === null || value === undefined || value === "") return ""
   return String(value)
-}
-
-function areaOptionLabel(row: Row) {
-  const name = display(row.name) || display(row.code) || display(row.id)
-  const code = display(row.code)
-  return code && code !== name ? `${name} · ${code}` : name
-}
-
-function flattenRows(rows: Row[]): Row[] {
-  return rows.flatMap((row) => [row, ...flattenRows(Array.isArray(row.children) ? (row.children as Row[]) : [])])
 }

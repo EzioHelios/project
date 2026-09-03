@@ -10,7 +10,7 @@ from litestar import Controller, delete, get, patch, post
 from litestar.exceptions import ClientException, NotFoundException
 from litestar.params import Body, Parameter
 from litestar.response import Response
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from app.db import models as m
 from app.domain.accounts.guards import requires_superuser
@@ -140,6 +140,161 @@ class EnergyConsumptionController(Controller):
             }
         )
 
+    @get("/api/energy/interval-facts/facets")
+    async def get_energy_interval_fact_facets(
+        self,
+        db_session: AsyncSession,
+        period_start: str | None = None,
+        period_end: str | None = None,
+    ) -> Response[dict]:
+        team_id = require_session_tenant_id(db_session)
+        params = _interval_fact_period_params(
+            team_id=team_id,
+            period_start=period_start,
+            period_end=period_end,
+        )
+        energy_types = (
+            (
+                await db_session.execute(
+                    text(
+                        """
+                        select
+                            f.energy_type_code as code,
+                            coalesce(et.name, f.energy_type_code) as name,
+                            count(*)::int as record_count
+                        from dataapp_energyintervalfact f
+                        left join dataapp_energytype et on et.code = f.energy_type_code
+                        where f.team_id = :team_id
+                          and f.is_current = true
+                          and (cast(:period_start as timestamp) is null or f.period_end >= cast(:period_start as timestamp))
+                          and (cast(:period_end as timestamp) is null or f.period_start <= cast(:period_end as timestamp))
+                        group by f.energy_type_code, coalesce(et.name, f.energy_type_code)
+                        order by coalesce(et.name, f.energy_type_code), f.energy_type_code
+                        """
+                    ),
+                    params,
+                )
+            )
+            .mappings()
+            .all()
+        )
+        areas = (
+            (
+                await db_session.execute(
+                    text(
+                        """
+                        select
+                            coalesce(f.area_id, '') as id,
+                            coalesce(max(f.area_name), '未分区') as name,
+                            count(*)::int as record_count
+                        from dataapp_energyintervalfact f
+                        where f.team_id = :team_id
+                          and f.is_current = true
+                          and (cast(:period_start as timestamp) is null or f.period_end >= cast(:period_start as timestamp))
+                          and (cast(:period_end as timestamp) is null or f.period_start <= cast(:period_end as timestamp))
+                        group by coalesce(f.area_id, '')
+                        order by coalesce(max(f.area_name), '未分区')
+                        """
+                    ),
+                    params,
+                )
+            )
+            .mappings()
+            .all()
+        )
+        devices = (
+            (
+                await db_session.execute(
+                    text(
+                        """
+                        select
+                            f.equipment_id::text as id,
+                            max(f.equipment_code) as code,
+                            coalesce(max(f.equipment_name), max(f.equipment_code), '未命名设备') as name,
+                            coalesce(max(f.area_id), '') as area_id,
+                            coalesce(max(f.area_name), '未分区') as area_name,
+                            count(*)::int as record_count
+                        from dataapp_energyintervalfact f
+                        where f.team_id = :team_id
+                          and f.is_current = true
+                          and (cast(:period_start as timestamp) is null or f.period_end >= cast(:period_start as timestamp))
+                          and (cast(:period_end as timestamp) is null or f.period_start <= cast(:period_end as timestamp))
+                          and f.equipment_id is not null
+                        group by f.equipment_id
+                        order by coalesce(max(f.equipment_name), max(f.equipment_code), '未命名设备')
+                        """
+                    ),
+                    params,
+                )
+            )
+            .mappings()
+            .all()
+        )
+        use_systems = (
+            (
+                await db_session.execute(
+                    text(
+                        """
+                        select
+                            f.use_system_code as code,
+                            coalesce(max(f.use_system_name), f.use_system_code) as name,
+                            count(*)::int as record_count
+                        from dataapp_energyintervalfact f
+                        where f.team_id = :team_id
+                          and f.is_current = true
+                          and (cast(:period_start as timestamp) is null or f.period_end >= cast(:period_start as timestamp))
+                          and (cast(:period_end as timestamp) is null or f.period_start <= cast(:period_end as timestamp))
+                          and f.use_system_code is not null
+                          and f.use_system_code <> ''
+                        group by f.use_system_code
+                        order by coalesce(max(f.use_system_name), f.use_system_code)
+                        """
+                    ),
+                    params,
+                )
+            )
+            .mappings()
+            .all()
+        )
+        combinations = (
+            (
+                await db_session.execute(
+                    text(
+                        """
+                        select
+                            f.energy_type_code,
+                            coalesce(f.area_id, '') as area_id,
+                            f.equipment_id::text as equipment_id,
+                            coalesce(f.use_system_code, '') as use_system_code,
+                            count(*)::int as record_count
+                        from dataapp_energyintervalfact f
+                        where f.team_id = :team_id
+                          and f.is_current = true
+                          and (cast(:period_start as timestamp) is null or f.period_end >= cast(:period_start as timestamp))
+                          and (cast(:period_end as timestamp) is null or f.period_start <= cast(:period_end as timestamp))
+                        group by f.energy_type_code, coalesce(f.area_id, ''), f.equipment_id::text, coalesce(f.use_system_code, '')
+                        """
+                    ),
+                    params,
+                )
+            )
+            .mappings()
+            .all()
+        )
+        return Response(
+            content={
+                "code": 200,
+                "msg": "获取成功",
+                "data": {
+                    "energy_types": [dict(row) for row in energy_types],
+                    "areas": [dict(row) for row in areas if row["id"]],
+                    "devices": [dict(row) for row in devices],
+                    "use_systems": [dict(row) for row in use_systems],
+                    "combinations": [dict(row) for row in combinations],
+                },
+            }
+        )
+
     @get("/api/energy/interval-facts/export")
     async def export_energy_interval_facts(self, db_session: AsyncSession) -> Response[str]:
         team_id = require_session_tenant_id(db_session)
@@ -236,7 +391,7 @@ class EnergyConsumptionController(Controller):
         period_end: str | None = None,
         energy_type_code: str | None = None,
         scope_filter: str | None = Parameter(query="scope", required=False),
-        status: str | None = "approved",
+        status: str | None = "all",
         area_id: str | None = None,
         area_keyword: str | None = None,
         source_record_type: str | None = None,
@@ -273,7 +428,7 @@ class EnergyConsumptionController(Controller):
         period_end: str | None = None,
         energy_type_code: str | None = None,
         scope_filter: str | None = Parameter(query="scope", required=False),
-        status: str | None = "approved",
+        status: str | None = "all",
         area_id: str | None = None,
         area_keyword: str | None = None,
         source_record_type: str | None = None,
@@ -304,7 +459,7 @@ class EnergyConsumptionController(Controller):
         period_end: str | None = None,
         energy_type_code: str | None = None,
         scope_filter: str | None = Parameter(query="scope", required=False),
-        status: str | None = "approved",
+        status: str | None = "all",
         area_id: str | None = None,
         area_keyword: str | None = None,
         source_record_type: str | None = None,
@@ -333,6 +488,14 @@ class EnergyConsumptionController(Controller):
             media_type="text/csv; charset=utf-8",
             headers={"content-disposition": 'attachment; filename="energy_consumption.csv"'},
         )
+
+
+def _interval_fact_period_params(*, team_id: object, period_start: str | None, period_end: str | None) -> dict:
+    return {
+        "team_id": str(team_id),
+        "period_start": _parse_datetime(period_start, field_name="period_start") if period_start else None,
+        "period_end": _parse_datetime(period_end, field_name="period_end") if period_end else None,
+    }
 
 
 def _energy_interval_fact_payload(row: m.EnergyIntervalFact) -> dict:

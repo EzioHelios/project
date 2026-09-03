@@ -212,7 +212,9 @@ class EnergyAnalysisQueryService:
                             "period_start": period_param(query.period_start),
                             "period_end": period_param(query.period_end),
                             "area_id": query.area_id if query.area_id and query.area_id != "all" else None,
-                            "equipment_id": query.equipment_id if query.equipment_id and query.equipment_id != "all" else None,
+                            "equipment_id": query.equipment_id
+                            if query.equipment_id and query.equipment_id != "all"
+                            else None,
                             "use_system_code": query.use_system_code
                             if query.use_system_code and query.use_system_code != "all"
                             else None,
@@ -523,7 +525,7 @@ def _analysis_granularity(value: str | None) -> str:
 
 
 def _analysis_source_granularity(value: str | None) -> str:
-    return "hour" if _analysis_granularity(value) == "hour" else "day"
+    return _analysis_granularity(value)
 
 
 def _analysis_bucket(value: str | None) -> str:

@@ -85,6 +85,14 @@ MIN_SUPPLY_CHAIN_SUPPLIER_COUNT = 2
 MIN_REDUCTION_PROJECT_COUNT = 5
 MIN_ALARM_EVENT_COUNT = 1
 MIN_VIDEO_ALARM_EVENT_COUNT = 1
+REQUIRED_ENERGY_INTERVAL_TYPES: tuple[str, ...] = (
+    "purchased_electricity",
+    "natural_gas",
+    "diesel",
+    "purchased_steam",
+    "refrigerant",
+)
+MIN_INTERVAL_ROWS_PER_REQUIRED_TYPE = 24
 LEGACY_RESIDUE_SAMPLE_LIMIT = 5
 LEGACY_SHOWCASE_MARKERS = (
     "DEMO-PARK",
@@ -399,8 +407,13 @@ class WohengShowcasePackage:
             self._session.info[TENANT_ID_SESSION_KEY] = team.id
             self._session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
             counts = await self._tenant_counts()
+            energy_interval_type_counts = await self._energy_interval_type_counts()
             energy_type_diagnostics = await diagnose_energy_type_data(self._session, team_slug=tenant.slug)
             legacy_residue_summary = await self._legacy_residue_summary()
+            required_energy_types_ready = all(
+                energy_interval_type_counts.get(energy_type_code, 0) >= MIN_INTERVAL_ROWS_PER_REQUIRED_TYPE
+                for energy_type_code in REQUIRED_ENERGY_INTERVAL_TYPES
+            )
             passed = (
                 counts["equipment"] >= MIN_EQUIPMENT_COUNT
                 and counts["activities"] >= MIN_ACTIVITY_COUNT
@@ -431,6 +444,7 @@ class WohengShowcasePackage:
                 and counts["reduction_projects"] >= MIN_REDUCTION_PROJECT_COUNT
                 and counts["alarm_events"] >= MIN_ALARM_EVENT_COUNT
                 and counts["video_alarm_events"] >= MIN_VIDEO_ALARM_EVENT_COUNT
+                and required_energy_types_ready
                 and energy_type_diagnostics.issue_count == 0
                 and legacy_residue_summary["rows_with_residue"] == 0
             )
@@ -449,6 +463,8 @@ class WohengShowcasePackage:
                         "required_meter_readings": MIN_METER_READING_COUNT,
                         "required_scope2_aggregates": MIN_SCOPE2_AGGREGATE_COUNT,
                         "required_energy_interval_facts": MIN_ENERGY_INTERVAL_COUNT,
+                        "required_energy_interval_types": list(REQUIRED_ENERGY_INTERVAL_TYPES),
+                        "energy_interval_type_counts": energy_interval_type_counts,
                         "required_workload_facts": MIN_WORKLOAD_COUNT,
                         "required_benchmark_items": MIN_BENCHMARK_ITEM_COUNT,
                         "required_policy_benchmark_profiles": MIN_POLICY_BENCHMARK_PROFILE_COUNT,
@@ -636,7 +652,9 @@ class WohengShowcasePackage:
         woheng_slugs = {tenant.slug for tenant in TENANTS}
         users_by_email = {
             user.email: user
-            for user in (await self._session.scalars(select(User).where(User.email.in_(self._standard_account_emails)))).all()
+            for user in (
+                await self._session.scalars(select(User).where(User.email.in_(self._standard_account_emails)))
+            ).all()
         }
 
         for account in STANDARD_ACCOUNTS:
@@ -807,6 +825,8 @@ class WohengShowcasePackage:
         await self._ensure_metering_data(tenant)
         await seed_energy_analysis_data(self._session)
         await _rebuild_energy_interval_facts(self._session)
+        await self._cleanup_energy_activity_residue(tenant)
+        await self._ensure_non_meter_energy_interval_facts(tenant)
         await _rebuild_equipment_workload_facts(self._session)
         await self._ensure_energy_balance_boundaries(tenant)
         await self._ensure_energy_benchmark(tenant)
@@ -823,8 +843,7 @@ class WohengShowcasePackage:
         await self._ensure_video_alarm_events(tenant)
         legacy_repair_summary = await self._normalize_legacy_showcase_residue(tenant)
         legacy_repair_summary = {
-            "rows_repaired": initial_legacy_repair_summary["rows_repaired"]
-            + legacy_repair_summary["rows_repaired"],
+            "rows_repaired": initial_legacy_repair_summary["rows_repaired"] + legacy_repair_summary["rows_repaired"],
             "fields_repaired": initial_legacy_repair_summary["fields_repaired"]
             + legacy_repair_summary["fields_repaired"],
         }
@@ -1105,7 +1124,11 @@ class WohengShowcasePackage:
                     "source_name",
                 ),
             ),
-            (m.ReductionProjectResourceLink, "decarbonization_project_resource_link", ("resource_key", "resource_snapshot")),
+            (
+                m.ReductionProjectResourceLink,
+                "decarbonization_project_resource_link",
+                ("resource_key", "resource_snapshot"),
+            ),
             (
                 m.ReductionProjectBoundary,
                 "decarbonization_project_boundary",
@@ -1221,7 +1244,15 @@ class WohengShowcasePackage:
             (
                 m.CarbonComplianceCycle,
                 "carbon_compliance_cycle",
-                ("cycle_code", "cycle_name", "obligation_source", "obligation_snapshot", "source_name", "evidence_ref", "remark"),
+                (
+                    "cycle_code",
+                    "cycle_name",
+                    "obligation_source",
+                    "obligation_snapshot",
+                    "source_name",
+                    "evidence_ref",
+                    "remark",
+                ),
             ),
             (
                 m.CarbonComplianceSettlement,
@@ -1467,7 +1498,13 @@ class WohengShowcasePackage:
         equipment_rows = {
             row.id: row
             for row in (
-                await self._session.scalars(select(m.MonitorEquipment).where(m.MonitorEquipment.id.in_([binding.equipment_id for binding in bindings if binding.equipment_id])))
+                await self._session.scalars(
+                    select(m.MonitorEquipment).where(
+                        m.MonitorEquipment.id.in_(
+                            [binding.equipment_id for binding in bindings if binding.equipment_id]
+                        )
+                    )
+                )
             ).all()
         }
         sector_ids = [equipment.sector_id for equipment in equipment_rows.values() if equipment.sector_id is not None]
@@ -1529,7 +1566,8 @@ class WohengShowcasePackage:
                         point_code="active_power",
                         point_name="有功功率",
                         value_kind="instantaneous",
-                        value=(tenant.peak_power_kw / Decimal(max(len(bindings), 1))) + Decimal(hour % 6) * Decimal("3.2"),
+                        value=(tenant.peak_power_kw / Decimal(max(len(bindings), 1)))
+                        + Decimal(hour % 6) * Decimal("3.2"),
                         unit="kW",
                     )
 
@@ -1671,12 +1709,388 @@ class WohengShowcasePackage:
                 "source": "MQTT电表读数演示事实",
             }
 
+    async def _cleanup_energy_activity_residue(self, tenant: WohengTenantSpec) -> None:
+        team_id = self._session.info.get(TENANT_ID_SESSION_KEY)
+        if team_id is None:
+            return
+        await self._session.execute(
+            text(
+                """
+                delete from ghg_activity_allocation
+                where team_id = :team_id
+                  and activity_id in (
+                    select id
+                    from ghg_activity_record
+                    where team_id = :team_id
+                      and (
+                        record_code like 'MANUAL-GHG-%'
+                        or record_code like 'GEN-WOHENG-%'
+                        or activity_code in ('manual-activity', 'energy_interval_fact')
+                      )
+                  )
+                """
+            ),
+            {"team_id": str(team_id)},
+        )
+        await self._session.execute(
+            text(
+                """
+                delete from ghg_activity_record
+                where team_id = :team_id
+                  and (
+                    record_code like 'MANUAL-GHG-%'
+                    or record_code like 'GEN-WOHENG-%'
+                    or activity_code in ('manual-activity', 'energy_interval_fact')
+                  )
+                """
+            ),
+            {"team_id": str(team_id)},
+        )
+        await self._session.execute(
+            text(
+                """
+                delete from ghg_emission_source
+                where team_id = :team_id
+                  and source_code like 'MANUAL-GHG-SRC-%'
+                """
+            ),
+            {"team_id": str(team_id)},
+        )
+
+    async def _ensure_non_meter_energy_interval_facts(self, tenant: WohengTenantSpec) -> None:
+        team_id = self._session.info.get(TENANT_ID_SESSION_KEY)
+        if team_id is None:
+            return
+        await self._session.execute(
+            text(
+                """
+                delete from dataapp_energyintervalfact
+                where team_id = :team_id
+                  and source_system in ('scope2_meter_monthly', 'demo_ghg_activity_monthly', 'demo_ghg_activity_daily', 'demo_showcase')
+                """
+            ),
+            {"team_id": str(team_id)},
+        )
+        await self._session.execute(
+            text(
+                """
+                insert into dataapp_energyintervalfact (
+                    team_id,
+                    source_system,
+                    source_record_id,
+                    energy_type_code,
+                    equipment_id,
+                    equipment_code,
+                    equipment_name,
+                    area_id,
+                    area_name,
+                    use_system_code,
+                    use_system_name,
+                    granularity,
+                    period_start,
+                    period_end,
+                    amount,
+                    unit,
+                    cost_cny,
+                    tariff_segment_type,
+                    reading_count,
+                    data_quality,
+                    remark,
+                    revision_no,
+                    is_current,
+                    source_snapshot,
+                    created_at,
+                    updated_at
+                )
+                select
+                    aggregate.team_id,
+                    'scope2_meter_monthly',
+                    'scope2_meter_aggregate:' || aggregate.id::text,
+                    'purchased_electricity',
+                    equipment.id,
+                    aggregate.ammeter_id,
+                    aggregate.ammeter_name,
+                    aggregate.area_id,
+                    aggregate.area_name,
+                    binding.system_code,
+                    system.name,
+                    'month',
+                    aggregate.first_reading_time,
+                    aggregate.last_reading_time,
+                    aggregate.total_kwh,
+                    'kWh',
+                    (aggregate.total_kwh * 0.82)::numeric(18, 6),
+                    null,
+                    null,
+                    'measured',
+                    '由电表月度汇总生成外购电力月度能源事实。',
+                    1,
+                    true,
+                    (coalesce(aggregate.source_snapshot::jsonb, '{}'::jsonb) ||
+                        jsonb_build_object(
+                            'demoPackage', cast(:package_key as text),
+                            'tenantSlug', cast(:tenant_slug as text),
+                            'sourceName', cast(:source_name as text)
+                        ))::json,
+                    now(),
+                    now()
+                from dataapp_scope2meteraggregate aggregate
+                left join dataapp_monitorequipment equipment
+                  on equipment.team_id = aggregate.team_id
+                 and equipment.code = aggregate.ammeter_id
+                left join dataapp_energyusesystembinding binding
+                  on binding.team_id = aggregate.team_id
+                 and binding.equipment_id = equipment.id
+                 and binding.is_primary = true
+                left join dataapp_energyusesystem system
+                  on system.team_id = aggregate.team_id
+                 and system.code = binding.system_code
+                where aggregate.team_id = :team_id
+                  and aggregate.is_current = true
+                  and aggregate.calc_status in ('ready', 'missing_factor')
+                  and aggregate.total_kwh is not null
+                """
+            ),
+            {
+                "team_id": str(team_id),
+                "package_key": WOHENG_PACKAGE_KEY,
+                "tenant_slug": tenant.slug,
+                "source_name": WOHENG_SOURCE_NAME,
+            },
+        )
+        await self._session.execute(
+            text(
+                """
+                with activity_energy as (
+                    select
+                        activity.*,
+                        coalesce(
+                            activity.source_payload ->> 'energy_type_code',
+                            activity.source_payload ->> 'fuel_type',
+                            case
+                                when activity.ghg_scope = 'scope2'
+                                 and activity.source_mechanism = 'purchased_energy'
+                                then 'purchased_steam'
+                                else null
+                            end
+                        ) as resolved_energy_type_code
+                    from ghg_activity_record activity
+                    where activity.team_id = :team_id
+                      and activity.status = 'approved'
+                      and activity.boundary_status = 'included'
+                      and activity.ghg_scope in ('scope1', 'scope2')
+                ),
+                eligible as (
+                    select
+                        activity.*,
+                        energy_type.name as energy_type_name,
+                        coalesce(allocation.allocation_code, 'A00') as allocation_code,
+                        coalesce(allocation.allocation_ratio, 1)::numeric as allocation_ratio,
+                        allocation.area_id,
+                        allocation.area_name_snapshot,
+                        allocation.equipment_id,
+                        allocation.equipment_code_snapshot,
+                        allocation.equipment_name_snapshot
+                    from activity_energy activity
+                    join dataapp_energytype energy_type
+                      on energy_type.code = activity.resolved_energy_type_code
+                     and energy_type.is_enabled = true
+                    left join ghg_activity_allocation allocation
+                      on allocation.team_id = activity.team_id
+                     and allocation.activity_id = activity.id
+                     and allocation.status = 'active'
+                    where activity.resolved_energy_type_code <> 'purchased_electricity'
+                )
+                insert into dataapp_energyintervalfact (
+                    team_id,
+                    source_system,
+                    source_record_id,
+                    energy_type_code,
+                    equipment_id,
+                    equipment_code,
+                    equipment_name,
+                    area_id,
+                    area_name,
+                    use_system_code,
+                    use_system_name,
+                    granularity,
+                    period_start,
+                    period_end,
+                    amount,
+                    unit,
+                    cost_cny,
+                    tariff_segment_type,
+                    reading_count,
+                    data_quality,
+                    remark,
+                    revision_no,
+                    is_current,
+                    source_snapshot,
+                    created_at,
+                    updated_at
+                )
+                select
+                    team_id,
+                    'demo_ghg_activity_monthly',
+                    'ghg_activity:' || record_code || ':' || allocation_code,
+                    resolved_energy_type_code,
+                    equipment_id,
+                    equipment_code_snapshot,
+                    equipment_name_snapshot,
+                    area_id::text,
+                    area_name_snapshot,
+                    case resolved_energy_type_code
+                        when 'natural_gas' then 'thermal_power'
+                        when 'diesel' then 'mobile_equipment'
+                        when 'gasoline' then 'mobile_equipment'
+                        when 'fuel_oil' then 'thermal_power'
+                        when 'purchased_steam' then 'thermal_power'
+                        when 'refrigerant' then 'cold_chain'
+                        else 'other_energy'
+                    end,
+                    case resolved_energy_type_code
+                        when 'natural_gas' then '热力动力系统'
+                        when 'diesel' then '移动装备与备用电源'
+                        when 'gasoline' then '移动装备与备用电源'
+                        when 'fuel_oil' then '热力动力系统'
+                        when 'purchased_steam' then '热力动力系统'
+                        when 'refrigerant' then '冷链制冷系统'
+                        else '其他用能系统'
+                    end,
+                    'month',
+                    period_start::timestamp,
+                    period_end::timestamp + interval '1 day' - interval '1 second',
+                    (activity_amount * allocation_ratio)::numeric(18, 6),
+                    activity_unit,
+                    case resolved_energy_type_code
+                        when 'natural_gas' then (activity_amount * allocation_ratio * 3.20)::numeric(18, 6)
+                        when 'diesel' then (activity_amount * allocation_ratio * 7.10)::numeric(18, 6)
+                        when 'gasoline' then (activity_amount * allocation_ratio * 7.40)::numeric(18, 6)
+                        when 'fuel_oil' then (activity_amount * allocation_ratio * 6.30)::numeric(18, 6)
+                        when 'purchased_steam' then (activity_amount * allocation_ratio * 220.00)::numeric(18, 6)
+                        else null::numeric
+                    end,
+                    null,
+                    null,
+                    case
+                        when data_source_type = 'system_generated' then 'generated'
+                        when source_mechanism in ('metered_energy', 'purchased_energy') then 'generated'
+                        else 'imported'
+                    end,
+                    '由组织碳活动数据同步形成非电表能源月度事实。',
+                    1,
+                    true,
+                    jsonb_build_object(
+                        'demoPackage', cast(:package_key as text),
+                        'tenantSlug', cast(:tenant_slug as text),
+                        'activityRecord', record_code,
+                        'sourceName', cast(:source_name as text)
+                    ),
+                    now(),
+                    now()
+                from eligible
+                """
+            ),
+            {
+                "team_id": str(team_id),
+                "package_key": WOHENG_PACKAGE_KEY,
+                "tenant_slug": tenant.slug,
+                "source_name": WOHENG_SOURCE_NAME,
+            },
+        )
+        await self._session.execute(
+            text(
+                """
+                with monthly as (
+                    select
+                        fact.*,
+                        greatest((fact.period_end::date - fact.period_start::date + 1), 1)::numeric as day_count
+                    from dataapp_energyintervalfact fact
+                    where fact.team_id = :team_id
+                      and fact.source_system = 'demo_ghg_activity_monthly'
+                      and fact.granularity = 'month'
+                      and fact.is_current = true
+                ),
+                daily as (
+                    select
+                        monthly.*,
+                        day_bucket::timestamp as day_start
+                    from monthly
+                    cross join lateral generate_series(
+                        monthly.period_start::date,
+                        monthly.period_end::date,
+                        interval '1 day'
+                    ) as day_bucket
+                )
+                insert into dataapp_energyintervalfact (
+                    team_id,
+                    source_system,
+                    source_record_id,
+                    energy_type_code,
+                    equipment_id,
+                    equipment_code,
+                    equipment_name,
+                    area_id,
+                    area_name,
+                    use_system_code,
+                    use_system_name,
+                    granularity,
+                    period_start,
+                    period_end,
+                    amount,
+                    unit,
+                    cost_cny,
+                    tariff_segment_type,
+                    reading_count,
+                    data_quality,
+                    remark,
+                    revision_no,
+                    is_current,
+                    source_snapshot,
+                    created_at,
+                    updated_at
+                )
+                select
+                    team_id,
+                    'demo_ghg_activity_daily',
+                    replace(source_record_id, 'ghg_activity:', 'ghg_activity_daily:') || ':' || to_char(day_start, 'YYYYMMDD'),
+                    energy_type_code,
+                    equipment_id,
+                    equipment_code,
+                    equipment_name,
+                    area_id,
+                    area_name,
+                    use_system_code,
+                    use_system_name,
+                    'day',
+                    day_start,
+                    day_start + interval '1 day',
+                    (amount / day_count)::numeric(18, 6),
+                    unit,
+                    case when cost_cny is null then null else (cost_cny / day_count)::numeric(18, 6) end,
+                    tariff_segment_type,
+                    null,
+                    data_quality,
+                    '由组织碳活动月度能源事实按自然日展开。',
+                    1,
+                    true,
+                    source_snapshot,
+                    now(),
+                    now()
+                from daily
+                """
+            ),
+            {"team_id": str(team_id)},
+        )
+
     async def _ensure_energy_balance_boundaries(self, tenant: WohengTenantSpec) -> None:
         equipment_codes = ["PCC-METER-01", "LIGHTING-01", "CHILLER-01", "CONVEYOR-01", "ASRS-01", "EVSE-GROUP-01"]
         equipment_rows = {
             row.code: row
             for row in (
-                await self._session.scalars(select(m.MonitorEquipment).where(m.MonitorEquipment.code.in_(equipment_codes)))
+                await self._session.scalars(
+                    select(m.MonitorEquipment).where(m.MonitorEquipment.code.in_(equipment_codes))
+                )
             ).all()
         }
         sector_rows = {row.code: row for row in (await self._session.scalars(select(m.MonitorSector))).all()}
@@ -1912,24 +2326,168 @@ class WohengShowcasePackage:
         profile.remark = "用于沃衡汽车统一演示包的能效对标页面。"
 
         item_specs = (
-            ("product", None, "生产基地产品通用标杆", "kgce_per_unit", "单位产品综合能耗", "0.260", "kgce/unit", "生产基地产品通用口径"),
-            ("product", "WH-BATT-PACK", "动力电池托盘总成", "kgce_per_unit", "单位产品综合能耗", "0.255", "kgce/unit", "动力电池托盘总成合格产量"),
-            ("product", "WH-DRIVE-UNIT", "电驱动总成", "kgce_per_unit", "单位产品综合能耗", "0.315", "kgce/unit", "电驱动总成合格产量"),
-            ("product", None, "生产基地产值通用标杆", "kgce_per_10k_value", "单位产值综合能耗", "5.800", "kgce/万元", "标准价产值口径"),
-            ("use_system", "handling", "厂内物流搬运系统", "kwh_per_run_hour", "单位运行小时用电", "680.000", "kWh/h", "搬运系统月度运行小时"),
-            ("use_system", "handling", "厂内物流搬运系统", "kwh_per_workload", "单位作业量用电", "1.450", "kWh/unit", "托盘出入库作业量"),
-            ("use_system", "charging", "充电与测试系统", "kwh_per_run_hour", "单位运行小时用电", "720.000", "kWh/h", "充电系统月度运行小时"),
-            ("use_system", "lighting", "照明系统", "kwh_per_run_hour", "单位运行小时用电", "620.000", "kWh/h", "照明系统月度运行小时"),
-            ("use_system", "storage", "仓储设施系统", "kwh_per_run_hour", "单位运行小时用电", "760.000", "kWh/h", "仓储设施系统月度运行小时"),
-            ("area", None, "生产基地单位面积用电标杆", "kwh_per_m2", "单位面积用电量", "310.000", "kWh/m2", "建筑面积年度化用电强度"),
-            ("enterprise", None, "生产基地综合面积能耗标杆", "tce_per_m2", "单位面积综合能耗", "0.0720", "tce/m2", "建筑面积年度化综合能耗强度"),
-            ("device_type", "transformer", "电力变压器", "energy_efficiency_level", "设备能效等级", "1", "级", "同能效标准分类"),
-            ("device_type", "ev_charger", "充电桩", "energy_efficiency_level", "设备能效等级", "1", "级", "直流/交流充电设备"),
-            ("device_type", "chiller", "冷水机组", "energy_efficiency_level", "设备能效等级", "1", "级", "冷水机组综合部分负荷性能系数"),
-            ("device_type", "pv_inverter", "光伏并网逆变器", "energy_efficiency_level", "设备能效等级", "1", "级", "平均加权效率"),
+            (
+                "product",
+                None,
+                "生产基地产品通用标杆",
+                "kgce_per_unit",
+                "单位产品综合能耗",
+                "0.260",
+                "kgce/unit",
+                "生产基地产品通用口径",
+            ),
+            (
+                "product",
+                "WH-BATT-PACK",
+                "动力电池托盘总成",
+                "kgce_per_unit",
+                "单位产品综合能耗",
+                "0.255",
+                "kgce/unit",
+                "动力电池托盘总成合格产量",
+            ),
+            (
+                "product",
+                "WH-DRIVE-UNIT",
+                "电驱动总成",
+                "kgce_per_unit",
+                "单位产品综合能耗",
+                "0.315",
+                "kgce/unit",
+                "电驱动总成合格产量",
+            ),
+            (
+                "product",
+                None,
+                "生产基地产值通用标杆",
+                "kgce_per_10k_value",
+                "单位产值综合能耗",
+                "5.800",
+                "kgce/万元",
+                "标准价产值口径",
+            ),
+            (
+                "use_system",
+                "handling",
+                "厂内物流搬运系统",
+                "kwh_per_run_hour",
+                "单位运行小时用电",
+                "680.000",
+                "kWh/h",
+                "搬运系统月度运行小时",
+            ),
+            (
+                "use_system",
+                "handling",
+                "厂内物流搬运系统",
+                "kwh_per_workload",
+                "单位作业量用电",
+                "1.450",
+                "kWh/unit",
+                "托盘出入库作业量",
+            ),
+            (
+                "use_system",
+                "charging",
+                "充电与测试系统",
+                "kwh_per_run_hour",
+                "单位运行小时用电",
+                "720.000",
+                "kWh/h",
+                "充电系统月度运行小时",
+            ),
+            (
+                "use_system",
+                "lighting",
+                "照明系统",
+                "kwh_per_run_hour",
+                "单位运行小时用电",
+                "620.000",
+                "kWh/h",
+                "照明系统月度运行小时",
+            ),
+            (
+                "use_system",
+                "storage",
+                "仓储设施系统",
+                "kwh_per_run_hour",
+                "单位运行小时用电",
+                "760.000",
+                "kWh/h",
+                "仓储设施系统月度运行小时",
+            ),
+            (
+                "area",
+                None,
+                "生产基地单位面积用电标杆",
+                "kwh_per_m2",
+                "单位面积用电量",
+                "310.000",
+                "kWh/m2",
+                "建筑面积年度化用电强度",
+            ),
+            (
+                "enterprise",
+                None,
+                "生产基地综合面积能耗标杆",
+                "tce_per_m2",
+                "单位面积综合能耗",
+                "0.0720",
+                "tce/m2",
+                "建筑面积年度化综合能耗强度",
+            ),
+            (
+                "device_type",
+                "transformer",
+                "电力变压器",
+                "energy_efficiency_level",
+                "设备能效等级",
+                "1",
+                "级",
+                "同能效标准分类",
+            ),
+            (
+                "device_type",
+                "ev_charger",
+                "充电桩",
+                "energy_efficiency_level",
+                "设备能效等级",
+                "1",
+                "级",
+                "直流/交流充电设备",
+            ),
+            (
+                "device_type",
+                "chiller",
+                "冷水机组",
+                "energy_efficiency_level",
+                "设备能效等级",
+                "1",
+                "级",
+                "冷水机组综合部分负荷性能系数",
+            ),
+            (
+                "device_type",
+                "pv_inverter",
+                "光伏并网逆变器",
+                "energy_efficiency_level",
+                "设备能效等级",
+                "1",
+                "级",
+                "平均加权效率",
+            ),
         )
         for spec in item_specs:
-            target_type, target_code, target_name, metric_code, metric_name, benchmark_value, unit, applicable_condition = spec
+            (
+                target_type,
+                target_code,
+                target_name,
+                metric_code,
+                metric_name,
+                benchmark_value,
+                unit,
+                applicable_condition,
+            ) = spec
             item = await self._session.scalar(
                 select(m.EnergyBenchmarkItem).where(
                     m.EnergyBenchmarkItem.profile_id == profile.id,
@@ -1961,8 +2519,12 @@ class WohengShowcasePackage:
             item.applicable_condition = applicable_condition
             item.metric_direction = "level_rank" if metric_code == "energy_efficiency_level" else "lower_is_better"
             item.advanced_value = Decimal(benchmark_value)
-            item.saving_value = Decimal(benchmark_value) * Decimal("1.08") if metric_code != "energy_efficiency_level" else Decimal(2)
-            item.access_value = Decimal(benchmark_value) * Decimal("1.18") if metric_code != "energy_efficiency_level" else Decimal(3)
+            item.saving_value = (
+                Decimal(benchmark_value) * Decimal("1.08") if metric_code != "energy_efficiency_level" else Decimal(2)
+            )
+            item.access_value = (
+                Decimal(benchmark_value) * Decimal("1.18") if metric_code != "energy_efficiency_level" else Decimal(3)
+            )
             item.baseline_value = item.access_value
             item.advanced_level = "能效1级" if metric_code == "energy_efficiency_level" else "先进水平"
             item.saving_level = "能效2级" if metric_code == "energy_efficiency_level" else "节能水平"
@@ -2112,7 +2674,9 @@ class WohengShowcasePackage:
             row.source_record_id = source_record_id
             row.remark = "沃衡汽车统一演示包价格口径。"
 
-        equipment = await self._session.scalar(select(m.MonitorEquipment).where(m.MonitorEquipment.code == "CONVEYOR-01"))
+        equipment = await self._session.scalar(
+            select(m.MonitorEquipment).where(m.MonitorEquipment.code == "CONVEYOR-01")
+        )
         area = await self._session.scalar(select(m.MonitorSector).where(m.MonitorSector.code != "ROOT"))
         output_specs = (
             ("WH-BATT-PACK", "动力电池托盘总成", "PACK-LINE-01", "2026-07-01", "2026-07-31", "13800"),
@@ -2327,7 +2891,9 @@ class WohengShowcasePackage:
         allocation.status = "active"
 
     async def _ensure_supply_chain_and_product_footprint(self, tenant: WohengTenantSpec) -> None:  # noqa: PLR0915
-        product = await self._session.scalar(select(m.ProductionProduct).where(m.ProductionProduct.code == "WH-BATT-PACK"))
+        product = await self._session.scalar(
+            select(m.ProductionProduct).where(m.ProductionProduct.code == "WH-BATT-PACK")
+        )
         product_id = product.id if product is not None else None
         supplier_specs = (
             ("WH-SUP-AL-001", "华东铝合金部件有限公司", "有色金属压延加工", "direct_material", "high"),
@@ -2362,7 +2928,9 @@ class WohengShowcasePackage:
                 )
             )
             if site is None:
-                site = m.SupplierSite(supplier_id=supplier.id, site_code=f"{supplier_code}-SITE", site_name=f"{name}主生产场站")
+                site = m.SupplierSite(
+                    supplier_id=supplier.id, site_code=f"{supplier_code}-SITE", site_name=f"{name}主生产场站"
+                )
                 self._session.add(site)
             site.site_name = f"{name}主生产场站"
             site.country_region = "中国华东"
@@ -2518,7 +3086,9 @@ class WohengShowcasePackage:
         study.confidence_level = "medium"
         study.remark = f"{tenant.name}产品碳足迹演示研究。"
 
-        boundary = await self._session.scalar(select(m.ProductSystemBoundary).where(m.ProductSystemBoundary.study_id == study.id))
+        boundary = await self._session.scalar(
+            select(m.ProductSystemBoundary).where(m.ProductSystemBoundary.study_id == study.id)
+        )
         if boundary is None:
             boundary = m.ProductSystemBoundary(study_id=study.id)
             self._session.add(boundary)
@@ -2558,13 +3128,79 @@ class WohengShowcasePackage:
             stages_by_code[stage_code] = stage
 
         inventory_specs = (
-            ("PCF-RAW-001", "raw_material", "供应商铝合金型材碳数据", "material", "12800", "kg", "6.42", "kgCO2e/unit", "供应商经审核填报数据", "82176"),
-            ("PCF-RAW-002", "raw_material", "供应商BMS控制板组件碳数据", "material", "5200", "pcs", "12.80", "kgCO2e/unit", "供应商经审核填报数据", "66560"),
-            ("PCF-TRN-001", "inbound_transport", "入厂运输", "transport", "18640", "t.km", "1.00", "kgCO2e/t.km", "运输活动数据", "18640"),
-            ("PCF-MFG-001", "manufacturing", "制造电力", "energy", "74840", "kWh", "0.5703", "kgCO2e/kWh", "基地计量电量", "42680"),
-            ("PCF-PKG-001", "packaging", "循环包装分摊", "material", "9320", "pcs", "1.00", "kgCO2e/pcs", "包装台账", "9320"),
+            (
+                "PCF-RAW-001",
+                "raw_material",
+                "供应商铝合金型材碳数据",
+                "material",
+                "12800",
+                "kg",
+                "6.42",
+                "kgCO2e/unit",
+                "供应商经审核填报数据",
+                "82176",
+            ),
+            (
+                "PCF-RAW-002",
+                "raw_material",
+                "供应商BMS控制板组件碳数据",
+                "material",
+                "5200",
+                "pcs",
+                "12.80",
+                "kgCO2e/unit",
+                "供应商经审核填报数据",
+                "66560",
+            ),
+            (
+                "PCF-TRN-001",
+                "inbound_transport",
+                "入厂运输",
+                "transport",
+                "18640",
+                "t.km",
+                "1.00",
+                "kgCO2e/t.km",
+                "运输活动数据",
+                "18640",
+            ),
+            (
+                "PCF-MFG-001",
+                "manufacturing",
+                "制造电力",
+                "energy",
+                "74840",
+                "kWh",
+                "0.5703",
+                "kgCO2e/kWh",
+                "基地计量电量",
+                "42680",
+            ),
+            (
+                "PCF-PKG-001",
+                "packaging",
+                "循环包装分摊",
+                "material",
+                "9320",
+                "pcs",
+                "1.00",
+                "kgCO2e/pcs",
+                "包装台账",
+                "9320",
+            ),
         )
-        for item_no, stage_code, item_name, activity_type, amount, unit, factor, factor_unit, factor_source, co2e in inventory_specs:
+        for (
+            item_no,
+            stage_code,
+            item_name,
+            activity_type,
+            amount,
+            unit,
+            factor,
+            factor_unit,
+            factor_source,
+            co2e,
+        ) in inventory_specs:
             item = await self._session.scalar(
                 select(m.ProductFootprintInventoryItem).where(
                     m.ProductFootprintInventoryItem.study_id == study.id,
@@ -2587,7 +3223,9 @@ class WohengShowcasePackage:
             item.factor_value = Decimal(factor)
             item.factor_unit = factor_unit
             item.factor_source = factor_source
-            item.supplier_name = suppliers[0].name if "铝合金" in item_name else suppliers[1].name if "BMS" in item_name else None
+            item.supplier_name = (
+                suppliers[0].name if "铝合金" in item_name else suppliers[1].name if "BMS" in item_name else None
+            )
             item.allocation_ratio = Decimal(1)
             item.computed_co2e = Decimal(co2e)
             item.calc_status = "calculated"
@@ -2605,7 +3243,9 @@ class WohengShowcasePackage:
             )
         )
         if rule is None:
-            rule = m.ProductFootprintAllocationRule(study_id=study.id, process_code="PACK-LINE-01", process_name="动力电池托盘装配线")
+            rule = m.ProductFootprintAllocationRule(
+                study_id=study.id, process_code="PACK-LINE-01", process_name="动力电池托盘装配线"
+            )
             self._session.add(rule)
         rule.process_name = "动力电池托盘装配线"
         rule.allocation_method = "physical"
@@ -2621,7 +3261,12 @@ class WohengShowcasePackage:
             )
         )
         stage_payload = [
-            {"stage_code": code, "stage_name": name, "item_count": 1 if code != "raw_material" else 2, "kg_co2e": float(co2e)}
+            {
+                "stage_code": code,
+                "stage_name": name,
+                "item_count": 1 if code != "raw_material" else 2,
+                "kg_co2e": float(co2e),
+            }
             for code, name, _sequence, co2e in stage_specs
         ]
         if result is None:
@@ -2748,13 +3393,9 @@ class WohengShowcasePackage:
             "mqtt_mappings": int(await self._session.scalar(select(func.count(m.MqttPointMapping.id))) or 0),
             "meter_readings": int(await self._session.scalar(select(func.count(m.MeterReadingFact.id))) or 0),
             "scope2_aggregates": int(await self._session.scalar(select(func.count(m.Scope2MeterAggregate.id))) or 0),
-            "energy_interval_facts": int(
-                await self._session.scalar(select(func.count(m.EnergyIntervalFact.id))) or 0
-            ),
+            "energy_interval_facts": int(await self._session.scalar(select(func.count(m.EnergyIntervalFact.id))) or 0),
             "workload_facts": int(await self._session.scalar(select(func.count(m.EquipmentWorkloadFact.id))) or 0),
-            "benchmark_profiles": int(
-                await self._session.scalar(select(func.count(m.EnergyBenchmarkProfile.id))) or 0
-            ),
+            "benchmark_profiles": int(await self._session.scalar(select(func.count(m.EnergyBenchmarkProfile.id))) or 0),
             "benchmark_items": int(await self._session.scalar(select(func.count(m.EnergyBenchmarkItem.id))) or 0),
             "policy_benchmark_profiles": int(
                 await self._session.scalar(
@@ -2800,9 +3441,7 @@ class WohengShowcasePackage:
             "employee_commute": int(await self._session.scalar(select(func.count(m.EmployeeCommute.id))) or 0),
             "production_products": int(await self._session.scalar(select(func.count(m.ProductionProduct.id))) or 0),
             "product_prices": int(await self._session.scalar(select(func.count(m.ProductPrice.id))) or 0),
-            "production_outputs": int(
-                await self._session.scalar(select(func.count(m.ProductionOutputFact.id))) or 0
-            ),
+            "production_outputs": int(await self._session.scalar(select(func.count(m.ProductionOutputFact.id))) or 0),
             "production_resource_bindings": int(
                 await self._session.scalar(select(func.count(m.ProductionResourceBinding.id))) or 0
             ),
@@ -2828,6 +3467,17 @@ class WohengShowcasePackage:
             "alarm_events": int(await self._session.scalar(select(func.count(m.AlarmEvent.id))) or 0),
             "video_alarm_events": int(await self._session.scalar(select(func.count(m.VedioAlarmEvent.id))) or 0),
         }
+
+    async def _energy_interval_type_counts(self) -> dict[str, int]:
+        rows = (
+            await self._session.execute(
+                select(m.EnergyIntervalFact.energy_type_code, func.count(m.EnergyIntervalFact.id))
+                .where(m.EnergyIntervalFact.is_current.is_(True))
+                .group_by(m.EnergyIntervalFact.energy_type_code)
+                .order_by(m.EnergyIntervalFact.energy_type_code)
+            )
+        ).all()
+        return {str(energy_type_code): int(row_count or 0) for energy_type_code, row_count in rows}
 
     async def _record_manifest(
         self,
