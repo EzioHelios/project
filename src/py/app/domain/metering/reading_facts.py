@@ -6,9 +6,10 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 
 from app.db import models as m
+from app.lib.tenancy import TENANT_ID_SESSION_KEY
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -123,56 +124,56 @@ class MeterReadingFactWriter:
         self._session = session
 
     async def write_many(self, readings: list[MeterReadingFactInput]) -> int:
-        created = 0
-        for reading in readings:
-            if await self._exists(reading):
-                continue
-            self._session.add(self._to_model(reading))
-            created += 1
-        return created
-
-    async def _exists(self, reading: MeterReadingFactInput) -> bool:
-        existing = await self._session.scalar(
-            select(m.MeterReadingFact.id).where(
-                m.MeterReadingFact.source_system == reading.source_system,
-                m.MeterReadingFact.source_record_id == reading.source_record_id,
-                m.MeterReadingFact.equipment_id == reading.equipment_id,
-                m.MeterReadingFact.point_code == reading.point_code,
-                m.MeterReadingFact.value_kind == reading.value_kind,
+        if not readings:
+            return 0
+        rows = [self._to_values(reading) for reading in readings]
+        statement = (
+            insert(m.MeterReadingFact)
+            .values(rows)
+            .on_conflict_do_nothing(
+                index_elements=[
+                    "team_id",
+                    "source_system",
+                    "source_record_id",
+                    "equipment_id",
+                    "point_code",
+                    "value_kind",
+                ]
             )
         )
-        return existing is not None
+        result = await self._session.execute(statement)
+        return max(result.rowcount or 0, 0)
 
-    def _to_model(self, reading: MeterReadingFactInput) -> m.MeterReadingFact:
+    def _to_values(self, reading: MeterReadingFactInput) -> dict[str, Any]:
         spec = METER_POINT_SPECS.get(reading.point_code)
         if spec is None:
             msg = f"未知电表点位编码: {reading.point_code}"
             raise ValueError(msg)
         normalized_value = _decimal_or_none(reading.normalized_value)
         unit = reading.unit or spec.unit
-        return m.MeterReadingFact(
-            team_id=reading.team_id,
-            source_system=reading.source_system,
-            source_record_id=reading.source_record_id,
-            source_message_id=reading.source_message_id,
-            binding_id=reading.binding_id,
-            equipment_id=reading.equipment_id,
-            source_point_code=reading.source_point_code or reading.point_code,
-            source_point_name=reading.source_point_name,
-            point_code=reading.point_code,
-            point_name=reading.point_name or spec.point_name,
-            energy_direction=spec.energy_direction,
-            energy_kind=spec.energy_kind,
-            tou_period=spec.tou_period,
-            value_kind=reading.value_kind,
-            raw_value=None if reading.raw_value is None else str(reading.raw_value),
-            normalized_value=normalized_value,
-            unit=unit,
-            quality_status=reading.quality_status,
-            source_type=reading.source_type,
-            reading_time=reading.reading_time,
-            mapping_version=reading.mapping_version,
-        )
+        return {
+            "team_id": reading.team_id or self._session.info.get(TENANT_ID_SESSION_KEY),
+            "source_system": reading.source_system,
+            "source_record_id": reading.source_record_id,
+            "source_message_id": reading.source_message_id,
+            "binding_id": reading.binding_id,
+            "equipment_id": reading.equipment_id,
+            "source_point_code": reading.source_point_code or reading.point_code,
+            "source_point_name": reading.source_point_name,
+            "point_code": reading.point_code,
+            "point_name": reading.point_name or spec.point_name,
+            "energy_direction": spec.energy_direction,
+            "energy_kind": spec.energy_kind,
+            "tou_period": spec.tou_period,
+            "value_kind": reading.value_kind,
+            "raw_value": None if reading.raw_value is None else str(reading.raw_value),
+            "normalized_value": normalized_value,
+            "unit": unit,
+            "quality_status": reading.quality_status,
+            "source_type": reading.source_type,
+            "reading_time": reading.reading_time,
+            "mapping_version": reading.mapping_version,
+        }
 
 
 def point_spec(point_code: str) -> MeterPointSpec:
