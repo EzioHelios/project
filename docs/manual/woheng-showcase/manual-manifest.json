@@ -20,7 +20,7 @@
     },
     {
       "pageId": "green-factory-score-items",
-      "title": "绿色工厂评分项功能索引",
+      "title": "平台功能索引",
       "source": "01-green-factory-score-items.md"
     },
     {
@@ -104,11 +104,6 @@
       "source": "04-activity-ledgers-import.md"
     },
     {
-      "pageId": "factors-calculation",
-      "title": "因子维护与核算准备",
-      "source": "05-factors-calculation.md"
-    },
-    {
       "pageId": "organization-boundary-settings",
       "title": "组织碳核算：组织边界与核算边界维护",
       "source": "06-organization-boundary-settings.md"
@@ -119,14 +114,24 @@
       "source": "06a-ghg-maintenance.md"
     },
     {
-      "pageId": "organization-carbon-iso14064",
-      "title": "组织碳管理与 ISO 14064 分类",
-      "source": "07-organization-carbon-iso14064.md"
+      "pageId": "factors-calculation",
+      "title": "组织碳核算：排放因子库与企业计算因子",
+      "source": "05-factors-calculation.md"
     },
     {
-      "pageId": "product-supply-chain-carbon",
-      "title": "碳足迹与供应链碳管理",
-      "source": "08-product-supply-chain-carbon.md"
+      "pageId": "organization-carbon-calculation",
+      "title": "组织碳核算：核算执行与结果明细",
+      "source": "07a-organization-carbon-calculation.md"
+    },
+    {
+      "pageId": "inventory-report-management",
+      "title": "组织碳核算：盘查报告管理与导出",
+      "source": "07b-inventory-report-management.md"
+    },
+    {
+      "pageId": "organization-carbon-iso14064",
+      "title": "组织碳总览与结构分析",
+      "source": "07-organization-carbon-iso14064.md"
     },
     {
       "pageId": "monitoring-alerts",
@@ -135,7 +140,7 @@
     },
     {
       "pageId": "verification-report-export",
-      "title": "核查材料与报告导出",
+      "title": "核查材料引用",
       "source": "09-verification-report-export.md"
     },
     {
@@ -144,8 +149,13 @@
       "source": "10-reduction-carbon-asset.md"
     },
     {
+      "pageId": "product-supply-chain-carbon",
+      "title": "碳足迹与供应链碳管理",
+      "source": "08-product-supply-chain-carbon.md"
+    },
+    {
       "pageId": "demo-script",
-      "title": "下午演示脚本",
+      "title": "现场演示脚本",
       "source": "11-demo-script.md"
     },
     {
@@ -225,7 +235,7 @@
       "summary": "用于展示能耗、碳排、区域运行和电力专题的综合态势。",
       "steps": [
         {
-          "stepNumber": "2.1",
+          "stepNumber": "3.1",
           "title": "查看生产基地介绍大屏",
           "route": "/bigscreen/intro",
           "action": "进入介绍大屏，查看企业信息、运营项目和基地概况。",
@@ -235,7 +245,7 @@
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "2.2",
+          "stepNumber": "3.2",
           "title": "查看能碳态势总览",
           "route": "/bigscreen/overview",
           "action": "进入态势总览大屏，查看能耗主指标、碳排主指标、月度经营趋势和区域能耗速览。",
@@ -245,7 +255,7 @@
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "2.3",
+          "stepNumber": "3.3",
           "title": "查看碳排专题大屏",
           "route": "/bigscreen/carbon",
           "action": "进入碳排专题，查看范围对比、贡献构成和碳排预警滚动榜。",
@@ -262,7 +272,7 @@
       "summary": "用于说明区域、设备、测点、MQTT 表计绑定、点位映射、测试报文和采集结果查看。",
       "steps": [
         {
-          "stepNumber": "3.1",
+          "stepNumber": "4.1",
           "title": "区域新增",
           "route": "/data/monitor-area",
           "action": "在区域主数据工作台选择父级区域，新增子区域并填写区域编码、区域名称、区域类型、负责人、归属部门、位置说明和备注。",
@@ -272,7 +282,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.2",
+          "stepNumber": "4.2",
           "title": "区域编辑表单",
           "route": "/data/monitor-area",
           "action": "打开区域详情并进入编辑区域表单，调整区域名称、负责人、归属部门、位置说明或备注。",
@@ -282,7 +292,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.3",
+          "stepNumber": "4.3",
           "title": "区域详情回显",
           "route": "/data/monitor-area",
           "action": "保存区域编辑后，在区域详情查看编码、名称、类型、上级区域、负责人、位置说明、备注和本区域设备统计。",
@@ -292,7 +302,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.4",
+          "stepNumber": "4.4",
           "title": "区域停用状态",
           "route": "/data/monitor-area",
           "action": "点击区域详情中的停用动作。",
@@ -302,7 +312,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.5",
+          "stepNumber": "4.5",
           "title": "区域删除结果",
           "route": "/data/monitor-area",
           "action": "在无子区域、无已挂载设备时删除区域。",
@@ -312,7 +322,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.6",
+          "stepNumber": "4.6",
           "title": "设备新增",
           "route": "/data/terminals",
           "action": "新增设备并填写设备编码、设备名称、所属区域、设备类型、采集协议、采集标识、能源类型、维护负责人和安装位置。",
@@ -322,7 +332,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.7",
+          "stepNumber": "4.7",
           "title": "设备详情回显",
           "route": "/data/terminals",
           "action": "打开新增设备详情，查看基础信息、所属区域、设备类型、采集配置、能源类型、启用状态和投运状态。",
@@ -332,7 +342,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.8",
+          "stepNumber": "4.8",
           "title": "设备编辑表单",
           "route": "/data/terminals",
           "action": "进入设备编辑表单，调整设备名称、维护负责人、备注或其他主数据字段。",
@@ -342,7 +352,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.9",
+          "stepNumber": "4.9",
           "title": "设备停用状态",
           "route": "/data/terminals",
           "action": "点击设备详情中的停用动作。",
@@ -352,7 +362,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.10",
+          "stepNumber": "4.10",
           "title": "设备恢复状态",
           "route": "/data/terminals",
           "action": "点击设备详情中的恢复动作。",
@@ -362,7 +372,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.11",
+          "stepNumber": "4.11",
           "title": "设备删除结果",
           "route": "/data/terminals",
           "action": "清理测点和 MQTT 绑定后删除设备。",
@@ -372,7 +382,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.12",
+          "stepNumber": "4.12",
           "title": "测点新增",
           "route": "/data/terminals",
           "action": "在设备详情的测点页签新增测点，填写测点编码、测点名称、数值类型、单位、来源字段、采样周期、上下限和备注。",
@@ -382,7 +392,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.13",
+          "stepNumber": "4.13",
           "title": "测点编辑表单",
           "route": "/data/terminals",
           "action": "打开测点编辑表单，调整测点名称、来源字段或备注。",
@@ -392,7 +402,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.14",
+          "stepNumber": "4.14",
           "title": "测点编辑后回显",
           "route": "/data/terminals",
           "action": "保存测点编辑后，在测点列表查看测点编码、业务名称、单位和来源字段。",
@@ -402,7 +412,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.15",
+          "stepNumber": "4.15",
           "title": "测点删除结果",
           "route": "/data/terminals",
           "action": "删除设备测点。",
@@ -412,7 +422,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.16",
+          "stepNumber": "4.16",
           "title": "MQTT 表计绑定新增",
           "route": "/data/terminals",
           "action": "在设备详情接入页签配置接入通道、网关标识、表计编号、匹配名称、外部设备号、临时地址、绑定状态、换算方式和倍率。",
@@ -422,7 +432,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.17",
+          "stepNumber": "4.17",
           "title": "MQTT 表计绑定回显",
           "route": "/data/terminals",
           "action": "保存 MQTT 表计绑定后，在接入页签查看绑定详情。",
@@ -432,7 +442,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.18",
+          "stepNumber": "4.18",
           "title": "MQTT 表计绑定编辑",
           "route": "/data/terminals",
           "action": "打开编辑绑定表单，调整临时地址、匹配名称、绑定状态、换算方式或倍率。",
@@ -442,7 +452,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.19",
+          "stepNumber": "4.19",
           "title": "MQTT 点位映射新增",
           "route": "/data/terminals",
           "action": "新增点位映射，将 MQTT 来源 Tag 映射到当前设备平台测点。",
@@ -452,7 +462,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.20",
+          "stepNumber": "4.20",
           "title": "MQTT 点位映射回显",
           "route": "/data/terminals",
           "action": "保存点位映射后，在映射列表查看来源 Tag、平台测点、单位、倍率和启用状态。",
@@ -462,7 +472,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.21",
+          "stepNumber": "4.21",
           "title": "MQTT 点位映射编辑",
           "route": "/data/terminals",
           "action": "打开映射编辑表单，调整来源名称、单位、倍率、版本或启用状态。",
@@ -472,7 +482,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.22",
+          "stepNumber": "4.22",
           "title": "MQTT 接入测试",
           "route": "/data/terminals",
           "action": "发送 MQTT 测试报文，查看入站消息状态、处理结果和投影后的测点读数。",
@@ -482,7 +492,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.23",
+          "stepNumber": "4.23",
           "title": "MQTT 点位映射删除",
           "route": "/data/terminals",
           "action": "删除 MQTT 点位映射。",
@@ -492,7 +502,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.24",
+          "stepNumber": "4.24",
           "title": "MQTT 表计绑定删除",
           "route": "/data/terminals",
           "action": "删除 MQTT 表计绑定。",
@@ -502,7 +512,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "3.25",
+          "stepNumber": "4.25",
           "title": "电表电量采集结果",
           "route": "/data/meter",
           "action": "进入电表电量页面，查看最新采集时间、采样数、电表数量、分时电量和用电趋势。",
@@ -512,7 +522,7 @@
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "3.26",
+          "stepNumber": "4.26",
           "title": "点位监测与来源追溯",
           "route": "/data/point-monitoring",
           "action": "进入点位监测页面，按设备、点位或来源编码筛选关键测点，查看趋势图、最近读数和来源追溯。",
@@ -522,7 +532,7 @@
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "3.27",
+          "stepNumber": "4.27",
           "title": "既有设备主数据示例",
           "route": "/data/terminals",
           "action": "查看生产基地已有设备示例。",
@@ -532,7 +542,7 @@
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "3.28",
+          "stepNumber": "4.28",
           "title": "既有区域主数据示例",
           "route": "/data/monitor-area",
           "action": "查看生产基地已有区域层级。",
@@ -549,7 +559,7 @@
       "summary": "用于验证能源种类和单位换算的查询、新增、详情、编辑和删除。",
       "steps": [
         {
-          "stepNumber": "4.1",
+          "stepNumber": "5.1",
           "title": "查看能源种类列表",
           "route": "/data/energy-types",
           "action": "进入能源种类页面，查看能源编码、能源名称、类别、默认范围、原始单位、折标单位、折标系数、标准依据和启用状态。",
@@ -559,7 +569,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "4.2",
+          "stepNumber": "5.2",
           "title": "新增能源种类",
           "route": "/data/energy-types",
           "action": "点击新增，填写能源编码、能源名称、类别、默认范围、单位、折标系数、标准依据、系数来源和备注。",
@@ -569,7 +579,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "4.3",
+          "stepNumber": "5.3",
           "title": "查看能源种类详情",
           "route": "/data/energy-types",
           "action": "在能源种类列表中点击详情。",
@@ -579,7 +589,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "4.4",
+          "stepNumber": "5.4",
           "title": "编辑能源种类",
           "route": "/data/energy-types",
           "action": "点击编辑，调整能源名称、折标系数、启用状态或备注。",
@@ -589,7 +599,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "4.5",
+          "stepNumber": "5.5",
           "title": "删除能源种类",
           "route": "/data/energy-types",
           "action": "删除未被能源事实数据引用的能源种类。",
@@ -599,7 +609,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "4.6",
+          "stepNumber": "5.6",
           "title": "查看单位换算列表",
           "route": "/data/energy-unit-conversions",
           "action": "进入单位换算页面，查看能源种类、来源单位、目标单位、换算系数、标准依据、默认换算和启用状态。",
@@ -609,7 +619,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "4.7",
+          "stepNumber": "5.7",
           "title": "新增单位换算",
           "route": "/data/energy-unit-conversions",
           "action": "点击新增，选择能源种类，填写来源单位、目标单位、换算系数、标准依据、系数来源和备注。",
@@ -619,7 +629,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "4.8",
+          "stepNumber": "5.8",
           "title": "查看单位换算详情",
           "route": "/data/energy-unit-conversions",
           "action": "在单位换算列表中点击详情。",
@@ -629,7 +639,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "4.9",
+          "stepNumber": "5.9",
           "title": "编辑单位换算",
           "route": "/data/energy-unit-conversions",
           "action": "点击编辑，调整换算系数、默认换算、启用状态或备注。",
@@ -639,7 +649,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "4.10",
+          "stepNumber": "5.10",
           "title": "删除单位换算",
           "route": "/data/energy-unit-conversions",
           "action": "删除不再使用的单位换算记录。",
@@ -656,7 +666,7 @@
       "summary": "用于验证能源事实数据查询、新增、详情、编辑、CSV 导入、CSV 导出和删除。",
       "steps": [
         {
-          "stepNumber": "5.1",
+          "stepNumber": "6.1",
           "title": "查看能源数据列表并查询",
           "route": "/data/energy-consumption",
           "action": "进入能源数据维护页面，查看能源事实列表，并按记录编码、能源种类、区域或设备查询。",
@@ -666,7 +676,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "5.2",
+          "stepNumber": "6.2",
           "title": "填写能源数据新增表单",
           "route": "/data/energy-consumption",
           "action": "点击新增，填写记录编码、能源种类、用量、单位、周期、数据来源、区域、设备、用能系统和备注。",
@@ -676,7 +686,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "5.3",
+          "stepNumber": "6.3",
           "title": "查看能源数据详情",
           "route": "/data/energy-consumption",
           "action": "在查询结果中点击详情，查看字段回显。",
@@ -686,7 +696,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "5.4",
+          "stepNumber": "6.4",
           "title": "填写能源数据编辑表单",
           "route": "/data/energy-consumption",
           "action": "点击编辑，打开编辑表单，调整能源用量或备注。",
@@ -696,7 +706,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "5.5",
+          "stepNumber": "6.5",
           "title": "编辑保存后回显",
           "route": "/data/energy-consumption",
           "action": "保存编辑表单后重新查询记录并打开详情。",
@@ -706,7 +716,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "5.6",
+          "stepNumber": "6.6",
           "title": "导入能源数据",
           "route": "/data/energy-consumption",
           "action": "点击导入能源数据，上传 CSV 文件并确认导入。",
@@ -716,7 +726,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "5.7",
+          "stepNumber": "6.7",
           "title": "导出能源数据",
           "route": "/data/energy-consumption",
           "action": "点击导出，下载当前租户能源数据 CSV 文件。",
@@ -726,7 +736,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "5.8",
+          "stepNumber": "6.8",
           "title": "删除能源数据",
           "route": "/data/energy-consumption",
           "action": "删除手工验证或误录入的能源事实记录。",
@@ -738,196 +748,12 @@
       ]
     },
     {
-      "sectionId": "factor-and-calculation",
-      "title": "因子维护与核算",
-      "summary": "用于说明官方原始因子、计算因子、参数来源和活动数据参与核算的过程。",
-      "steps": [
-        {
-          "stepNumber": "4.1",
-          "title": "查看官方排放因子库",
-          "route": "/carbon-mgmt/factors",
-          "action": "进入排放因子库，按分类树查看官方原始因子和校验状态。",
-          "expectedState": "页面显示分类节点、原始记录、因子名称、来源和校验状态。",
-          "evidenceId": "EV-WH-017",
-          "screenshot": "EV-WH-017-官方排放因子库概览.png",
-          "verificationStatus": "planned"
-        },
-        {
-          "stepNumber": "4.2",
-          "title": "查看企业计算因子库",
-          "route": "/carbon-mgmt/calculation-factors",
-          "action": "进入企业计算因子库，查看范围、类别、单位、年份、来源、归属和启用状态。",
-          "expectedState": "页面显示企业因子和共享因子，企业因子可维护，共享因子只读。",
-          "evidenceId": "EV-WH-152",
-          "screenshot": "EV-WH-152-企业计算因子台账.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "4.3",
-          "title": "新增企业计算因子",
-          "route": "/carbon-mgmt/calculation-factors",
-          "action": "点击新增因子，维护范围、类别、子类、活动单位、因子值、年份、来源和状态。",
-          "expectedState": "新增表单显示企业计算因子完整维护字段。",
-          "evidenceId": "EV-WH-153",
-          "screenshot": "EV-WH-153-新增企业计算因子.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "4.4",
-          "title": "编辑企业计算因子",
-          "route": "/carbon-mgmt/calculation-factors",
-          "action": "选择企业因子编辑，更新因子值、来源、状态或备注。",
-          "expectedState": "编辑后回到台账，因子值和企业归属正常回显。",
-          "evidenceId": "EV-WH-154",
-          "screenshot": "EV-WH-154-编辑企业计算因子结果.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "4.5",
-          "title": "模板导入企业计算因子",
-          "route": "/carbon-mgmt/calculation-factors",
-          "action": "上传计算因子 CSV 模板并执行预检。",
-          "expectedState": "页面显示有效行、新增、更新和错误统计，预检通过后可提交导入。",
-          "evidenceId": "EV-WH-155",
-          "screenshot": "EV-WH-155-企业计算因子模板导入预检.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "4.6",
-          "title": "活动数据采用计算因子",
-          "route": "/carbon-mgmt/activities",
-          "action": "打开活动数据详情，在因子参数分区选择候选因子并采用。",
-          "expectedState": "当前参数值回显，并进入活动数据核算参数集。",
-          "evidenceId": "EV-WH-156",
-          "screenshot": "EV-WH-156-活动数据采用计算因子结果.png",
-          "verificationStatus": "verified"
-        }
-      ]
-    },
-    {
-      "sectionId": "organization-boundary-settings",
-      "title": "组织边界与核算边界维护",
-      "summary": "用于验证报告主体、报告期、组织边界版本、边界设施、发布和删除的维护闭环。",
-      "steps": [
-        {
-          "stepNumber": "15.1",
-          "title": "打开边界维护页面",
-          "route": "/carbon/organization/boundary",
-          "action": "进入核算边界页面，查看报告主体、报告期、组织边界版本和边界设施。",
-          "expectedState": "页面展示边界维护台账和核算边界配置区。",
-          "evidenceId": "EV-WH-133",
-          "screenshot": "EV-WH-133-组织与核算边界维护页.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "15.2",
-          "title": "新增报告主体",
-          "route": "/carbon/organization/boundary",
-          "action": "点击新增主体，填写主体编号、主体名称、统一社会信用代码和控制方法。",
-          "expectedState": "新增表单展示报告主体字段，保存后列表可回显。",
-          "evidenceId": "EV-WH-134",
-          "screenshot": "EV-WH-134-报告主体新增表单.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "15.3",
-          "title": "编辑报告主体",
-          "route": "/carbon/organization/boundary",
-          "action": "在报告主体列表点击编辑，调整主体名称并保存。",
-          "expectedState": "列表回显更新后的报告主体名称。",
-          "evidenceId": "EV-WH-135",
-          "screenshot": "EV-WH-135-报告主体编辑回显.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "15.4",
-          "title": "新增报告期",
-          "route": "/carbon/organization/boundary",
-          "action": "点击新增报告期，选择报告主体并填写报告期编号、名称和起止日期。",
-          "expectedState": "报告期挂接到报告主体，保存后列表可回显。",
-          "evidenceId": "EV-WH-136",
-          "screenshot": "EV-WH-136-报告期新增表单.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "15.5",
-          "title": "编辑报告期",
-          "route": "/carbon/organization/boundary",
-          "action": "在报告期列表点击编辑，调整报告期名称并保存。",
-          "expectedState": "列表回显更新后的报告期名称和期间。",
-          "evidenceId": "EV-WH-137",
-          "screenshot": "EV-WH-137-报告期编辑回显.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "15.6",
-          "title": "新增组织边界版本",
-          "route": "/carbon/organization/boundary",
-          "action": "点击新增边界，选择报告主体和报告期，填写边界编号、名称和边界方法。",
-          "expectedState": "边界版本挂接到报告主体和报告期，默认具备完整核算口径。",
-          "evidenceId": "EV-WH-138",
-          "screenshot": "EV-WH-138-组织边界版本新增表单.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "15.7",
-          "title": "编辑组织边界版本",
-          "route": "/carbon/organization/boundary",
-          "action": "在草稿边界版本列表点击编辑，调整边界名称并保存。",
-          "expectedState": "列表回显更新后的边界版本名称。",
-          "evidenceId": "EV-WH-139",
-          "screenshot": "EV-WH-139-组织边界版本编辑回显.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "15.8",
-          "title": "维护边界设施",
-          "route": "/carbon/organization/boundary",
-          "action": "点击维护设施，选择边界版本并填写设施类型、编号、名称、角色和纳入状态。",
-          "expectedState": "边界设施挂接到组织边界版本，保存后列表可回显。",
-          "evidenceId": "EV-WH-140",
-          "screenshot": "EV-WH-140-边界设施维护表单.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "15.9",
-          "title": "编辑边界设施",
-          "route": "/carbon/organization/boundary",
-          "action": "在边界设施列表点击编辑，调整设施名称并保存。",
-          "expectedState": "列表回显更新后的设施名称。",
-          "evidenceId": "EV-WH-141",
-          "screenshot": "EV-WH-141-边界设施编辑回显.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "15.10",
-          "title": "发布组织边界",
-          "route": "/carbon/organization/boundary",
-          "action": "为组织边界生成来源设施后点击发布。",
-          "expectedState": "边界版本状态变为已发布，并显示纳入设施数量。",
-          "evidenceId": "EV-WH-142",
-          "screenshot": "EV-WH-142-组织边界发布结果.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "15.11",
-          "title": "删除未引用边界版本",
-          "route": "/carbon/organization/boundary",
-          "action": "对未被核算结果引用的边界版本执行归档和删除。",
-          "expectedState": "删除后列表不再显示该边界版本。",
-          "evidenceId": "EV-WH-143",
-          "screenshot": "EV-WH-143-组织边界删除结果.png",
-          "verificationStatus": "verified"
-        }
-      ]
-    },
-    {
       "sectionId": "energy-consumption-query",
       "title": "能耗查询",
       "summary": "用于说明能耗汇总查询、明细追溯和 CSV 导出。",
       "steps": [
         {
-          "stepNumber": "6.1",
+          "stepNumber": "7.1",
           "title": "能耗汇总查询",
           "route": "/energy/consumption",
           "action": "进入能耗查询页面，在汇总查询页签按时间范围、能源品种、区域、设备和汇总维度筛选能源消费数据。",
@@ -937,7 +763,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "6.2",
+          "stepNumber": "7.2",
           "title": "能耗明细追溯",
           "route": "/energy/consumption",
           "action": "切换到明细追溯页签，查看来源、Scope、能源品种、折标量、期间、区域/设施、状态和追溯入口。",
@@ -947,7 +773,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "6.3",
+          "stepNumber": "7.3",
           "title": "能耗查询导出",
           "route": "/energy/consumption",
           "action": "切换到导出记录页签，按当前筛选条件导出能源消费 CSV。",
@@ -964,7 +790,7 @@
       "summary": "用于说明消费量汇总、面积强度、区域设备层级和趋势分析。",
       "steps": [
         {
-          "stepNumber": "7.1",
+          "stepNumber": "8.1",
           "title": "能源强度消费量汇总",
           "route": "/energy/intensity",
           "action": "进入强度计算页面，在消费量汇总页签按期间、统计粒度、状态、Scope 和能源品种查询。",
@@ -974,7 +800,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "7.2",
+          "stepNumber": "8.2",
           "title": "能源强度面积强度",
           "route": "/energy/intensity",
           "action": "切换到面积强度页签，查看仓储面积、园区面积和面积强度指标。",
@@ -984,7 +810,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "7.3",
+          "stepNumber": "8.3",
           "title": "能源强度区域设备层级",
           "route": "/energy/intensity",
           "action": "切换到区域设备页签，查看企业、区域、设备/设施层级能耗。",
@@ -994,7 +820,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "7.4",
+          "stepNumber": "8.4",
           "title": "能源强度趋势分析",
           "route": "/energy/intensity",
           "action": "切换到趋势分析页签，查看综合能耗、面积强度和外购电力专项趋势。",
@@ -1011,7 +837,7 @@
       "summary": "用于说明用能结构、成本、能效、异常诊断和策略建议。",
       "steps": [
         {
-          "stepNumber": "8.1",
+          "stepNumber": "9.1",
           "title": "用能结构分析",
           "route": "/energy/analysis",
           "action": "进入用能分析页面，在结构分析页签按时间、粒度、能源品种、区域、设备、用能系统和分时时段查询。",
@@ -1021,7 +847,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "8.2",
+          "stepNumber": "9.2",
           "title": "用能成本分析",
           "route": "/energy/analysis",
           "action": "切换到成本分析页签，查看估算电费、平均电价、计费记录、分时成本结构和分时电量排行。",
@@ -1031,7 +857,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "8.3",
+          "stepNumber": "9.3",
           "title": "用能能效分析",
           "route": "/energy/analysis",
           "action": "切换到能效分析页签，查看运行小时、单位运行小时电耗、作业量记录、能耗成本趋势和设备能效排行。",
@@ -1041,7 +867,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "8.4",
+          "stepNumber": "9.4",
           "title": "用能异常诊断",
           "route": "/energy/analysis",
           "action": "切换到异常诊断页签，查看异常时段、能源告警和异常时段明细。",
@@ -1051,7 +877,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "8.5",
+          "stepNumber": "9.5",
           "title": "用能策略建议",
           "route": "/energy/analysis",
           "action": "切换到策略建议页签，查看策略数、证据电量、证据成本、异常证据、目标对象和实施步骤。",
@@ -1068,7 +894,7 @@
       "summary": "用于说明能流图、能量平衡表、损耗诊断和分析报告。",
       "steps": [
         {
-          "stepNumber": "9.1",
+          "stepNumber": "10.1",
           "title": "能流图分析",
           "route": "/energy/flow",
           "action": "进入能流分析页面，在能流图页签按时间、粒度、能源品种、区域、设备、用能系统和损耗阈值查询。",
@@ -1078,7 +904,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "9.2",
+          "stepNumber": "10.2",
           "title": "能流能量平衡表",
           "route": "/energy/flow",
           "action": "切换到能量平衡表页签，查看能量输入、利用、损耗和诊断字段。",
@@ -1088,7 +914,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "9.3",
+          "stepNumber": "10.3",
           "title": "能流损耗诊断",
           "route": "/energy/flow",
           "action": "切换到损耗诊断页签，查看链路输入电量、损耗电量、损耗率、状态和建议。",
@@ -1098,7 +924,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "9.4",
+          "stepNumber": "10.4",
           "title": "能流分析报告",
           "route": "/energy/flow",
           "action": "切换到分析报告页签，查看分析条目、证据字段和动作建议。",
@@ -1115,7 +941,7 @@
       "summary": "用于说明企业标杆方案、标杆指标、政策标准查看和模板导入。",
       "steps": [
         {
-          "stepNumber": "10.1",
+          "stepNumber": "11.1",
           "title": "查看标杆方案列表",
           "route": "/data/energy-benchmark",
           "action": "进入能效对标配置页面，查看标杆方案列表、查询、查看对标和新增方案入口。",
@@ -1125,7 +951,7 @@
           "verificationStatus": "needs-recapture"
         },
         {
-          "stepNumber": "10.2",
+          "stepNumber": "11.2",
           "title": "新增标杆方案",
           "route": "/data/energy-benchmark",
           "action": "点击新增方案，维护行业、适用范围、来源和备注。",
@@ -1135,7 +961,7 @@
           "verificationStatus": "needs-recapture"
         },
         {
-          "stepNumber": "10.3",
+          "stepNumber": "11.3",
           "title": "查看标杆方案详情",
           "route": "/data/energy-benchmark",
           "action": "点击标杆方案详情，查看已保存字段。",
@@ -1145,7 +971,7 @@
           "verificationStatus": "needs-recapture"
         },
         {
-          "stepNumber": "10.4",
+          "stepNumber": "11.4",
           "title": "编辑标杆方案",
           "route": "/data/energy-benchmark",
           "action": "点击标杆方案编辑，修改方案名称和备注后保存。",
@@ -1155,7 +981,7 @@
           "verificationStatus": "needs-recapture"
         },
         {
-          "stepNumber": "10.5",
+          "stepNumber": "11.5",
           "title": "新增标杆项",
           "route": "/data/energy-benchmark",
           "action": "选中企业标杆方案后新增指标，维护对象层级、指标、标杆值、等级值、适用条件和来源。",
@@ -1165,7 +991,7 @@
           "verificationStatus": "needs-recapture"
         },
         {
-          "stepNumber": "10.6",
+          "stepNumber": "11.6",
           "title": "查看标杆项详情",
           "route": "/data/energy-benchmark",
           "action": "点击标杆项详情，查看对象、指标、标杆值、阈值、来源和状态。",
@@ -1175,7 +1001,7 @@
           "verificationStatus": "needs-recapture"
         },
         {
-          "stepNumber": "10.7",
+          "stepNumber": "11.7",
           "title": "编辑标杆项",
           "route": "/data/energy-benchmark",
           "action": "编辑标杆项的标杆值或阈值，保存后返回列表。",
@@ -1185,7 +1011,7 @@
           "verificationStatus": "needs-recapture"
         },
         {
-          "stepNumber": "10.8",
+          "stepNumber": "11.8",
           "title": "删除标杆项",
           "route": "/data/energy-benchmark",
           "action": "删除当前方案下不再使用的标杆项。",
@@ -1195,7 +1021,7 @@
           "verificationStatus": "needs-recapture"
         },
         {
-          "stepNumber": "10.9",
+          "stepNumber": "11.9",
           "title": "删除标杆方案",
           "route": "/data/energy-benchmark",
           "action": "删除已清理标杆项的标杆方案。",
@@ -1212,7 +1038,7 @@
       "summary": "用于说明能效对标结果查询、强度类分析和设备能效等级分析。",
       "steps": [
         {
-          "stepNumber": "11.1",
+          "stepNumber": "12.1",
           "title": "查看能效对标结果与维护入口",
           "route": "/energy/benchmark",
           "action": "进入能效对标页面，查看分析结果并确认可进入标杆维护。",
@@ -1229,7 +1055,7 @@
       "summary": "用于说明计量边界、边界成员、平衡计算和差异诊断。",
       "steps": [
         {
-          "stepNumber": "12.1",
+          "stepNumber": "13.1",
           "title": "查看能量平衡总览",
           "route": "/energy/balance",
           "action": "进入能量平衡页面，查看边界输入、已归集用能、未归集差异和平衡误差率。",
@@ -1239,7 +1065,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "12.2",
+          "stepNumber": "13.2",
           "title": "查看能量平衡计算结果",
           "route": "/energy/balance",
           "action": "进入平衡计算页签，选择计量边界、期间、粒度和能源种类。",
@@ -1249,7 +1075,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "12.3",
+          "stepNumber": "13.3",
           "title": "查看差异诊断",
           "route": "/energy/balance",
           "action": "进入差异诊断页签，查看当前计量边界的闭合状态和异常提示。",
@@ -1259,7 +1085,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "12.4",
+          "stepNumber": "13.4",
           "title": "查看计量边界列表",
           "route": "/energy/balance",
           "action": "进入计量边界页签，查看已有计量边界和行内操作。",
@@ -1269,7 +1095,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "12.5",
+          "stepNumber": "13.5",
           "title": "新增计量边界",
           "route": "/energy/balance",
           "action": "点击新增边界，填写边界编码、名称、类型、输入表、覆盖区域、来源和备注。",
@@ -1279,7 +1105,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "12.6",
+          "stepNumber": "13.6",
           "title": "编辑计量边界",
           "route": "/energy/balance",
           "action": "点击边界行内编辑，修改边界名称和备注并保存。",
@@ -1289,7 +1115,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "12.7",
+          "stepNumber": "13.7",
           "title": "查看边界成员列表",
           "route": "/energy/balance",
           "action": "选择计量边界并进入边界成员页签。",
@@ -1299,7 +1125,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "12.8",
+          "stepNumber": "13.8",
           "title": "新增边界成员",
           "route": "/energy/balance",
           "action": "点击新增成员，选择成员类型、角色、设备、区域并填写归集权重。",
@@ -1309,7 +1135,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "12.9",
+          "stepNumber": "13.9",
           "title": "编辑边界成员",
           "route": "/energy/balance",
           "action": "点击成员行内编辑，修改成员编码和备注并保存。",
@@ -1319,7 +1145,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "12.10",
+          "stepNumber": "13.10",
           "title": "删除边界成员",
           "route": "/energy/balance",
           "action": "删除未形成历史引用的临时边界成员。",
@@ -1329,7 +1155,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "12.11",
+          "stepNumber": "13.11",
           "title": "删除计量边界",
           "route": "/energy/balance",
           "action": "删除未被能源事实引用的临时计量边界。",
@@ -1346,7 +1172,7 @@
       "summary": "用于说明年度目标、月度分解和调整记录维护。",
       "steps": [
         {
-          "stepNumber": "13.1",
+          "stepNumber": "14.1",
           "title": "查看年度预算目标",
           "route": "/data/energy-budget",
           "action": "进入能碳预算维护页面，查看年度目标列表、年度筛选、查看执行和新增目标入口。",
@@ -1356,7 +1182,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "13.2",
+          "stepNumber": "14.2",
           "title": "新增年度预算目标",
           "route": "/data/energy-budget",
           "action": "点击新增目标，维护年度、适用范围、能耗预算、碳排预算和分母计划。",
@@ -1366,7 +1192,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "13.3",
+          "stepNumber": "14.3",
           "title": "生成并编辑月度预算",
           "route": "/data/energy-budget",
           "action": "进入月度分解页签，生成月度预算并编辑单月预算。",
@@ -1376,7 +1202,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "13.4",
+          "stepNumber": "14.4",
           "title": "新增并编辑预算调整",
           "route": "/data/energy-budget",
           "action": "进入调整记录页签，新增预算调整并编辑状态。",
@@ -1386,7 +1212,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "13.5",
+          "stepNumber": "14.5",
           "title": "删除预算调整记录",
           "route": "/data/energy-budget",
           "action": "在调整记录列表中删除不再使用的预算调整记录。",
@@ -1403,7 +1229,7 @@
       "summary": "用于说明年度目标、月度预算和执行情况查看。",
       "steps": [
         {
-          "stepNumber": "14.1",
+          "stepNumber": "15.1",
           "title": "查看能碳预算执行与维护入口",
           "route": "/energy/budget",
           "action": "进入能碳预算页面，查看年度目标、月度预算、执行偏差、预测超限和调整记录。",
@@ -1415,12 +1241,129 @@
       ]
     },
     {
+      "sectionId": "organization-boundary-settings",
+      "title": "组织边界与核算边界维护",
+      "summary": "用于验证报告主体、报告期、组织边界版本、边界设施、发布和删除的维护闭环。",
+      "steps": [
+        {
+          "stepNumber": "16.1",
+          "title": "打开边界维护页面",
+          "route": "/carbon/organization/boundary",
+          "action": "进入核算边界页面，查看报告主体、报告期、组织边界版本和边界设施。",
+          "expectedState": "页面展示边界维护台账和核算边界配置区。",
+          "evidenceId": "EV-WH-133",
+          "screenshot": "EV-WH-133-组织与核算边界维护页.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "16.2",
+          "title": "新增报告主体",
+          "route": "/carbon/organization/boundary",
+          "action": "点击新增主体，填写主体编号、主体名称、统一社会信用代码和控制方法。",
+          "expectedState": "新增表单展示报告主体字段，保存后列表可回显。",
+          "evidenceId": "EV-WH-134",
+          "screenshot": "EV-WH-134-报告主体新增表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "16.3",
+          "title": "编辑报告主体",
+          "route": "/carbon/organization/boundary",
+          "action": "在报告主体列表点击编辑，调整主体名称并保存。",
+          "expectedState": "列表回显更新后的报告主体名称。",
+          "evidenceId": "EV-WH-135",
+          "screenshot": "EV-WH-135-报告主体编辑回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "16.4",
+          "title": "新增报告期",
+          "route": "/carbon/organization/boundary",
+          "action": "点击新增报告期，选择报告主体并填写报告期编号、名称和起止日期。",
+          "expectedState": "报告期挂接到报告主体，保存后列表可回显。",
+          "evidenceId": "EV-WH-136",
+          "screenshot": "EV-WH-136-报告期新增表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "16.5",
+          "title": "编辑报告期",
+          "route": "/carbon/organization/boundary",
+          "action": "在报告期列表点击编辑，调整报告期名称并保存。",
+          "expectedState": "列表回显更新后的报告期名称和期间。",
+          "evidenceId": "EV-WH-137",
+          "screenshot": "EV-WH-137-报告期编辑回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "16.6",
+          "title": "新增组织边界版本",
+          "route": "/carbon/organization/boundary",
+          "action": "点击新增边界，选择报告主体和报告期，填写边界编号、名称和边界方法。",
+          "expectedState": "边界版本挂接到报告主体和报告期，默认具备完整核算口径。",
+          "evidenceId": "EV-WH-138",
+          "screenshot": "EV-WH-138-组织边界版本新增表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "16.7",
+          "title": "编辑组织边界版本",
+          "route": "/carbon/organization/boundary",
+          "action": "在草稿边界版本列表点击编辑，调整边界名称并保存。",
+          "expectedState": "列表回显更新后的边界版本名称。",
+          "evidenceId": "EV-WH-139",
+          "screenshot": "EV-WH-139-组织边界版本编辑回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "16.8",
+          "title": "维护边界设施",
+          "route": "/carbon/organization/boundary",
+          "action": "点击维护设施，选择边界版本并填写设施类型、编号、名称、角色和纳入状态。",
+          "expectedState": "边界设施挂接到组织边界版本，保存后列表可回显。",
+          "evidenceId": "EV-WH-140",
+          "screenshot": "EV-WH-140-边界设施维护表单.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "16.9",
+          "title": "编辑边界设施",
+          "route": "/carbon/organization/boundary",
+          "action": "在边界设施列表点击编辑，调整设施名称并保存。",
+          "expectedState": "列表回显更新后的设施名称。",
+          "evidenceId": "EV-WH-141",
+          "screenshot": "EV-WH-141-边界设施编辑回显.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "16.10",
+          "title": "发布组织边界",
+          "route": "/carbon/organization/boundary",
+          "action": "为组织边界生成来源设施后点击发布。",
+          "expectedState": "边界版本状态变为已发布，并显示纳入设施数量。",
+          "evidenceId": "EV-WH-142",
+          "screenshot": "EV-WH-142-组织边界发布结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "16.11",
+          "title": "删除未引用边界版本",
+          "route": "/carbon/organization/boundary",
+          "action": "对未被核算结果引用的边界版本执行归档和删除。",
+          "expectedState": "删除后列表不再显示该边界版本。",
+          "evidenceId": "EV-WH-143",
+          "screenshot": "EV-WH-143-组织边界删除结果.png",
+          "verificationStatus": "verified"
+        }
+      ]
+    },
+    {
       "sectionId": "ghg-maintenance",
       "title": "组织碳排放源与活动数据维护",
       "summary": "用于说明组织碳数据工作台、排放源维护、活动数据台账、分类字段、区域设备归集、幂等生成和删除结果。",
       "steps": [
         {
-          "stepNumber": "15.1",
+          "stepNumber": "17.1",
           "title": "查看组织碳数据工作台",
           "route": "/carbon-mgmt/workbench",
           "action": "进入组织碳数据工作台，查看当前报告期的排放源、活动数据、待归集、待配参数、质量警告和待补证据。",
@@ -1430,7 +1373,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "15.2",
+          "stepNumber": "17.2",
           "title": "新增排放源",
           "route": "/carbon-mgmt/sources",
           "action": "点击新增排放源，填写盘查任务、ISO 二级分类、排放源编号、排放源名称、组织、区域、设备、来源类型和状态。",
@@ -1440,7 +1383,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "15.3",
+          "stepNumber": "17.3",
           "title": "编辑排放源",
           "route": "/carbon-mgmt/sources",
           "action": "在排放源列表中搜索目标排放源并编辑名称、分类、区域设备挂载或状态。",
@@ -1450,7 +1393,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "15.4",
+          "stepNumber": "17.4",
           "title": "新增活动数据",
           "route": "/carbon-mgmt/activities",
           "action": "点击新增活动，选择排放源，填写记录编号、活动名称、报告期、活动量、单位、数据来源、分类字段和测量方法。",
@@ -1460,7 +1403,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "15.5",
+          "stepNumber": "17.5",
           "title": "维护活动数据归集",
           "route": "/carbon-mgmt/activities",
           "action": "打开活动数据详情，在详情中维护区域、设备、计量边界和归集比例。",
@@ -1470,7 +1413,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "15.6",
+          "stepNumber": "17.6",
           "title": "编辑活动数据",
           "route": "/carbon-mgmt/activities",
           "action": "在活动台账中编辑活动量、来源、分类字段、测量方法或备注。",
@@ -1480,7 +1423,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "15.7",
+          "stepNumber": "17.7",
           "title": "生成活动数据",
           "route": "/carbon-mgmt/workbench",
           "action": "点击生成活动数据，从购入电力能源事实和员工通勤台账生成组织碳活动数据。",
@@ -1490,7 +1433,7 @@
           "verificationStatus": "verified"
         },
         {
-          "stepNumber": "15.8",
+          "stepNumber": "17.8",
           "title": "删除活动数据和排放源",
           "route": "/carbon-mgmt/activities",
           "action": "删除未引用的活动数据，再删除未关联活动的排放源，并按编号查询验证。",
@@ -1502,58 +1445,175 @@
       ]
     },
     {
-      "sectionId": "organization-carbon",
-      "title": "组织碳管理与 ISO 14064 分类",
-      "summary": "用于说明组织边界、核算边界、范围一二三、ISO 14064 类别 1-6、排放明细和核查支撑。",
+      "sectionId": "factor-management",
+      "title": "排放因子库与企业计算因子维护",
+      "summary": "用于查询官方原始因子、维护企业计算因子、模板导入企业因子，并在活动数据详情中采用计算因子。",
       "steps": [
         {
-          "stepNumber": "6.1",
-          "title": "查看组织碳排放总览",
-          "route": "/carbon/organization/overview",
-          "action": "进入组织碳总览，查看 Scope 1、Scope 2、Scope 3 和报告期排放趋势。",
-          "expectedState": "页面显示范围构成、趋势和关键指标。",
-          "evidenceId": "EV-WH-028",
-          "screenshot": "EV-WH-028-组织碳排放总览.png",
+          "stepNumber": "18.1",
+          "title": "查看官方排放因子库",
+          "route": "/carbon-mgmt/factors",
+          "action": "进入排放因子库，按分类树查看官方原始因子和校验状态。",
+          "expectedState": "页面显示分类节点、原始记录、因子名称、来源和校验状态。",
+          "evidenceId": "EV-WH-017",
+          "screenshot": "EV-WH-017-官方排放因子库概览.png",
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "6.2",
-          "title": "维护组织边界与核算边界",
-          "route": "/carbon/organization/boundary",
-          "action": "进入边界管理页面，核对组织边界、运营控制法、区域设备边界和 ISO 14064-1 六类别。",
-          "expectedState": "页面显示边界口径、区域设备边界和类别覆盖情况。",
-          "evidenceId": "EV-WH-029",
-          "screenshot": "EV-WH-029-组织边界与核算边界.png",
-          "verificationStatus": "planned"
+          "stepNumber": "18.2",
+          "title": "查看企业计算因子库",
+          "route": "/carbon-mgmt/calculation-factors",
+          "action": "进入企业计算因子库，查看范围、类别、单位、年份、来源、归属和启用状态。",
+          "expectedState": "页面显示企业因子和共享因子，企业因子可维护，共享因子只读。",
+          "evidenceId": "EV-WH-152",
+          "screenshot": "EV-WH-152-企业计算因子台账.png",
+          "verificationStatus": "verified"
         },
         {
-          "stepNumber": "6.3",
-          "title": "查看排放清单与报告台账",
-          "route": "/carbon/organization/inventory",
-          "action": "进入碳盘查台账，查看核算准备检查、盘查报告版本和状态。",
-          "expectedState": "页面显示盘查报告台账和核算准备状态。",
+          "stepNumber": "18.3",
+          "title": "新增企业计算因子",
+          "route": "/carbon-mgmt/calculation-factors",
+          "action": "点击新增因子，维护范围、类别、子类、活动单位、因子值、年份、来源和状态。",
+          "expectedState": "新增表单显示企业计算因子完整维护字段。",
+          "evidenceId": "EV-WH-153",
+          "screenshot": "EV-WH-153-新增企业计算因子.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "18.4",
+          "title": "编辑企业计算因子",
+          "route": "/carbon-mgmt/calculation-factors",
+          "action": "选择企业因子编辑，更新因子值、来源、状态或备注。",
+          "expectedState": "编辑后回到台账，因子值和企业归属正常回显。",
+          "evidenceId": "EV-WH-154",
+          "screenshot": "EV-WH-154-编辑企业计算因子结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "18.5",
+          "title": "模板导入企业计算因子",
+          "route": "/carbon-mgmt/calculation-factors",
+          "action": "上传计算因子 CSV 模板并执行预检。",
+          "expectedState": "页面显示有效行、新增、更新和错误统计，预检通过后可提交导入。",
+          "evidenceId": "EV-WH-155",
+          "screenshot": "EV-WH-155-企业计算因子模板导入预检.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "18.6",
+          "title": "活动数据采用计算因子",
+          "route": "/carbon-mgmt/activities",
+          "action": "打开活动数据详情，在因子参数分区选择候选因子并采用。",
+          "expectedState": "当前参数值回显，并进入活动数据核算参数集。",
+          "evidenceId": "EV-WH-156",
+          "screenshot": "EV-WH-156-活动数据采用计算因子结果.png",
+          "verificationStatus": "verified"
+        }
+      ]
+    },
+    {
+      "sectionId": "organization-carbon-calculation",
+      "title": "组织碳核算执行与结果明细",
+      "summary": "用于说明组织碳核算从准备检查、执行计算、结果列表到明细追溯的闭环。",
+      "steps": [
+        {
+          "stepNumber": "19.1",
+          "title": "进入组织碳核算页面",
+          "route": "/carbon/organization/records",
+          "action": "进入组织碳核算页面，选择报告组织、报告期、核算边界、Scope 2 口径和统计粒度。",
+          "expectedState": "页面显示核算准备状态、核算运行记录和结果列表。",
           "evidenceId": "EV-WH-030",
           "screenshot": "EV-WH-030-排放清单与报告台账.png",
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "6.4",
+          "stepNumber": "19.2",
           "title": "查看排放结果明细",
           "route": "/carbon/organization/records",
-          "action": "进入碳排放查询页面，查看排放结果明细、核算公式、活动数据和参数因子。",
-          "expectedState": "页面显示排放源、活动量、因子、核算结果和证据文件。",
-          "evidenceId": "EV-WH-032",
-          "screenshot": "EV-WH-032-排放明细详情-活动与因子.png",
+          "action": "核算完成后查看排放结果明细，核对报告期、ISO 分类、Scope、排放源、活动数据、因子和排放量。",
+          "expectedState": "页面显示非空排放结果明细和核算状态。",
+          "evidenceId": "EV-WH-031",
+          "screenshot": "EV-WH-031-排放结果明细与核算公式.png",
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "6.5",
-          "title": "按 ISO 14064 分类筛选活动数据",
+          "stepNumber": "19.3",
+          "title": "查看结果详情",
+          "route": "/carbon/organization/records",
+          "action": "打开排放结果详情，查看活动数据、排放因子、参数集、区域设备归集和证据文件。",
+          "expectedState": "详情中显示活动数据、因子参数和归集关系。",
+          "evidenceId": "EV-WH-032",
+          "screenshot": "EV-WH-032-排放明细详情-活动与因子.png",
+          "verificationStatus": "planned"
+        }
+      ]
+    },
+    {
+      "sectionId": "inventory-report-management",
+      "title": "盘查报告管理与导出",
+      "summary": "用于说明核算完成后生成盘查报告、查看历史报告、维护报告版本和导出 Word 报告。",
+      "steps": [
+        {
+          "stepNumber": "20.1",
+          "title": "进入核算报告页面",
+          "route": "/carbon/organization/reports",
+          "action": "进入核算报告页面，查看盘查报告列表、报告编号、版本、报告标题、关联核算运行、报告期和状态。",
+          "expectedState": "页面展示历史盘查报告台账和查看、编辑、导出入口。",
+          "screenshot": "[Image]",
+          "verificationStatus": "not-verified"
+        },
+        {
+          "stepNumber": "20.2",
+          "title": "查看盘查报告详情",
+          "route": "/carbon/organization/reports",
+          "action": "在报告列表点击查看，进入报告详情页面，核对报告主体、报告期、组织边界、排放摘要和审核记录。",
+          "expectedState": "详情页展示报告基础信息、核算结果摘要和状态流转记录。",
+          "screenshot": "[Image]",
+          "verificationStatus": "not-verified"
+        },
+        {
+          "stepNumber": "20.3",
+          "title": "导出 Word 报告",
+          "route": "/carbon/organization/reports",
+          "action": "在报告列表或详情页点击导出 Word，生成当前版本的组织温室气体盘查报告文件。",
+          "expectedState": "系统触发 Word 文件下载，并保留当前报告版本。",
+          "screenshot": "[Image]",
+          "verificationStatus": "not-verified"
+        }
+      ]
+    },
+    {
+      "sectionId": "organization-carbon-analysis",
+      "title": "组织碳总览与结构分析",
+      "summary": "用于查看组织温室气体核算后的汇总指标、排放结构、趋势变化和追溯路径。",
+      "steps": [
+        {
+          "stepNumber": "21.1",
+          "title": "查看组织碳排放总览",
+          "route": "/carbon/organization/overview",
+          "action": "进入组织碳总览，查看 Scope 1、Scope 2、Scope 3、报告期排放趋势和排放构成。",
+          "expectedState": "页面展示组织碳汇总指标、趋势图和结构图。",
+          "evidenceId": "EV-WH-028",
+          "screenshot": "EV-WH-028-组织碳排放总览.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "21.2",
+          "title": "查看组织碳流向与结构分析",
+          "route": "/carbon/organization/flow",
+          "action": "进入组织碳流向页面，查看组织边界至区域设备碳流、主要排放路径和核算提示。",
+          "expectedState": "页面展示碳流图、结构分析和追溯线索。",
+          "evidenceId": "EV-WH-033",
+          "screenshot": "EV-WH-033-组织碳流向与结构分析.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "21.3",
+          "title": "按 ISO 14064 分类查看活动数据",
           "route": "/carbon-mgmt/activities",
-          "action": "进入活动数据台账，通过 ISO 二级分类筛选固定燃烧、购入电力、员工通勤、采购商品、售出产品加工和其他间接排放记录。",
-          "expectedState": "活动数据台账显示活动记录、活动量、质量状态、归集状态和分类字段。",
-          "evidenceId": "EV-WH-147",
-          "screenshot": "EV-WH-147-活动数据新增表单.png",
+          "action": "进入活动数据台账，通过 ISO 二级分类筛选固定燃烧、购入电力、员工通勤、采购商品、售出产品和其他间接排放记录。",
+          "expectedState": "活动数据台账按分类展示对应记录和归集状态。",
+          "screenshot": "[Image]",
           "verificationStatus": "verified"
         }
       ]
@@ -1564,7 +1624,7 @@
       "summary": "用于说明数据采集监测、告警中心、预警规则、视频预警和审计留痕。",
       "steps": [
         {
-          "stepNumber": "7.1",
+          "stepNumber": "22.1",
           "title": "查看数据采集与监测中心",
           "route": "/energy-carbon/monitor",
           "action": "进入监测中心，查看运行概况、区域风险分布、设备近时段测点趋势和设备列表。",
@@ -1574,7 +1634,7 @@
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "7.2",
+          "stepNumber": "22.2",
           "title": "处理碳告警与预警",
           "route": "/energy-carbon/alerts",
           "action": "进入告警中心，查看总告警、趋势、来源分布、告警类型和风险等级。",
@@ -1584,7 +1644,7 @@
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "7.3",
+          "stepNumber": "22.3",
           "title": "维护预警规则",
           "route": "/data/alarm-rules",
           "action": "进入预警规则台账，查看规则名称、告警名称、事件类型和来源表字段。",
@@ -1596,46 +1656,63 @@
       ]
     },
     {
-      "sectionId": "verification-report-reduction",
-      "title": "核查材料、报告导出与减排绩效",
-      "summary": "用于说明核查项目、证据材料、报告导出、公开碳价模拟和减排项目绩效跟踪。",
+      "sectionId": "verification-materials",
+      "title": "核查材料引用",
+      "summary": "用于说明核查项目、凭证材料、核查工作和审核日志；盘查报告生成与导出归属核算报告页面。",
       "steps": [
         {
-          "stepNumber": "8.1",
+          "stepNumber": "23.1",
           "title": "查看碳核查支撑工作台",
           "route": "/carbon/verification",
-          "action": "进入碳核查支撑页面，选择核查项目，查看证据资料和核查工作。",
-          "expectedState": "页面显示核查项目、凭证清单、核查发现和审核日志。",
+          "action": "进入碳核查支撑页面，选择核查项目，查看项目状态、证据资料、核查工作、质量问题和审核日志。",
+          "expectedState": "页面展示核查项目、凭证材料和核查工作信息。",
           "evidenceId": "EV-WH-034",
           "screenshot": "EV-WH-034-碳核查支撑工作台.png",
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "8.2",
-          "title": "导出报告与材料",
+          "stepNumber": "23.2",
+          "title": "查看核查凭证与材料",
           "route": "/carbon/verification",
-          "action": "在报告与材料页签中查看报告导出记录，并下载 Word/PDF 等材料。",
-          "expectedState": "页面显示报告导出、导出记录和下载入口。",
-          "evidenceId": "EV-WH-038",
-          "screenshot": "EV-WH-038-报告导出.png",
+          "action": "切换到证据资料页签，查看凭证清单、文件、关联活动数据和下载入口。",
+          "expectedState": "页面显示可追溯的凭证资料和关联信息。",
+          "evidenceId": "EV-WH-037",
+          "screenshot": "EV-WH-037-核查凭证与材料.png",
           "verificationStatus": "planned"
-        },
+        }
+      ]
+    },
+    {
+      "sectionId": "reduction-carbon-asset",
+      "title": "减排绩效与公开碳价模拟",
+      "summary": "用于查看公开碳价行情、碳成本情景测算和减排项目绩效。",
+      "steps": [
         {
-          "stepNumber": "8.3",
-          "title": "查看公开碳价模拟",
+          "stepNumber": "24.1",
+          "title": "查看公开碳价行情",
           "route": "/carbon/assets/market",
-          "action": "进入碳市场行情和碳成本测算页面，查看公开碳价行情、月 K 线和成本情景。",
-          "expectedState": "页面显示月度行情、测算情景和冻结测算结果。",
+          "action": "进入碳市场行情页面，查看公开碳价行情、月 K 线和成交量。",
+          "expectedState": "页面显示碳价图表和市场数据。",
           "evidenceId": "EV-WH-040",
           "screenshot": "EV-WH-040-公开碳价行情.png",
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "8.4",
+          "stepNumber": "24.2",
+          "title": "查看碳成本测算",
+          "route": "/carbon/assets/simulation",
+          "action": "进入碳成本测算页面，查看不同价格情景下的碳成本测算结果。",
+          "expectedState": "页面展示测算情景、成本结果和参数。",
+          "evidenceId": "EV-WH-041",
+          "screenshot": "EV-WH-041-碳价模拟测算.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "24.3",
           "title": "查看减排项目绩效",
           "route": "/carbon/reduction/projects",
           "action": "进入减排项目页面，查看项目基准线、项目排放、实际减排和进度阶段。",
-          "expectedState": "页面显示减排项目清单、基准排放、项目排放和实际减排计算结果。",
+          "expectedState": "页面展示减排项目绩效台账和减排结果。",
           "evidenceId": "EV-WH-042",
           "screenshot": "EV-WH-042-减排项目绩效跟踪.png",
           "verificationStatus": "planned"

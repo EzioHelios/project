@@ -1,9 +1,11 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { Download, GitCompare, Search } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
+import { Calculator, Download, FileText, GitCompare, Search } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import { AdminPageScaffold, AdminPanel, AdminTableStateRow, ChartPanel, MetricStrip, MetricTile } from "@/components/admin-ui"
+import { CreateReportDialog } from "@/components/carbon/inventory-report-management"
 import {
   equipmentOptionsForArea,
   formatDateTime,
@@ -26,14 +28,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { createParetoChartOption, useAdminChartTheme } from "@/lib/admin-chart-theme"
 import {
   exportGhgResults,
+  useGhgActivities,
   useGhgAnalyticsOverview,
   useGhgCalculationRuns,
   useGhgCatalog,
   useGhgComparison,
+  useGhgInventoryActions,
+  useGhgInventoryReadiness,
   useGhgResultDetail,
   useGhgResultSummary,
   useGhgResults,
 } from "@/lib/api/hooks/ghg-inventory"
+import { organizationBoundaryListBoundaries } from "@/lib/generated/api"
 
 export const Route = createFileRoute("/_app/carbon/organization/records")({
   validateSearch: (search) => organizationCarbonSearchSchema.parse(search),
@@ -97,17 +103,81 @@ const fieldValueLabels: Record<string, Record<string, string>> = {
   },
 }
 
+type PageResult<T> = {
+  items: T[]
+  total: number
+  limit: number
+  offset: number
+}
+
+type BoundaryOption = {
+  id: number
+  reportingOrgId: number
+  periodId: number
+  boundaryNo: string
+  boundaryName: string
+  version?: number | null
+  status?: string | null
+}
+
 function OrganizationCarbonRecordsPage() {
   const chartTheme = useAdminChartTheme("carbon")
   const navigate = useNavigate({ from: Route.fullPath })
   const search = Route.useSearch()
   const runs = useGhgCalculationRuns({ status: "completed" })
   const catalog = useGhgCatalog()
+  const activities = useGhgActivities({})
+  const actions = useGhgInventoryActions()
+  const boundaryList = useQuery({
+    queryKey: ["organization-boundary", "boundaries", "calculation-context"],
+    queryFn: async () => {
+      const response = await organizationBoundaryListBoundaries({ query: { limit: 100 }, throwOnError: true })
+      return normalizeBoundaryPage(response.data)
+    },
+  })
   const [selectedRecordCode, setSelectedRecordCode] = useState<string>()
   const [comparisonOpen, setComparisonOpen] = useState(false)
+  const [reportDialogOpen, setReportDialogOpen] = useState(false)
   const [comparisonRunCodes, setComparisonRunCodes] = useState<string[]>([])
+  const [contextOrgId, setContextOrgId] = useState<number>()
+  const [contextPeriodId, setContextPeriodId] = useState<number>()
+  const [contextBoundaryId, setContextBoundaryId] = useState<number>()
+  const [contextProfileCode, setContextProfileCode] = useState<string>()
   const runCode = search.run ?? runs.data?.items[0]?.runCode
   const scope2Method = search.scope2
+  const selectedRun = runs.data?.items.find((item) => item.runCode === runCode) ?? runs.data?.items[0]
+  const organizationOptions = catalog.data?.organizations ?? []
+  const selectedOrgId = contextOrgId ?? selectedRun?.reportingOrgId ?? catalog.data?.periods[0]?.reportingOrgId ?? organizationOptions[0]?.id
+  const periodOptions = (catalog.data?.periods ?? []).filter((item) => !selectedOrgId || item.reportingOrgId === selectedOrgId)
+  const selectedPeriodId =
+    contextPeriodId && periodOptions.some((item) => item.id === contextPeriodId)
+      ? contextPeriodId
+      : selectedRun?.reportingPeriodId && periodOptions.some((item) => item.id === selectedRun.reportingPeriodId)
+        ? selectedRun.reportingPeriodId
+        : periodOptions[0]?.id
+  const selectedPeriod = periodOptions.find((item) => item.id === selectedPeriodId)
+  const boundaryOptions = (boundaryList.data?.items ?? []).filter(
+    (item) => (!selectedOrgId || item.reportingOrgId === selectedOrgId) && (!selectedPeriodId || item.periodId === selectedPeriodId),
+  )
+  const publishedBoundaryOptions = boundaryOptions.filter((item) => item.status === "published")
+  const usableBoundaryOptions = publishedBoundaryOptions.length ? publishedBoundaryOptions : boundaryOptions
+  const selectedBoundaryId =
+    contextBoundaryId && usableBoundaryOptions.some((item) => item.id === contextBoundaryId)
+      ? contextBoundaryId
+      : selectedRun?.organizationBoundaryId && usableBoundaryOptions.some((item) => item.id === selectedRun.organizationBoundaryId)
+        ? selectedRun.organizationBoundaryId
+        : usableBoundaryOptions[0]?.id
+  const selectedBoundary = usableBoundaryOptions.find((item) => item.id === selectedBoundaryId)
+  const selectedProfileCode = contextProfileCode ?? selectedRun?.reportingProfileCode ?? catalog.data?.reportingProfiles[0]?.code
+  const selectedProfile = catalog.data?.reportingProfiles.find((item) => item.code === selectedProfileCode)
+  const selectedContextRun = runs.data?.items.find((item) => item.reportingPeriodId === selectedPeriodId && item.organizationBoundaryId === selectedBoundaryId) ?? selectedRun
+  const selectedInventoryCode =
+    selectedContextRun?.inventoryCode ?? activities.data?.items.find((item) => item.reportingPeriodId === selectedPeriodId)?.inventoryCode ?? selectedPeriod?.code
+  const readiness = useGhgInventoryReadiness({
+    inventoryCode: selectedInventoryCode,
+    reportingPeriodId: selectedPeriodId,
+    organizationBoundaryId: selectedBoundaryId,
+  })
   const analyticsFilters = toAnalyticsFilters(search, runCode)
   const overview = useGhgAnalyticsOverview(analyticsFilters)
   const results = useGhgResults({
@@ -121,6 +191,33 @@ function OrganizationCarbonRecordsPage() {
   const comparison = useGhgComparison({ ...analyticsFilters, runCodes: comparisonRunCodes })
   const detail = useGhgResultDetail({ runCode, recordCode: selectedRecordCode, scope2Method })
   const items = results.data?.items ?? []
+  const ready = readiness.data
+  const canCalculate = Boolean(ready?.readyForCalculation && selectedInventoryCode && selectedPeriod && selectedBoundary && selectedProfileCode && selectedOrgId)
+  const handleCalculate = () => {
+    if (!selectedPeriod || !selectedProfileCode) return
+    actions.calculate.mutate(
+      {
+        inventoryCode: selectedInventoryCode ?? selectedPeriod.code,
+        reportingProfileCode: selectedProfileCode,
+        reportingPeriodId: selectedPeriod.id,
+        reportingOrgId: selectedOrgId,
+        organizationBoundaryId: selectedBoundaryId,
+        defaultScope2Method: scope2Method,
+      },
+      {
+        onSuccess: async (run) => {
+          const refreshedRuns = await runs.refetch()
+          const nextRunCode =
+            readRunCode(run) ??
+            refreshedRuns.data?.items.find((item) => item.reportingPeriodId === selectedPeriod.id && item.organizationBoundaryId === selectedBoundaryId)?.runCode ??
+            refreshedRuns.data?.items[0]?.runCode
+          if (nextRunCode) {
+            void navigate({ to: "/carbon/organization/records", search: (previous) => ({ ...previous, run: nextRunCode, page: 1 }) })
+          }
+        },
+      },
+    )
+  }
   const sourcePareto = useMemo(() => {
     return createParetoChartOption(
       chartTheme,
@@ -129,10 +226,11 @@ function OrganizationCarbonRecordsPage() {
     )
   }, [chartTheme, summary.data?.sourceBreakdown])
   const isoOptions = catalog.data?.categories ?? []
+  const reportRunOptions = selectedRun ? [selectedRun, ...(runs.data?.items ?? []).filter((item) => item.runCode !== selectedRun.runCode)] : (runs.data?.items ?? [])
 
   return (
     <AdminPageScaffold
-      title="碳排放查询"
+      title="组织碳核算"
       status={<InventoryStatusBadge status={overview.data && !overview.data.scope2Available ? "warning" : overview.data?.qualityStatus} />}
       meta={
         overview.data ? (
@@ -145,6 +243,18 @@ function OrganizationCarbonRecordsPage() {
             </span>
           </>
         ) : undefined
+      }
+      topActions={
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button variant="outline" size="sm" disabled={!selectedRun} onClick={() => setReportDialogOpen(true)}>
+            <FileText />
+            生成报告
+          </Button>
+          <Button size="sm" disabled={!canCalculate || actions.calculate.isPending} onClick={handleCalculate}>
+            <Calculator />
+            {actions.calculate.isPending ? "核算中" : runCode ? "重新核算" : "执行核算"}
+          </Button>
+        </div>
       }
       filters={
         <OrganizationRunFilterBar
@@ -331,6 +441,111 @@ function OrganizationCarbonRecordsPage() {
       }
     >
       <div className="grid gap-3">
+        <AdminPanel title="核算上下文与准备检查" contentClassName="space-y-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <Select
+              value={selectedOrgId ? String(selectedOrgId) : ""}
+              onValueChange={(value) => {
+                setContextOrgId(Number(value))
+                setContextPeriodId(undefined)
+                setContextBoundaryId(undefined)
+              }}
+            >
+              <SelectTrigger aria-label="报告组织">
+                <SelectValue placeholder="报告组织" />
+              </SelectTrigger>
+              <SelectContent>
+                {organizationOptions.map((item) => (
+                  <SelectItem key={item.id} value={String(item.id)}>
+                    {item.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={selectedPeriodId ? String(selectedPeriodId) : ""}
+              onValueChange={(value) => {
+                setContextPeriodId(Number(value))
+                setContextBoundaryId(undefined)
+              }}
+            >
+              <SelectTrigger aria-label="报告期">
+                <SelectValue placeholder="报告期" />
+              </SelectTrigger>
+              <SelectContent>
+                {periodOptions.map((item) => (
+                  <SelectItem key={item.id} value={String(item.id)}>
+                    {item.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={selectedBoundaryId ? String(selectedBoundaryId) : ""} onValueChange={(value) => setContextBoundaryId(Number(value))}>
+              <SelectTrigger aria-label="核算边界">
+                <SelectValue placeholder="核算边界" />
+              </SelectTrigger>
+              <SelectContent>
+                {usableBoundaryOptions.map((item) => (
+                  <SelectItem key={item.id} value={String(item.id)}>
+                    {item.boundaryName} · V{item.version ?? "-"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={selectedProfileCode ?? ""} onValueChange={setContextProfileCode}>
+              <SelectTrigger aria-label="报告方案">
+                <SelectValue placeholder="报告方案" />
+              </SelectTrigger>
+              <SelectContent>
+                {(catalog.data?.reportingProfiles ?? []).map((item) => (
+                  <SelectItem key={item.code} value={item.code}>
+                    {item.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>检查项</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead className="text-right">完成</TableHead>
+                <TableHead className="text-right">覆盖率</TableHead>
+                <TableHead className="text-right">待处理</TableHead>
+                <TableHead className="text-right">维护入口</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {readiness.isLoading && <AdminTableStateRow colSpan={6}>正在检查核算准备度…</AdminTableStateRow>}
+              {!readiness.isLoading && !ready && <AdminTableStateRow colSpan={6}>请选择报告组织、报告期和已发布核算边界</AdminTableStateRow>}
+              {(ready?.checks ?? []).map((check) => (
+                <TableRow key={check.code}>
+                  <TableCell className="font-medium">{check.name}</TableCell>
+                  <TableCell>
+                    <InventoryStatusBadge status={check.status} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {check.completedCount}/{check.totalCount}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{formatPercent(check.coveragePct)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{check.blockingCount}</TableCell>
+                  <TableCell className="text-right">
+                    <Button asChild size="sm" variant="ghost">
+                      <Link to={readinessRoute(check.code)}>处理</Link>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <div className="grid gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4">
+            <ContextFact label="盘查任务" value={selectedInventoryCode ?? "-"} />
+            <ContextFact label="核算边界" value={selectedBoundary ? `${selectedBoundary.boundaryName} · ${selectedBoundary.boundaryNo}` : "-"} />
+            <ContextFact label="报告方案" value={selectedProfile ? `${selectedProfile.standardCode} · ${selectedProfile.version}` : "-"} />
+            <ContextFact label="最近运行" value={ready?.latestRunCode ? `${ready.latestRunCode} · ${ready.latestRunStatus ?? "-"}` : "-"} />
+          </div>
+        </AdminPanel>
         <ChartPanel title="排放源帕累托分析" unit="tCO₂e" option={sourcePareto} height={300} />
         <AdminPanel title="排放结果明细" contentClassName="p-0">
           <Table>
@@ -479,6 +694,7 @@ function OrganizationCarbonRecordsPage() {
           </div>
         </SheetContent>
       </Sheet>
+      <CreateReportDialog open={reportDialogOpen} onOpenChange={setReportDialogOpen} runs={reportRunOptions} />
     </AdminPageScaffold>
   )
 }
@@ -517,4 +733,51 @@ function DetailBlock({ title, records }: { title: string; records: Array<Record<
       )}
     </AdminPanel>
   )
+}
+
+function ContextFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-l-2 border-border pl-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 font-medium tabular-nums">{value}</div>
+    </div>
+  )
+}
+
+function readinessRoute(code: string) {
+  if (code === "boundary") return "/carbon/organization/boundary"
+  if (code === "parameters") return "/carbon-mgmt/calculation-factors"
+  if (code === "evidence") return "/carbon/verification"
+  return "/carbon-mgmt/activities"
+}
+
+function readRunCode(value: unknown) {
+  const payload = value as { runCode?: string; run_code?: string; data?: { runCode?: string; run_code?: string } }
+  return payload.runCode ?? payload.run_code ?? payload.data?.runCode ?? payload.data?.run_code
+}
+
+function normalizeBoundaryPage(raw: unknown): PageResult<BoundaryOption> {
+  type BoundaryPayload = { items?: unknown[]; data?: unknown[]; total?: number; limit?: number; offset?: number }
+  const source = raw as BoundaryPayload
+  const envelope = raw as { data?: BoundaryPayload }
+  const payload = envelope.data && (envelope.data.items || envelope.data.data) ? envelope.data : source
+  const rawItems = payload.items ?? payload.data ?? []
+  const items = rawItems.map((item) => {
+    const row = item as Record<string, unknown>
+    return {
+      id: Number(row.id),
+      reportingOrgId: Number(row.reportingOrgId ?? row.reporting_org_id),
+      periodId: Number(row.periodId ?? row.period_id),
+      boundaryNo: String(row.boundaryNo ?? row.boundary_no ?? ""),
+      boundaryName: String(row.boundaryName ?? row.boundary_name ?? ""),
+      version: row.version == null ? null : Number(row.version),
+      status: row.status == null ? null : String(row.status),
+    }
+  })
+  return {
+    items,
+    total: Number(payload.total ?? items.length),
+    limit: Number(payload.limit ?? items.length),
+    offset: Number(payload.offset ?? 0),
+  }
 }

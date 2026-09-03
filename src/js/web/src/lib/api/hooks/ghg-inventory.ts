@@ -16,7 +16,10 @@ import {
   type GhgEmissionSourceWriteRequest,
   type GhgImportBatchResponse,
   type GhgInventoryReadinessResponse,
+  type GhgInventoryReportDeleteResponse,
   type GhgInventoryReportListResponse,
+  type GhgInventoryReportResponse,
+  type GhgInventoryReportUpdateRequest,
   type GhgInventoryWorkbenchResponse,
   type GhgResultDetailResponse,
   type GhgResultListResponse,
@@ -29,7 +32,9 @@ import {
   ghgInventoryCreateReport,
   ghgInventoryDeleteActivity,
   ghgInventoryDeleteEmissionSource,
+  ghgInventoryDeleteReport,
   ghgInventoryDownloadTemplate,
+  ghgInventoryExportReport,
   ghgInventoryExportResults,
   ghgInventoryGenerateActivities,
   ghgInventoryGetActivity,
@@ -41,6 +46,7 @@ import {
   ghgInventoryGetCatalog,
   ghgInventoryGetEmissionSource,
   ghgInventoryGetReadiness,
+  ghgInventoryGetReport,
   ghgInventoryGetResultDetail,
   ghgInventoryGetResultSummary,
   ghgInventoryGetWorkbench,
@@ -59,6 +65,7 @@ import {
   ghgInventorySubmitReport,
   ghgInventoryUpdateActivity,
   ghgInventoryUpdateEmissionSource,
+  ghgInventoryUpdateReport,
   organizationBoundaryCreateWorkingCopy,
   organizationBoundaryDiscardDraft,
   organizationBoundaryGetDiff,
@@ -86,6 +93,9 @@ export type OrganizationBoundarySelection = BoundarySelectionResponse
 export type OrganizationBoundaryDiff = BoundaryDiffResponse
 export type GhgInventoryReadiness = GhgInventoryReadinessResponse
 export type GhgInventoryReportList = GhgInventoryReportListResponse
+export type GhgInventoryReport = GhgInventoryReportResponse
+export type GhgInventoryReportUpdate = GhgInventoryReportUpdateRequest
+export type GhgInventoryReportDelete = GhgInventoryReportDeleteResponse
 export type GhgInventoryWorkbench = GhgInventoryWorkbenchResponse
 
 export type GhgImportContext = {
@@ -386,6 +396,22 @@ export async function exportGhgResults(filters: GhgAnalyticsFilters) {
   URL.revokeObjectURL(url)
 }
 
+export async function exportGhgInventoryReport(reportCode: string, version: number, fileFormat: "docx" | "pdf") {
+  const response = await ghgInventoryExportReport({
+    path: { report_code: reportCode, version },
+    query: { file_format: fileFormat },
+    parseAs: "blob",
+    throwOnError: true,
+  })
+  const blob = response.data as unknown as Blob
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = url
+  anchor.download = `组织温室气体盘查报告_${reportCode}_v${version}.${fileFormat}`
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
 export function useGhgResultDetail(filters: { runCode?: string; recordCode?: string; scope2Method: "location" | "market" }) {
   return useQuery({
     queryKey: ["ghg-inventory", "results", "detail", filters],
@@ -427,6 +453,17 @@ export function useGhgInventoryReports() {
   return useQuery({
     queryKey: ["ghg-inventory", "reports"],
     queryFn: async () => (await ghgInventoryListReports({ query: { limit: 100 }, throwOnError: true })).data,
+  })
+}
+
+export function useGhgInventoryReport(reportCode?: string, version?: number) {
+  return useQuery({
+    queryKey: ["ghg-inventory", "reports", reportCode, version],
+    queryFn: async () => {
+      if (!reportCode || !version) throw new Error("请选择盘查报告")
+      return (await ghgInventoryGetReport({ path: { report_code: reportCode, version }, throwOnError: true })).data
+    },
+    enabled: Boolean(reportCode && version),
   })
 }
 
@@ -658,7 +695,29 @@ export function useGhgInventoryReportActions() {
   const create = useMutation({
     mutationFn: async ({ runCode, title, changeSummary }: { runCode: string; title: string; changeSummary?: string }) =>
       (await ghgInventoryCreateReport({ body: { runCode, title, changeSummary }, throwOnError: true })).data,
-    ...mutationOptions,
+    onSuccess: async () => {
+      await invalidate()
+      toast.success("盘查报告已生成")
+    },
+    onError: mutationOptions.onError,
+  })
+  const update = useMutation({
+    mutationFn: async ({ reportCode, version, body }: { reportCode: string; version: number; body: GhgInventoryReportUpdateRequest }) =>
+      (await ghgInventoryUpdateReport({ path: { report_code: reportCode, version }, body, throwOnError: true })).data,
+    onSuccess: async () => {
+      await invalidate()
+      toast.success("盘查报告已更新")
+    },
+    onError: mutationOptions.onError,
+  })
+  const remove = useMutation({
+    mutationFn: async ({ reportCode, version }: { reportCode: string; version: number }) =>
+      (await ghgInventoryDeleteReport({ path: { report_code: reportCode, version }, throwOnError: true })).data,
+    onSuccess: async (data) => {
+      await invalidate()
+      toast.success(data.deleted ? "盘查报告已删除" : "盘查报告已归档")
+    },
+    onError: mutationOptions.onError,
   })
   const submit = useMutation({
     mutationFn: async ({ reportCode, version, comment }: { reportCode: string; version: number; comment?: string }) =>
@@ -690,7 +749,15 @@ export function useGhgInventoryReportActions() {
       (await ghgInventoryArchiveReport({ path: { report_code: reportCode, version }, body: { comment }, throwOnError: true })).data,
     ...mutationOptions,
   })
-  return { create, submit, resubmit, approve, reject, publish, archive }
+  const exportReport = useMutation({
+    mutationFn: async ({ reportCode, version, fileFormat }: { reportCode: string; version: number; fileFormat: "docx" | "pdf" }) =>
+      exportGhgInventoryReport(reportCode, version, fileFormat),
+    onSuccess: (_data, variables) => {
+      toast.success(variables.fileFormat === "pdf" ? "PDF报告已导出" : "Word报告已导出")
+    },
+    onError: (error: Error) => toast.error("盘查报告导出失败", { description: error.message }),
+  })
+  return { create, update, remove, submit, resubmit, approve, reject, publish, archive, exportReport }
 }
 
 export function useOrganizationBoundarySelection(boundaryId?: number) {

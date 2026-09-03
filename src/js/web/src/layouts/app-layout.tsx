@@ -120,10 +120,12 @@ export function AppLayout() {
     }
     if (pathname.startsWith("/carbon")) {
       if (pathname === "/carbon/organization/overview") return { eyebrow: "组织温室气体盘查", title: "组织碳总览" }
-      if (pathname === "/carbon/organization/records") return { eyebrow: "组织温室气体盘查", title: "碳排放查询" }
+      if (pathname === "/carbon/organization/records") return { eyebrow: "组织温室气体盘查", title: "组织碳核算" }
+      if (pathname === "/carbon/organization/reports") return { eyebrow: "组织温室气体盘查", title: "核算报告" }
+      if (pathname.startsWith("/carbon/organization/reports/")) return { eyebrow: "组织温室气体盘查", title: "核算报告详情" }
       if (pathname === "/carbon/organization/flow") return { eyebrow: "组织温室气体盘查", title: "碳流分析" }
       if (pathname === "/carbon/organization/boundary") return { eyebrow: "组织温室气体盘查", title: "核算边界" }
-      if (pathname === "/carbon/organization/inventory") return { eyebrow: "组织温室气体盘查", title: "碳盘查" }
+      if (pathname === "/carbon/organization/inventory") return { eyebrow: "组织温室气体盘查", title: "组织碳核算" }
       if (pathname === "/carbon/product-footprint") return { eyebrow: "专项碳核算", title: "产品碳足迹核算" }
       if (pathname === "/carbon/supply-chain") return { eyebrow: "专项碳核算", title: "供应链碳管理" }
       if (pathname === "/carbon/verification") return { eyebrow: "组织温室气体盘查", title: "碳核查支撑" }

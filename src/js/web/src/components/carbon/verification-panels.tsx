@@ -1069,18 +1069,18 @@ export function VerificationReportPanel({ projectId }: { projectId?: number }) {
     queryFn: () => generatedEnvelope<TemplateVersions>(carbonVerificationListTemplates({ query: { limit: 50 } })),
   })
   const createExport = useMutation({
-    mutationFn: (exportType: "organization_report" | "material_package") =>
+    mutationFn: () =>
       generatedEnvelope<ExportJob>(
         carbonVerificationCreateExport({
           body: {
             project_id: projectId,
-            export_type: exportType,
+            export_type: "material_package",
             year: summaryQuery.data?.data.reporting_period.year ?? undefined,
           },
         }),
       ),
-    onSuccess: (_result, exportType) => {
-      toast.success(exportType === "organization_report" ? "盘查报告生成任务已提交" : "核查材料包生成任务已提交")
+    onSuccess: () => {
+      toast.success("核查材料包生成任务已提交")
       void queryClient.invalidateQueries({ queryKey: ["carbon-verification", "export-jobs"] })
     },
     onError: (error) => {
@@ -1137,11 +1137,8 @@ export function VerificationReportPanel({ projectId }: { projectId?: number }) {
         ]}
       />
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => createExport.mutate("material_package")} disabled={createExport.isPending}>
+        <Button variant="outline" onClick={() => createExport.mutate()} disabled={createExport.isPending}>
           生成核查材料包
-        </Button>
-        <Button onClick={() => createExport.mutate("organization_report")} disabled={createExport.isPending || formalReadiness?.status !== "ready"}>
-          {createExport.isPending ? "生成中" : "生成盘查报告"}
         </Button>
       </div>
       <AdminPanel title="正式报告就绪检查" contentClassName="p-0">

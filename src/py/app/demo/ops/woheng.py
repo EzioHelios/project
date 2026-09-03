@@ -6,9 +6,9 @@ import os
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import delete, func, or_, select, text
 
 from app.db import models as m
 from app.db.models import Team, TeamMember, TeamRoles, User
@@ -25,6 +25,7 @@ from app.domain.energy.usecases.energy_types import (
     ensure_standard_energy_types,
     repair_energy_type_data,
 )
+from app.lib import constants
 from app.lib.crypt import get_password_hash
 from app.lib.tenancy import TENANT_BYPASS_SESSION_KEY, TENANT_ID_SESSION_KEY
 
@@ -48,6 +49,15 @@ WOHENG_COMPANY_WEBSITE = "https://www.voryntis-auto.example.com"
 WOHENG_COMPANY_CONTACT = "林启航"
 WOHENG_COMPANY_CONTACT_EMAIL = "lin.qihang@voryntis-auto.example.com"
 WOHENG_SOURCE_NAME = "沃衡汽车统一演示包V1"
+WOHENG_DEMO_PERMISSION_SPECS: tuple[tuple[str, str, str, str], ...] = (
+    ("carbon.inventory.view", "查看温室气体盘查", "查看规范化活动、参数、证据和核算结果", "carbon"),
+    ("carbon.inventory.import", "导入温室气体活动", "下载分类模板、预检并导入盘查数据", "carbon"),
+    ("carbon.inventory.calculate", "执行温室气体核算", "按已发布方法和报告配置生成核算快照", "carbon"),
+    ("carbon.inventory.report.manage", "编制温室气体盘查报告", "根据正式核算运行编制盘查报告", "carbon"),
+    ("carbon.inventory.report.review", "审核温室气体盘查报告", "提交、审核或退回盘查报告", "carbon"),
+    ("carbon.inventory.report.publish", "发布温室气体盘查报告", "发布已批准的盘查报告", "carbon"),
+    ("carbon.inventory.export", "导出温室气体盘查成果", "导出盘查结果、证据索引和报告", "carbon"),
+)
 MIN_EQUIPMENT_COUNT = 19
 MIN_ACTIVITY_COUNT = 400
 MIN_REPORT_COUNT = 5
@@ -70,6 +80,17 @@ MIN_SUPPLY_CHAIN_SUPPLIER_COUNT = 2
 MIN_REDUCTION_PROJECT_COUNT = 5
 MIN_ALARM_EVENT_COUNT = 1
 MIN_VIDEO_ALARM_EVENT_COUNT = 1
+LEGACY_RESIDUE_SAMPLE_LIMIT = 5
+LEGACY_SHOWCASE_MARKERS = (
+    "DEMO-PARK",
+    "demo-park",
+    "华东综合能源示范园区",
+    "DEMO91320000PARK2026X",
+    "奇瑞",
+    "中汽信科",
+    "华东绿色仓储",
+    "绿色仓储能碳平台",
+)
 
 EQUIPMENT_EFFICIENCY_SPECS: dict[str, tuple[int, str]] = {
     "TRANSFORMER-01": (1, "GB 20052-2020 电力变压器能效限定值及能效等级"),
@@ -285,7 +306,7 @@ class WohengShowcasePackage:
                     "coverage_passed": result.coverage.passed,
                     "builder": "ShowcaseDemoBuilder",
                 }
-            await self._specialize_tenant(tenant, team_id=team.id)
+            legacy_repair_summary = await self._specialize_tenant(tenant, team_id=team.id)
             repair_result = await repair_energy_type_data(self._session, team_slug=tenant.slug, apply=True)
             await self._record_manifest(
                 context,
@@ -328,6 +349,8 @@ class WohengShowcasePackage:
                         "energy_interval_facts_repaired": repair_result.interval_facts_updated,
                         "equipment_energy_types_repaired": repair_result.equipment_updated,
                         "ghg_activities_repaired": repair_result.ghg_activities_updated,
+                        "legacy_showcase_fields_repaired": legacy_repair_summary["fields_repaired"],
+                        "legacy_showcase_rows_repaired": legacy_repair_summary["rows_repaired"],
                     },
                 )
             )
@@ -372,6 +395,7 @@ class WohengShowcasePackage:
             self._session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
             counts = await self._tenant_counts()
             energy_type_diagnostics = await diagnose_energy_type_data(self._session, team_slug=tenant.slug)
+            legacy_residue_summary = await self._legacy_residue_summary()
             passed = (
                 counts["equipment"] >= MIN_EQUIPMENT_COUNT
                 and counts["activities"] >= MIN_ACTIVITY_COUNT
@@ -403,6 +427,7 @@ class WohengShowcasePackage:
                 and counts["alarm_events"] >= MIN_ALARM_EVENT_COUNT
                 and counts["video_alarm_events"] >= MIN_VIDEO_ALARM_EVENT_COUNT
                 and energy_type_diagnostics.issue_count == 0
+                and legacy_residue_summary["rows_with_residue"] == 0
             )
             steps.append(
                 DemoPlanStep(
@@ -435,6 +460,8 @@ class WohengShowcasePackage:
                         "required_alarm_events": MIN_ALARM_EVENT_COUNT,
                         "required_video_alarm_events": MIN_VIDEO_ALARM_EVENT_COUNT,
                         "energy_type_issues": energy_type_diagnostics.issue_count,
+                        "legacy_residue_rows": legacy_residue_summary["rows_with_residue"],
+                        "legacy_residue_samples": legacy_residue_summary["samples"],
                         **counts,
                     },
                 )
@@ -563,8 +590,39 @@ class WohengShowcasePackage:
             user.totp_secret = None
             user.backup_codes = None
             users[account.email] = user
+        await self._ensure_default_user_role(users.values())
         await self._session.commit()
         return users
+
+    async def _ensure_default_user_role(self, users: Sequence[User]) -> None:
+        role = await self._session.scalar(
+            select(m.Role).where(or_(m.Role.slug == "application-access", m.Role.name == constants.DEFAULT_ACCESS_ROLE))
+        )
+        if role is None:
+            return
+        await self._ensure_demo_role_permissions(role)
+        for user in users:
+            has_role = await self._session.scalar(
+                select(m.UserRole.id).where(m.UserRole.user_id == user.id, m.UserRole.role_id == role.id)
+            )
+            if has_role is None:
+                self._session.add(m.UserRole(user_id=user.id, role_id=role.id))
+
+    async def _ensure_demo_role_permissions(self, role: m.Role) -> None:
+        for code, name, description, module in WOHENG_DEMO_PERMISSION_SPECS:
+            permission = await self._session.scalar(select(m.Permission).where(m.Permission.code == code))
+            if permission is None:
+                permission = m.Permission(code=code, name=name, description=description, module=module)
+                self._session.add(permission)
+                await self._session.flush()
+            has_permission = await self._session.scalar(
+                select(m.RolePermission.id).where(
+                    m.RolePermission.role_id == role.id,
+                    m.RolePermission.permission_id == permission.id,
+                )
+            )
+            if has_permission is None:
+                self._session.add(m.RolePermission(role_id=role.id, permission_id=permission.id))
 
     async def _ensure_standard_account_memberships(self) -> None:
         self._session.info[TENANT_BYPASS_SESSION_KEY] = True
@@ -631,6 +689,9 @@ class WohengShowcasePackage:
             and counts["reports"] >= MIN_REPORT_COUNT
         )
 
+    def _inventory_code_for_year(self, tenant: WohengTenantSpec, year: int) -> str:
+        return f"WOHENG-{tenant.city_code}-INV-{year}"
+
     async def _synchronize_bigint_sequences(self) -> None:
         bind = self._session.get_bind()
         if bind.dialect.name != "postgresql":
@@ -693,7 +754,7 @@ class WohengShowcasePackage:
     async def _find_team(self, slug: str) -> Team | None:
         return await self._session.scalar(select(Team).where(Team.slug == slug))
 
-    async def _specialize_tenant(self, tenant: WohengTenantSpec, *, team_id: UUID) -> None:
+    async def _specialize_tenant(self, tenant: WohengTenantSpec, *, team_id: UUID) -> dict[str, int]:
         enterprise = await self._session.scalar(
             select(m.EnterpriseInfo).where(m.EnterpriseInfo.unify_code == "DEMO91320000PARK2026X")
         )
@@ -718,6 +779,7 @@ class WohengShowcasePackage:
             }
 
         await self._specialize_inventory_identity(tenant, enterprise)
+        initial_legacy_repair_summary = await self._normalize_legacy_showcase_residue(tenant)
 
         root = await self._session.scalar(select(m.MonitorSector).where(m.MonitorSector.code == "ROOT"))
         if root is not None:
@@ -754,6 +816,13 @@ class WohengShowcasePackage:
         await self._ensure_category_51_activity(tenant)
         await self._ensure_warning_events(tenant)
         await self._ensure_video_alarm_events(tenant)
+        legacy_repair_summary = await self._normalize_legacy_showcase_residue(tenant)
+        legacy_repair_summary = {
+            "rows_repaired": initial_legacy_repair_summary["rows_repaired"]
+            + legacy_repair_summary["rows_repaired"],
+            "fields_repaired": initial_legacy_repair_summary["fields_repaired"]
+            + legacy_repair_summary["fields_repaired"],
+        }
         await self._session.commit()
         await self._record_manifest(
             DemoExecutionContext(
@@ -767,14 +836,20 @@ class WohengShowcasePackage:
             object_key=tenant.slug,
             object_id=str(team_id),
             team_id=team_id,
-            details={"load_profile": tenant.load_profile, "enterprise": tenant.enterprise_name},
+            details={
+                "load_profile": tenant.load_profile,
+                "enterprise": tenant.enterprise_name,
+                "legacy_showcase_repair": legacy_repair_summary,
+            },
         )
+        return legacy_repair_summary
 
     async def _specialize_inventory_identity(
         self, tenant: WohengTenantSpec, enterprise: m.EnterpriseInfo | None
     ) -> None:
         organizations = list((await self._session.scalars(select(m.ReportingOrganization))).all())
         for organization in organizations:
+            organization.code = str(self._replace_legacy_brand_text(organization.code, tenant))
             organization.name = tenant.enterprise_name
             organization.enterprise_id = enterprise.id if enterprise is not None else organization.enterprise_id
             organization.legal_entity_code = tenant.enterprise_code
@@ -786,6 +861,7 @@ class WohengShowcasePackage:
         for period in periods:
             year = period.period_start.year
             period_year_by_id[period.id] = year
+            period.code = str(self._replace_legacy_brand_text(period.code, tenant))
             period.name = f"{tenant.name}{year}年度组织温室气体盘查期"
             period.source_name = WOHENG_SOURCE_NAME
             period.standard_code = "ISO 14064-1"
@@ -794,6 +870,7 @@ class WohengShowcasePackage:
         boundaries = list((await self._session.scalars(select(m.OrganizationBoundary))).all())
         for boundary in boundaries:
             year = period_year_by_id.get(boundary.period_id, 2026)
+            boundary.boundary_no = str(self._replace_legacy_brand_text(boundary.boundary_no, tenant))
             boundary.boundary_name = f"{tenant.name}{year}年度组织边界"
             boundary.source_name = WOHENG_SOURCE_NAME
             boundary.standard_code = "ISO 14064-1"
@@ -802,17 +879,29 @@ class WohengShowcasePackage:
 
         reports = list((await self._session.scalars(select(m.GhgInventoryReport))).all())
         for report in reports:
+            report.inventory_code = str(self._replace_legacy_brand_text(report.inventory_code, tenant))
             report.title = str(self._replace_legacy_brand_text(report.title, tenant))
-            if "华东" in report.title or "示范园区" in report.title:
+            if "华东" in report.title or "示范园区" in report.title or "盘查期组织温室气体盘查报告" in report.title:
                 year = period_year_by_id.get(report.reporting_period_id, 2026)
                 report.title = f"{tenant.name}{year}年度组织温室气体盘查报告"
+            elif "组织温室气体盘查报告" in report.title and not report.title.startswith(tenant.name):
+                report.title = f"{tenant.name}{report.title}"
             report.content_snapshot = self._replace_legacy_brand_text(report.content_snapshot, tenant)
             report.metrics_snapshot = self._replace_legacy_brand_text(report.metrics_snapshot, tenant)
             report.evidence_snapshot = self._replace_legacy_brand_text(report.evidence_snapshot, tenant)
             report.change_summary = self._replace_legacy_brand_text(report.change_summary, tenant)
 
     def _replace_legacy_brand_text(self, value: object, tenant: WohengTenantSpec) -> object:
+        prefix = f"WOHENG-{tenant.city_code}"
         replacements = {
+            "DEMO-PARK": prefix,
+            "demo-park": f"woheng-{tenant.city_code.lower()}",
+            "2026年奇瑞绿能综合能碳管理平台采购项目": WOHENG_BRAND_NAME,
+            "奇瑞绿能": WOHENG_COMPANY_NAME,
+            "奇瑞": WOHENG_COMPANY_NAME,
+            "中汽信科": WOHENG_COMPANY_NAME,
+            "华东绿色仓储能碳平台": WOHENG_BRAND_NAME,
+            "绿色仓储能碳平台": WOHENG_BRAND_NAME,
             "华东综合能源示范园区有限公司": tenant.enterprise_name,
             "华东综合能源示范园区运营主体": tenant.enterprise_name,
             "华东综合能源示范园区": tenant.name,
@@ -833,6 +922,384 @@ class WohengShowcasePackage:
         if isinstance(value, list):
             return [self._replace_legacy_brand_text(item, tenant) for item in value]
         return value
+
+    def _replace_legacy_inventory_code(self, value: object, tenant: WohengTenantSpec) -> object:
+        normalized = self._replace_legacy_brand_text(value, tenant)
+        if not isinstance(normalized, str):
+            return normalized
+        prefix = f"WOHENG-{tenant.city_code}"
+        if normalized.startswith(f"{prefix}-RP-"):
+            return normalized.replace(f"{prefix}-RP-", f"{prefix}-INV-", 1)
+        return normalized
+
+    def _showcase_residue_fields(self) -> tuple[tuple[type[Any], str, tuple[str, ...]], ...]:
+        return (
+            (
+                m.ReportingOrganization,
+                "reporting_organization",
+                ("code", "name", "legal_entity_code", "source_name", "remark"),
+            ),
+            (m.ReportingPeriod, "reporting_period", ("code", "name", "source_name", "remark")),
+            (
+                m.OrganizationBoundary,
+                "organization_boundary",
+                ("boundary_no", "boundary_name", "operational_boundary", "source_name", "remark"),
+            ),
+            (
+                m.GhgEmissionSource,
+                "ghg_emission_source",
+                (
+                    "inventory_code",
+                    "organization_code",
+                    "facility_code",
+                    "source_code",
+                    "source_name",
+                    "external_facility_code",
+                    "external_facility_name",
+                    "source_system",
+                    "source_payload",
+                ),
+            ),
+            (
+                m.GhgActivityRecord,
+                "ghg_activity_record",
+                (
+                    "record_code",
+                    "inventory_code",
+                    "organization_code",
+                    "facility_code",
+                    "source_code",
+                    "activity_code",
+                    "activity_name",
+                    "parameter_set_code",
+                    "source_payload",
+                    "remarks",
+                    "source_system",
+                ),
+            ),
+            (
+                m.GhgActivityAllocation,
+                "ghg_activity_allocation",
+                (
+                    "allocation_code",
+                    "external_facility_code",
+                    "external_facility_name",
+                    "area_code_snapshot",
+                    "area_name_snapshot",
+                    "area_path_snapshot",
+                    "equipment_code_snapshot",
+                    "equipment_name_snapshot",
+                    "source_kind",
+                ),
+            ),
+            (
+                m.GhgParameterValue,
+                "ghg_parameter_value",
+                ("value_code", "source_name", "evidence_code", "measurement_method", "laboratory"),
+            ),
+            (
+                m.GhgParameterAssignment,
+                "ghg_parameter_assignment",
+                ("source_name", "selection_rule", "snapshot"),
+            ),
+            (
+                m.GhgEvidenceFile,
+                "ghg_evidence_file",
+                ("evidence_code", "file_name", "document_no", "issuer", "storage_key"),
+            ),
+            (
+                m.GhgEvidenceLink,
+                "ghg_evidence_link",
+                ("link_code", "record_code", "page_or_cell_reference", "reviewer"),
+            ),
+            (
+                m.GhgImportBatch,
+                "ghg_import_batch",
+                ("batch_code", "inventory_code", "organization_code", "facility_code", "file_name", "context_snapshot"),
+            ),
+            (m.GhgImportIssue, "ghg_import_issue", ("field_code", "message", "current_value", "suggestion")),
+            (
+                m.GhgCalculationRun,
+                "ghg_calculation_run",
+                ("run_code", "inventory_code", "input_snapshot", "summary_snapshot", "quality_snapshot"),
+            ),
+            (m.GhgCalculationResult, "ghg_calculation_result", ("formula_snapshot",)),
+            (
+                m.GhgInventoryReport,
+                "ghg_inventory_report",
+                (
+                    "report_code",
+                    "title",
+                    "inventory_code",
+                    "content_snapshot",
+                    "metrics_snapshot",
+                    "evidence_snapshot",
+                    "change_summary",
+                ),
+            ),
+            (
+                m.CarbonVerificationProject,
+                "carbon_verification_project",
+                (
+                    "project_no",
+                    "project_name",
+                    "verification_basis",
+                    "sampling_strategy",
+                    "scope_description",
+                    "finding_summary",
+                    "conclusion",
+                    "source_name",
+                    "remark",
+                ),
+            ),
+            (
+                m.CarbonVerificationFinding,
+                "carbon_verification_finding",
+                (
+                    "finding_no",
+                    "record_code",
+                    "title",
+                    "description",
+                    "action_required",
+                    "display_name",
+                    "correction_evidence",
+                    "source_payload",
+                    "source_name",
+                    "remark",
+                ),
+            ),
+            (
+                m.CarbonVerificationTemplateVersion,
+                "carbon_verification_template_version",
+                ("template_code", "template_name", "template_path", "applicable_scope", "source_name", "remark"),
+            ),
+            (
+                m.CarbonVerificationExportJob,
+                "carbon_verification_export_job",
+                ("job_no", "export_type", "source_name", "error_message"),
+            ),
+            (
+                m.CarbonVerificationExportFile,
+                "carbon_verification_export_file",
+                ("file_name", "file_path", "source_name"),
+            ),
+            (
+                m.ReductionTarget,
+                "decarbonization_target",
+                ("code", "name", "trajectory", "source_name"),
+            ),
+            (
+                m.ReductionProject,
+                "decarbonization_project",
+                (
+                    "code",
+                    "name",
+                    "objective",
+                    "implementation_plan",
+                    "evaluation_summary",
+                    "source_name",
+                ),
+            ),
+            (m.ReductionProjectResourceLink, "decarbonization_project_resource_link", ("resource_key", "resource_snapshot")),
+            (
+                m.ReductionProjectBoundary,
+                "decarbonization_project_boundary",
+                ("physical_boundary", "ghg_sources_sinks", "exclusions", "organization_snapshot"),
+            ),
+            (
+                m.ReductionBaselineScenario,
+                "decarbonization_baseline_scenario",
+                ("name", "model_parameters", "factor_snapshot", "inventory_reference"),
+            ),
+            (
+                m.ReductionApplicabilityAssessment,
+                "decarbonization_applicability_assessment",
+                ("answers", "checks", "blocking_reasons", "methodology_snapshot"),
+            ),
+            (
+                m.ReductionMonitoringPlan,
+                "decarbonization_monitoring_plan",
+                ("parameters", "quality_controls", "evidence_requirements"),
+            ),
+            (
+                m.ReductionCalculationRun,
+                "decarbonization_calculation_run",
+                (
+                    "idempotency_key",
+                    "input_snapshot",
+                    "methodology_snapshot",
+                    "baseline_snapshot",
+                    "factor_snapshot",
+                    "components",
+                    "diagnostics",
+                    "error_message",
+                ),
+            ),
+            (
+                m.ReductionProjectReview,
+                "decarbonization_project_review",
+                ("reviewer_name", "organization_name", "findings", "conclusion"),
+            ),
+            (
+                m.CcerDossier,
+                "decarbonization_ccer_dossier",
+                (
+                    "project_design_document_no",
+                    "validation_body",
+                    "verification_body",
+                    "registration_no",
+                    "issuance_no",
+                    "material_checklist",
+                    "milestones",
+                ),
+            ),
+            (
+                m.ReductionAuditEvent,
+                "decarbonization_audit_event",
+                ("actor_name", "before_snapshot", "after_snapshot", "reason"),
+            ),
+            (
+                m.ClimateProgram,
+                "climate_governance_program",
+                ("code", "name", "configuration", "source_name"),
+            ),
+            (m.ClimateTarget, "climate_governance_target", ("scope_coverage", "source_name")),
+            (
+                m.ClimateDisclosureCycle,
+                "climate_governance_disclosure_cycle",
+                ("owner_name", "domain_statuses", "response_snapshot", "evidence_snapshot"),
+            ),
+            (
+                m.RenewableElectricityClaim,
+                "climate_governance_renewable_claim",
+                ("claim_no", "certificate_no", "eligibility_reasons", "evidence_reference", "source_name", "remark"),
+            ),
+            (
+                m.ClimateAssessmentRun,
+                "climate_governance_assessment_run",
+                ("idempotency_key", "input_snapshot", "rule_snapshot", "metrics_snapshot", "checks"),
+            ),
+            (
+                m.CarbonAssetInstrument,
+                "carbon_asset_instrument",
+                ("code", "name", "registry", "source_name", "source_url"),
+            ),
+            (
+                m.CarbonAssetAccount,
+                "carbon_asset_account",
+                ("account_code", "account_name", "registry_account_no", "owner_name", "source_name", "remark"),
+            ),
+            (
+                m.CarbonAssetLot,
+                "carbon_asset_lot",
+                (
+                    "lot_no",
+                    "registry_serial_no",
+                    "project_code",
+                    "project_name",
+                    "attributes",
+                    "source_name",
+                    "evidence_ref",
+                    "remark",
+                ),
+            ),
+            (
+                m.CarbonAssetMovement,
+                "carbon_asset_movement",
+                ("movement_no", "counterparty", "source_name", "evidence_ref", "remark"),
+            ),
+            (
+                m.CarbonComplianceRuleVersion,
+                "carbon_compliance_rule_version",
+                ("rule_code", "rule_name", "parameters", "source_name", "source_url"),
+            ),
+            (
+                m.CarbonComplianceCycle,
+                "carbon_compliance_cycle",
+                ("cycle_code", "cycle_name", "obligation_source", "obligation_snapshot", "source_name", "evidence_ref", "remark"),
+            ),
+            (
+                m.CarbonComplianceSettlement,
+                "carbon_compliance_settlement",
+                ("settlement_no", "rule_snapshot", "source_name", "evidence_ref", "remark"),
+            ),
+            (
+                m.EnvironmentalAssetUsage,
+                "carbon_environmental_asset_usage",
+                ("usage_no", "reporting_period", "evidence_ref", "remark"),
+            ),
+            (
+                m.CarbonCostScenario,
+                "carbon_cost_scenario",
+                ("scenario_code", "scenario_name", "parameters", "source_name", "remark"),
+            ),
+            (
+                m.CarbonCostRun,
+                "carbon_cost_run",
+                ("run_no", "input_snapshot", "quote_snapshot", "balance_snapshot", "result_summary", "period_results"),
+            ),
+        )
+
+    def _has_legacy_showcase_marker(self, value: object) -> bool:
+        if value is None:
+            return False
+        if isinstance(value, str):
+            return any(marker in value for marker in LEGACY_SHOWCASE_MARKERS)
+        if isinstance(value, dict):
+            return any(
+                self._has_legacy_showcase_marker(key) or self._has_legacy_showcase_marker(item)
+                for key, item in value.items()
+            )
+        if isinstance(value, list | tuple):
+            return any(self._has_legacy_showcase_marker(item) for item in value)
+        return False
+
+    async def _normalize_legacy_showcase_residue(self, tenant: WohengTenantSpec) -> dict[str, int]:
+        rows_repaired = 0
+        fields_repaired = 0
+        for model, _label, fields in self._showcase_residue_fields():
+            rows = list((await self._session.scalars(select(model))).all())
+            for row in rows:
+                row_changed = False
+                for field in fields:
+                    if not hasattr(row, field):
+                        continue
+                    current = getattr(row, field)
+                    if not self._has_legacy_showcase_marker(current):
+                        continue
+                    if field == "inventory_code":
+                        normalized = self._replace_legacy_inventory_code(current, tenant)
+                    else:
+                        normalized = self._replace_legacy_brand_text(current, tenant)
+                    if normalized != current:
+                        setattr(row, field, normalized)
+                        fields_repaired += 1
+                        row_changed = True
+                if row_changed:
+                    rows_repaired += 1
+        return {"rows_repaired": rows_repaired, "fields_repaired": fields_repaired}
+
+    async def _legacy_residue_summary(self) -> dict[str, Any]:
+        rows_with_residue = 0
+        samples: dict[str, list[str]] = {}
+        for model, label, fields in self._showcase_residue_fields():
+            rows = list((await self._session.scalars(select(model))).all())
+            model_samples: list[str] = []
+            for row in rows:
+                dirty_fields = [
+                    field
+                    for field in fields
+                    if hasattr(row, field) and self._has_legacy_showcase_marker(getattr(row, field))
+                ]
+                if not dirty_fields:
+                    continue
+                rows_with_residue += 1
+                if len(model_samples) < LEGACY_RESIDUE_SAMPLE_LIMIT:
+                    row_id = getattr(row, "id", "unknown")
+                    model_samples.append(f"{row_id}:{','.join(dirty_fields)}")
+            if model_samples:
+                samples[label] = model_samples
+        return {"rows_with_residue": rows_with_residue, "samples": samples}
 
     async def _ensure_mqtt_config(self, tenant: WohengTenantSpec) -> None:
         source_code = f"WH-MQTT-{tenant.slug.upper().replace('-', '_')}"
@@ -1719,7 +2186,7 @@ class WohengShowcasePackage:
         area = await self._session.scalar(select(m.MonitorSector).where(m.MonitorSector.code == "ROOT"))
         if period is None or organization is None or boundary is None or area is None:
             return
-        inventory_code = period.code
+        inventory_code = self._inventory_code_for_year(tenant, period.period_start.year)
         source_code = f"WH-{tenant.city_code}-SOLD-PROCESSING"
         source = await self._session.scalar(
             select(m.GhgEmissionSource).where(

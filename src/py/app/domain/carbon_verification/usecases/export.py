@@ -40,7 +40,7 @@ class CarbonVerificationExportUseCase:
     async def create_export_job(self, data: dict[str, Any]) -> m.CarbonVerificationExportJob:
         """Validate and persist a queued export without performing file I/O."""
         export_type = str(data.get("export_type") or "material_package")
-        if export_type not in {"organization_report", "material_package"}:
+        if export_type != "material_package":
             msg = "不支持的导出类型"
             raise ValueError(msg)
         requested_by = _str_or_none(data.get("requested_by"))
@@ -84,7 +84,7 @@ class CarbonVerificationExportUseCase:
         await self._session.refresh(job)
         return job
 
-    async def render_export_job(self, job_id: int) -> m.CarbonVerificationExportJob:  # noqa: PLR0915
+    async def render_export_job(self, job_id: int) -> m.CarbonVerificationExportJob:
         """Render one queued export from its frozen request snapshot."""
         job = await self._session.get(m.CarbonVerificationExportJob, job_id)
         if job is None:
@@ -108,12 +108,6 @@ class CarbonVerificationExportUseCase:
         issues = await query_service.issues(query)
         audit_trail = await query_service.audit_trail(query)
         formal_readiness = _mapping(report.get("formal_readiness"))
-        if export_type == "organization_report" and formal_readiness.get("status") != "ready":
-            checks_value = formal_readiness.get("checks")
-            checks = cast("list[dict[str, Any]]", checks_value) if isinstance(checks_value, list) else []
-            blocked = [str(item.get("label")) for item in checks if item.get("status") == "blocked"]
-            msg = f"正式盘查报告尚未就绪: {'、'.join(blocked) or '存在未满足的导出条件'}"
-            raise ValueError(msg)
         job.template_name = report["template"].get("name")
         job.template_path = report["template"].get("path")
         job.standard_name = report["standard"].get("name")
@@ -163,7 +157,7 @@ class CarbonVerificationExportUseCase:
             job.error_message = str(exc)
             job.completed_at = _utc_now_naive()
             await self._session.commit()
-            msg = "盘查报告导出失败" if export_type == "organization_report" else "核查材料包导出失败"
+            msg = "核查材料包导出失败"
             raise ValueError(msg) from exc
 
         await self._session.commit()

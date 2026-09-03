@@ -801,6 +801,21 @@ class GhgInventoryReportCreateRequest(CamelizedBaseStruct, kw_only=True):
         _bounded(self.title, "报告名称", 255)
 
 
+class GhgInventoryReportUpdateRequest(CamelizedBaseStruct, kw_only=True):
+    title: str
+    change_summary: str | None = None
+
+    def __post_init__(self) -> None:
+        _bounded(self.title, "报告名称", 255)
+
+
+class GhgInventoryReportDeleteResponse(CamelizedBaseStruct):
+    report_code: str
+    version: int
+    deleted: bool
+    status: str | None
+
+
 class GhgInventoryReportActionRequest(CamelizedBaseStruct, kw_only=True):
     comment: str | None = None
 

@@ -1071,6 +1071,18 @@ class GhgAnalyticsQueryService:
         )
         return {"items": [await self.report_payload(row) for row in rows], "total": total}
 
+    async def report(self, *, report_code: str, version: int) -> dict[str, Any]:
+        report = await self.session.scalar(
+            select(GhgInventoryReport).where(
+                GhgInventoryReport.report_code == report_code,
+                GhgInventoryReport.version == version,
+            )
+        )
+        if report is None:
+            msg = "盘查报告不存在"
+            raise ValueError(msg)
+        return await self.report_payload(report)
+
     async def report_payload(self, report: GhgInventoryReport) -> dict[str, Any]:
         run = await self.session.get(GhgCalculationRun, report.run_id)
         profile = await self.session.get(GhgReportingProfile, report.reporting_profile_id)

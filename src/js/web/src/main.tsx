@@ -65,10 +65,11 @@ client.setConfig({
   credentials: "include",
   fetch: async (input, init) => {
     const request = input instanceof Request ? input : new Request(input, init)
-    const retryRequest = request.clone()
-    let response = await rawFetch(request)
+    const tenantAwareRequest = withTenantHeader(request)
+    const retryRequest = tenantAwareRequest.clone()
+    let response = await rawFetch(tenantAwareRequest)
 
-    if (response.status !== 401 || typeof window === "undefined" || shouldSkipRefresh(request.url) || isPublicAuthPath(window.location.pathname)) {
+    if (response.status !== 401 || typeof window === "undefined" || shouldSkipRefresh(tenantAwareRequest.url) || isPublicAuthPath(window.location.pathname)) {
       return response
     }
 

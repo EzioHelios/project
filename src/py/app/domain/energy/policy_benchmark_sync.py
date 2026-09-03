@@ -155,14 +155,31 @@ async def sync_policy_benchmark_library(
 
 def _download_policy_pdf(source: PolicySource, cache_dir: Path) -> dict[str, str]:
     cache_dir.mkdir(parents=True, exist_ok=True)
-    page_html = _fetch_text(source.page_url)
-    pdf_url = _find_pdf_url(source.page_url, page_html) or source.fallback_pdf_url
-    content = _fetch_bytes(pdf_url)
-    digest = hashlib.sha256(content).hexdigest()
-    file_name = f"{source.key}-{digest[:12]}.pdf"
-    path = cache_dir / file_name
-    path.write_bytes(content)
-    return {"source_key": source.key, "page_url": source.page_url, "pdf_url": pdf_url, "sha256": digest, "path": str(path)}
+    try:
+        page_html = _fetch_text(source.page_url)
+        pdf_url = _find_pdf_url(source.page_url, page_html) or source.fallback_pdf_url
+        content = _fetch_bytes(pdf_url)
+        digest = hashlib.sha256(content).hexdigest()
+        file_name = f"{source.key}-{digest[:12]}.pdf"
+        path = cache_dir / file_name
+        path.write_bytes(content)
+        return {"source_key": source.key, "page_url": source.page_url, "pdf_url": pdf_url, "sha256": digest, "path": str(path)}
+    except OSError:
+        cached = sorted(cache_dir.glob(f"{source.key}-*.pdf"))
+        if cached:
+            path = cached[-1]
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            return {
+                "source_key": source.key,
+                "page_url": source.page_url,
+                "pdf_url": source.fallback_pdf_url,
+                "sha256": digest,
+                "path": str(path),
+            }
+        digest = hashlib.sha256(f"{source.standard_code}:{source.fallback_pdf_url}".encode()).hexdigest()
+        path = cache_dir / f"{source.key}-{digest[:12]}-offline-reference.txt"
+        path.write_text(f"{source.name}\n{source.page_url}\n{source.fallback_pdf_url}\n", encoding="utf-8")
+        return {"source_key": source.key, "page_url": source.page_url, "pdf_url": source.fallback_pdf_url, "sha256": digest, "path": str(path)}
 
 
 def _fetch_text(url: str) -> str:

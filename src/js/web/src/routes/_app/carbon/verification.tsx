@@ -8,7 +8,6 @@ import {
   VerificationIssuesPanel,
   VerificationMaterialPackagePanel,
   VerificationProjectsPanel,
-  VerificationReportPanel,
   VerificationTracePanel,
 } from "@/components/carbon/verification-panels"
 import { PageContainer } from "@/components/ui/page-layout"
@@ -30,7 +29,7 @@ function CarbonVerificationPage() {
               <TabsTrigger value="projects">核查项目</TabsTrigger>
               <TabsTrigger value="evidence">证据资料</TabsTrigger>
               <TabsTrigger value="work">核查工作</TabsTrigger>
-              <TabsTrigger value="delivery">报告与材料</TabsTrigger>
+              <TabsTrigger value="package">核查材料包</TabsTrigger>
             </AdminTabsList>
           }
         >
@@ -58,19 +57,8 @@ function CarbonVerificationPage() {
               </TabsContent>
             </Tabs>
           </TabsContent>
-          <TabsContent value="delivery">
-            <Tabs defaultValue="package" className="space-y-4">
-              <AdminTabsList>
-                <TabsTrigger value="package">核查材料包</TabsTrigger>
-                <TabsTrigger value="export">报告导出</TabsTrigger>
-              </AdminTabsList>
-              <TabsContent value="package">
-                <VerificationMaterialPackagePanel projectId={projectId} />
-              </TabsContent>
-              <TabsContent value="export">
-                <VerificationReportPanel projectId={projectId} />
-              </TabsContent>
-            </Tabs>
+          <TabsContent value="package">
+            <VerificationMaterialPackagePanel projectId={projectId} />
           </TabsContent>
         </AdminPageScaffold>
       </Tabs>

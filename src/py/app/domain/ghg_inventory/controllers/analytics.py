@@ -6,10 +6,11 @@ from datetime import date
 from typing import TYPE_CHECKING, Any, cast
 
 import msgspec
-from litestar import Controller, get, post
+from litestar import Controller, delete, get, patch, post
 from litestar.exceptions import ClientException
 from litestar.response import Response
 
+from app.db import models as m  # noqa: TC001 - Litestar resolves current_user dependency from this runtime annotation.
 from app.domain.accounts.guards import requires_permission
 from app.domain.ghg_inventory.infrastructure.result_export import build_result_export_bytes
 from app.domain.ghg_inventory.queries.analytics import GhgAnalyticsQueryService
@@ -23,18 +24,24 @@ from app.domain.ghg_inventory.schemas import (
     GhgInventoryReadinessResponse,
     GhgInventoryReportActionRequest,
     GhgInventoryReportCreateRequest,
+    GhgInventoryReportDeleteResponse,
     GhgInventoryReportListResponse,
     GhgInventoryReportResponse,
+    GhgInventoryReportUpdateRequest,
     GhgResultDetailResponse,
     GhgResultListResponse,
     GhgResultSummaryResponse,
 )
-from app.domain.ghg_inventory.usecases.reports import CreateInventoryReport, TransitionInventoryReport
+from app.domain.ghg_inventory.usecases.reports import (
+    CreateInventoryReport,
+    DeleteInventoryReport,
+    ExportInventoryReport,
+    TransitionInventoryReport,
+    UpdateInventoryReport,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.db.models import User
 
 
 class GhgInventoryAnalyticsController(Controller):
@@ -458,6 +465,103 @@ class GhgInventoryReportController(Controller):
             await GhgAnalyticsQueryService(db_session).report_payload(report), type=GhgInventoryReportResponse
         )
 
+    @get(
+        "/{report_code:str}/{version:int}",
+        operation_id="GhgInventoryGetReport",
+        guards=[requires_permission("carbon.inventory.view")],
+    )
+    async def report(
+        self,
+        db_session: AsyncSession,
+        report_code: str,
+        version: int,
+    ) -> GhgInventoryReportResponse:
+        try:
+            report = await GhgAnalyticsQueryService(db_session).report(report_code=report_code, version=version)
+        except ValueError as exc:
+            raise ClientException(status_code=404, detail=str(exc)) from exc
+        return msgspec.convert(report, type=GhgInventoryReportResponse)
+
+    @get(
+        "/{report_code:str}/{version:int}/export",
+        operation_id="GhgInventoryExportReport",
+        guards=[requires_permission("carbon.inventory.export")],
+    )
+    async def export_report(
+        self,
+        db_session: AsyncSession,
+        report_code: str,
+        version: int,
+        file_format: str = "docx",
+    ) -> Response[bytes]:
+        try:
+            exported = await ExportInventoryReport(db_session).execute(
+                report_code=report_code,
+                version=version,
+                file_format=file_format,
+            )
+        except ValueError as exc:
+            status_code = 404 if "不存在" in str(exc) else 422
+            raise ClientException(status_code=status_code, detail=str(exc)) from exc
+        return Response(
+            content=exported.content,
+            media_type=exported.content_type,
+            headers={"Content-Disposition": f'attachment; filename="{exported.filename}"'},
+        )
+
+    @patch(
+        "/{report_code:str}/{version:int}",
+        operation_id="GhgInventoryUpdateReport",
+        guards=[requires_permission("carbon.inventory.report.manage")],
+    )
+    async def update_report(
+        self,
+        db_session: AsyncSession,
+        report_code: str,
+        version: int,
+        data: GhgInventoryReportUpdateRequest,
+    ) -> GhgInventoryReportResponse:
+        try:
+            report = await UpdateInventoryReport(db_session).execute(
+                report_code=report_code,
+                version=version,
+                title=data.title,
+                change_summary=data.change_summary,
+            )
+        except ValueError as exc:
+            raise ClientException(status_code=422, detail=str(exc)) from exc
+        return msgspec.convert(
+            await GhgAnalyticsQueryService(db_session).report_payload(report), type=GhgInventoryReportResponse
+        )
+
+    @delete(
+        "/{report_code:str}/{version:int}",
+        operation_id="GhgInventoryDeleteReport",
+        guards=[requires_permission("carbon.inventory.report.manage")],
+        status_code=200,
+    )
+    async def delete_report(
+        self,
+        db_session: AsyncSession,
+        current_user: m.User,
+        report_code: str,
+        version: int,
+    ) -> GhgInventoryReportDeleteResponse:
+        try:
+            result = await DeleteInventoryReport(db_session).execute(
+                report_code=report_code,
+                version=version,
+                actor=current_user.email,
+            )
+        except ValueError as exc:
+            raise ClientException(status_code=422, detail=str(exc)) from exc
+        return GhgInventoryReportDeleteResponse(
+            report_code=cast("str", result["report_code"]),
+            version=cast("int", result["version"]),
+            deleted=cast("bool", result["deleted"]),
+            status=cast("str | None", result["status"]),
+        )
+
     @post(
         "/{report_code:str}/{version:int}/submit",
         operation_id="GhgInventorySubmitReport",
@@ -466,7 +570,7 @@ class GhgInventoryReportController(Controller):
     async def submit_report(
         self,
         db_session: AsyncSession,
-        current_user: User,
+        current_user: m.User,
         report_code: str,
         version: int,
         data: GhgInventoryReportActionRequest,
@@ -481,7 +585,7 @@ class GhgInventoryReportController(Controller):
     async def resubmit_report(
         self,
         db_session: AsyncSession,
-        current_user: User,
+        current_user: m.User,
         report_code: str,
         version: int,
         data: GhgInventoryReportActionRequest,
@@ -496,7 +600,7 @@ class GhgInventoryReportController(Controller):
     async def approve_report(
         self,
         db_session: AsyncSession,
-        current_user: User,
+        current_user: m.User,
         report_code: str,
         version: int,
         data: GhgInventoryReportActionRequest,
@@ -511,7 +615,7 @@ class GhgInventoryReportController(Controller):
     async def reject_report(
         self,
         db_session: AsyncSession,
-        current_user: User,
+        current_user: m.User,
         report_code: str,
         version: int,
         data: GhgInventoryReportActionRequest,
@@ -526,7 +630,7 @@ class GhgInventoryReportController(Controller):
     async def publish_report(
         self,
         db_session: AsyncSession,
-        current_user: User,
+        current_user: m.User,
         report_code: str,
         version: int,
         data: GhgInventoryReportActionRequest,
@@ -541,7 +645,7 @@ class GhgInventoryReportController(Controller):
     async def archive_report(
         self,
         db_session: AsyncSession,
-        current_user: User,
+        current_user: m.User,
         report_code: str,
         version: int,
         data: GhgInventoryReportActionRequest,
@@ -551,7 +655,7 @@ class GhgInventoryReportController(Controller):
     @staticmethod
     async def _transition(
         db_session: AsyncSession,
-        current_user: User,
+        current_user: m.User,
         report_code: str,
         version: int,
         action: str,
