@@ -21,7 +21,7 @@ const stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 12)
 const sourceCode = process.env.MANUAL_VERIFY_GHG_SOURCE_CODE ?? `MANUAL-GHG-SRC-${stamp}`
 const recordCode = process.env.MANUAL_VERIFY_GHG_RECORD_CODE ?? `MANUAL-GHG-ACT-${stamp}`
 const screenshots = {
-  workbench: "EV-WH-144-组织碳数据工作台.png",
+  activityEntry: "EV-WH-144-活动数据台账入口.png",
   sourceCreate: "EV-WH-145-排放源新增表单.png",
   sourceEdit: "EV-WH-146-排放源编辑结果.png",
   activityCreate: "EV-WH-147-活动数据新增表单.png",
@@ -93,8 +93,8 @@ try {
   await cleanupActivity(recordCode)
   await cleanupSource(sourceCode)
 
-  await openWorkbench()
-  await capture("workbench", "打开组织碳数据工作台，确认报告期、排放源、活动数据、归集、参数和证据状态可见。")
+  await openActivityLedger()
+  await capture("activityEntry", "打开活动数据台账，确认盘查任务、ISO 分类、数据质量、关键词筛选和维护入口可见。")
 
   await createSource()
   await editSource()
@@ -170,12 +170,12 @@ async function loadCatalog() {
   checks.push({ name: "catalog", status: "passed", period: period.name, area: area.name, equipment: equipment?.name ?? "" })
 }
 
-async function openWorkbench() {
+async function openActivityLedger() {
   apiFailures.length = 0
-  await page.goto(`${baseURL}/carbon-mgmt/workbench`, { waitUntil: "domcontentloaded" })
+  await page.goto(`${baseURL}/carbon-mgmt/activities`, { waitUntil: "domcontentloaded" })
   await injectScreenshotCss()
   await waitForPageReady()
-  await assertBusinessPage(["组织碳数据工作台", "报告期", "排放源", "活动数据", "生成活动数据"])
+  await assertBusinessPage(["温室气体活动台账", "盘查任务", "ISO 二级分类", "新增活动", "生成活动数据"])
 }
 
 async function createSource() {
@@ -266,16 +266,16 @@ async function editActivity() {
 }
 
 async function generateActivities() {
-  await page.goto(`${baseURL}/carbon-mgmt/workbench`, { waitUntil: "domcontentloaded" })
+  await page.goto(`${baseURL}/carbon-mgmt/activities`, { waitUntil: "domcontentloaded" })
   await waitForPageReady()
   await page.getByRole("button", { name: "生成活动数据" }).click()
-  const dialog = page.getByRole("dialog").filter({ hasText: "生成活动数据" })
+  const dialog = page.getByRole("dialog").filter({ hasText: "生成组织碳活动数据" })
   await dialog.waitFor({ state: "visible" })
   await dialog.getByRole("button", { name: "生成" }).click()
   await expectVisible("活动数据生成完成")
   await waitForPageReady()
-  await capture("generate", "执行幂等生成后，工作台统计刷新，购入电力和员工通勤活动数据进入统一台账。")
-  checks.push({ name: "activity-generate", status: "passed", inventoryCode: period.code })
+  await capture("generate", "执行幂等生成后，购入电力和员工通勤活动数据进入统一台账。")
+  checks.push({ name: "activity-generate", status: "passed", reportingPeriodCode: period.code })
 }
 
 async function cleanupCreatedRows() {
@@ -302,13 +302,13 @@ async function cleanupSource(code) {
 }
 
 async function getActivity(code) {
-  const response = await fetchJson(`/api/ghg-inventory/activities?inventory_code=${encodeURIComponent(period.code)}&limit=500`)
+  const response = await fetchJson("/api/ghg-inventory/activities?limit=500")
   if (!response.ok) throw new Error(`活动数据查询失败：HTTP ${response.status}`)
   return (response.data?.items ?? []).find((item) => item.recordCode === code) ?? null
 }
 
 async function getSource(code) {
-  const response = await fetchJson(`/api/ghg-inventory/emission-sources?inventory_code=${encodeURIComponent(period.code)}&keyword=${encodeURIComponent(code)}&limit=20`)
+  const response = await fetchJson(`/api/ghg-inventory/emission-sources?keyword=${encodeURIComponent(code)}&limit=20`)
   if (!response.ok) throw new Error(`排放源查询失败：HTTP ${response.status}`)
   return (response.data?.items ?? []).find((item) => item.sourceCode === code) ?? null
 }

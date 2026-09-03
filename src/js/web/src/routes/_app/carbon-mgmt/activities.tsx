@@ -56,6 +56,19 @@ function GhgActivityLedgerPage() {
   const rows = (activities.data?.items ?? []).filter(
     (row) => !keyword.trim() || `${row.recordCode}${row.activityName}${row.sourceCode}`.toLowerCase().includes(keyword.trim().toLowerCase()),
   )
+  const inventoryOptions = useMemo(() => {
+    const byCode = new Map<string, { code: string; label: string; reportingPeriodId?: number | null }>()
+    for (const item of [...(sources.data?.items ?? []), ...(activities.data?.items ?? [])]) {
+      if (!item.inventoryCode || byCode.has(item.inventoryCode)) continue
+      const periodName = catalog.data?.periods.find((period) => period.id === item.reportingPeriodId)?.name
+      byCode.set(item.inventoryCode, {
+        code: item.inventoryCode,
+        label: periodName ? `${periodName}（${item.inventoryCode}）` : item.inventoryCode,
+        reportingPeriodId: item.reportingPeriodId,
+      })
+    }
+    return [...byCode.values()].sort((a, b) => a.label.localeCompare(b.label, "zh-CN"))
+  }, [activities.data?.items, catalog.data?.periods, sources.data?.items])
   const approved = rows.filter((row) => row.status === "approved").length
   const allocated = rows.filter((row) => row.allocationStatus === "complete").length
   const failures = rows.filter((row) => row.qualityStatus === "failed").length
@@ -143,9 +156,9 @@ function GhgActivityLedgerPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">全部盘查任务</SelectItem>
-                        {(catalog.data?.periods ?? []).map((period) => (
-                          <SelectItem key={period.id} value={period.code}>
-                            {period.name}
+                        {inventoryOptions.map((option) => (
+                          <SelectItem key={option.code} value={option.code}>
+                            {option.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -350,6 +363,7 @@ function GhgActivityLedgerPage() {
       </Sheet>
       <GenerateDialog
         catalog={catalog.data}
+        inventoryOptions={inventoryOptions}
         open={generateOpen}
         pending={actions.generateActivities.isPending}
         onOpenChange={setGenerateOpen}
@@ -456,12 +470,14 @@ function ActivityFactorSelection({ activity }: { activity?: GhgActivity | null }
 
 function GenerateDialog({
   catalog,
+  inventoryOptions,
   open,
   pending,
   onOpenChange,
   onSubmit,
 }: {
   catalog: ReturnType<typeof useGhgCatalog>["data"]
+  inventoryOptions: { code: string; label: string; reportingPeriodId?: number | null }[]
   open: boolean
   pending?: boolean
   onOpenChange: (open: boolean) => void
@@ -470,6 +486,7 @@ function GenerateDialog({
   const period = catalog?.periods[0]
   const [reportingPeriodId, setReportingPeriodId] = useState(period?.id ?? 0)
   const selectedPeriod = catalog?.periods.find((item) => item.id === reportingPeriodId) ?? period
+  const selectedInventory = inventoryOptions.find((item) => item.reportingPeriodId === selectedPeriod?.id) ?? inventoryOptions[0]
   const sourceTypes = ["energy_electricity", "employee_commute"]
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -493,7 +510,7 @@ function GenerateDialog({
             </Select>
           </CarbonFormField>
           <div className="rounded-md border border-border/70 p-3 text-sm">
-            <div className="font-medium">生成来源</div>
+            <div className="font-medium">盘查任务：{selectedInventory?.code ?? "请先维护排放源或活动数据"}</div>
             <div className="mt-2 space-y-1 text-muted-foreground text-sm">
               <div>购入电力：从能源事实汇总生成 2.1 活动数据</div>
               <div>员工通勤：从经营活动台账生成 3.3 活动数据</div>
@@ -505,10 +522,10 @@ function GenerateDialog({
             取消
           </Button>
           <Button
-            disabled={pending || !selectedPeriod}
+            disabled={pending || !selectedPeriod || !selectedInventory}
             onClick={() => {
-              if (!selectedPeriod) return
-              onSubmit({ inventoryCode: selectedPeriod.code, reportingPeriodId: selectedPeriod.id, sourceTypes })
+              if (!selectedPeriod || !selectedInventory) return
+              onSubmit({ inventoryCode: selectedInventory.code, reportingPeriodId: selectedPeriod.id, sourceTypes })
             }}
           >
             生成

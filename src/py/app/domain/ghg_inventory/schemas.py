@@ -361,17 +361,6 @@ class GhgActivityGenerateResponse(CamelizedBaseStruct):
     messages: list[str]
 
 
-class GhgInventoryWorkbenchResponse(CamelizedBaseStruct):
-    inventory_code: str | None
-    reporting_period_id: int | None
-    activity_count: int
-    source_count: int
-    unallocated_count: int
-    missing_parameter_count: int
-    warning_count: int
-    missing_evidence_count: int
-
-
 class GhgBoundaryPreview(CamelizedBaseStruct, kw_only=True):
     row_number: int = msgspec.field(name="_row_number")
     inventory_code: str | None = None

@@ -39,7 +39,6 @@ from app.domain.ghg_inventory.schemas import (
     GhgEmissionSourceWriteRequest,
     GhgImportBatchListResponse,
     GhgImportBatchResponse,
-    GhgInventoryWorkbenchResponse,
     ReplaceActivityAllocationsRequest,
     WorkbookCommitRequest,
     WorkbookPreviewRequest,
@@ -166,23 +165,6 @@ class GhgInventoryController(Controller):
             offset=max(offset, 0),
         )
         return msgspec.convert(payload, type=GhgActivityListResponse)
-
-    @get(
-        "/workbench",
-        operation_id="GhgInventoryGetWorkbench",
-        guards=[requires_permission("carbon.inventory.view")],
-    )
-    async def workbench(
-        self,
-        db_session: AsyncSession,
-        inventory_code: str | None = None,
-        reporting_period_id: int | None = None,
-    ) -> GhgInventoryWorkbenchResponse:
-        payload = await GhgInventoryQueryService(db_session).workbench(
-            inventory_code=inventory_code,
-            reporting_period_id=reporting_period_id,
-        )
-        return msgspec.convert(payload, type=GhgInventoryWorkbenchResponse)
 
     @get(
         "/emission-sources",

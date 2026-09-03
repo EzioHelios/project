@@ -18,13 +18,13 @@
     <header class="page-header">
       <div class="eyebrow">沃衡汽车有限公司</div>
       <h1>组织碳核算：排放源与活动数据维护</h1>
-      <div class="page-meta">操作手册 · 生成时间 2026/9/3 16:11:14</div>
+      <div class="page-meta">操作手册 · 生成时间 2026/9/3 21:28:52</div>
     </header>
     <article class="content"><h2>组织碳核算：排放源与活动数据维护</h2>
-<p>本章用于维护组织温室气体盘查的核心活动数据。使用顺序为：先进入组织碳数据工作台确认报告期和数据完整性，再维护排放源，随后维护活动数据，并在活动详情中完成区域设备归集、分类字段、因子参数和证据材料的核对。</p>
-<h3>查看组织碳数据工作台</h3>
-<p>进入 <code>/carbon-mgmt/workbench</code>。页面集中展示当前报告期的排放源数量、活动数据数量、待归集记录、待配参数、质量警告和待补证据，并提供排放源维护、活动数据维护、批量导入和生成活动数据入口。</p>
-<figure class="evidence"><div class="evidence-meta"><span>EV-WH-144</span><span>/carbon-mgmt/workbench</span><span>组织碳排放源与活动数据维护</span></div><img src="../assets/screenshots/EV-WH-144-查看组织碳数据工作台.png" alt="查看组织碳数据工作台" /><figcaption>查看组织碳数据工作台</figcaption></figure>
+<p>本章用于维护组织温室气体盘查的核心活动数据。使用顺序为：先维护排放源，再进入活动数据台账维护活动记录，并在活动详情中完成区域设备归集、分类字段、因子参数和证据材料的核对；批量导入和活动数据生成作为台账的批量维护能力使用。</p>
+<h3>查看活动数据台账入口</h3>
+<p>进入 <code>/carbon-mgmt/activities</code>。页面展示当前租户下的组织碳活动数据，支持按盘查任务、ISO 二级分类、数据质量和关键词筛选，并提供新增活动、批量导入和生成活动数据入口。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-144</span><span>/carbon-mgmt/activities</span><span>组织碳排放源与活动数据维护</span></div><img src="../assets/screenshots/EV-WH-144-查看活动数据台账入口.png" alt="查看活动数据台账入口" /><figcaption>查看活动数据台账入口</figcaption></figure>
 <h3>新增排放源</h3>
 <p>进入 <code>/carbon-mgmt/sources</code>，点击「<strong>新增排放源</strong>」。填写盘查任务、ISO 二级分类、排放源编号、排放源名称、组织、归集区域、默认区域、默认设备、来源类型和状态。排放源用于明确活动数据对应的排放活动、设施或外部活动对象。</p>
 <figure class="evidence"><div class="evidence-meta"><span>EV-WH-145</span><span>/carbon-mgmt/sources</span><span>组织碳排放源与活动数据维护</span></div><img src="../assets/screenshots/EV-WH-145-新增排放源.png" alt="新增排放源" /><figcaption>新增排放源</figcaption></figure>
@@ -41,8 +41,8 @@
 <p>在活动数据台账点击编辑，调整活动名称、活动量、单位、来源、分类字段、测量方法或备注。保存后台账回显新的活动量、质量状态、归集状态和记录状态。</p>
 <figure class="evidence"><div class="evidence-meta"><span>EV-WH-149</span><span>/carbon-mgmt/activities</span><span>组织碳排放源与活动数据维护</span></div><img src="../assets/screenshots/EV-WH-149-编辑活动数据.png" alt="编辑活动数据" /><figcaption>编辑活动数据</figcaption></figure>
 <h3>生成活动数据</h3>
-<p>在工作台或活动数据台账点击「<strong>生成活动数据</strong>」，选择报告期后执行生成。平台从购入电力能源事实和员工通勤经营活动台账生成组织碳活动数据，重复执行时更新同一批记录，便于报告期内补数据后重新刷新活动台账。</p>
-<figure class="evidence"><div class="evidence-meta"><span>EV-WH-150</span><span>/carbon-mgmt/workbench</span><span>组织碳排放源与活动数据维护</span></div><img src="../assets/screenshots/EV-WH-150-生成活动数据.png" alt="生成活动数据" /><figcaption>生成活动数据</figcaption></figure>
+<p>在活动数据台账点击「<strong>生成活动数据</strong>」，选择报告期后执行生成。平台从购入电力能源事实和员工通勤经营活动台账生成组织碳活动数据，重复执行时更新同一批记录，便于报告期内补数据后重新刷新活动台账。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-150</span><span>/carbon-mgmt/activities</span><span>组织碳排放源与活动数据维护</span></div><img src="../assets/screenshots/EV-WH-150-生成活动数据.png" alt="生成活动数据" /><figcaption>生成活动数据</figcaption></figure>
 <h3>删除活动数据和排放源</h3>
 <p>未被核算结果或报告引用的活动数据可删除。活动数据删除后，再删除未关联活动数据的排放源。删除后按记录编号或排放源编号查询，列表不再显示验证记录。</p>
 <figure class="evidence"><div class="evidence-meta"><span>EV-WH-151</span><span>/carbon-mgmt/activities</span><span>组织碳排放源与活动数据维护</span></div><img src="../assets/screenshots/EV-WH-151-删除活动数据和排放源.png" alt="删除活动数据和排放源" /><figcaption>删除活动数据和排放源</figcaption></figure>

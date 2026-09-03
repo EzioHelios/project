@@ -84,7 +84,6 @@ export function AppLayout() {
       return { eyebrow: "定时任务", title: "定时任务" }
     }
     if (pathname.startsWith("/carbon-mgmt")) {
-      if (pathname === "/carbon-mgmt/workbench") return { eyebrow: "组织碳数据维护", title: "数据工作台" }
       if (pathname === "/carbon-mgmt/sources") return { eyebrow: "组织碳数据维护", title: "排放源维护" }
       if (pathname === "/carbon-mgmt/activities") return { eyebrow: "组织碳数据维护", title: "活动数据台账" }
       if (pathname === "/carbon-mgmt/import") return { eyebrow: "组织碳数据维护", title: "活动数据导入" }

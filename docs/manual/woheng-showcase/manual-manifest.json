@@ -1360,16 +1360,16 @@
     {
       "sectionId": "ghg-maintenance",
       "title": "组织碳排放源与活动数据维护",
-      "summary": "用于说明组织碳数据工作台、排放源维护、活动数据台账、分类字段、区域设备归集、幂等生成和删除结果。",
+      "summary": "用于说明排放源维护、活动数据台账、分类字段、区域设备归集、幂等生成和删除结果。",
       "steps": [
         {
           "stepNumber": "17.1",
-          "title": "查看组织碳数据工作台",
-          "route": "/carbon-mgmt/workbench",
-          "action": "进入组织碳数据工作台，查看当前报告期的排放源、活动数据、待归集、待配参数、质量警告和待补证据。",
-          "expectedState": "页面显示组织碳数据工作台指标和排放源、活动数据、导入、生成入口。",
+          "title": "查看活动数据台账入口",
+          "route": "/carbon-mgmt/activities",
+          "action": "进入活动数据台账，查看当前租户下的活动记录，并确认盘查任务、ISO 二级分类、数据质量和关键词筛选可用。",
+          "expectedState": "页面显示活动数据列表、筛选条件、新增活动、批量导入和生成活动数据入口。",
           "evidenceId": "EV-WH-144",
-          "screenshot": "EV-WH-144-组织碳数据工作台.png",
+          "screenshot": "EV-WH-144-活动数据台账入口.png",
           "verificationStatus": "verified"
         },
         {
@@ -1425,9 +1425,9 @@
         {
           "stepNumber": "17.7",
           "title": "生成活动数据",
-          "route": "/carbon-mgmt/workbench",
+          "route": "/carbon-mgmt/activities",
           "action": "点击生成活动数据，从购入电力能源事实和员工通勤台账生成组织碳活动数据。",
-          "expectedState": "生成完成后工作台统计刷新，活动数据进入统一台账。",
+          "expectedState": "生成完成后活动数据进入统一台账，重复执行更新同一批记录。",
           "evidenceId": "EV-WH-150",
           "screenshot": "EV-WH-150-组织碳活动数据生成结果.png",
           "verificationStatus": "verified"

@@ -1,6 +1,6 @@
 {
   "title": "沃衡汽车能碳管理平台操作手册 截图审计",
-  "generatedAt": "2026-09-03T08:11:14.227Z",
+  "generatedAt": "2026-09-03T13:28:51.978Z",
   "screenshotRoot": "outputs/woheng-showcase-woheng-full-evidence/screenshots",
   "totalEvidence": 161,
   "availableScreenshots": 161,
@@ -2399,17 +2399,17 @@
     },
     {
       "section": "组织碳排放源与活动数据维护",
-      "title": "查看组织碳数据工作台",
-      "route": "/carbon-mgmt/workbench",
+      "title": "查看活动数据台账入口",
+      "route": "/carbon-mgmt/activities",
       "evidenceId": "EV-WH-144",
-      "screenshot": "EV-WH-144-组织碳数据工作台.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-144-组织碳数据工作台.png",
+      "screenshot": "EV-WH-144-活动数据台账入口.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-144-活动数据台账入口.png",
       "status": "ready",
       "mustVisibleContents": [
-        "查看组织碳数据工作台",
-        "/carbon-mgmt/workbench"
+        "查看活动数据台账入口",
+        "/carbon-mgmt/activities"
       ],
-      "focus": "页面显示组织碳数据工作台指标和排放源、活动数据、导入、生成入口。",
+      "focus": "页面显示活动数据列表、筛选条件、新增活动、批量导入和生成活动数据入口。",
       "expectedEvidenceLevel": "A"
     },
     {
@@ -2490,16 +2490,16 @@
     {
       "section": "组织碳排放源与活动数据维护",
       "title": "生成活动数据",
-      "route": "/carbon-mgmt/workbench",
+      "route": "/carbon-mgmt/activities",
       "evidenceId": "EV-WH-150",
       "screenshot": "EV-WH-150-组织碳活动数据生成结果.png",
       "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-150-组织碳活动数据生成结果.png",
       "status": "ready",
       "mustVisibleContents": [
         "生成活动数据",
-        "/carbon-mgmt/workbench"
+        "/carbon-mgmt/activities"
       ],
-      "focus": "生成完成后工作台统计刷新，活动数据进入统一台账。",
+      "focus": "生成完成后活动数据进入统一台账，重复执行更新同一批记录。",
       "expectedEvidenceLevel": "A"
     },
     {

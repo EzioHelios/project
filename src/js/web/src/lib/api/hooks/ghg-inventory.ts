@@ -20,7 +20,6 @@ import {
   type GhgInventoryReportListResponse,
   type GhgInventoryReportResponse,
   type GhgInventoryReportUpdateRequest,
-  type GhgInventoryWorkbenchResponse,
   type GhgResultDetailResponse,
   type GhgResultListResponse,
   type GhgResultSummaryResponse,
@@ -49,7 +48,6 @@ import {
   ghgInventoryGetReport,
   ghgInventoryGetResultDetail,
   ghgInventoryGetResultSummary,
-  ghgInventoryGetWorkbench,
   ghgInventoryListActivities,
   ghgInventoryListCalculationRuns,
   ghgInventoryListEmissionSources,
@@ -96,7 +94,6 @@ export type GhgInventoryReportList = GhgInventoryReportListResponse
 export type GhgInventoryReport = GhgInventoryReportResponse
 export type GhgInventoryReportUpdate = GhgInventoryReportUpdateRequest
 export type GhgInventoryReportDelete = GhgInventoryReportDeleteResponse
-export type GhgInventoryWorkbench = GhgInventoryWorkbenchResponse
 
 export type GhgImportContext = {
   inventoryCode: string
@@ -183,22 +180,6 @@ export function useGhgEmissionSource(filters: { inventoryCode?: string; sourceCo
       ).data
     },
     enabled: Boolean(filters.inventoryCode && filters.sourceCode),
-  })
-}
-
-export function useGhgInventoryWorkbench(filters: { inventoryCode?: string; reportingPeriodId?: number }) {
-  return useQuery({
-    queryKey: ["ghg-inventory", "workbench", filters],
-    queryFn: async () =>
-      (
-        await ghgInventoryGetWorkbench({
-          query: {
-            inventory_code: filters.inventoryCode,
-            reporting_period_id: filters.reportingPeriodId,
-          },
-          throwOnError: true,
-        })
-      ).data,
   })
 }
 

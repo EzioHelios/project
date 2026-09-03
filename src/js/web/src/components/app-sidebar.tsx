@@ -125,11 +125,10 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
       },
       {
         title: "碳数据填报",
-        to: "/carbon-mgmt/workbench",
+        to: "/carbon-mgmt/activities",
         icon: FileInput,
         isActive: isCarbonInventoryRoute,
         items: [
-          { title: "数据工作台", to: "/carbon-mgmt/workbench" },
           { title: "排放源维护", to: "/carbon-mgmt/sources" },
           { title: "活动数据台账", to: "/carbon-mgmt/activities" },
           { title: "批量导入", to: "/carbon-mgmt/import" },
