@@ -19,6 +19,7 @@ from app.domain.carbon.energy_analysis_importer import (
     _rebuild_equipment_workload_facts,
     seed_energy_analysis_data,
 )
+from app.domain.energy.policy_benchmark_sync import sync_policy_benchmark_library
 from app.domain.energy.usecases.energy_types import (
     diagnose_energy_type_data,
     ensure_standard_energy_types,
@@ -56,6 +57,12 @@ MIN_SCOPE2_AGGREGATE_COUNT = 48
 MIN_ENERGY_INTERVAL_COUNT = 180
 MIN_WORKLOAD_COUNT = 6
 MIN_BENCHMARK_ITEM_COUNT = 10
+MIN_POLICY_BENCHMARK_PROFILE_COUNT = 2
+MIN_EQUIPMENT_EFFICIENCY_ITEM_COUNT = 8
+MIN_EQUIPMENT_EFFICIENCY_DEVICE_COUNT = 6
+MIN_MEASUREMENT_BOUNDARY_COUNT = 4
+MIN_MEASUREMENT_BOUNDARY_MEMBER_COUNT = 5
+MIN_BOUNDARY_BOUND_ENERGY_FACT_COUNT = 120
 MIN_OPERATION_LEDGER_COUNT = 6
 MIN_PRODUCTION_DATA_COUNT = 3
 MIN_PRODUCT_FOOTPRINT_STUDY_COUNT = 1
@@ -63,6 +70,19 @@ MIN_SUPPLY_CHAIN_SUPPLIER_COUNT = 2
 MIN_REDUCTION_PROJECT_COUNT = 5
 MIN_ALARM_EVENT_COUNT = 1
 MIN_VIDEO_ALARM_EVENT_COUNT = 1
+
+EQUIPMENT_EFFICIENCY_SPECS: dict[str, tuple[int, str]] = {
+    "TRANSFORMER-01": (1, "GB 20052-2020 电力变压器能效限定值及能效等级"),
+    "PV-INVERTER-01": (1, "T/CPIA 0050-2023 光伏并网逆变器效率要求"),
+    "PV-INVERTER-02": (2, "T/CPIA 0050-2023 光伏并网逆变器效率要求"),
+    "BOILER-01": (2, "GB 24500-2020 工业锅炉能效限定值及能效等级"),
+    "CHILLER-01": (2, "GB 19577-2015 冷水机组能效限定值及能效等级"),
+    "CHILLER-02": (3, "GB 19577-2015 冷水机组能效限定值及能效等级"),
+    "CONVEYOR-01": (3, "GB 18613-2020 电动机能效限定值及能效等级"),
+    "AIR-COMPRESSOR-01": (2, "GB 19153-2019 容积式空气压缩机能效限定值及能效等级"),
+    "EVSE-GROUP-01": (2, "T/CECA-G 0208-2022 电动汽车充电设备能效要求"),
+    "HVAC-01": (2, "GB 21454-2021 多联式空调机组能效限定值及能效等级"),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -362,6 +382,12 @@ class WohengShowcasePackage:
                 and counts["energy_interval_facts"] >= MIN_ENERGY_INTERVAL_COUNT
                 and counts["workload_facts"] >= MIN_WORKLOAD_COUNT
                 and counts["benchmark_items"] >= MIN_BENCHMARK_ITEM_COUNT
+                and counts["policy_benchmark_profiles"] >= MIN_POLICY_BENCHMARK_PROFILE_COUNT
+                and counts["equipment_efficiency_items"] >= MIN_EQUIPMENT_EFFICIENCY_ITEM_COUNT
+                and counts["equipment_efficiency_devices"] >= MIN_EQUIPMENT_EFFICIENCY_DEVICE_COUNT
+                and counts["measurement_boundaries"] >= MIN_MEASUREMENT_BOUNDARY_COUNT
+                and counts["measurement_boundary_members"] >= MIN_MEASUREMENT_BOUNDARY_MEMBER_COUNT
+                and counts["boundary_bound_energy_facts"] >= MIN_BOUNDARY_BOUND_ENERGY_FACT_COUNT
                 and counts["in_money"] >= MIN_OPERATION_LEDGER_COUNT
                 and counts["out_money"] >= MIN_OPERATION_LEDGER_COUNT
                 and counts["employee_commute"] >= MIN_OPERATION_LEDGER_COUNT
@@ -395,6 +421,12 @@ class WohengShowcasePackage:
                         "required_energy_interval_facts": MIN_ENERGY_INTERVAL_COUNT,
                         "required_workload_facts": MIN_WORKLOAD_COUNT,
                         "required_benchmark_items": MIN_BENCHMARK_ITEM_COUNT,
+                        "required_policy_benchmark_profiles": MIN_POLICY_BENCHMARK_PROFILE_COUNT,
+                        "required_equipment_efficiency_items": MIN_EQUIPMENT_EFFICIENCY_ITEM_COUNT,
+                        "required_equipment_efficiency_devices": MIN_EQUIPMENT_EFFICIENCY_DEVICE_COUNT,
+                        "required_measurement_boundaries": MIN_MEASUREMENT_BOUNDARY_COUNT,
+                        "required_measurement_boundary_members": MIN_MEASUREMENT_BOUNDARY_MEMBER_COUNT,
+                        "required_boundary_bound_energy_facts": MIN_BOUNDARY_BOUND_ENERGY_FACT_COUNT,
                         "required_operation_ledger_rows": MIN_OPERATION_LEDGER_COUNT,
                         "required_production_data_rows": MIN_PRODUCTION_DATA_COUNT,
                         "required_product_footprint_studies": MIN_PRODUCT_FOOTPRINT_STUDY_COUNT,
@@ -703,12 +735,19 @@ class WohengShowcasePackage:
                 equipment.external_device_id = f"WH-{tenant.city_code}-{equipment.code}"
                 equipment.network_env = "MQTT专线网关"
 
+        await self._ensure_equipment_efficiency_master_data()
         await self._ensure_mqtt_config(tenant)
         await self._ensure_metering_data(tenant)
         await seed_energy_analysis_data(self._session)
         await _rebuild_energy_interval_facts(self._session)
         await _rebuild_equipment_workload_facts(self._session)
+        await self._ensure_energy_balance_boundaries(tenant)
         await self._ensure_energy_benchmark(tenant)
+        await sync_policy_benchmark_library(
+            self._session,
+            ["ndrc-2023", "ndrc-equipment-2024"],
+            apply=True,
+        )
         await self._ensure_operational_ledgers(tenant)
         await self._ensure_production_denominators(tenant)
         await self._ensure_supply_chain_and_product_footprint(tenant)
@@ -1160,6 +1199,224 @@ class WohengShowcasePackage:
                 "source": "MQTT电表读数演示事实",
             }
 
+    async def _ensure_energy_balance_boundaries(self, tenant: WohengTenantSpec) -> None:
+        equipment_codes = ["PCC-METER-01", "LIGHTING-01", "CHILLER-01", "CONVEYOR-01", "ASRS-01", "EVSE-GROUP-01"]
+        equipment_rows = {
+            row.code: row
+            for row in (
+                await self._session.scalars(select(m.MonitorEquipment).where(m.MonitorEquipment.code.in_(equipment_codes)))
+            ).all()
+        }
+        sector_rows = {row.code: row for row in (await self._session.scalars(select(m.MonitorSector))).all()}
+        pcc = equipment_rows.get("PCC-METER-01")
+        root = sector_rows.get("ROOT")
+        if pcc is None or root is None:
+            return
+
+        site_boundary = await self._upsert_measurement_boundary(
+            code=f"WH-{tenant.city_code}-SITE-ELECTRICITY",
+            name=f"{tenant.name}外购电力计量边界",
+            boundary_type="site",
+            meter_equipment_id=pcc.id,
+            sector_id=root.id,
+            use_system_code=None,
+            remark="基地外购电力总表与分项表计边界, 用于能量平衡计算。",
+        )
+        member_codes = ["LIGHTING-01", "CHILLER-01", "CONVEYOR-01", "ASRS-01", "EVSE-GROUP-01"]
+        for code in member_codes:
+            equipment = equipment_rows.get(code)
+            if equipment is None:
+                continue
+            await self._upsert_measurement_boundary_member(
+                boundary_id=site_boundary.id,
+                member_code=code,
+                member_type="equipment",
+                equipment_id=equipment.id,
+                sector_id=equipment.sector_id,
+                member_role="covered",
+                remark="纳入基地外购电力边界的确认分项表计。",
+            )
+
+        sub_boundary_specs = (
+            ("WAREHOUSE", "仓储设施分项计量边界", "ASRS-01", "storage"),
+            ("COLD", "冷链制冷分项计量边界", "CHILLER-01", "storage"),
+            ("SORTING", "分拣输送分项计量边界", "CONVEYOR-01", "handling"),
+            ("CHARGING", "车辆充电分项计量边界", "EVSE-GROUP-01", "charging"),
+        )
+        for suffix, name, equipment_code, use_system_code in sub_boundary_specs:
+            equipment = equipment_rows.get(equipment_code)
+            if equipment is None:
+                continue
+            sub_boundary = await self._upsert_measurement_boundary(
+                code=f"WH-{tenant.city_code}-{suffix}-ELECTRICITY",
+                name=f"{tenant.name}{name}",
+                boundary_type="sub_boundary",
+                meter_equipment_id=equipment.id,
+                sector_id=equipment.sector_id,
+                use_system_code=use_system_code,
+                remark="分项计量边界, 用于从基地总边界拆分主要用能环节。",
+            )
+            await self._upsert_measurement_boundary_member(
+                boundary_id=sub_boundary.id,
+                member_code=equipment_code,
+                member_type="equipment",
+                equipment_id=equipment.id,
+                sector_id=equipment.sector_id,
+                member_role="covered",
+                remark="纳入分项计量边界的确认表计。",
+            )
+
+        child_ids = [equipment_rows[code].id for code in member_codes if code in equipment_rows]
+        if child_ids:
+            await self._session.execute(
+                text(
+                    """
+                    with child_totals as (
+                        select granularity, period_start, period_end, sum(amount) as child_amount, sum(cost_cny) as child_cost
+                        from dataapp_energyintervalfact
+                        where team_id = :team_id
+                          and equipment_id = any(:child_ids)
+                          and is_current = true
+                        group by granularity, period_start, period_end
+                    )
+                    update dataapp_energyintervalfact pcc_fact
+                    set
+                        measurement_boundary_id = :boundary_id,
+                        amount = child_totals.child_amount * :input_factor,
+                        cost_cny = child_totals.child_cost * :input_factor,
+                        source_snapshot = (coalesce(pcc_fact.source_snapshot::jsonb, '{}'::jsonb) ||
+                            jsonb_build_object(
+                                'measurementBoundaryCode', cast(:boundary_code as text),
+                                'balanceInputFactor', cast(:input_factor_text as text)
+                            ))::json,
+                        updated_at = now()
+                    from child_totals
+                    where pcc_fact.team_id = :team_id
+                      and pcc_fact.equipment_id = :pcc_equipment_id
+                      and pcc_fact.is_current = true
+                      and pcc_fact.granularity = child_totals.granularity
+                      and pcc_fact.period_start = child_totals.period_start
+                      and pcc_fact.period_end = child_totals.period_end
+                    """
+                ),
+                {
+                    "team_id": str(site_boundary.team_id),
+                    "child_ids": child_ids,
+                    "boundary_id": site_boundary.id,
+                    "boundary_code": site_boundary.code,
+                    "pcc_equipment_id": pcc.id,
+                    "input_factor": Decimal("1.012"),
+                    "input_factor_text": "1.012",
+                },
+            )
+            await self._session.execute(
+                text(
+                    """
+                    update dataapp_energyintervalfact
+                    set measurement_boundary_id = :boundary_id,
+                        source_snapshot = (coalesce(source_snapshot::jsonb, '{}'::jsonb) ||
+                            jsonb_build_object('measurementBoundaryCode', cast(:boundary_code as text)))::json,
+                        updated_at = now()
+                    where team_id = :team_id
+                      and equipment_id = any(:equipment_ids)
+                      and is_current = true
+                    """
+                ),
+                {
+                    "team_id": str(site_boundary.team_id),
+                    "boundary_id": site_boundary.id,
+                    "boundary_code": site_boundary.code,
+                    "equipment_ids": child_ids,
+                },
+            )
+            await self._session.execute(
+                text(
+                    """
+                    update dataapp_scope2meteraggregate
+                    set measurement_boundary_id = :boundary_id,
+                        source_snapshot = (coalesce(source_snapshot::jsonb, '{}'::jsonb) ||
+                            jsonb_build_object('measurementBoundaryCode', cast(:boundary_code as text)))::json,
+                        updated_at = now()
+                    where team_id = :team_id and ammeter_id = any(:equipment_codes) and is_current = true
+                    """
+                ),
+                {
+                    "team_id": str(site_boundary.team_id),
+                    "boundary_id": site_boundary.id,
+                    "boundary_code": site_boundary.code,
+                    "equipment_codes": ["PCC-METER-01", *member_codes],
+                },
+            )
+
+    async def _upsert_measurement_boundary(
+        self,
+        *,
+        code: str,
+        name: str,
+        boundary_type: str,
+        meter_equipment_id: int,
+        sector_id: int | None,
+        use_system_code: str | None,
+        remark: str,
+    ) -> m.MeasurementBoundary:
+        boundary = await self._session.scalar(select(m.MeasurementBoundary).where(m.MeasurementBoundary.code == code))
+        if boundary is None:
+            boundary = m.MeasurementBoundary(code=code, name=name)
+            self._session.add(boundary)
+            await self._session.flush()
+        boundary.name = name
+        boundary.boundary_type = boundary_type
+        boundary.meter_equipment_id = meter_equipment_id
+        boundary.sector_id = sector_id
+        boundary.use_system_code = use_system_code
+        boundary.energy_direction = "import"
+        boundary.include_in_scope2 = True
+        boundary.valid_from = date(2026, 1, 1)
+        boundary.valid_to = None
+        boundary.status = "active"
+        boundary.mapping_version = "woheng-v1"
+        boundary.source_name = WOHENG_SOURCE_NAME
+        boundary.confidence_level = "high"
+        boundary.remark = remark
+        await self._session.flush()
+        return boundary
+
+    async def _upsert_measurement_boundary_member(
+        self,
+        *,
+        boundary_id: int,
+        member_code: str,
+        member_type: str,
+        equipment_id: int | None,
+        sector_id: int | None,
+        member_role: str,
+        remark: str,
+    ) -> None:
+        member = await self._session.scalar(
+            select(m.MeasurementBoundaryMember).where(
+                m.MeasurementBoundaryMember.boundary_id == boundary_id,
+                m.MeasurementBoundaryMember.member_code == member_code,
+            )
+        )
+        if member is None:
+            member = m.MeasurementBoundaryMember(
+                boundary_id=boundary_id,
+                member_code=member_code,
+                member_type=member_type,
+            )
+            self._session.add(member)
+        member.member_type = member_type
+        member.equipment_id = equipment_id
+        member.sector_id = sector_id
+        member.member_role = member_role
+        member.allocation_weight = None
+        member.confirmation_status = "confirmed"
+        member.valid_from = date(2026, 1, 1)
+        member.valid_to = None
+        member.source_name = WOHENG_SOURCE_NAME
+        member.remark = remark
+        await self._session.flush()
+
     async def _ensure_energy_benchmark(self, tenant: WohengTenantSpec) -> None:
         profile_name = f"{tenant.name}能效标杆方案"
         profile = await self._session.scalar(
@@ -1174,25 +1431,33 @@ class WohengShowcasePackage:
             await self._session.flush()
         profile.industry_name = "汽车整车及零部件制造"
         profile.scenario = "生产基地能源运营、物流搬运、装配线与公辅系统"
+        profile.library_type = "enterprise_standard"
+        profile.standard_code = "WOHENG-ENPI-2026"
+        profile.version_status = "active"
         profile.valid_from = date(2026, 1, 1)
         profile.valid_to = date(2026, 12, 31)
         profile.is_enabled = True
         profile.remark = "用于沃衡汽车统一演示包的能效对标页面。"
 
         item_specs = (
-            ("product", None, "生产基地产品通用标杆", "kgce_per_unit", "单位产品综合能耗", "0.135", "kgce/unit"),
-            ("product", "WH-BATT-PACK", "动力电池托盘总成", "kgce_per_unit", "单位产品综合能耗", "0.162", "kgce/unit"),
-            ("product", "WH-DRIVE-UNIT", "电驱动总成", "kgce_per_unit", "单位产品综合能耗", "0.148", "kgce/unit"),
-            ("product", None, "生产基地产值通用标杆", "kgce_per_10k_value", "单位产值综合能耗", "7.800", "kgce/万元"),
-            ("use_system", "handling", "厂内物流搬运系统", "kwh_per_run_hour", "单位运行小时用电", "4.600", "kWh/h"),
-            ("use_system", "charging", "充电与测试系统", "kwh_per_run_hour", "单位运行小时用电", "5.900", "kWh/h"),
-            ("use_system", "lighting", "照明系统", "kwh_per_run_hour", "单位运行小时用电", "1.100", "kWh/h"),
-            ("use_system", "storage", "仓储设施系统", "kwh_per_run_hour", "单位运行小时用电", "2.500", "kWh/h"),
-            ("area", None, "生产基地单位面积用电标杆", "kwh_per_m2", "单位面积用电量", "76.000", "kWh/m2"),
-            ("enterprise", None, "生产基地综合面积能耗标杆", "tce_per_m2", "单位面积综合能耗", "0.0096", "tce/m2"),
+            ("product", None, "生产基地产品通用标杆", "kgce_per_unit", "单位产品综合能耗", "0.260", "kgce/unit", "生产基地产品通用口径"),
+            ("product", "WH-BATT-PACK", "动力电池托盘总成", "kgce_per_unit", "单位产品综合能耗", "0.255", "kgce/unit", "动力电池托盘总成合格产量"),
+            ("product", "WH-DRIVE-UNIT", "电驱动总成", "kgce_per_unit", "单位产品综合能耗", "0.315", "kgce/unit", "电驱动总成合格产量"),
+            ("product", None, "生产基地产值通用标杆", "kgce_per_10k_value", "单位产值综合能耗", "5.800", "kgce/万元", "标准价产值口径"),
+            ("use_system", "handling", "厂内物流搬运系统", "kwh_per_run_hour", "单位运行小时用电", "680.000", "kWh/h", "搬运系统月度运行小时"),
+            ("use_system", "handling", "厂内物流搬运系统", "kwh_per_workload", "单位作业量用电", "1.450", "kWh/unit", "托盘出入库作业量"),
+            ("use_system", "charging", "充电与测试系统", "kwh_per_run_hour", "单位运行小时用电", "720.000", "kWh/h", "充电系统月度运行小时"),
+            ("use_system", "lighting", "照明系统", "kwh_per_run_hour", "单位运行小时用电", "620.000", "kWh/h", "照明系统月度运行小时"),
+            ("use_system", "storage", "仓储设施系统", "kwh_per_run_hour", "单位运行小时用电", "760.000", "kWh/h", "仓储设施系统月度运行小时"),
+            ("area", None, "生产基地单位面积用电标杆", "kwh_per_m2", "单位面积用电量", "310.000", "kWh/m2", "建筑面积年度化用电强度"),
+            ("enterprise", None, "生产基地综合面积能耗标杆", "tce_per_m2", "单位面积综合能耗", "0.0720", "tce/m2", "建筑面积年度化综合能耗强度"),
+            ("device_type", "transformer", "电力变压器", "energy_efficiency_level", "设备能效等级", "1", "级", "同能效标准分类"),
+            ("device_type", "ev_charger", "充电桩", "energy_efficiency_level", "设备能效等级", "1", "级", "直流/交流充电设备"),
+            ("device_type", "chiller", "冷水机组", "energy_efficiency_level", "设备能效等级", "1", "级", "冷水机组综合部分负荷性能系数"),
+            ("device_type", "pv_inverter", "光伏并网逆变器", "energy_efficiency_level", "设备能效等级", "1", "级", "平均加权效率"),
         )
         for spec in item_specs:
-            target_type, target_code, target_name, metric_code, metric_name, benchmark_value, unit = spec
+            target_type, target_code, target_name, metric_code, metric_name, benchmark_value, unit, applicable_condition = spec
             item = await self._session.scalar(
                 select(m.EnergyBenchmarkItem).where(
                     m.EnergyBenchmarkItem.profile_id == profile.id,
@@ -1218,13 +1483,38 @@ class WohengShowcasePackage:
             item.metric_name = metric_name
             item.benchmark_value = Decimal(benchmark_value)
             item.unit = unit
-            item.excellent_value = Decimal(benchmark_value) * Decimal("0.88")
+            item.standard_code = "WOHENG-ENPI-2026"
+            item.applicable_industry = "汽车整车及零部件制造"
+            item.applicable_category = target_name
+            item.applicable_condition = applicable_condition
+            item.metric_direction = "level_rank" if metric_code == "energy_efficiency_level" else "lower_is_better"
+            item.advanced_value = Decimal(benchmark_value)
+            item.saving_value = Decimal(benchmark_value) * Decimal("1.08") if metric_code != "energy_efficiency_level" else Decimal(2)
+            item.access_value = Decimal(benchmark_value) * Decimal("1.18") if metric_code != "energy_efficiency_level" else Decimal(3)
+            item.baseline_value = item.access_value
+            item.advanced_level = "能效1级" if metric_code == "energy_efficiency_level" else "先进水平"
+            item.saving_level = "能效2级" if metric_code == "energy_efficiency_level" else "节能水平"
+            item.access_level = "能效3级" if metric_code == "energy_efficiency_level" else "基准水平"
+            item.standard_level = "enterprise_benchmark"
+            item.version_status = "active"
+            item.reference_standard = "GB/T 36714-2018、GB/T 36713-2018"
+            item.excellent_value = item.advanced_value
             item.warning_threshold_pct = Decimal(10)
             item.severe_threshold_pct = Decimal(25)
             item.source_name = WOHENG_SOURCE_NAME
             item.confidence_level = "medium"
             item.is_enabled = True
             item.remark = "演示标杆项, 用于展示生产基地能效对标、偏差识别和整改建议。"
+
+    async def _ensure_equipment_efficiency_master_data(self) -> None:
+        equipment_rows = list((await self._session.scalars(select(m.MonitorEquipment))).all())
+        for equipment in equipment_rows:
+            spec = EQUIPMENT_EFFICIENCY_SPECS.get(equipment.code)
+            if spec is None:
+                continue
+            level, standard = spec
+            equipment.energy_efficiency_level = level
+            equipment.energy_efficiency_standard = standard
 
     async def _ensure_operational_ledgers(self, tenant: WohengTenantSpec) -> None:
         inbound_specs = (
@@ -1994,6 +2284,45 @@ class WohengShowcasePackage:
                 await self._session.scalar(select(func.count(m.EnergyBenchmarkProfile.id))) or 0
             ),
             "benchmark_items": int(await self._session.scalar(select(func.count(m.EnergyBenchmarkItem.id))) or 0),
+            "policy_benchmark_profiles": int(
+                await self._session.scalar(
+                    select(func.count(m.EnergyBenchmarkProfile.id)).where(
+                        m.EnergyBenchmarkProfile.library_type.in_(("policy_industry", "equipment_efficiency"))
+                    )
+                )
+                or 0
+            ),
+            "equipment_efficiency_items": int(
+                await self._session.scalar(
+                    select(func.count(m.EnergyBenchmarkItem.id))
+                    .join(m.EnergyBenchmarkProfile, m.EnergyBenchmarkProfile.id == m.EnergyBenchmarkItem.profile_id)
+                    .where(m.EnergyBenchmarkProfile.library_type == "equipment_efficiency")
+                    .where(m.EnergyBenchmarkItem.metric_code == "energy_efficiency_level")
+                )
+                or 0
+            ),
+            "equipment_efficiency_devices": int(
+                await self._session.scalar(
+                    select(func.count(m.MonitorEquipment.id)).where(
+                        m.MonitorEquipment.energy_efficiency_level.is_not(None)
+                    )
+                )
+                or 0
+            ),
+            "measurement_boundaries": int(
+                await self._session.scalar(select(func.count(m.MeasurementBoundary.id))) or 0
+            ),
+            "measurement_boundary_members": int(
+                await self._session.scalar(select(func.count(m.MeasurementBoundaryMember.id))) or 0
+            ),
+            "boundary_bound_energy_facts": int(
+                await self._session.scalar(
+                    select(func.count(m.EnergyIntervalFact.id)).where(
+                        m.EnergyIntervalFact.measurement_boundary_id.is_not(None)
+                    )
+                )
+                or 0
+            ),
             "in_money": int(await self._session.scalar(select(func.count(m.InMoney.id))) or 0),
             "out_money": int(await self._session.scalar(select(func.count(m.OutMoney.id))) or 0),
             "employee_commute": int(await self._session.scalar(select(func.count(m.EmployeeCommute.id))) or 0),

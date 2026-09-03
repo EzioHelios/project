@@ -1,10 +1,12 @@
 # ruff: noqa: S608
 from __future__ import annotations
 
+from calendar import monthrange
 from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 
 from app.db import models as m
 from app.domain.energy.queries.common import jsonable_mapping, period_param, ratio_or_none
@@ -23,9 +25,12 @@ METRICS: dict[str, dict[str, str]] = {
     "kgce_per_10k_value": {"name": "单位产值综合能耗", "unit": "kgce/万元"},
     "tce_per_m2": {"name": "单位面积综合能耗", "unit": "tce/m2"},
     "kwh_per_m2": {"name": "单位面积用电量", "unit": "kWh/m2"},
+    "energy_efficiency_level": {"name": "设备能效等级", "unit": "级"},
 }
 DEFAULT_WARNING_THRESHOLD = 10.0
 DEFAULT_SEVERE_THRESHOLD = 25.0
+MAX_TREND_MONTHS = 24
+DECEMBER = 12
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +42,7 @@ class EnergyBenchmarkQuery:
     target_code: str | None = None
     metric_code: str | None = "kwh_per_run_hour"
     area_id: str | None = None
+    library_type: str | None = None
     limit: int = 50
 
 
@@ -74,7 +80,7 @@ class EnergyBenchmarkQueryService:
     async def comparisons(self, query: EnergyBenchmarkQuery) -> dict[str, Any]:
         target_type = _target_type(query.target_type)
         metric_code = _metric_code(query.metric_code)
-        profile_id = query.profile_id or await self._default_profile_id(target_type, metric_code)
+        profile_id = query.profile_id or await self._default_profile_id(target_type, metric_code, query.library_type)
         actual_rows = await self._actual_rows(query, target_type, metric_code)
         benchmark_rows = await self._benchmark_rows(profile_id, target_type, metric_code, query.target_code)
         wildcard = next((row for row in benchmark_rows if not row.get("target_code")), None)
@@ -106,6 +112,114 @@ class EnergyBenchmarkQueryService:
             "profile_id": profile_id,
             "metric": {"code": metric_code, **METRICS[metric_code]},
             "filters": _filters(query),
+        }
+
+    async def summary(self, query: EnergyBenchmarkQuery) -> dict[str, Any]:
+        comparison = await self.comparisons(query)
+        items = comparison["items"]
+        compared = [
+            item
+            for item in items
+            if item.get("actual_value") is not None and item.get("benchmark_value") is not None and item.get("status") != "unit_mismatch"
+        ]
+        warning_items = [item for item in compared if item.get("status") in {"warning", "severe"}]
+        deviations = [float(item["deviation_pct"]) for item in compared if item.get("deviation_pct") is not None]
+        potential = sum(float(item.get("saving_potential") or 0) for item in compared)
+        coverage_rate = round(len(compared) / len(items) * 100, 2) if items else 0.0
+        return {
+            "summary": {
+                "total": len(items),
+                "compared": len(compared),
+                "warning_total": len(warning_items),
+                "severe_total": len([item for item in warning_items if item.get("status") == "severe"]),
+                "coverage_rate": coverage_rate,
+                "average_deviation_pct": round(sum(deviations) / len(deviations), 2) if deviations else None,
+                "saving_potential": round(potential, 4),
+                "unit": comparison["metric"]["unit"].split("/")[0],
+            },
+            "filters": comparison["filters"],
+            "metric": comparison["metric"],
+        }
+
+    async def coverage(self, query: EnergyBenchmarkQuery) -> dict[str, Any]:
+        comparison = await self.comparisons(query)
+        items = comparison["items"]
+        status_counts: dict[str, int] = {}
+        for item in items:
+            status = str(item.get("status") or "unknown")
+            status_counts[status] = status_counts.get(status, 0) + 1
+        return {
+            "items": [
+                {"status": status, "count": count}
+                for status, count in sorted(status_counts.items(), key=lambda value: value[0])
+            ],
+            "total": len(items),
+            "filters": comparison["filters"],
+        }
+
+    async def distribution(self, query: EnergyBenchmarkQuery) -> dict[str, Any]:
+        comparison = await self.comparisons(query)
+        labels = {
+            "ok": "达标",
+            "warning": "接近预警",
+            "severe": "明显偏高",
+            "missing_benchmark": "缺少标杆",
+            "invalid_denominator": "缺少分母",
+            "unit_mismatch": "单位不一致",
+        }
+        counts: dict[str, int] = {}
+        for item in comparison["items"]:
+            status = str(item.get("status") or "unknown")
+            counts[status] = counts.get(status, 0) + 1
+        return {
+            "items": [{"name": labels.get(status, status), "status": status, "value": count} for status, count in counts.items()],
+            "filters": comparison["filters"],
+        }
+
+    async def trend(self, query: EnergyBenchmarkQuery) -> dict[str, Any]:
+        periods = _month_windows(query.period_start, query.period_end)
+        rows = []
+        for start, end in periods:
+            period_query = EnergyBenchmarkQuery(
+                period_start=start.isoformat(),
+                period_end=end.isoformat(),
+                profile_id=query.profile_id,
+                target_type=query.target_type,
+                target_code=query.target_code,
+                metric_code=query.metric_code,
+                area_id=query.area_id,
+                library_type=query.library_type,
+                limit=query.limit,
+            )
+            comparison = await self.comparisons(period_query)
+            comparable = [
+                item
+                for item in comparison["items"]
+                if item.get("actual_value") is not None and item.get("benchmark_value") is not None
+            ]
+            actual_values = [float(item["actual_value"]) for item in comparable]
+            benchmark_values = [float(item["benchmark_value"]) for item in comparable]
+            rows.append(
+                {
+                    "period": start.strftime("%Y-%m"),
+                    "actual": round(sum(actual_values) / len(actual_values), 6) if actual_values else None,
+                    "benchmark": round(sum(benchmark_values) / len(benchmark_values), 6) if benchmark_values else None,
+                    "severe_count": len([item for item in comparable if item.get("status") == "severe"]),
+                    "warning_count": len([item for item in comparable if item.get("status") == "warning"]),
+                }
+            )
+        return {"items": rows, "filters": _filters(query), "metric": {"code": _metric_code(query.metric_code), **METRICS[_metric_code(query.metric_code)]}}
+
+    async def detail(self, query: EnergyBenchmarkQuery) -> dict[str, Any]:
+        comparison = await self.comparisons(EnergyBenchmarkQuery(**{**_filters(query), "limit": 200}))
+        target_code = query.target_code
+        selected = next((item for item in comparison["items"] if str(item.get("target_code") or "") == str(target_code or "")), None)
+        if selected is None and comparison["items"]:
+            selected = comparison["items"][0]
+        return {
+            "item": selected,
+            "data_sources": _data_sources_for(selected or {}, _metric_code(query.metric_code)),
+            "filters": comparison["filters"],
         }
 
     async def conclusions(self, query: EnergyBenchmarkQuery) -> dict[str, Any]:
@@ -160,55 +274,109 @@ class EnergyBenchmarkQueryService:
             limit=200,
         )
         candidates = (await self.baseline(query))["items"]
-        profile = m.EnergyBenchmarkProfile(
-            name=command.profile_name.strip() or "行业标杆方案",
-            scenario="历史基线生成",
-            source_name="历史基线",
-            is_enabled=True,
+        profile_name = command.profile_name.strip() or "历史基准方案"
+        profiles = list(
+            (
+                await self._session.scalars(
+                    select(m.EnergyBenchmarkProfile)
+                    .where(
+                        m.EnergyBenchmarkProfile.name == profile_name,
+                        m.EnergyBenchmarkProfile.source_name == "历史基线",
+                        m.EnergyBenchmarkProfile.library_type == "enterprise_internal",
+                    )
+                    .order_by(m.EnergyBenchmarkProfile.id.asc())
+                )
+            ).all()
         )
-        self._session.add(profile)
+        profile = profiles[0] if profiles else None
+        for duplicate in profiles[1:]:
+            await self._session.execute(delete(m.EnergyBenchmarkItem).where(m.EnergyBenchmarkItem.profile_id == duplicate.id))
+            await self._session.delete(duplicate)
+        if profile is None:
+            profile = await self._session.scalar(
+                select(m.EnergyBenchmarkProfile).where(
+                    m.EnergyBenchmarkProfile.name == profile_name,
+                    m.EnergyBenchmarkProfile.source_name == "历史基线",
+                    m.EnergyBenchmarkProfile.library_type == "enterprise_internal",
+                )
+            )
+        if profile is None:
+            profile = m.EnergyBenchmarkProfile(name=profile_name)
+            self._session.add(profile)
+        profile.scenario = "历史基线生成"
+        profile.source_name = "历史基线"
+        profile.library_type = "enterprise_internal"
+        profile.version_status = "active"
+        profile.is_enabled = True
         await self._session.flush()
 
         value_key = {"best_period": "best_value", "p25": "p25_value", "average": "average_value"}[method]
-        created_items = []
+        upserted_count = 0
         for candidate in candidates:
             value = candidate.get(value_key)
             if value in (None, ""):
                 continue
-            item = m.EnergyBenchmarkItem(
-                profile_id=profile.id,
-                target_type=command.target_type,
-                target_code=candidate.get("target_code"),
-                target_name=candidate.get("target_name"),
-                metric_code=command.metric_code,
-                metric_name=METRICS[command.metric_code]["name"],
-                benchmark_value=value,
-                unit=METRICS[command.metric_code]["unit"],
-                source_name="历史基线",
-                confidence_level="medium",
-                is_enabled=True,
+            target_code = candidate.get("target_code")
+            stmt = (
+                select(m.EnergyBenchmarkItem)
+                .where(m.EnergyBenchmarkItem.profile_id == profile.id)
+                .where(m.EnergyBenchmarkItem.target_type == command.target_type)
+                .where(m.EnergyBenchmarkItem.metric_code == command.metric_code)
             )
-            self._session.add(item)
-            created_items.append(item)
+            if target_code in (None, ""):
+                stmt = stmt.where(m.EnergyBenchmarkItem.target_code.is_(None))
+            else:
+                stmt = stmt.where(m.EnergyBenchmarkItem.target_code == str(target_code))
+            item = await self._session.scalar(stmt)
+            if item is None:
+                item = m.EnergyBenchmarkItem(
+                    profile_id=profile.id,
+                    target_type=command.target_type,
+                    target_code=str(target_code) if target_code not in (None, "") else None,
+                    metric_code=command.metric_code,
+                )
+                self._session.add(item)
+            item.target_name = candidate.get("target_name")
+            item.metric_name = METRICS[command.metric_code]["name"]
+            item.benchmark_value = value
+            item.unit = METRICS[command.metric_code]["unit"]
+            item.source_name = "历史基线"
+            item.metric_direction = _metric_direction(command.metric_code)
+            item.standard_level = "internal_baseline"
+            item.version_status = "active"
+            item.confidence_level = "medium"
+            item.is_enabled = True
+            upserted_count += 1
         await self._session.commit()
         await self._session.refresh(profile)
         return {
             "profile": jsonable_mapping(_model_dict(profile)),
-            "created_count": len(created_items),
+            "created_count": upserted_count,
             "method": method,
         }
 
-    async def _default_profile_id(self, target_type: str, metric_code: str) -> int | None:
-        return await self._session.scalar(
+    async def _default_profile_id(self, target_type: str, metric_code: str, library_type: str | None) -> int | None:
+        stmt = (
             select(m.EnergyBenchmarkProfile.id)
             .join(m.EnergyBenchmarkItem, m.EnergyBenchmarkItem.profile_id == m.EnergyBenchmarkProfile.id)
             .where(m.EnergyBenchmarkProfile.is_enabled.is_(True))
             .where(m.EnergyBenchmarkItem.is_enabled.is_(True))
             .where(m.EnergyBenchmarkItem.target_type == target_type)
             .where(m.EnergyBenchmarkItem.metric_code == metric_code)
-            .order_by(m.EnergyBenchmarkProfile.id.desc())
+            .order_by(
+                text(
+                    "case "
+                    "when dataapp_energybenchmarkprofile.library_type in ('policy_industry', 'equipment_efficiency') then 0 "
+                    "when dataapp_energybenchmarkprofile.library_type = 'enterprise_standard' then 1 "
+                    "else 2 end"
+                ),
+                m.EnergyBenchmarkProfile.id.desc(),
+            )
             .limit(1)
         )
+        if library_type:
+            stmt = stmt.where(m.EnergyBenchmarkProfile.library_type == library_type)
+        return await self._session.scalar(stmt)
 
     async def _benchmark_rows(
         self,
@@ -253,6 +421,23 @@ class EnergyBenchmarkQueryService:
                         i.metric_name,
                         i.benchmark_value,
                         i.unit,
+                        i.standard_code,
+                        i.source_url,
+                        i.source_hash,
+                        i.applicable_industry,
+                        i.applicable_category,
+                        i.applicable_condition,
+                        i.metric_direction,
+                        i.advanced_value,
+                        i.saving_value,
+                        i.access_value,
+                        i.baseline_value,
+                        i.advanced_level,
+                        i.saving_level,
+                        i.access_level,
+                        i.standard_level,
+                        i.version_status,
+                        i.reference_standard,
                         i.excellent_value,
                         i.warning_threshold_pct,
                         i.severe_threshold_pct,
@@ -282,7 +467,69 @@ class EnergyBenchmarkQueryService:
             return await self._area_actuals(query, metric_code)
         if metric_code in {"kgce_per_unit", "kgce_per_10k_value"}:
             return await self._product_actuals(query, metric_code)
+        if metric_code == "energy_efficiency_level":
+            return await self._equipment_efficiency_actuals(query, target_type)
         return []
+
+    async def _equipment_efficiency_actuals(self, query: EnergyBenchmarkQuery, target_type: str) -> list[dict[str, Any]]:
+        if target_type not in {"device_type", "device"}:
+            return []
+        team_id = require_session_tenant_id(self._session)
+        benchmark_category_expr = _equipment_efficiency_category_expr()
+        if target_type == "device":
+            target_code_expr = "e.code"
+            target_name_expr = "coalesce(e.name, e.code)"
+            group_expr = "e.code, coalesce(e.name, e.code)"
+        else:
+            target_code_expr = benchmark_category_expr
+            target_name_expr = _equipment_efficiency_category_name_expr(benchmark_category_expr)
+            group_expr = f"{benchmark_category_expr}, {_equipment_efficiency_category_name_expr(benchmark_category_expr)}"
+        conditions = [
+            "e.team_id = :team_id",
+            "e.energy_efficiency_level is not null",
+            "coalesce(e.is_enable, true) is true",
+        ]
+        params: dict[str, Any] = {"team_id": str(team_id)}
+        if target_type == "device_type":
+            conditions.append(f"{benchmark_category_expr} is not null")
+        if query.target_code:
+            conditions.append(f"{target_code_expr} = :target_code")
+            params["target_code"] = query.target_code
+        rows = (
+            (
+                await self._session.execute(
+                    text(
+                        f"""
+                    select
+                        :target_type as target_type,
+                        {target_code_expr} as target_code,
+                        {target_name_expr} as target_name,
+                        :metric_code as metric_code,
+                        avg(e.energy_efficiency_level)::numeric as actual_value,
+                        count(*)::numeric as denominator,
+                        :unit as unit,
+                        'equipment_master_data' as data_quality
+                    from dataapp_monitorequipment e
+                    left join dataapp_devicetype dt on dt.id = e.device_type_id
+                    where {" and ".join(conditions)}
+                    group by {group_expr}
+                    order by actual_value asc nulls last
+                    limit :limit
+                    """
+                    ),
+                    {
+                        **params,
+                        "target_type": target_type,
+                        "metric_code": "energy_efficiency_level",
+                        "unit": METRICS["energy_efficiency_level"]["unit"],
+                        "limit": max(1, min(query.limit, 200)),
+                    },
+                )
+            )
+            .mappings()
+            .all()
+        )
+        return [jsonable_mapping(dict(row)) for row in rows]
 
     async def _workload_actuals(
         self, query: EnergyBenchmarkQuery, target_type: str, metric_code: str
@@ -458,23 +705,24 @@ class EnergyBenchmarkQueryService:
             .mappings()
             .all()
         )
-        total_kgce = float(energy["total_kgce"] or 0)
         result = []
         for row in rows:
             item = jsonable_mapping(dict(row))
             denominator = (
                 item["standard_qty"] if metric_code == "kgce_per_unit" else float(item["output_value"] or 0) / 10000
             )
+            energy_denominator = max(1, len(rows))
+            allocated_kgce = float(energy["total_kgce"] or 0) / energy_denominator if rows else 0
             result.append(
                 {
                     "target_type": "product",
                     "target_code": item["target_code"],
                     "target_name": item["target_name"],
                     "metric_code": metric_code,
-                    "actual_value": ratio_or_none(total_kgce, denominator),
+                    "actual_value": ratio_or_none(allocated_kgce, denominator),
                     "denominator": denominator,
                     "unit": METRICS[metric_code]["unit"],
-                    "data_quality": "measured" if denominator else "invalid_denominator",
+                    "data_quality": "allocated" if denominator else "invalid_denominator",
                 }
             )
         return result
@@ -660,7 +908,8 @@ def _comparison_row(actual: dict[str, Any] | None, benchmark: dict[str, Any] | N
     elif not benchmark_value:
         status = "missing_benchmark"
     else:
-        deviation_pct = round((float(actual_value) - float(benchmark_value)) / float(benchmark_value) * 100, 2)
+        direction = str(benchmark.get("metric_direction") or _metric_direction(str(base.get("metric_code") or "")))
+        deviation_pct = round(_is_worse(float(actual_value), float(benchmark_value), direction), 2)
         severe = float(benchmark.get("severe_threshold_pct") or DEFAULT_SEVERE_THRESHOLD)
         warning = float(benchmark.get("warning_threshold_pct") or DEFAULT_WARNING_THRESHOLD)
         if deviation_pct >= severe:
@@ -688,6 +937,15 @@ def _comparison_row(actual: dict[str, Any] | None, benchmark: dict[str, Any] | N
         "profile_id": (benchmark or {}).get("profile_id"),
         "profile_name": (benchmark or {}).get("profile_name"),
         "source_name": (benchmark or {}).get("source_name"),
+        "standard_code": (benchmark or {}).get("standard_code"),
+        "applicable_condition": (benchmark or {}).get("applicable_condition"),
+        "metric_direction": (benchmark or {}).get("metric_direction"),
+        "advanced_value": (benchmark or {}).get("advanced_value"),
+        "saving_value": (benchmark or {}).get("saving_value"),
+        "access_value": (benchmark or {}).get("access_value"),
+        "baseline_value": (benchmark or {}).get("baseline_value"),
+        "standard_level": (benchmark or {}).get("standard_level"),
+        "reference_standard": (benchmark or {}).get("reference_standard"),
         "confidence_level": (benchmark or {}).get("confidence_level"),
     }
 
@@ -705,6 +963,9 @@ def _recommendation_for(item: dict[str, Any]) -> dict[str, Any]:
     elif metric_code in {"tce_per_m2", "kwh_per_m2"}:
         title = "优化面积能耗强度"
         steps = ["分解区域和公共系统能耗", "检查空调、照明、空压运行策略", "跟踪高强度区域整改效果"]
+    elif metric_code == "energy_efficiency_level":
+        title = "评估重点用能设备更新"
+        steps = ["核对设备类型和能效等级", "补充设备标准来源", "形成更新改造优先级"]
     return {
         "code": f"benchmark-{metric_code}-{item.get('target_code') or 'target'}",
         "priority": "high" if item.get("status") == "severe" else "medium",
@@ -731,8 +992,98 @@ def _filters(query: EnergyBenchmarkQuery) -> dict[str, Any]:
         "target_code": query.target_code,
         "metric_code": query.metric_code,
         "area_id": query.area_id,
+        "library_type": query.library_type,
     }
 
 
 def _model_dict(obj: Any) -> dict[str, Any]:
     return {column.name: getattr(obj, column.name) for column in obj.__table__.columns}
+
+
+def _metric_direction(metric_code: str | None) -> str:
+    if metric_code == "energy_efficiency_level":
+        return "level_rank"
+    return "lower_is_better"
+
+
+def _equipment_efficiency_category_expr() -> str:
+    haystack = (
+        "lower(coalesce(dt.code, '') || ' ' || coalesce(dt.name, '') || ' ' || "
+        "coalesce(e.name, '') || ' ' || coalesce(e.code, ''))"
+    )
+    cn_haystack = "coalesce(dt.name, '') || coalesce(e.name, '')"
+    return f"""
+        case
+            when {haystack} like '%transformer%' or {cn_haystack} like '%变压%' then 'transformer'
+            when {haystack} like '%chiller%' or {cn_haystack} like '%冷水%' then 'chiller'
+            when {haystack} like '%ev_charger%' or {haystack} like '%evse%' or {cn_haystack} like '%充电%' then 'ev_charger'
+            when {haystack} like '%pv_inverter%' or {cn_haystack} like '%逆变%' or {cn_haystack} like '%光伏%' then 'pv_inverter'
+            when {haystack} like '%air_compressor%' or {cn_haystack} like '%空压%' then 'air_compressor'
+            when {haystack} like '%boiler%' or {cn_haystack} like '%锅炉%' then 'industrial_boiler'
+            when {haystack} like '%motor%' or {haystack} like '%conveyor%' or {cn_haystack} like '%电机%' or {cn_haystack} like '%输送%' then 'motor'
+            when {haystack} like '%ventilator%' or {cn_haystack} like '%风机%' or {cn_haystack} like '%通风%' then 'ventilator'
+            when {haystack} like '%multi_split%' or {haystack} like '%hvac%' or {cn_haystack} like '%空调%' or {cn_haystack} like '%暖通%' then 'multi_split_ac'
+            else null
+        end
+    """
+
+
+def _equipment_efficiency_category_name_expr(category_expr: str) -> str:
+    return f"""
+        case {category_expr}
+            when 'transformer' then '电力变压器'
+            when 'chiller' then '冷水机组'
+            when 'ev_charger' then '充电桩'
+            when 'pv_inverter' then '光伏并网逆变器'
+            when 'industrial_boiler' then '工业锅炉'
+            when 'air_compressor' then '空气压缩机'
+            when 'motor' then '电机'
+            when 'ventilator' then '通风机'
+            when 'multi_split_ac' then '多联式空调机组'
+            else coalesce(dt.name, e.name, e.code)
+        end
+    """
+
+
+def _is_worse(actual_value: float, benchmark_value: float, direction: str) -> float:
+    if direction == "higher_is_better":
+        return (benchmark_value - actual_value) / benchmark_value * 100
+    return (actual_value - benchmark_value) / benchmark_value * 100
+
+
+def _month_windows(period_start: str | None, period_end: str | None) -> list[tuple[date, date]]:
+    today = datetime.now(UTC).date()
+    start = date.fromisoformat(period_start) if period_start else date(today.year, 1, 1)
+    end = date.fromisoformat(period_end) if period_end else date(today.year, DECEMBER, 31)
+    cursor = date(start.year, start.month, 1)
+    windows = []
+    while cursor <= end and len(windows) < MAX_TREND_MONTHS:
+        last = date(cursor.year, cursor.month, monthrange(cursor.year, cursor.month)[1])
+        windows.append((max(start, cursor), min(end, last)))
+        cursor = date(
+            cursor.year + (1 if cursor.month == DECEMBER else 0),
+            1 if cursor.month == DECEMBER else cursor.month + 1,
+            1,
+        )
+    return windows
+
+
+def _data_sources_for(item: dict[str, Any], metric_code: str) -> dict[str, Any]:
+    metric_sources = {
+        "kwh_per_run_hour": ("能源分子来自能源时段事实表", "分母来自设备运行小时事实"),
+        "kwh_per_workload": ("能源分子来自能源时段事实表", "分母来自设备作业量事实"),
+        "kgce_per_unit": ("能源分子来自综合能耗折标结果", "分母来自生产/作业产量事实"),
+        "kgce_per_10k_value": ("能源分子来自综合能耗折标结果", "分母来自产品产量和价格台账"),
+        "tce_per_m2": ("能源分子来自综合能耗折标结果", "分母来自企业/区域面积配置"),
+        "kwh_per_m2": ("能源分子来自外购电力事实", "分母来自企业/区域面积配置"),
+        "energy_efficiency_level": ("实际值来自设备能效等级或检测记录", "标杆来自重点用能产品设备政策库"),
+    }
+    numerator, denominator = metric_sources.get(metric_code, ("能源数据", "业务分母"))
+    return {
+        "numerator": numerator,
+        "denominator": denominator,
+        "benchmark_source": item.get("source_name") or item.get("profile_name"),
+        "standard_code": item.get("standard_code"),
+        "reference_standard": item.get("reference_standard"),
+        "data_quality": item.get("data_quality"),
+    }

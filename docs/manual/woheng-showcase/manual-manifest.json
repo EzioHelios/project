@@ -80,7 +80,7 @@
     },
     {
       "pageId": "energy-balance",
-      "title": "能源运营：能效平衡",
+      "title": "能源运营：能量平衡",
       "source": "11-energy-balance.md"
     },
     {
@@ -191,7 +191,7 @@
           "stepNumber": "2.1",
           "title": "首页工作台能源运营入口",
           "route": "/home",
-          "action": "进入首页工作台，查看能源运营区域中的能耗查询、能耗强度、用能分析、能效对标、能流分析和能效平衡入口。",
+          "action": "进入首页工作台，查看能源运营区域中的能耗查询、能耗强度、用能分析、能效对标、能流分析和能量平衡入口。",
           "expectedState": "首页工作台展示能源运营 6 个核心分析入口。",
           "evidenceId": "EV-WH-117",
           "screenshot": "EV-WH-117-首页工作台能源运营入口.png",
@@ -211,7 +211,7 @@
           "stepNumber": "2.3",
           "title": "侧边栏能源运营菜单",
           "route": "/energy/consumption",
-          "action": "展开侧边栏能源运营一级菜单，查看能源种类、单位换算、能源数据维护、能耗查询、能耗强度、用能分析、能效对标、能流分析和能效平衡。",
+          "action": "展开侧边栏能源运营一级菜单，查看能源种类、单位换算、能源数据维护、能耗查询、能耗强度、用能分析、能效对标、能流分析和能量平衡。",
           "expectedState": "侧边栏展示能源运营一级菜单和完整二级菜单。",
           "evidenceId": "EV-WH-119",
           "screenshot": "EV-WH-119-侧边栏能源运营菜单.png",
@@ -1112,7 +1112,7 @@
     {
       "sectionId": "energy-benchmark-settings",
       "title": "能效对标配置",
-      "summary": "用于说明标杆方案、标杆项和历史基线生成维护。",
+      "summary": "用于说明企业标杆方案、标杆指标、政策标准查看和模板导入。",
       "steps": [
         {
           "stepNumber": "10.1",
@@ -1122,7 +1122,7 @@
           "expectedState": "页面显示标杆方案列表和配置操作入口。",
           "evidenceId": "EV-WH-120",
           "screenshot": "EV-WH-120-能效对标配置方案列表.png",
-          "verificationStatus": "verified"
+          "verificationStatus": "needs-recapture"
         },
         {
           "stepNumber": "10.2",
@@ -1132,7 +1132,7 @@
           "expectedState": "新增表单展示标杆方案字段，保存后可在列表回显。",
           "evidenceId": "EV-WH-121",
           "screenshot": "EV-WH-121-能效对标配置新增方案.png",
-          "verificationStatus": "verified"
+          "verificationStatus": "needs-recapture"
         },
         {
           "stepNumber": "10.3",
@@ -1142,44 +1142,74 @@
           "expectedState": "详情抽屉回显行业、适用范围、来源、状态和备注。",
           "evidenceId": "EV-WH-122",
           "screenshot": "EV-WH-122-能效对标配置方案详情.png",
-          "verificationStatus": "verified"
+          "verificationStatus": "needs-recapture"
         },
         {
           "stepNumber": "10.4",
-          "title": "新增标杆项",
+          "title": "编辑标杆方案",
           "route": "/data/energy-benchmark",
-          "action": "进入标杆项页签，按设备选择对象和指标，维护标杆值、优秀值、阈值和来源。",
-          "expectedState": "新增表单展示对象选择、指标选择和阈值字段。",
-          "evidenceId": "EV-WH-123",
-          "screenshot": "EV-WH-123-能效对标配置新增标杆项.png",
-          "verificationStatus": "verified"
+          "action": "点击标杆方案编辑，修改方案名称和备注后保存。",
+          "expectedState": "编辑表单回显已保存字段，保存后列表显示更新后的方案信息。",
+          "evidenceId": "EV-WH-167",
+          "screenshot": "EV-WH-167-能效对标配置编辑方案.png",
+          "verificationStatus": "needs-recapture"
         },
         {
           "stepNumber": "10.5",
+          "title": "新增标杆项",
+          "route": "/data/energy-benchmark",
+          "action": "选中企业标杆方案后新增指标，维护对象层级、指标、标杆值、等级值、适用条件和来源。",
+          "expectedState": "新增表单展示对象层级、指标、标杆值、等级值、适用条件和来源字段。",
+          "evidenceId": "EV-WH-123",
+          "screenshot": "EV-WH-123-能效对标配置新增标杆项.png",
+          "verificationStatus": "needs-recapture"
+        },
+        {
+          "stepNumber": "10.6",
+          "title": "查看标杆项详情",
+          "route": "/data/energy-benchmark",
+          "action": "点击标杆项详情，查看对象、指标、标杆值、阈值、来源和状态。",
+          "expectedState": "详情抽屉回显标杆项字段。",
+          "evidenceId": "EV-WH-168",
+          "screenshot": "EV-WH-168-能效对标配置标杆项详情.png",
+          "verificationStatus": "needs-recapture"
+        },
+        {
+          "stepNumber": "10.7",
           "title": "编辑标杆项",
           "route": "/data/energy-benchmark",
           "action": "编辑标杆项的标杆值或阈值，保存后返回列表。",
           "expectedState": "列表回显更新后的标杆值。",
           "evidenceId": "EV-WH-124",
           "screenshot": "EV-WH-124-能效对标配置标杆项编辑回显.png",
-          "verificationStatus": "verified"
+          "verificationStatus": "needs-recapture"
         },
         {
-          "stepNumber": "10.6",
-          "title": "生成历史基线标杆",
+          "stepNumber": "10.8",
+          "title": "删除标杆项",
           "route": "/data/energy-benchmark",
-          "action": "进入历史基线生成页签，选择对象类型和指标后生成历史基线。",
-          "expectedState": "页面提示历史基线标杆已生成。",
-          "evidenceId": "EV-WH-125",
-          "screenshot": "EV-WH-125-能效对标配置历史基线生成.png",
-          "verificationStatus": "verified"
+          "action": "删除当前方案下不再使用的标杆项。",
+          "expectedState": "删除后当前方案标杆项列表不再显示该标杆项。",
+          "evidenceId": "EV-WH-169",
+          "screenshot": "EV-WH-169-能效对标配置标杆项删除结果.png",
+          "verificationStatus": "needs-recapture"
+        },
+        {
+          "stepNumber": "10.9",
+          "title": "删除标杆方案",
+          "route": "/data/energy-benchmark",
+          "action": "删除已清理标杆项的标杆方案。",
+          "expectedState": "删除后标杆方案列表不再显示该方案。",
+          "evidenceId": "EV-WH-170",
+          "screenshot": "EV-WH-170-能效对标配置方案删除结果.png",
+          "verificationStatus": "needs-recapture"
         }
       ]
     },
     {
       "sectionId": "energy-benchmark",
       "title": "能效对标",
-      "summary": "用于说明设备或工序能效对标结果查看和配置入口。",
+      "summary": "用于说明能效对标结果查询、强度类分析和设备能效等级分析。",
       "steps": [
         {
           "stepNumber": "11.1",
@@ -1189,24 +1219,124 @@
           "expectedState": "页面显示对标分析内容和维护标杆入口。",
           "evidenceId": "EV-WH-126",
           "screenshot": "EV-WH-126-能效对标分析维护入口.png",
-          "verificationStatus": "verified"
+          "verificationStatus": "needs-recapture"
         }
       ]
     },
     {
       "sectionId": "energy-balance",
-      "title": "能效平衡",
-      "summary": "用于说明平衡简表、数据质量、优化测算和优化记录。",
+      "title": "能量平衡",
+      "summary": "用于说明计量边界、边界成员、平衡计算和差异诊断。",
       "steps": [
         {
-          "stepNumber": "11.1",
-          "title": "查看能效平衡与优化",
+          "stepNumber": "12.1",
+          "title": "查看能量平衡总览",
           "route": "/energy/balance",
-          "action": "进入能效平衡页面，查看输入、有效利用、损耗、平衡差异、优化测算和优化记录。",
-          "expectedState": "页面显示平衡简表、数据质量、优化测算和优化记录。",
+          "action": "进入能量平衡页面，查看边界输入、已归集用能、未归集差异和平衡误差率。",
+          "expectedState": "页面显示计量边界筛选、平衡计算结果、差异诊断、计量边界和边界成员维护页签。",
           "evidenceId": "EV-WH-026",
-          "screenshot": "EV-WH-026-能效平衡与优化.png",
-          "verificationStatus": "planned"
+          "screenshot": "EV-WH-026-能量平衡.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "12.2",
+          "title": "查看能量平衡计算结果",
+          "route": "/energy/balance",
+          "action": "进入平衡计算页签，选择计量边界、期间、粒度和能源种类。",
+          "expectedState": "页面显示边界输入、已归集用能、未归集差异、平衡误差率和计算明细。",
+          "evidenceId": "EV-WH-157",
+          "screenshot": "EV-WH-157-能量平衡计算结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "12.3",
+          "title": "查看差异诊断",
+          "route": "/energy/balance",
+          "action": "进入差异诊断页签，查看当前计量边界的闭合状态和异常提示。",
+          "expectedState": "页面显示边界闭合状态和诊断项。",
+          "evidenceId": "EV-WH-158",
+          "screenshot": "EV-WH-158-能量平衡差异诊断.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "12.4",
+          "title": "查看计量边界列表",
+          "route": "/energy/balance",
+          "action": "进入计量边界页签，查看已有计量边界和行内操作。",
+          "expectedState": "列表展示边界编码、名称、类型、输入表、覆盖区域、状态和操作。",
+          "evidenceId": "EV-WH-159",
+          "screenshot": "EV-WH-159-能量平衡计量边界列表.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "12.5",
+          "title": "新增计量边界",
+          "route": "/energy/balance",
+          "action": "点击新增边界，填写边界编码、名称、类型、输入表、覆盖区域、来源和备注。",
+          "expectedState": "新增表单字段完整，保存后列表回显新增边界。",
+          "evidenceId": "EV-WH-160",
+          "screenshot": "EV-WH-160-能量平衡新增计量边界.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "12.6",
+          "title": "编辑计量边界",
+          "route": "/energy/balance",
+          "action": "点击边界行内编辑，修改边界名称和备注并保存。",
+          "expectedState": "编辑表单回显已保存字段，保存后列表显示编辑后的边界名称。",
+          "evidenceId": "EV-WH-161",
+          "screenshot": "EV-WH-161-能量平衡编辑计量边界.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "12.7",
+          "title": "查看边界成员列表",
+          "route": "/energy/balance",
+          "action": "选择计量边界并进入边界成员页签。",
+          "expectedState": "页面显示当前边界成员列表和新增成员入口。",
+          "evidenceId": "EV-WH-162",
+          "screenshot": "EV-WH-162-能量平衡边界成员列表.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "12.8",
+          "title": "新增边界成员",
+          "route": "/energy/balance",
+          "action": "点击新增成员，选择成员类型、角色、设备、区域并填写归集权重。",
+          "expectedState": "新增成员表单字段完整，保存后成员进入当前边界归集范围。",
+          "evidenceId": "EV-WH-163",
+          "screenshot": "EV-WH-163-能量平衡新增边界成员.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "12.9",
+          "title": "编辑边界成员",
+          "route": "/energy/balance",
+          "action": "点击成员行内编辑，修改成员编码和备注并保存。",
+          "expectedState": "编辑表单回显成员字段，保存后列表显示编辑结果。",
+          "evidenceId": "EV-WH-164",
+          "screenshot": "EV-WH-164-能量平衡编辑边界成员.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "12.10",
+          "title": "删除边界成员",
+          "route": "/energy/balance",
+          "action": "删除未形成历史引用的临时边界成员。",
+          "expectedState": "删除后成员列表不再显示该成员。",
+          "evidenceId": "EV-WH-165",
+          "screenshot": "EV-WH-165-能量平衡边界成员删除结果.png",
+          "verificationStatus": "verified"
+        },
+        {
+          "stepNumber": "12.11",
+          "title": "删除计量边界",
+          "route": "/energy/balance",
+          "action": "删除未被能源事实引用的临时计量边界。",
+          "expectedState": "删除后计量边界列表不再显示该边界。",
+          "evidenceId": "EV-WH-166",
+          "screenshot": "EV-WH-166-能量平衡计量边界删除结果.png",
+          "verificationStatus": "verified"
         }
       ]
     },

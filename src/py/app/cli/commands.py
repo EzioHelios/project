@@ -22,6 +22,7 @@ from app.domain.carbon.energy_analysis_importer import seed_energy_analysis_data
 from app.domain.carbon.factor_importer import import_ncsc_factor_package
 from app.domain.carbon.production_data_importer import import_wms_production_data
 from app.domain.energy.benchmark_importer import seed_warehouse_energy_benchmark_data
+from app.domain.energy.policy_benchmark_sync import sync_policy_benchmark_library
 from app.domain.ghg_inventory.usecases.tenant_dataset import CompleteWarehouseTenantInventory
 from app.lib.deps import create_service_provider, provide_services
 from app.lib.settings import get_settings
@@ -58,6 +59,12 @@ def energy_types_group(_: dict[str, Any]) -> None:
     """Manage standard energy types."""
 
 
+@click.group(name="benchmark", invoke_without_command=False, help="Manage energy benchmark policy libraries.")
+@click.pass_context
+def energy_benchmark_group(_: dict[str, Any]) -> None:
+    """Manage energy benchmark libraries."""
+
+
 @click.group(name="demo", invoke_without_command=False, help="Apply reusable cross-domain demo packages.")
 @click.pass_context
 def demo_management_group(_: dict[str, Any]) -> None:
@@ -72,6 +79,7 @@ def demo_package_group(_: dict[str, Any]) -> None:
 
 demo_management_group.add_command(demo_package_group)
 energy_management_group.add_command(energy_types_group)
+energy_management_group.add_command(energy_benchmark_group)
 
 
 @demo_package_group.command(name="list", help="List registered reusable demo packages.")
@@ -267,6 +275,38 @@ def repair_energy_types_command(team_slug: str, apply: bool) -> None:
 
     console.rule("Repair tenant energy type usage.")
     anyio.run(_repair)
+
+
+@energy_benchmark_group.command(name="sync-policy-library", help="Download and sync official energy benchmark policy PDFs.")
+@click.option("--source", "sources", type=click.STRING, default="ndrc-2023,ndrc-equipment-2024", show_default=True)
+@click.option("--team", "team_slug", type=click.STRING, default="woheng-taizhou-production-base", show_default=True)
+@click.option("--apply", is_flag=True, help="Write downloaded policy benchmark rows into the tenant benchmark library.")
+def sync_energy_benchmark_policy_library_command(sources: str, team_slug: str, apply: bool) -> None:
+    """Download policy PDFs and upsert benchmark library rows."""
+    console = get_console()
+
+    async def _sync() -> None:
+        from app.domain.metering.legacy_migration import resolve_team_id
+
+        async with alchemy.get_session() as session:
+            session.info[TENANT_BYPASS_SESSION_KEY] = True
+            team_id = await resolve_team_id(session, team_slug)
+            await session.commit()
+            session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
+            session.info[TENANT_ID_SESSION_KEY] = team_id
+            result = await sync_policy_benchmark_library(
+                session,
+                [source.strip() for source in sources.split(",") if source.strip()],
+                apply=apply,
+            )
+        console.print(
+            "[green]Synced energy benchmark policy library[/green] "
+            f"team={team_slug} apply={apply} profiles={result.profiles_upserted} "
+            f"items={result.items_upserted} files={len(result.downloaded_files)}"
+        )
+
+    console.rule("Sync energy benchmark policy library.")
+    anyio.run(_sync)
 
 
 @demo_management_group.command(name="apply", help="Apply one reusable demo package to its tenant.")
