@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>组织碳核算：核算执行与结果明细 - 沃衡汽车能碳管理平台操作手册</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-name">沃衡汽车能碳管理平台</div>
+      <div class="brand-subtitle">操作手册</div>
+    </div>
+    <nav><a class="" href="../index.html">01 平台概览</a><a class="" href="../pages/green-factory-score-items.html">02 平台功能索引</a><a class="" href="../pages/access-and-tenant.html">03 登录、首页与租户切换</a><a class="" href="../pages/energy-overview.html">04 能源运营总览</a><a class="" href="../pages/data-maintenance-mqtt.html">05 能源运营：区域、设备与 MQTT 电表接入</a><a class="" href="../pages/energy-master-data.html">06 能源运营：能源主数据维护</a><a class="" href="../pages/energy-data-maintenance.html">07 能源运营：能源事实数据维护</a><a class="" href="../pages/energy-consumption-query.html">08 能源运营：能耗查询</a><a class="" href="../pages/energy-intensity.html">09 能源运营：能耗强度</a><a class="" href="../pages/energy-use-analysis.html">10 能源运营：用能分析</a><a class="" href="../pages/energy-flow-analysis.html">11 能源运营：能流分析</a><a class="" href="../pages/energy-benchmark-settings.html">12 能源运营：能效对标配置</a><a class="" href="../pages/energy-benchmark.html">13 能源运营：能效对标</a><a class="" href="../pages/energy-balance.html">14 能源运营：能量平衡</a><a class="" href="../pages/energy-budget-settings.html">15 能源运营：能碳预算维护</a><a class="" href="../pages/energy-budget.html">16 能源运营：能碳预算</a><a class="" href="../pages/bigscreen.html">17 态势大屏</a><a class="" href="../pages/activity-ledgers-import.html">18 经营活动台账与非电数据导入</a><a class="" href="../pages/organization-boundary-settings.html">19 组织碳核算：组织边界与核算边界维护</a><a class="" href="../pages/ghg-maintenance.html">20 组织碳核算：排放源与活动数据维护</a><a class="" href="../pages/factors-calculation.html">21 组织碳核算：排放因子库与企业计算因子</a><a class="active" href="../pages/organization-carbon-calculation.html">22 组织碳核算：核算执行与结果明细</a><a class="" href="../pages/inventory-report-management.html">23 组织碳核算：盘查报告管理与导出</a><a class="" href="../pages/organization-carbon-iso14064.html">24 组织碳总览与结构分析</a><a class="" href="../pages/monitoring-alerts.html">25 监测告警与处理留痕</a><a class="" href="../pages/verification-report-export.html">26 核查材料引用</a><a class="" href="../pages/reduction-carbon-asset.html">27 减排绩效与公开碳价模拟</a><a class="" href="../pages/product-supply-chain-carbon.html">28 碳足迹与供应链碳管理</a><a class="" href="../pages/demo-script.html">29 现场演示脚本</a><a class="" href="../pages/screenshot-index.html">30 功能页面与截图索引</a></nav>
+  </aside>
+  <main class="page">
+    <header class="page-header">
+      <div class="eyebrow">沃衡汽车有限公司</div>
+      <h1>组织碳核算：核算执行与结果明细</h1>
+      <div class="page-meta">操作手册 · 生成时间 2026/9/3 16:11:14</div>
+    </header>
+    <article class="content"><h2>组织碳核算执行与结果明细</h2>
+<p>本章用于说明组织碳核算从准备检查、执行计算到查看结果明细的操作。核算入口集中在 <code>/carbon/organization/records</code>，用户不需要在报告页面或核查材料页面重复寻找计算入口。</p>
+<h3>进入核算页面</h3>
+<p>进入 <code>/carbon/organization/records</code>，选择报告组织、报告期、核算边界、Scope 2 口径和统计粒度。页面展示当前筛选条件下的核算准备状态、核算运行记录和结果列表。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-030</span><span>/carbon/organization/records</span><span>组织碳与ISO 14064</span></div><img src="../assets/screenshots/EV-WH-030-排放清单与报告台账.png" alt="排放清单与报告台账" /><figcaption>排放清单与报告台账</figcaption></figure>
+<h3>执行核算或重新核算</h3>
+<p>确认组织边界、活动数据、因子参数和报告期后，点击「<strong>执行核算</strong>」或「<strong>重新核算</strong>」。系统按当前报告期和核算边界生成核算运行，并刷新结果列表。重复执行时以新的核算运行承载本次结果，便于保留历史计算痕迹。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-030</span><span>/carbon/organization/records</span><span>组织碳与ISO 14064</span></div><img src="../assets/screenshots/EV-WH-030-排放清单与报告台账.png" alt="排放清单与报告台账" /><figcaption>排放清单与报告台账</figcaption></figure>
+<h3>查看排放结果明细</h3>
+<p>核算完成后，在同一页面查看排放结果明细。列表展示报告期、ISO 分类、Scope、排放源、活动数据、活动量、因子、排放量和核算状态。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-031</span><span>/carbon/organization/records</span><span>组织碳与ISO 14064</span></div><img src="../assets/screenshots/EV-WH-031-排放结果明细与核算公式.png" alt="排放结果明细与核算公式" /><figcaption>排放结果明细与核算公式</figcaption></figure>
+<h3>查看活动数据与因子详情</h3>
+<p>打开排放结果详情，核对活动数据、排放因子、参数集、区域设备归集和证据文件。该详情用于确认排放量如何由活动数据和因子计算形成。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-032</span><span>/carbon/organization/records</span><span>组织碳与ISO 14064</span></div><img src="../assets/screenshots/EV-WH-032-排放明细详情-活动与因子.png" alt="排放明细详情：活动与因子" /><figcaption>排放明细详情：活动与因子</figcaption></figure>
+<h3>检查项</h3>
+<ul>
+<li>核算前应先完成组织边界、排放源、活动数据和因子参数维护。</li>
+<li>核算结果应能按报告期、Scope、ISO 分类和排放源查询。</li>
+<li>结果详情应能看到活动数据、因子参数和归集关系。</li>
+</ul></article>
+    <nav class="pager">
+      <a href="../pages/factors-calculation.html">上一页：组织碳核算：排放因子库与企业计算因子</a>
+      <a href="../pages/inventory-report-management.html">下一页：组织碳核算：盘查报告管理与导出</a>
+    </nav>
+  </main>
+</body>
+</html>

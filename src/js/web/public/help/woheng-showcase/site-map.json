@@ -9,7 +9,7 @@
     },
     {
       "pageId": "green-factory-score-items",
-      "title": "绿色工厂评分项功能索引",
+      "title": "平台功能索引",
       "source": "01-green-factory-score-items.md",
       "href": "pages/green-factory-score-items.html"
     },
@@ -110,12 +110,6 @@
       "href": "pages/activity-ledgers-import.html"
     },
     {
-      "pageId": "factors-calculation",
-      "title": "因子维护与核算准备",
-      "source": "05-factors-calculation.md",
-      "href": "pages/factors-calculation.html"
-    },
-    {
       "pageId": "organization-boundary-settings",
       "title": "组织碳核算：组织边界与核算边界维护",
       "source": "06-organization-boundary-settings.md",
@@ -128,16 +122,28 @@
       "href": "pages/ghg-maintenance.html"
     },
     {
-      "pageId": "organization-carbon-iso14064",
-      "title": "组织碳管理与 ISO 14064 分类",
-      "source": "07-organization-carbon-iso14064.md",
-      "href": "pages/organization-carbon-iso14064.html"
+      "pageId": "factors-calculation",
+      "title": "组织碳核算：排放因子库与企业计算因子",
+      "source": "05-factors-calculation.md",
+      "href": "pages/factors-calculation.html"
     },
     {
-      "pageId": "product-supply-chain-carbon",
-      "title": "碳足迹与供应链碳管理",
-      "source": "08-product-supply-chain-carbon.md",
-      "href": "pages/product-supply-chain-carbon.html"
+      "pageId": "organization-carbon-calculation",
+      "title": "组织碳核算：核算执行与结果明细",
+      "source": "07a-organization-carbon-calculation.md",
+      "href": "pages/organization-carbon-calculation.html"
+    },
+    {
+      "pageId": "inventory-report-management",
+      "title": "组织碳核算：盘查报告管理与导出",
+      "source": "07b-inventory-report-management.md",
+      "href": "pages/inventory-report-management.html"
+    },
+    {
+      "pageId": "organization-carbon-iso14064",
+      "title": "组织碳总览与结构分析",
+      "source": "07-organization-carbon-iso14064.md",
+      "href": "pages/organization-carbon-iso14064.html"
     },
     {
       "pageId": "monitoring-alerts",
@@ -147,7 +153,7 @@
     },
     {
       "pageId": "verification-report-export",
-      "title": "核查材料与报告导出",
+      "title": "核查材料引用",
       "source": "09-verification-report-export.md",
       "href": "pages/verification-report-export.html"
     },
@@ -158,8 +164,14 @@
       "href": "pages/reduction-carbon-asset.html"
     },
     {
+      "pageId": "product-supply-chain-carbon",
+      "title": "碳足迹与供应链碳管理",
+      "source": "08-product-supply-chain-carbon.md",
+      "href": "pages/product-supply-chain-carbon.html"
+    },
+    {
       "pageId": "demo-script",
-      "title": "下午演示脚本",
+      "title": "现场演示脚本",
       "source": "11-demo-script.md",
       "href": "pages/demo-script.html"
     },

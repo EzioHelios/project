@@ -1,9 +1,9 @@
 {
   "title": "沃衡汽车能碳管理平台操作手册 截图审计",
-  "generatedAt": "2026-09-03T02:35:13.026Z",
+  "generatedAt": "2026-09-03T08:11:14.227Z",
   "screenshotRoot": "outputs/woheng-showcase-woheng-full-evidence/screenshots",
-  "totalEvidence": 162,
-  "availableScreenshots": 162,
+  "totalEvidence": 161,
+  "availableScreenshots": 161,
   "missingScreenshots": 0,
   "rows": [
     {
@@ -786,7 +786,7 @@
     {
       "section": "组织碳与ISO 14064",
       "title": "排放清单与报告台账",
-      "route": "/carbon/organization/inventory",
+      "route": "/carbon/organization/records",
       "evidenceId": "EV-WH-030",
       "screenshot": "EV-WH-030-排放清单与报告台账.png",
       "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-030-排放清单与报告台账.png",
@@ -866,7 +866,7 @@
       "expectedEvidenceLevel": "A"
     },
     {
-      "section": "绿色工厂评分项",
+      "section": "平台功能索引",
       "title": "产品碳足迹核算",
       "route": "/carbon/product-footprint",
       "evidenceId": "EV-WH-035",
@@ -885,7 +885,7 @@
       "expectedEvidenceLevel": "A"
     },
     {
-      "section": "绿色工厂评分项",
+      "section": "平台功能索引",
       "title": "供应链碳管理",
       "route": "/carbon/supply-chain",
       "evidenceId": "EV-WH-036",
@@ -916,22 +916,6 @@
         "凭证清单",
         "凭证数",
         "下载"
-      ],
-      "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "其他碳管理能力",
-      "title": "报告导出",
-      "route": "/carbon/verification",
-      "evidenceId": "EV-WH-038",
-      "screenshot": "EV-WH-038-报告导出.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-038-报告导出.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "报告与材料",
-        "报告导出",
-        "导出记录"
       ],
       "focus": "页面标题、筛选条件、指标卡、图表或表格的首屏业务数据",
       "expectedEvidenceLevel": "A"
@@ -1619,246 +1603,6 @@
       "expectedEvidenceLevel": "A"
     },
     {
-      "section": "因子维护与核算",
-      "title": "查看企业计算因子库",
-      "route": "/carbon-mgmt/calculation-factors",
-      "evidenceId": "EV-WH-152",
-      "screenshot": "EV-WH-152-企业计算因子台账.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-152-企业计算因子台账.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "查看企业计算因子库",
-        "/carbon-mgmt/calculation-factors"
-      ],
-      "focus": "页面显示企业因子和共享因子，企业因子可维护，共享因子只读。",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "因子维护与核算",
-      "title": "新增企业计算因子",
-      "route": "/carbon-mgmt/calculation-factors",
-      "evidenceId": "EV-WH-153",
-      "screenshot": "EV-WH-153-新增企业计算因子.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-153-新增企业计算因子.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "新增企业计算因子",
-        "/carbon-mgmt/calculation-factors"
-      ],
-      "focus": "新增表单显示企业计算因子完整维护字段。",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "因子维护与核算",
-      "title": "编辑企业计算因子",
-      "route": "/carbon-mgmt/calculation-factors",
-      "evidenceId": "EV-WH-154",
-      "screenshot": "EV-WH-154-编辑企业计算因子结果.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-154-编辑企业计算因子结果.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "编辑企业计算因子",
-        "/carbon-mgmt/calculation-factors"
-      ],
-      "focus": "编辑后回到台账，因子值和企业归属正常回显。",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "因子维护与核算",
-      "title": "模板导入企业计算因子",
-      "route": "/carbon-mgmt/calculation-factors",
-      "evidenceId": "EV-WH-155",
-      "screenshot": "EV-WH-155-企业计算因子模板导入预检.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-155-企业计算因子模板导入预检.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "模板导入企业计算因子",
-        "/carbon-mgmt/calculation-factors"
-      ],
-      "focus": "页面显示有效行、新增、更新和错误统计，预检通过后可提交导入。",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "因子维护与核算",
-      "title": "活动数据采用计算因子",
-      "route": "/carbon-mgmt/activities",
-      "evidenceId": "EV-WH-156",
-      "screenshot": "EV-WH-156-活动数据采用计算因子结果.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-156-活动数据采用计算因子结果.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "活动数据采用计算因子",
-        "/carbon-mgmt/activities"
-      ],
-      "focus": "当前参数值回显，并进入活动数据核算参数集。",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "组织边界与核算边界维护",
-      "title": "打开边界维护页面",
-      "route": "/carbon/organization/boundary",
-      "evidenceId": "EV-WH-133",
-      "screenshot": "EV-WH-133-组织与核算边界维护页.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-133-组织与核算边界维护页.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "打开边界维护页面",
-        "/carbon/organization/boundary"
-      ],
-      "focus": "页面展示边界维护台账和核算边界配置区。",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "组织边界与核算边界维护",
-      "title": "新增报告主体",
-      "route": "/carbon/organization/boundary",
-      "evidenceId": "EV-WH-134",
-      "screenshot": "EV-WH-134-报告主体新增表单.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-134-报告主体新增表单.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "新增报告主体",
-        "/carbon/organization/boundary"
-      ],
-      "focus": "新增表单展示报告主体字段，保存后列表可回显。",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "组织边界与核算边界维护",
-      "title": "编辑报告主体",
-      "route": "/carbon/organization/boundary",
-      "evidenceId": "EV-WH-135",
-      "screenshot": "EV-WH-135-报告主体编辑回显.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-135-报告主体编辑回显.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "编辑报告主体",
-        "/carbon/organization/boundary"
-      ],
-      "focus": "列表回显更新后的报告主体名称。",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "组织边界与核算边界维护",
-      "title": "新增报告期",
-      "route": "/carbon/organization/boundary",
-      "evidenceId": "EV-WH-136",
-      "screenshot": "EV-WH-136-报告期新增表单.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-136-报告期新增表单.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "新增报告期",
-        "/carbon/organization/boundary"
-      ],
-      "focus": "报告期挂接到报告主体，保存后列表可回显。",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "组织边界与核算边界维护",
-      "title": "编辑报告期",
-      "route": "/carbon/organization/boundary",
-      "evidenceId": "EV-WH-137",
-      "screenshot": "EV-WH-137-报告期编辑回显.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-137-报告期编辑回显.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "编辑报告期",
-        "/carbon/organization/boundary"
-      ],
-      "focus": "列表回显更新后的报告期名称和期间。",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "组织边界与核算边界维护",
-      "title": "新增组织边界版本",
-      "route": "/carbon/organization/boundary",
-      "evidenceId": "EV-WH-138",
-      "screenshot": "EV-WH-138-组织边界版本新增表单.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-138-组织边界版本新增表单.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "新增组织边界版本",
-        "/carbon/organization/boundary"
-      ],
-      "focus": "边界版本挂接到报告主体和报告期，默认具备完整核算口径。",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "组织边界与核算边界维护",
-      "title": "编辑组织边界版本",
-      "route": "/carbon/organization/boundary",
-      "evidenceId": "EV-WH-139",
-      "screenshot": "EV-WH-139-组织边界版本编辑回显.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-139-组织边界版本编辑回显.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "编辑组织边界版本",
-        "/carbon/organization/boundary"
-      ],
-      "focus": "列表回显更新后的边界版本名称。",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "组织边界与核算边界维护",
-      "title": "维护边界设施",
-      "route": "/carbon/organization/boundary",
-      "evidenceId": "EV-WH-140",
-      "screenshot": "EV-WH-140-边界设施维护表单.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-140-边界设施维护表单.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "维护边界设施",
-        "/carbon/organization/boundary"
-      ],
-      "focus": "边界设施挂接到组织边界版本，保存后列表可回显。",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "组织边界与核算边界维护",
-      "title": "编辑边界设施",
-      "route": "/carbon/organization/boundary",
-      "evidenceId": "EV-WH-141",
-      "screenshot": "EV-WH-141-边界设施编辑回显.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-141-边界设施编辑回显.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "编辑边界设施",
-        "/carbon/organization/boundary"
-      ],
-      "focus": "列表回显更新后的设施名称。",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "组织边界与核算边界维护",
-      "title": "发布组织边界",
-      "route": "/carbon/organization/boundary",
-      "evidenceId": "EV-WH-142",
-      "screenshot": "EV-WH-142-组织边界发布结果.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-142-组织边界发布结果.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "发布组织边界",
-        "/carbon/organization/boundary"
-      ],
-      "focus": "边界版本状态变为已发布，并显示纳入设施数量。",
-      "expectedEvidenceLevel": "A"
-    },
-    {
-      "section": "组织边界与核算边界维护",
-      "title": "删除未引用边界版本",
-      "route": "/carbon/organization/boundary",
-      "evidenceId": "EV-WH-143",
-      "screenshot": "EV-WH-143-组织边界删除结果.png",
-      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-143-组织边界删除结果.png",
-      "status": "ready",
-      "mustVisibleContents": [
-        "删除未引用边界版本",
-        "/carbon/organization/boundary"
-      ],
-      "focus": "删除后列表不再显示该边界版本。",
-      "expectedEvidenceLevel": "A"
-    },
-    {
       "section": "能耗查询",
       "title": "能耗汇总查询",
       "route": "/energy/consumption",
@@ -2489,6 +2233,171 @@
       "expectedEvidenceLevel": "A"
     },
     {
+      "section": "组织边界与核算边界维护",
+      "title": "打开边界维护页面",
+      "route": "/carbon/organization/boundary",
+      "evidenceId": "EV-WH-133",
+      "screenshot": "EV-WH-133-组织与核算边界维护页.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-133-组织与核算边界维护页.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "打开边界维护页面",
+        "/carbon/organization/boundary"
+      ],
+      "focus": "页面展示边界维护台账和核算边界配置区。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织边界与核算边界维护",
+      "title": "新增报告主体",
+      "route": "/carbon/organization/boundary",
+      "evidenceId": "EV-WH-134",
+      "screenshot": "EV-WH-134-报告主体新增表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-134-报告主体新增表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增报告主体",
+        "/carbon/organization/boundary"
+      ],
+      "focus": "新增表单展示报告主体字段，保存后列表可回显。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织边界与核算边界维护",
+      "title": "编辑报告主体",
+      "route": "/carbon/organization/boundary",
+      "evidenceId": "EV-WH-135",
+      "screenshot": "EV-WH-135-报告主体编辑回显.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-135-报告主体编辑回显.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "编辑报告主体",
+        "/carbon/organization/boundary"
+      ],
+      "focus": "列表回显更新后的报告主体名称。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织边界与核算边界维护",
+      "title": "新增报告期",
+      "route": "/carbon/organization/boundary",
+      "evidenceId": "EV-WH-136",
+      "screenshot": "EV-WH-136-报告期新增表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-136-报告期新增表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增报告期",
+        "/carbon/organization/boundary"
+      ],
+      "focus": "报告期挂接到报告主体，保存后列表可回显。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织边界与核算边界维护",
+      "title": "编辑报告期",
+      "route": "/carbon/organization/boundary",
+      "evidenceId": "EV-WH-137",
+      "screenshot": "EV-WH-137-报告期编辑回显.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-137-报告期编辑回显.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "编辑报告期",
+        "/carbon/organization/boundary"
+      ],
+      "focus": "列表回显更新后的报告期名称和期间。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织边界与核算边界维护",
+      "title": "新增组织边界版本",
+      "route": "/carbon/organization/boundary",
+      "evidenceId": "EV-WH-138",
+      "screenshot": "EV-WH-138-组织边界版本新增表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-138-组织边界版本新增表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增组织边界版本",
+        "/carbon/organization/boundary"
+      ],
+      "focus": "边界版本挂接到报告主体和报告期，默认具备完整核算口径。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织边界与核算边界维护",
+      "title": "编辑组织边界版本",
+      "route": "/carbon/organization/boundary",
+      "evidenceId": "EV-WH-139",
+      "screenshot": "EV-WH-139-组织边界版本编辑回显.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-139-组织边界版本编辑回显.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "编辑组织边界版本",
+        "/carbon/organization/boundary"
+      ],
+      "focus": "列表回显更新后的边界版本名称。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织边界与核算边界维护",
+      "title": "维护边界设施",
+      "route": "/carbon/organization/boundary",
+      "evidenceId": "EV-WH-140",
+      "screenshot": "EV-WH-140-边界设施维护表单.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-140-边界设施维护表单.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "维护边界设施",
+        "/carbon/organization/boundary"
+      ],
+      "focus": "边界设施挂接到组织边界版本，保存后列表可回显。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织边界与核算边界维护",
+      "title": "编辑边界设施",
+      "route": "/carbon/organization/boundary",
+      "evidenceId": "EV-WH-141",
+      "screenshot": "EV-WH-141-边界设施编辑回显.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-141-边界设施编辑回显.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "编辑边界设施",
+        "/carbon/organization/boundary"
+      ],
+      "focus": "列表回显更新后的设施名称。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织边界与核算边界维护",
+      "title": "发布组织边界",
+      "route": "/carbon/organization/boundary",
+      "evidenceId": "EV-WH-142",
+      "screenshot": "EV-WH-142-组织边界发布结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-142-组织边界发布结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "发布组织边界",
+        "/carbon/organization/boundary"
+      ],
+      "focus": "边界版本状态变为已发布，并显示纳入设施数量。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "组织边界与核算边界维护",
+      "title": "删除未引用边界版本",
+      "route": "/carbon/organization/boundary",
+      "evidenceId": "EV-WH-143",
+      "screenshot": "EV-WH-143-组织边界删除结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-143-组织边界删除结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "删除未引用边界版本",
+        "/carbon/organization/boundary"
+      ],
+      "focus": "删除后列表不再显示该边界版本。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
       "section": "组织碳排放源与活动数据维护",
       "title": "查看组织碳数据工作台",
       "route": "/carbon-mgmt/workbench",
@@ -2606,6 +2515,81 @@
         "/carbon-mgmt/activities"
       ],
       "focus": "删除后活动台账查询结果不再显示验证记录。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "排放因子库与企业计算因子维护",
+      "title": "查看企业计算因子库",
+      "route": "/carbon-mgmt/calculation-factors",
+      "evidenceId": "EV-WH-152",
+      "screenshot": "EV-WH-152-企业计算因子台账.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-152-企业计算因子台账.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "查看企业计算因子库",
+        "/carbon-mgmt/calculation-factors"
+      ],
+      "focus": "页面显示企业因子和共享因子，企业因子可维护，共享因子只读。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "排放因子库与企业计算因子维护",
+      "title": "新增企业计算因子",
+      "route": "/carbon-mgmt/calculation-factors",
+      "evidenceId": "EV-WH-153",
+      "screenshot": "EV-WH-153-新增企业计算因子.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-153-新增企业计算因子.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "新增企业计算因子",
+        "/carbon-mgmt/calculation-factors"
+      ],
+      "focus": "新增表单显示企业计算因子完整维护字段。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "排放因子库与企业计算因子维护",
+      "title": "编辑企业计算因子",
+      "route": "/carbon-mgmt/calculation-factors",
+      "evidenceId": "EV-WH-154",
+      "screenshot": "EV-WH-154-编辑企业计算因子结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-154-编辑企业计算因子结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "编辑企业计算因子",
+        "/carbon-mgmt/calculation-factors"
+      ],
+      "focus": "编辑后回到台账，因子值和企业归属正常回显。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "排放因子库与企业计算因子维护",
+      "title": "模板导入企业计算因子",
+      "route": "/carbon-mgmt/calculation-factors",
+      "evidenceId": "EV-WH-155",
+      "screenshot": "EV-WH-155-企业计算因子模板导入预检.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-155-企业计算因子模板导入预检.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "模板导入企业计算因子",
+        "/carbon-mgmt/calculation-factors"
+      ],
+      "focus": "页面显示有效行、新增、更新和错误统计，预检通过后可提交导入。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "排放因子库与企业计算因子维护",
+      "title": "活动数据采用计算因子",
+      "route": "/carbon-mgmt/activities",
+      "evidenceId": "EV-WH-156",
+      "screenshot": "EV-WH-156-活动数据采用计算因子结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-156-活动数据采用计算因子结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "活动数据采用计算因子",
+        "/carbon-mgmt/activities"
+      ],
+      "focus": "当前参数值回显，并进入活动数据核算参数集。",
       "expectedEvidenceLevel": "A"
     }
   ]
