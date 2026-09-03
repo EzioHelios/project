@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import func, select
 
-from app.domain.carbon.models import MonitorSector
+from app.domain.carbon.models import MonitorSector, ReportingPeriod
 from app.domain.ghg_inventory.domain.activity_fields import CATEGORY_ACTIVITY_FIELDS
 from app.domain.ghg_inventory.domain.catalog import CATEGORY_BY_CODE
 from app.domain.ghg_inventory.models import (
@@ -201,6 +201,14 @@ class GhgInventoryQueryService:
         return self.source_payload(row, int(count or 0))
 
     async def workbench(self, *, inventory_code: str | None, reporting_period_id: int | None) -> dict[str, Any]:
+        inventory_code = await self._normalized_inventory_filter(
+            inventory_code=inventory_code,
+            reporting_period_id=reporting_period_id,
+        )
+        resolved_inventory_code = await self._resolve_inventory_code(
+            inventory_code=inventory_code,
+            reporting_period_id=reporting_period_id,
+        )
         activity_filters: list[ColumnElement[bool]] = []
         source_filters: list[ColumnElement[bool]] = []
         if inventory_code:
@@ -214,7 +222,7 @@ class GhgInventoryQueryService:
         allocated_ids = select(GhgActivityAllocation.activity_id).where(GhgActivityAllocation.status == "active")
         evidence_records = select(GhgEvidenceLink.record_code).where(GhgEvidenceLink.record_type == "activity")
         return {
-            "inventoryCode": inventory_code,
+            "inventoryCode": resolved_inventory_code,
             "reportingPeriodId": reporting_period_id,
             "activityCount": activity_count,
             "sourceCount": source_count,
@@ -243,6 +251,39 @@ class GhgInventoryQueryService:
                 or 0
             ),
         }
+
+    async def _normalized_inventory_filter(
+        self,
+        *,
+        inventory_code: str | None,
+        reporting_period_id: int | None,
+    ) -> str | None:
+        if not inventory_code or reporting_period_id is None:
+            return inventory_code
+        period_code = await self.session.scalar(
+            select(ReportingPeriod.code).where(ReportingPeriod.id == reporting_period_id)
+        )
+        return None if period_code == inventory_code else inventory_code
+
+    async def _resolve_inventory_code(self, *, inventory_code: str | None, reporting_period_id: int | None) -> str | None:
+        if inventory_code or reporting_period_id is None:
+            return inventory_code
+        activity_code = await self.session.scalar(
+            select(GhgActivityRecord.inventory_code)
+            .where(GhgActivityRecord.reporting_period_id == reporting_period_id)
+            .group_by(GhgActivityRecord.inventory_code)
+            .order_by(func.count().desc(), GhgActivityRecord.inventory_code.desc())
+            .limit(1)
+        )
+        if activity_code:
+            return activity_code
+        return await self.session.scalar(
+            select(GhgEmissionSource.inventory_code)
+            .where(GhgEmissionSource.reporting_period_id == reporting_period_id)
+            .group_by(GhgEmissionSource.inventory_code)
+            .order_by(func.count().desc(), GhgEmissionSource.inventory_code.desc())
+            .limit(1)
+        )
 
     async def _activity_counts_for_sources(self, rows: list[GhgEmissionSource]) -> dict[str, int]:
         if not rows:

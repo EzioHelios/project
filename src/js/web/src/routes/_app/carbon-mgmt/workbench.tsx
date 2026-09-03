@@ -18,10 +18,11 @@ function GhgInventoryWorkbenchPage() {
   const actions = useGhgInventoryActions()
   const [periodId, setPeriodId] = useState<number | undefined>()
   const selectedPeriod = catalog.data?.periods.find((item) => item.id === periodId) ?? catalog.data?.periods[0]
-  const workbench = useGhgInventoryWorkbench({ inventoryCode: selectedPeriod?.code, reportingPeriodId: selectedPeriod?.id })
+  const workbench = useGhgInventoryWorkbench({ reportingPeriodId: selectedPeriod?.id })
   const data = workbench.data
   const [generateOpen, setGenerateOpen] = useState(false)
   const blockingCount = (data?.unallocatedCount ?? 0) + (data?.missingParameterCount ?? 0)
+  const inventoryCode = data?.inventoryCode
 
   return (
     <PageContainer className="flex-1" maxWidth="4xl">
@@ -112,11 +113,11 @@ function GhgInventoryWorkbenchPage() {
               取消
             </Button>
             <Button
-              disabled={!selectedPeriod || actions.generateActivities.isPending}
+              disabled={!selectedPeriod || !inventoryCode || actions.generateActivities.isPending}
               onClick={() => {
-                if (!selectedPeriod) return
+                if (!selectedPeriod || !inventoryCode) return
                 actions.generateActivities.mutate(
-                  { inventoryCode: selectedPeriod.code, reportingPeriodId: selectedPeriod.id, sourceTypes: ["energy_electricity", "employee_commute"] },
+                  { inventoryCode, reportingPeriodId: selectedPeriod.id, sourceTypes: ["energy_electricity", "employee_commute"] },
                   { onSuccess: () => setGenerateOpen(false) },
                 )
               }}

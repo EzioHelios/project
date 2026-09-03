@@ -57,6 +57,11 @@ WOHENG_DEMO_PERMISSION_SPECS: tuple[tuple[str, str, str, str], ...] = (
     ("carbon.inventory.report.review", "审核温室气体盘查报告", "提交、审核或退回盘查报告", "carbon"),
     ("carbon.inventory.report.publish", "发布温室气体盘查报告", "发布已批准的盘查报告", "carbon"),
     ("carbon.inventory.export", "导出温室气体盘查成果", "导出盘查结果、证据索引和报告", "carbon"),
+    ("microgrid.view", "查看微电网", "查看微电网运行、预测和优化结果", "microgrid"),
+    ("microgrid.configure", "配置微电网", "维护微电网站点、资源、测点绑定和灵活性参数", "microgrid"),
+    ("microgrid.forecast.run", "执行微电网预测", "发起微电网负荷与新能源出力预测", "microgrid"),
+    ("microgrid.optimize.run", "执行微电网优化", "发起微电网优化调度计算", "microgrid"),
+    ("microgrid.dispatch.simulate", "模拟微电网调度", "生成并查看微电网调度下发和回执", "microgrid"),
 )
 MIN_EQUIPMENT_COUNT = 19
 MIN_ACTIVITY_COUNT = 400
