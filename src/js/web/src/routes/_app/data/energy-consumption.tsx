@@ -28,6 +28,7 @@ const energyImportFields: PageImportField[] = [
   { key: "use_system_name", label: "用能系统名称", aliases: ["use_system_name"] },
   { key: "granularity", label: "时间粒度", aliases: ["granularity"] },
   { key: "cost_cny", label: "费用", type: "number", aliases: ["cost_cny"] },
+  { key: "tariff_segment_type", label: "电价时段", aliases: ["tariff_segment_type"] },
   { key: "data_quality", label: "数据质量", aliases: ["data_quality"] },
   { key: "remark", label: "备注", aliases: ["remark"] },
 ]
@@ -144,6 +145,7 @@ function EnergyConsumptionFactsPage() {
         { key: "energy_type_code", label: "能源种类", render: (row) => energyTypeNameByCode.get(String(row.energy_type_code ?? "")) ?? String(row.energy_type_code ?? "-") },
         { key: "amount", label: "能源用量", align: "right" },
         { key: "unit", label: "单位" },
+        { key: "tariff_segment_type", label: "电价时段", render: (row) => tariffSegmentLabel(row.tariff_segment_type) },
         { key: "period_start", label: "开始日期", render: (row) => dateLabel(row.period_start) },
         { key: "period_end", label: "结束日期", render: (row) => dateLabel(row.period_end) },
         { key: "area_name", label: "区域" },
@@ -220,7 +222,17 @@ function EnergyConsumptionFactsPage() {
         { name: "use_system_code", label: "用能系统编码" },
         { name: "use_system_name", label: "用能系统名称" },
         { name: "cost_cny", label: "费用", type: "number" },
-        { name: "tariff_segment_type", label: "电价时段" },
+        {
+          name: "tariff_segment_type",
+          label: "电价时段",
+          type: "select",
+          options: [
+            { label: "峰段", value: "peak" },
+            { label: "平段", value: "flat" },
+            { label: "谷段", value: "valley" },
+            { label: "未分时", value: "none" },
+          ],
+        },
         { name: "reading_count", label: "采样数", type: "number" },
         { name: "remark", label: "备注", type: "textarea" },
       ]}
@@ -236,6 +248,19 @@ function dataQualityLabel(value: unknown) {
         manual: "手工",
         imported: "导入",
         estimated: "估算",
+      } as Record<string, string>
+    )[String(value ?? "")] ?? String(value ?? "-")
+  )
+}
+
+function tariffSegmentLabel(value: unknown) {
+  return (
+    (
+      {
+        peak: "峰段",
+        flat: "平段",
+        valley: "谷段",
+        none: "未分时",
       } as Record<string, string>
     )[String(value ?? "")] ?? String(value ?? "-")
   )

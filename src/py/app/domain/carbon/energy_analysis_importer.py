@@ -10,7 +10,7 @@ from app.lib.tenancy import require_session_tenant_id
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-GENERATED_INTERVAL_SOURCES = ("meter_hourly", "meter_daily")
+GENERATED_INTERVAL_SOURCES = ("meter_hourly", "meter_daily", "meter_monthly")
 GENERATED_WORKLOAD_SOURCE = "meter_run_hours"
 DEFAULT_TARIFF_CODE = "default_electricity_tou"
 
@@ -25,6 +25,7 @@ class EnergyAnalysisSeedResult:
     tariff_segments: int = 0
     hourly_facts: int = 0
     daily_facts: int = 0
+    monthly_facts: int = 0
     workload_facts: int = 0
 
 
@@ -221,7 +222,7 @@ async def _rebuild_energy_interval_facts(session: AsyncSession) -> None:
             """
             delete from dataapp_energyintervalfact
             where team_id = :team_id
-              and source_system in ('meter_hourly', 'meter_daily')
+              and source_system in ('meter_hourly', 'meter_daily', 'meter_monthly')
             """
         ),
         {"team_id": str(team_id)},
@@ -238,6 +239,7 @@ async def _rebuild_energy_interval_facts(session: AsyncSession) -> None:
                     sector.id::text as area_id,
                     sector.name as area_name,
                     fact.reading_time,
+                    fact.tou_period,
                     fact.normalized_value as meter_value,
                     lag(fact.normalized_value) over (
                         partition by fact.team_id, fact.equipment_id
@@ -265,6 +267,7 @@ async def _rebuild_energy_interval_facts(session: AsyncSession) -> None:
                     area_id,
                     area_name,
                     reading_time,
+                    tou_period,
                     meter_value - prev_value as delta_kwh
                 from readings
                 where prev_value is not null and meter_value - prev_value > 0 and meter_value - prev_value < 100000
@@ -278,6 +281,7 @@ async def _rebuild_energy_interval_facts(session: AsyncSession) -> None:
                     max(d.ammeter_name) as ammeter_name,
                     max(d.area_id) as meter_area_id,
                     max(d.area_name) as meter_area_name,
+                    max(d.tou_period) as meter_tou_period,
                     sum(d.delta_kwh)::numeric(18, 6) as amount,
                     count(*)::int as reading_count
                 from deltas d
@@ -292,16 +296,41 @@ async def _rebuild_energy_interval_facts(session: AsyncSession) -> None:
                     coalesce(b.area_name, h.meter_area_name) as area_name,
                     b.system_code as use_system_code,
                     s.name as use_system_name,
-                    case
-                        when extract(hour from h.period_start) < 8 then 'valley'
-                        when extract(hour from h.period_start) in (10, 11, 12, 13, 14, 18, 19, 20) then 'peak'
-                        else 'flat'
-                    end as segment_type
+                    coalesce(tariff.segment_type, nullif(h.meter_tou_period, 'none')) as segment_type,
+                    tariff.price as segment_price
                 from hourly h
                 left join dataapp_monitorequipment e
                   on e.id = h.equipment_id and e.team_id = h.team_id
                 left join dataapp_energyusesystembinding b on b.team_id = h.team_id and b.equipment_id = h.equipment_id and b.is_primary
                 left join dataapp_energyusesystem s on s.team_id = h.team_id and s.code = b.system_code
+                left join lateral (
+                    select plan.id
+                    from dataapp_energytariffplan plan
+                    where plan.team_id = h.team_id
+                      and plan.energy_type_code = 'purchased_electricity'
+                      and plan.is_enabled = true
+                      and (plan.effective_from is null or h.period_start::date >= plan.effective_from)
+                      and (plan.effective_to is null or h.period_start::date <= plan.effective_to)
+                    order by plan.effective_from desc nulls last, plan.id desc
+                    limit 1
+                ) active_plan on true
+                left join lateral (
+                    select segment.segment_type, segment.price
+                    from dataapp_energytariffsegment segment
+                    where segment.team_id = h.team_id
+                      and segment.plan_id = active_plan.id
+                      and (
+                          (segment.start_time <= segment.end_time
+                           and h.period_start::time >= segment.start_time
+                           and h.period_start::time < segment.end_time)
+                          or
+                          (segment.start_time > segment.end_time
+                           and (h.period_start::time >= segment.start_time
+                                or h.period_start::time < segment.end_time))
+                      )
+                    order by segment.sort_index asc, segment.id asc
+                    limit 1
+                ) tariff on true
             )
             insert into dataapp_energyintervalfact (
                 team_id, source_system, source_record_id, energy_type_code, equipment_id, equipment_code,
@@ -326,7 +355,7 @@ async def _rebuild_energy_interval_facts(session: AsyncSession) -> None:
                 p.period_start + interval '1 hour',
                 p.amount,
                 'kWh',
-                case p.segment_type when 'peak' then p.amount * 1.2 when 'valley' then p.amount * 0.35 else p.amount * 0.8 end,
+                case when p.segment_price is null then null else p.amount * p.segment_price end,
                 p.segment_type,
                 p.reading_count,
                 'measured',
@@ -350,7 +379,8 @@ async def _rebuild_energy_interval_facts(session: AsyncSession) -> None:
             select
                 team_id,
                 'meter_daily',
-                'meter_daily:' || equipment_id || ':' || to_char(date_trunc('day', period_start), 'YYYYMMDD'),
+                'meter_daily:' || equipment_id || ':' || to_char(date_trunc('day', period_start), 'YYYYMMDD')
+                    || ':' || coalesce(tariff_segment_type, 'none'),
                 energy_type_code,
                 equipment_id,
                 max(equipment_code),
@@ -365,7 +395,7 @@ async def _rebuild_energy_interval_facts(session: AsyncSession) -> None:
                 sum(amount),
                 'kWh',
                 sum(cost_cny),
-                null,
+                tariff_segment_type,
                 sum(reading_count),
                 'measured',
                 '由小时电量事实聚合生成。',
@@ -373,7 +403,48 @@ async def _rebuild_energy_interval_facts(session: AsyncSession) -> None:
                 now()
             from dataapp_energyintervalfact
             where team_id = :team_id and source_system = 'meter_hourly'
-            group by team_id, equipment_id, energy_type_code, date_trunc('day', period_start)
+            group by team_id, equipment_id, energy_type_code, date_trunc('day', period_start), tariff_segment_type
+            """
+        ),
+        {"team_id": str(team_id)},
+    )
+    await session.execute(
+        text(
+            """
+            insert into dataapp_energyintervalfact (
+                team_id, source_system, source_record_id, energy_type_code, equipment_id, equipment_code,
+                equipment_name, area_id, area_name, use_system_code, use_system_name, granularity, period_start,
+                period_end, amount, unit, cost_cny, tariff_segment_type, reading_count, data_quality, remark,
+                created_at, updated_at
+            )
+            select
+                team_id,
+                'meter_monthly',
+                'meter_monthly:' || equipment_id || ':' || to_char(date_trunc('month', period_start), 'YYYYMM')
+                    || ':' || coalesce(tariff_segment_type, 'none'),
+                energy_type_code,
+                equipment_id,
+                max(equipment_code),
+                max(equipment_name),
+                max(area_id),
+                max(area_name),
+                max(use_system_code),
+                max(use_system_name),
+                'month',
+                date_trunc('month', period_start),
+                date_trunc('month', period_start) + interval '1 month',
+                sum(amount),
+                'kWh',
+                sum(cost_cny),
+                tariff_segment_type,
+                sum(reading_count),
+                'measured',
+                '由小时电量事实按月和分时时段聚合生成。',
+                now(),
+                now()
+            from dataapp_energyintervalfact
+            where team_id = :team_id and source_system = 'meter_hourly'
+            group by team_id, equipment_id, energy_type_code, date_trunc('month', period_start), tariff_segment_type
             """
         ),
         {"team_id": str(team_id)},
@@ -477,6 +548,18 @@ async def _collect_result(session: AsyncSession) -> EnergyAnalysisSeedResult:
                 text(
                     "select count(*) from dataapp_energyintervalfact "
                     "where team_id = :team_id and source_system = 'meter_daily'"
+                ),
+                params,
+            )
+        ).scalar_one()
+        or 0
+    )
+    result.monthly_facts = int(
+        (
+            await session.execute(
+                text(
+                    "select count(*) from dataapp_energyintervalfact "
+                    "where team_id = :team_id and source_system = 'meter_monthly'"
                 ),
                 params,
             )

@@ -10,6 +10,20 @@ export type GhgCategoryNavigationGroup = {
   items: GhgCategoryNavigationItem[]
 }
 
+export function categoryRoute(code: string) {
+  return `/carbon-mgmt/category/${code}`
+}
+
+export function normalizeGhgCategoryCode(value: unknown) {
+  if (typeof value !== "string") return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    return trimmed.slice(1, -1)
+  }
+  return trimmed
+}
+
 export const GHG_CATEGORY_GROUPS: GhgCategoryNavigationGroup[] = [
   {
     code: "1",

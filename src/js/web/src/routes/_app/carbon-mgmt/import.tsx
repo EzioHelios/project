@@ -14,8 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { type GhgImportBatch, type GhgImportContext, useGhgCatalog, useGhgInventoryActions } from "@/lib/api/hooks/ghg-inventory"
+import { normalizeGhgCategoryCode } from "@/lib/ghg-categories"
 
-const importSearchSchema = z.object({ category: z.string().optional() })
+const importSearchSchema = z.object({ category: z.preprocess(normalizeGhgCategoryCode, z.string().optional()) })
 
 export const Route = createFileRoute("/_app/carbon-mgmt/import")({
   validateSearch: (search) => importSearchSchema.parse(search),

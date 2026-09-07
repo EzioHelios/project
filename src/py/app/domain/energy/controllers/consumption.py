@@ -76,9 +76,11 @@ class EnergyConsumptionController(Controller):
         search: str | None = None,
         period_start: str | None = None,
         period_end: str | None = None,
+        granularity: str | None = None,
         energy_type_code: str | None = None,
         data_quality: str | None = None,
         source_system: str | None = None,
+        tariff_segment_type: str | None = None,
         limit: int = 20,
         offset: int = 0,
         sort_field: str = "period_start",
@@ -92,12 +94,16 @@ class EnergyConsumptionController(Controller):
             )
         if period_end:
             conditions.append(m.EnergyIntervalFact.period_start <= _parse_datetime(period_end, field_name="period_end"))
+        if granularity and granularity != "all":
+            conditions.append(m.EnergyIntervalFact.granularity == granularity)
         if energy_type_code and energy_type_code != "all":
             conditions.append(m.EnergyIntervalFact.energy_type_code == energy_type_code)
         if data_quality and data_quality != "all":
             conditions.append(m.EnergyIntervalFact.data_quality == data_quality)
         if source_system and source_system != "all":
             conditions.append(m.EnergyIntervalFact.source_system == source_system)
+        if tariff_segment_type and tariff_segment_type != "all":
+            conditions.append(m.EnergyIntervalFact.tariff_segment_type == tariff_segment_type)
         query_text = (keyword or search or "").strip()
         if query_text:
             pattern = f"%{query_text}%"
@@ -146,12 +152,14 @@ class EnergyConsumptionController(Controller):
         db_session: AsyncSession,
         period_start: str | None = None,
         period_end: str | None = None,
+        granularity: str | None = None,
     ) -> Response[dict]:
         team_id = require_session_tenant_id(db_session)
         params = _interval_fact_period_params(
             team_id=team_id,
             period_start=period_start,
             period_end=period_end,
+            granularity=granularity,
         )
         energy_types = (
             (
@@ -166,6 +174,7 @@ class EnergyConsumptionController(Controller):
                         left join dataapp_energytype et on et.code = f.energy_type_code
                         where f.team_id = :team_id
                           and f.is_current = true
+                          and ((:granularity)::text is null or f.granularity = (:granularity)::text)
                           and (cast(:period_start as timestamp) is null or f.period_end >= cast(:period_start as timestamp))
                           and (cast(:period_end as timestamp) is null or f.period_start <= cast(:period_end as timestamp))
                         group by f.energy_type_code, coalesce(et.name, f.energy_type_code)
@@ -190,6 +199,7 @@ class EnergyConsumptionController(Controller):
                         from dataapp_energyintervalfact f
                         where f.team_id = :team_id
                           and f.is_current = true
+                          and ((:granularity)::text is null or f.granularity = (:granularity)::text)
                           and (cast(:period_start as timestamp) is null or f.period_end >= cast(:period_start as timestamp))
                           and (cast(:period_end as timestamp) is null or f.period_start <= cast(:period_end as timestamp))
                         group by coalesce(f.area_id, '')
@@ -217,6 +227,7 @@ class EnergyConsumptionController(Controller):
                         from dataapp_energyintervalfact f
                         where f.team_id = :team_id
                           and f.is_current = true
+                          and ((:granularity)::text is null or f.granularity = (:granularity)::text)
                           and (cast(:period_start as timestamp) is null or f.period_end >= cast(:period_start as timestamp))
                           and (cast(:period_end as timestamp) is null or f.period_start <= cast(:period_end as timestamp))
                           and f.equipment_id is not null
@@ -242,6 +253,7 @@ class EnergyConsumptionController(Controller):
                         from dataapp_energyintervalfact f
                         where f.team_id = :team_id
                           and f.is_current = true
+                          and ((:granularity)::text is null or f.granularity = (:granularity)::text)
                           and (cast(:period_start as timestamp) is null or f.period_end >= cast(:period_start as timestamp))
                           and (cast(:period_end as timestamp) is null or f.period_start <= cast(:period_end as timestamp))
                           and f.use_system_code is not null
@@ -266,13 +278,48 @@ class EnergyConsumptionController(Controller):
                             coalesce(f.area_id, '') as area_id,
                             f.equipment_id::text as equipment_id,
                             coalesce(f.use_system_code, '') as use_system_code,
+                            coalesce(f.tariff_segment_type, '') as tariff_segment_type,
                             count(*)::int as record_count
                         from dataapp_energyintervalfact f
                         where f.team_id = :team_id
                           and f.is_current = true
+                          and ((:granularity)::text is null or f.granularity = (:granularity)::text)
                           and (cast(:period_start as timestamp) is null or f.period_end >= cast(:period_start as timestamp))
                           and (cast(:period_end as timestamp) is null or f.period_start <= cast(:period_end as timestamp))
-                        group by f.energy_type_code, coalesce(f.area_id, ''), f.equipment_id::text, coalesce(f.use_system_code, '')
+                        group by f.energy_type_code, coalesce(f.area_id, ''), f.equipment_id::text, coalesce(f.use_system_code, ''), coalesce(f.tariff_segment_type, '')
+                        """
+                    ),
+                    params,
+                )
+            )
+            .mappings()
+            .all()
+        )
+        tariff_segments = (
+            (
+                await db_session.execute(
+                    text(
+                        """
+                        select
+                            f.tariff_segment_type as code,
+                            case f.tariff_segment_type
+                                when 'peak' then '峰段'
+                                when 'flat' then '平段'
+                                when 'valley' then '谷段'
+                                else f.tariff_segment_type
+                            end as name,
+                            count(*)::int as record_count
+                        from dataapp_energyintervalfact f
+                        where f.team_id = :team_id
+                          and f.is_current = true
+                          and ((:granularity)::text is null or f.granularity = (:granularity)::text)
+                          and (cast(:period_start as timestamp) is null or f.period_end >= cast(:period_start as timestamp))
+                          and (cast(:period_end as timestamp) is null or f.period_start <= cast(:period_end as timestamp))
+                          and f.energy_type_code = 'purchased_electricity'
+                          and f.tariff_segment_type is not null
+                          and f.tariff_segment_type <> ''
+                        group by f.tariff_segment_type
+                        order by case f.tariff_segment_type when 'peak' then 1 when 'flat' then 2 when 'valley' then 3 else 9 end
                         """
                     ),
                     params,
@@ -290,6 +337,7 @@ class EnergyConsumptionController(Controller):
                     "areas": [dict(row) for row in areas if row["id"]],
                     "devices": [dict(row) for row in devices],
                     "use_systems": [dict(row) for row in use_systems],
+                    "tariff_segments": [dict(row) for row in tariff_segments],
                     "combinations": [dict(row) for row in combinations],
                 },
             }
@@ -389,12 +437,14 @@ class EnergyConsumptionController(Controller):
         db_session: AsyncSession,
         period_start: str | None = None,
         period_end: str | None = None,
+        granularity: str = "month",
         energy_type_code: str | None = None,
         scope_filter: str | None = Parameter(query="scope", required=False),
         status: str | None = "all",
         area_id: str | None = None,
         area_keyword: str | None = None,
         source_record_type: str | None = None,
+        tariff_segment_type: str | None = None,
         keyword: str | None = None,
         limit: int = 20,
         offset: int = 0,
@@ -405,12 +455,14 @@ class EnergyConsumptionController(Controller):
             EnergyConsumptionQuery(
                 period_start=period_start,
                 period_end=period_end,
+                granularity=granularity,
                 energy_type_code=energy_type_code,
                 scope=scope_filter,
                 status=status,
                 area_id=area_id,
                 area_keyword=area_keyword,
                 source_record_type=source_record_type,
+                tariff_segment_type=tariff_segment_type,
                 keyword=keyword,
                 limit=limit,
                 offset=offset,
@@ -426,12 +478,14 @@ class EnergyConsumptionController(Controller):
         db_session: AsyncSession,
         period_start: str | None = None,
         period_end: str | None = None,
+        granularity: str = "month",
         energy_type_code: str | None = None,
         scope_filter: str | None = Parameter(query="scope", required=False),
         status: str | None = "all",
         area_id: str | None = None,
         area_keyword: str | None = None,
         source_record_type: str | None = None,
+        tariff_segment_type: str | None = None,
         keyword: str | None = None,
         group_by: str = "energy_type",
     ) -> Response[dict]:
@@ -439,12 +493,14 @@ class EnergyConsumptionController(Controller):
             EnergyConsumptionQuery(
                 period_start=period_start,
                 period_end=period_end,
+                granularity=granularity,
                 energy_type_code=energy_type_code,
                 scope=scope_filter,
                 status=status,
                 area_id=area_id,
                 area_keyword=area_keyword,
                 source_record_type=source_record_type,
+                tariff_segment_type=tariff_segment_type,
                 keyword=keyword,
                 group_by=group_by,
             )
@@ -457,24 +513,28 @@ class EnergyConsumptionController(Controller):
         db_session: AsyncSession,
         period_start: str | None = None,
         period_end: str | None = None,
+        granularity: str = "month",
         energy_type_code: str | None = None,
         scope_filter: str | None = Parameter(query="scope", required=False),
         status: str | None = "all",
         area_id: str | None = None,
         area_keyword: str | None = None,
         source_record_type: str | None = None,
+        tariff_segment_type: str | None = None,
         keyword: str | None = None,
     ) -> Response[str]:
         rows = await EnergyConsumptionQueryService(db_session).export_rows(
             EnergyConsumptionQuery(
                 period_start=period_start,
                 period_end=period_end,
+                granularity=granularity,
                 energy_type_code=energy_type_code,
                 scope=scope_filter,
                 status=status,
                 area_id=area_id,
                 area_keyword=area_keyword,
                 source_record_type=source_record_type,
+                tariff_segment_type=tariff_segment_type,
                 keyword=keyword,
             )
         )
@@ -490,11 +550,14 @@ class EnergyConsumptionController(Controller):
         )
 
 
-def _interval_fact_period_params(*, team_id: object, period_start: str | None, period_end: str | None) -> dict:
+def _interval_fact_period_params(
+    *, team_id: object, period_start: str | None, period_end: str | None, granularity: str | None = None
+) -> dict:
     return {
         "team_id": str(team_id),
         "period_start": _parse_datetime(period_start, field_name="period_start") if period_start else None,
         "period_end": _parse_datetime(period_end, field_name="period_end") if period_end else None,
+        "granularity": granularity if granularity in {"hour", "day", "month", "year"} else None,
     }
 
 

@@ -106,10 +106,24 @@ export function sourceDefaults(catalog: GhgCatalog | undefined, categoryCode = "
   }
 }
 
-export function activityDefaults(catalog: GhgCatalog | undefined, source?: GhgEmissionSource): GhgActivityWrite {
+export function activityPayloadDefaults(catalog: GhgCatalog | undefined, categoryCode?: string, existing?: Record<string, unknown> | null) {
+  const category = catalog?.categories.find((item) => item.code === categoryCode) ?? catalog?.categories.find((item) => item.code === "2.1") ?? catalog?.categories[0]
+  return Object.fromEntries((category?.activityFields ?? []).map((field) => [field.code, existing?.[field.code] ?? field.choices[0] ?? ""]))
+}
+
+export function activityUnitDefault(categoryCode?: string) {
+  if (categoryCode === "2.1") return "kWh"
+  if (categoryCode?.startsWith("3.")) return "km"
+  if (categoryCode === "1.1" || categoryCode === "1.2") return "kg"
+  if (categoryCode === "1.4") return "kg"
+  return "unit"
+}
+
+export function activityDefaults(catalog: GhgCatalog | undefined, source?: GhgEmissionSource, categoryCode?: string): GhgActivityWrite {
+  const selectedCategoryCode = source?.isoCategoryCode ?? categoryCode
   const period = catalog?.periods.find((item) => item.code === source?.inventoryCode) ?? catalog?.periods[0]
-  const category = catalog?.categories.find((item) => item.code === source?.isoCategoryCode) ?? catalog?.categories.find((item) => item.code === "2.1") ?? catalog?.categories[0]
-  const sourcePayload = Object.fromEntries((category?.activityFields ?? []).map((field) => [field.code, field.choices[0] ?? ""]))
+  const category = catalog?.categories.find((item) => item.code === selectedCategoryCode) ?? catalog?.categories.find((item) => item.code === "2.1") ?? catalog?.categories[0]
+  const sourcePayload = activityPayloadDefaults(catalog, category?.code)
   return {
     recordCode: `ACT-${Date.now().toString(36).toUpperCase()}`,
     inventoryCode: source?.inventoryCode ?? period?.code ?? `INV-${new Date().getFullYear()}`,
@@ -124,7 +138,7 @@ export function activityDefaults(catalog: GhgCatalog | undefined, source?: GhgEm
     periodEnd: period?.periodEnd ?? `${new Date().getFullYear()}-12-31`,
     isoCategoryCode: category?.code ?? "2.1",
     activityAmount: "0",
-    activityUnit: category?.code === "2.1" ? "kWh" : "unit",
+    activityUnit: activityUnitDefault(category?.code),
     dataSourceType: "manual",
     measurementMethod: "人工维护活动数据",
     qualityStatus: "pass",
@@ -287,6 +301,7 @@ export function ActivityForm({
   catalog,
   sources,
   initial,
+  lockedCategoryCode,
   pending,
   submitLabel,
   onSubmit,
@@ -294,17 +309,39 @@ export function ActivityForm({
   catalog?: GhgCatalog
   sources: GhgEmissionSource[]
   initial: GhgActivityWrite
+  lockedCategoryCode?: string
   pending?: boolean
   submitLabel: string
   onSubmit: (value: GhgActivityWrite) => void
 }) {
   const [form, setForm] = useState<GhgActivityWrite>(initial)
-  useEffect(() => setForm(initial), [initial])
+  useEffect(() => {
+    setForm(
+      lockedCategoryCode
+        ? {
+            ...initial,
+            isoCategoryCode: lockedCategoryCode,
+            sourcePayload: activityPayloadDefaults(catalog, lockedCategoryCode, initial.sourcePayload),
+            activityUnit: initial.activityUnit || activityUnitDefault(lockedCategoryCode),
+          }
+        : initial,
+    )
+  }, [catalog, initial, lockedCategoryCode])
   const category = catalog?.categories.find((item) => item.code === form.isoCategoryCode)
-  const source = sources.find((item) => item.sourceCode === form.sourceCode && item.inventoryCode === form.inventoryCode)
+  const categorySources = sources.filter((item) => item.isoCategoryCode === form.isoCategoryCode)
+  const source = categorySources.find((item) => item.sourceCode === form.sourceCode && item.inventoryCode === form.inventoryCode)
   const sourceOptionValue = (item: GhgEmissionSource) => `${item.inventoryCode}::${item.sourceCode}`
   const fields = category?.activityFields ?? []
   const updatePayload = (key: string, value: string) => setForm((current) => ({ ...current, sourcePayload: { ...(current.sourcePayload ?? {}), [key]: value } }))
+  const selectCategory = (isoCategoryCode: string) => {
+    setForm((current) => ({
+      ...current,
+      isoCategoryCode,
+      sourceCode: "",
+      activityUnit: activityUnitDefault(isoCategoryCode),
+      sourcePayload: activityPayloadDefaults(catalog, isoCategoryCode),
+    }))
+  }
   return (
     <form
       className="space-y-5"
@@ -314,6 +351,24 @@ export function ActivityForm({
       }}
     >
       <div className="grid gap-4 md:grid-cols-2">
+        <CarbonFormField label="活动分类">
+          {lockedCategoryCode ? (
+            <Input value={category ? `${category.code} ${category.name}` : lockedCategoryCode} readOnly />
+          ) : (
+            <Select value={form.isoCategoryCode} onValueChange={selectCategory}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(catalog?.categories ?? []).map((item, index) => (
+                  <SelectItem key={`${item.code}-${index}`} value={item.code}>
+                    {item.code} {item.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </CarbonFormField>
         <CarbonFormField label="排放源">
           <Select
             value={source ? sourceOptionValue(source) : "none"}
@@ -327,8 +382,11 @@ export function ActivityForm({
                 facilityCode: selected?.facilityCode ?? current.facilityCode,
                 sourceCode: selected?.sourceCode ?? current.sourceCode,
                 isoCategoryCode: selected?.isoCategoryCode ?? current.isoCategoryCode,
+                activityUnit: current.activityUnit || activityUnitDefault(selected?.isoCategoryCode),
+                sourcePayload: activityPayloadDefaults(catalog, selected?.isoCategoryCode ?? current.isoCategoryCode, current.sourcePayload),
               }))
             }}
+            disabled={categorySources.length === 0}
           >
             <SelectTrigger>
               <SelectValue />
@@ -337,16 +395,13 @@ export function ActivityForm({
               <SelectItem value="none" disabled>
                 请选择排放源
               </SelectItem>
-              {sources.map((item) => (
+              {categorySources.map((item) => (
                 <SelectItem key={sourceOptionValue(item)} value={sourceOptionValue(item)}>
                   {item.sourceName}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-        </CarbonFormField>
-        <CarbonFormField label="活动分类">
-          <Input value={category ? `${category.code} ${category.name}` : form.isoCategoryCode} readOnly />
         </CarbonFormField>
         <CarbonFormField label="记录编号">
           <Input value={form.recordCode} onChange={(event) => setForm((current) => ({ ...current, recordCode: event.target.value }))} required />
@@ -429,8 +484,11 @@ export function ActivityForm({
           当前排放源：{source.sourceName} · {statusLabel(source.status)}
         </div>
       )}
+      {!source && categorySources.length === 0 && (
+        <div className="rounded-md border border-border/70 bg-muted/20 p-3 text-muted-foreground text-xs">当前分类暂无启用排放源，请先维护该分类的排放源后再录入活动数据。</div>
+      )}
       <div className="flex justify-end gap-2">
-        <Button disabled={pending} type="submit">
+        <Button disabled={pending || !form.sourceCode} type="submit">
           {submitLabel}
         </Button>
       </div>

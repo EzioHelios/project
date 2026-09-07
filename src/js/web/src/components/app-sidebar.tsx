@@ -11,6 +11,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } fr
 import { usePublicConfig } from "@/hooks/use-public-config"
 import { useAuthStore } from "@/lib/auth"
 import { listTeams, type Team } from "@/lib/generated/api"
+import { categoryRoute, GHG_CATEGORY_GROUPS } from "@/lib/ghg-categories"
 import { cn } from "@/lib/utils"
 
 export function AppSidebar({ className, ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -48,8 +49,10 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
   }, [currentTeam, isError, isLoading, queryClient, setTeams, storeIds, teamIds, teamsData])
 
   const navMain = useMemo(() => {
+    const isCarbonActivityLedgerRoute = pathname === "/carbon-mgmt/activities"
     const isCarbonAccountingRoute =
       pathname === "/carbon" ||
+      isCarbonActivityLedgerRoute ||
       pathname.startsWith("/carbon/organization") ||
       pathname.startsWith("/carbon/product-footprint") ||
       pathname.startsWith("/carbon/supply-chain") ||
@@ -57,7 +60,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
     const isCarbonAssetRoute = pathname.startsWith("/carbon/assets")
     const isClimateReductionRoute = pathname.startsWith("/carbon/climate") || pathname.startsWith("/carbon/reduction")
     const isEnergyBudgetRoute = pathname === "/energy/budget" || pathname.startsWith("/data/energy-budget")
-    const isCarbonInventoryRoute = pathname.startsWith("/carbon-mgmt")
+    const isCarbonInventoryRoute = pathname.startsWith("/carbon-mgmt") && !isCarbonActivityLedgerRoute
     const isEnergyOperationsRoute =
       (pathname.startsWith("/energy") && !isEnergyBudgetRoute) ||
       pathname.startsWith("/data/energy-consumption") ||
@@ -125,15 +128,16 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
       },
       {
         title: "碳数据填报",
-        to: "/carbon-mgmt/activities",
+        to: "/carbon-mgmt/sources",
         icon: FileInput,
         isActive: isCarbonInventoryRoute,
         items: [
           { title: "排放源维护", to: "/carbon-mgmt/sources" },
-          { title: "活动数据台账", to: "/carbon-mgmt/activities" },
-          { title: "批量导入", to: "/carbon-mgmt/import" },
-          { title: "核算准备", kind: "section" as const },
-          { title: "核算边界", to: "/carbon/organization/boundary" },
+          { title: "分类填报", kind: "section" as const },
+          ...GHG_CATEGORY_GROUPS.flatMap((group) => [
+            { title: group.shortName, kind: "section" as const },
+            ...group.items.map((item) => ({ title: `${item.code} ${item.name}`, to: categoryRoute(item.code) })),
+          ]),
         ],
       },
       {
@@ -144,7 +148,8 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
         items: [
           { title: "组织碳", kind: "section" },
           { title: "核算边界", to: "/carbon/organization/boundary" },
-          { title: "组织碳核算", to: "/carbon/organization/records" },
+          { title: "活动数据总账", to: "/carbon-mgmt/activities" },
+          { title: "碳排放查询", to: "/carbon/organization/records" },
           { title: "核算报告", to: "/carbon/organization/reports" },
           { title: "组织碳总览", to: "/carbon/organization/overview" },
           { title: "碳流分析", to: "/carbon/organization/flow" },

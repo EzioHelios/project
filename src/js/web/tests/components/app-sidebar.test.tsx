@@ -72,11 +72,13 @@ describe("AppSidebar", () => {
     renderSidebar()
 
     const overviewLink = screen.getByRole("link", { name: "组织碳总览" })
+    const activityLedgerLink = screen.getByRole("link", { name: "活动数据总账" })
     const recordsLink = screen.getByRole("link", { name: "碳排放查询" })
     const flowLink = screen.getByRole("link", { name: "碳流分析" })
     const boundaryLink = screen.getByRole("link", { name: "核算边界" })
 
     expect(overviewLink).toHaveAttribute("href", "/carbon/organization/overview")
+    expect(activityLedgerLink).toHaveAttribute("href", "/carbon-mgmt/activities")
     expect(recordsLink).toHaveAttribute("href", "/carbon/organization/records")
     expect(flowLink).toHaveAttribute("href", "/carbon/organization/flow")
     expect(boundaryLink).toHaveAttribute("href", "/carbon/organization/boundary")

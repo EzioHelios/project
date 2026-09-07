@@ -1,12 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { Edit, FileUp, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { Download, Edit, Eye, FileUp, Plus, RefreshCw, Trash2 } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
 import { z } from "zod"
 
-import { AdminDataTable, AdminFilterBar, AdminPageScaffold, AdminPanel, AdminTableStateRow, MetricStrip, MetricTile, StatusBadge } from "@/components/admin-ui"
+import { AdminDataTable, AdminEmptyState, AdminFilterBar, AdminPageScaffold, AdminPanel, AdminTableStateRow, MetricStrip, MetricTile, StatusBadge } from "@/components/admin-ui"
 import { ActivityForm, AllocationEditor, activityDefaults, CarbonFormField, categoryLabel, choiceLabel, sourceLabel, statusLabel } from "@/components/carbon/ghg-maintenance"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { PageContainer } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -23,8 +22,9 @@ import {
   useGhgInventoryActions,
 } from "@/lib/api/hooks/ghg-inventory"
 import { getCategoryLabel, getScopeLabel, getSubCategoryLabel } from "@/lib/carbon-factor-labels"
+import { normalizeGhgCategoryCode } from "@/lib/ghg-categories"
 
-const searchSchema = z.object({ category: z.coerce.string().optional() })
+const searchSchema = z.object({ category: z.preprocess(normalizeGhgCategoryCode, z.string().optional()) })
 
 export const Route = createFileRoute("/_app/carbon-mgmt/activities")({
   validateSearch: (search) => searchSchema.parse(search),
@@ -33,23 +33,38 @@ export const Route = createFileRoute("/_app/carbon-mgmt/activities")({
 
 function GhgActivityLedgerPage() {
   const { category } = Route.useSearch()
+  return <GhgActivityLedger initialCategoryCode={category} readOnly />
+}
+
+export function GhgActivityLedger({ fixedCategoryCode, initialCategoryCode, readOnly = false }: { fixedCategoryCode?: string; initialCategoryCode?: string; readOnly?: boolean }) {
   const catalog = useGhgCatalog()
   const actions = useGhgInventoryActions()
   const [inventoryCode, setInventoryCode] = useState("")
-  const [categoryCode, setCategoryCode] = useState(category ?? "all")
+  const [categoryCode, setCategoryCode] = useState(initialCategoryCode ?? fixedCategoryCode ?? "all")
   const [qualityStatus, setQualityStatus] = useState("all")
   const [keyword, setKeyword] = useState("")
   const [editing, setEditing] = useState<GhgActivity | "new" | null>(null)
   const [detail, setDetail] = useState<GhgActivity | null>(null)
-  const [generateOpen, setGenerateOpen] = useState(false)
+
+  useEffect(() => {
+    setCategoryCode(initialCategoryCode ?? fixedCategoryCode ?? "all")
+  }, [fixedCategoryCode, initialCategoryCode])
+
+  const activeCategoryCode = fixedCategoryCode ?? categoryCode
+  const selectedCategory = catalog.data?.categories.find((item) => item.code === activeCategoryCode)
+  const dynamicFields = selectedCategory?.activityFields ?? []
+  const availableMethods = useMemo(
+    () => (catalog.data?.methods ?? []).filter((method) => selectedCategory?.defaultMethods.includes(method.code) && method.executable),
+    [catalog.data?.methods, selectedCategory],
+  )
   const activities = useGhgActivities({
     inventoryCode: inventoryCode || undefined,
-    categoryCode: categoryCode === "all" ? undefined : categoryCode,
+    categoryCode: activeCategoryCode === "all" ? undefined : activeCategoryCode,
     qualityStatus: qualityStatus === "all" ? undefined : qualityStatus,
   })
   const sources = useGhgEmissionSources({
     inventoryCode: inventoryCode || undefined,
-    categoryCode: categoryCode === "all" ? undefined : categoryCode,
+    categoryCode: activeCategoryCode === "all" ? undefined : activeCategoryCode,
     status: "active",
   })
   const allocations = useGhgActivityAllocations({ inventoryCode: detail?.inventoryCode, recordCode: detail?.recordCode })
@@ -69,10 +84,16 @@ function GhgActivityLedgerPage() {
     }
     return [...byCode.values()].sort((a, b) => a.label.localeCompare(b.label, "zh-CN"))
   }, [activities.data?.items, catalog.data?.periods, sources.data?.items])
+
   const approved = rows.filter((row) => row.status === "approved").length
   const allocated = rows.filter((row) => row.allocationStatus === "complete").length
   const failures = rows.filter((row) => row.qualityStatus === "failed").length
-  const selectedCategory = catalog.data?.categories.find((item) => item.code === categoryCode)
+  const selectedPeriod = catalog.data?.periods.find((item) => item.code === inventoryCode) ?? catalog.data?.periods[0]
+  const selectedOrganization = catalog.data?.organizations.find((item) => item.code === selectedPeriod?.organizationCode) ?? catalog.data?.organizations[0]
+  const selectedArea = catalog.data?.areas.find((item) => item.level === 0) ?? catalog.data?.areas[0]
+  const selectedProfile = catalog.data?.reportingProfiles[0]
+  const defaultMethod = availableMethods[0]
+  const importContextReady = Boolean(selectedPeriod && selectedOrganization && selectedArea && selectedProfile && defaultMethod && selectedCategory)
   const formInitial = useMemo<GhgActivityWrite>(() => {
     if (editing && editing !== "new") {
       return {
@@ -102,10 +123,11 @@ function GhgActivityLedgerPage() {
         sourceRecordId: editing.sourceRecordId,
       }
     }
-    return activityDefaults(catalog.data, sources.data?.items[0])
-  }, [catalog.data, editing, sources.data?.items])
+    return activityDefaults(catalog.data, sources.data?.items[0], activeCategoryCode === "all" ? undefined : activeCategoryCode)
+  }, [activeCategoryCode, catalog.data, editing, sources.data?.items])
 
   const save = (body: GhgActivityWrite) => {
+    if (readOnly) return
     if (editing && editing !== "new") {
       actions.updateActivity.mutate({ recordCode: editing.recordCode, body }, { onSuccess: () => setEditing(null) })
       return
@@ -113,27 +135,62 @@ function GhgActivityLedgerPage() {
     actions.createActivity.mutate(body, { onSuccess: () => setEditing(null) })
   }
 
+  if (fixedCategoryCode && !catalog.isLoading && !selectedCategory) {
+    return (
+      <PageContainer className="flex-1" maxWidth="4xl">
+        <AdminPageScaffold title="活动数据分类">
+          <AdminEmptyState title="未找到该活动分类" />
+        </AdminPageScaffold>
+      </PageContainer>
+    )
+  }
+
   return (
     <PageContainer className="flex-1" maxWidth="4xl">
       <AdminPageScaffold
-        title={selectedCategory ? `${selectedCategory.code} ${selectedCategory.name}活动数据` : "温室气体活动台账"}
+        title={selectedCategory ? `${selectedCategory.code} ${selectedCategory.name}活动数据` : "温室气体活动总账"}
+        status={
+          readOnly ? (
+            <StatusBadge status="pending" label="只读查询" />
+          ) : (
+            <StatusBadge status={availableMethods.length ? "approved" : "pending"} label={availableMethods.length ? "可维护" : "方法待配置"} />
+          )
+        }
         topActions={
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => setGenerateOpen(true)}>
-              <Sparkles />
-              生成活动数据
-            </Button>
-            <Button asChild size="sm" variant="outline">
-              <Link to="/carbon-mgmt/import">
-                <FileUp />
-                批量导入
-              </Link>
-            </Button>
-            <Button size="sm" onClick={() => setEditing("new")} disabled={(sources.data?.items ?? []).length === 0}>
-              <Plus />
-              新增活动
-            </Button>
-          </div>
+          readOnly ? undefined : (
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!importContextReady || actions.downloadTemplate.isPending}
+                onClick={() => {
+                  if (!selectedPeriod || !selectedOrganization || !selectedArea || !selectedProfile || !defaultMethod || !selectedCategory) return
+                  actions.downloadTemplate.mutate({
+                    inventoryCode: selectedPeriod.code,
+                    reportingPeriodId: selectedPeriod.id,
+                    organizationCode: selectedOrganization.code,
+                    facilityCode: selectedArea.code,
+                    isoCategoryCode: selectedCategory.code,
+                    reportingProfileCode: selectedProfile.code,
+                    methodCode: defaultMethod.code,
+                  })
+                }}
+              >
+                <Download />
+                下载本类模板
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/carbon-mgmt/import" search={selectedCategory ? { category: selectedCategory.code } : {}}>
+                  <FileUp />
+                  导入本类数据
+                </Link>
+              </Button>
+              <Button size="sm" onClick={() => setEditing("new")} disabled={(sources.data?.items ?? []).length === 0 || !selectedCategory}>
+                <Plus />
+                新增本类活动
+              </Button>
+            </div>
+          )
         }
         filters={
           <AdminFilterBar
@@ -166,26 +223,30 @@ function GhgActivityLedgerPage() {
                   </CarbonFormField>
                 ),
               },
-              {
-                key: "category",
-                node: (
-                  <CarbonFormField label="ISO 二级分类">
-                    <Select value={categoryCode} onValueChange={setCategoryCode}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">全部分类</SelectItem>
-                        {(catalog.data?.categories ?? []).map((item, index) => (
-                          <SelectItem key={`${item.code}-${index}`} value={item.code}>
-                            {item.code} {item.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </CarbonFormField>
-                ),
-              },
+              ...(fixedCategoryCode
+                ? []
+                : [
+                    {
+                      key: "category",
+                      node: (
+                        <CarbonFormField label="ISO 二级分类">
+                          <Select value={categoryCode} onValueChange={setCategoryCode}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">全部分类</SelectItem>
+                              {(catalog.data?.categories ?? []).map((item, index) => (
+                                <SelectItem key={`${item.code}-${index}`} value={item.code}>
+                                  {item.code} {item.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </CarbonFormField>
+                      ),
+                    },
+                  ]),
               {
                 key: "quality",
                 node: (
@@ -222,6 +283,8 @@ function GhgActivityLedgerPage() {
           </MetricStrip>
         }
       >
+        {!readOnly && selectedCategory && availableMethods.length === 0 && !catalog.isLoading && <AdminEmptyState title="该分类尚未配置可执行核算方法" />}
+        {!readOnly && selectedCategory && (sources.data?.items ?? []).length === 0 && !sources.isLoading && <AdminEmptyState title="当前分类暂无启用排放源" />}
         <AdminDataTable>
           <Table>
             <TableHeader>
@@ -230,6 +293,9 @@ function GhgActivityLedgerPage() {
                 <TableHead>区域 / 设备</TableHead>
                 <TableHead>分类</TableHead>
                 <TableHead>周期</TableHead>
+                {dynamicFields.map((field) => (
+                  <TableHead key={field.code}>{field.label}</TableHead>
+                ))}
                 <TableHead className="text-right">活动量</TableHead>
                 <TableHead>来源</TableHead>
                 <TableHead>质量</TableHead>
@@ -239,13 +305,15 @@ function GhgActivityLedgerPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {activities.isLoading && <AdminTableStateRow colSpan={10}>正在加载活动台账</AdminTableStateRow>}
+              {activities.isLoading && <AdminTableStateRow colSpan={10 + dynamicFields.length}>正在加载活动台账</AdminTableStateRow>}
               {activities.isError && (
-                <AdminTableStateRow colSpan={10} tone="danger">
+                <AdminTableStateRow colSpan={10 + dynamicFields.length} tone="danger">
                   活动台账加载失败
                 </AdminTableStateRow>
               )}
-              {!activities.isLoading && !activities.isError && rows.length === 0 && <AdminTableStateRow colSpan={10}>当前筛选条件下没有活动记录</AdminTableStateRow>}
+              {!activities.isLoading && !activities.isError && rows.length === 0 && (
+                <AdminTableStateRow colSpan={10 + dynamicFields.length}>当前筛选条件下没有活动记录</AdminTableStateRow>
+              )}
               {rows.map((row) => (
                 <TableRow key={`${row.inventoryCode}-${row.recordCode}`} className="cursor-pointer" onClick={() => setDetail(row)}>
                   <TableCell>
@@ -263,6 +331,9 @@ function GhgActivityLedgerPage() {
                   <TableCell>
                     {row.periodStart} 至 {row.periodEnd}
                   </TableCell>
+                  {dynamicFields.map((field) => (
+                    <TableCell key={field.code}>{choiceLabel(field.code, row.activityDetails[field.code])}</TableCell>
+                  ))}
                   <TableCell className="text-right font-mono tabular-nums">
                     {Number(row.activityAmount).toLocaleString("zh-CN")} {row.activityUnit}
                   </TableCell>
@@ -284,12 +355,19 @@ function GhgActivityLedgerPage() {
                   </TableCell>
                   <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
                     <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => setEditing(row)}>
-                        <Edit />
+                      <Button size="sm" variant="ghost" onClick={() => setDetail(row)}>
+                        <Eye />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => actions.deleteActivity.mutate({ inventoryCode: row.inventoryCode, recordCode: row.recordCode })}>
-                        <Trash2 />
-                      </Button>
+                      {!readOnly && (
+                        <>
+                          <Button size="sm" variant="ghost" onClick={() => setEditing(row)}>
+                            <Edit />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => actions.deleteActivity.mutate({ inventoryCode: row.inventoryCode, recordCode: row.recordCode })}>
+                            <Trash2 />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -298,23 +376,26 @@ function GhgActivityLedgerPage() {
           </Table>
         </AdminDataTable>
       </AdminPageScaffold>
-      <Sheet open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}>
-        <SheetContent className="overflow-y-auto" size="xwide">
-          <SheetHeader>
-            <SheetTitle>{editing === "new" ? "新增活动数据" : "编辑活动数据"}</SheetTitle>
-          </SheetHeader>
-          <div className="px-4 pb-4">
-            <ActivityForm
-              catalog={catalog.data}
-              sources={sources.data?.items ?? []}
-              initial={formInitial}
-              pending={actions.createActivity.isPending || actions.updateActivity.isPending}
-              submitLabel={editing === "new" ? "保存活动数据" : "更新活动数据"}
-              onSubmit={save}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
+      {!readOnly && (
+        <Sheet open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}>
+          <SheetContent className="overflow-y-auto" size="xwide">
+            <SheetHeader>
+              <SheetTitle>{editing === "new" ? "新增活动数据" : "编辑活动数据"}</SheetTitle>
+            </SheetHeader>
+            <div className="px-4 pb-4">
+              <ActivityForm
+                catalog={catalog.data}
+                sources={sources.data?.items ?? []}
+                initial={formInitial}
+                lockedCategoryCode={fixedCategoryCode}
+                pending={actions.createActivity.isPending || actions.updateActivity.isPending}
+                submitLabel={editing === "new" ? "保存活动数据" : "更新活动数据"}
+                onSubmit={save}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
       <Sheet open={Boolean(detail)} onOpenChange={(open) => !open && setDetail(null)}>
         <SheetContent className="overflow-y-auto" size="xwide">
           <SheetHeader>
@@ -341,34 +422,30 @@ function GhgActivityLedgerPage() {
                   ))}
               </div>
             </AdminPanel>
-            <ActivityFactorSelection activity={detail} />
+            <ActivityFactorSelection activity={detail} readOnly={readOnly} />
             <AdminPanel>
-              <AllocationEditor
-                catalog={catalog.data}
-                activity={detail ?? undefined}
-                allocations={allocations.data?.items ?? []}
-                pending={actions.replaceAllocations.isPending}
-                onSubmit={(allocationRows) => {
-                  if (!detail) return
-                  actions.replaceAllocations.mutate({
-                    inventoryCode: detail.inventoryCode,
-                    recordCode: detail.recordCode,
-                    allocations: allocationRows,
-                  })
-                }}
-              />
+              {readOnly ? (
+                <ReadonlyAllocationList allocations={allocations.data?.items ?? []} loading={allocations.isLoading} />
+              ) : (
+                <AllocationEditor
+                  catalog={catalog.data}
+                  activity={detail ?? undefined}
+                  allocations={allocations.data?.items ?? []}
+                  pending={actions.replaceAllocations.isPending}
+                  onSubmit={(allocationRows) => {
+                    if (!detail) return
+                    actions.replaceAllocations.mutate({
+                      inventoryCode: detail.inventoryCode,
+                      recordCode: detail.recordCode,
+                      allocations: allocationRows,
+                    })
+                  }}
+                />
+              )}
             </AdminPanel>
           </div>
         </SheetContent>
       </Sheet>
-      <GenerateDialog
-        catalog={catalog.data}
-        inventoryOptions={inventoryOptions}
-        open={generateOpen}
-        pending={actions.generateActivities.isPending}
-        onOpenChange={setGenerateOpen}
-        onSubmit={(body) => actions.generateActivities.mutate(body, { onSuccess: () => setGenerateOpen(false) })}
-      />
     </PageContainer>
   )
 }
@@ -382,7 +459,7 @@ function DetailItem({ label, value }: { label: string; value?: string | null }) 
   )
 }
 
-function ActivityFactorSelection({ activity }: { activity?: GhgActivity | null }) {
+function ActivityFactorSelection({ activity, readOnly = false }: { activity?: GhgActivity | null; readOnly?: boolean }) {
   const factorActions = useCalculationFactorActions()
   const candidates = useActivityFactorCandidates({ inventoryCode: activity?.inventoryCode, recordCode: activity?.recordCode })
   const [selectedId, setSelectedId] = useState("")
@@ -429,7 +506,7 @@ function ActivityFactorSelection({ activity }: { activity?: GhgActivity | null }
         )}
         {candidates.isLoading && <div className="text-muted-foreground text-sm">正在加载候选因子</div>}
         {candidates.isError && <div className="text-destructive text-sm">候选因子加载失败</div>}
-        {!candidates.isLoading && !candidates.isError && (
+        {!readOnly && !candidates.isLoading && !candidates.isError && (
           <div className="grid items-end gap-3 md:grid-cols-[1fr_auto]">
             <CarbonFormField label="候选因子">
               <Select value={activeId} onValueChange={setSelectedId}>
@@ -468,70 +545,46 @@ function ActivityFactorSelection({ activity }: { activity?: GhgActivity | null }
   )
 }
 
-function GenerateDialog({
-  catalog,
-  inventoryOptions,
-  open,
-  pending,
-  onOpenChange,
-  onSubmit,
+function ReadonlyAllocationList({
+  allocations,
+  loading,
 }: {
-  catalog: ReturnType<typeof useGhgCatalog>["data"]
-  inventoryOptions: { code: string; label: string; reportingPeriodId?: number | null }[]
-  open: boolean
-  pending?: boolean
-  onOpenChange: (open: boolean) => void
-  onSubmit: (body: { inventoryCode: string; reportingPeriodId: number; organizationBoundaryId?: number; sourceTypes: string[] }) => void
+  allocations: Array<{
+    allocationCode: string
+    allocationRatio: string
+    areaName: string
+    equipmentName?: string | null
+    measurementBoundaryId?: number | null
+  }>
+  loading?: boolean
 }) {
-  const period = catalog?.periods[0]
-  const [reportingPeriodId, setReportingPeriodId] = useState(period?.id ?? 0)
-  const selectedPeriod = catalog?.periods.find((item) => item.id === reportingPeriodId) ?? period
-  const selectedInventory = inventoryOptions.find((item) => item.reportingPeriodId === selectedPeriod?.id) ?? inventoryOptions[0]
-  const sourceTypes = ["energy_electricity", "employee_commute"]
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>生成组织碳活动数据</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <CarbonFormField label="报告期">
-            <Select value={String(reportingPeriodId || selectedPeriod?.id || "")} onValueChange={(value) => setReportingPeriodId(Number(value))}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(catalog?.periods ?? []).map((item) => (
-                  <SelectItem key={item.id} value={String(item.id)}>
-                    {item.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </CarbonFormField>
-          <div className="rounded-md border border-border/70 p-3 text-sm">
-            <div className="font-medium">盘查任务：{selectedInventory?.code ?? "请先维护排放源或活动数据"}</div>
-            <div className="mt-2 space-y-1 text-muted-foreground text-sm">
-              <div>购入电力：从能源事实汇总生成 2.1 活动数据</div>
-              <div>员工通勤：从经营活动台账生成 3.3 活动数据</div>
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            取消
-          </Button>
-          <Button
-            disabled={pending || !selectedPeriod || !selectedInventory}
-            onClick={() => {
-              if (!selectedPeriod || !selectedInventory) return
-              onSubmit({ inventoryCode: selectedInventory.code, reportingPeriodId: selectedPeriod.id, sourceTypes })
-            }}
-          >
-            生成
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div className="space-y-3">
+      <div className="font-medium text-sm">归集结果</div>
+      <AdminDataTable>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>区域</TableHead>
+              <TableHead>设备</TableHead>
+              <TableHead>计量边界</TableHead>
+              <TableHead className="text-right">比例</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading && <AdminTableStateRow colSpan={4}>正在加载归集结果</AdminTableStateRow>}
+            {!loading && allocations.length === 0 && <AdminTableStateRow colSpan={4}>暂无归集结果</AdminTableStateRow>}
+            {allocations.map((item) => (
+              <TableRow key={item.allocationCode}>
+                <TableCell>{item.areaName}</TableCell>
+                <TableCell>{item.equipmentName ?? "-"}</TableCell>
+                <TableCell>{item.measurementBoundaryId ?? "-"}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">{item.allocationRatio}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </AdminDataTable>
+    </div>
   )
 }

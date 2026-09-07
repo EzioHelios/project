@@ -22,6 +22,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
 
+const tariffLabel: Record<string, string> = { peak: "峰段", flat: "平段", valley: "谷段", none: "未分时" }
+
 type EnergyAnalysisSummary = {
   totals: {
     record_count: number
@@ -196,10 +198,12 @@ type EnergyFlowReportData = {
 type EnergyFact = {
   source_record_type: string
   source_record_id: number
+  granularity?: string | null
   scope: string
   emission_category: string
   energy_type_code: string
   energy_type_name: string
+  tariff_segment_type?: string | null
   original_amount: number | null
   original_unit: string | null
   factor_amount: number | null
@@ -455,10 +459,12 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
 
   const queryParams = useMemo(() => {
     return buildEnergyAnalysisSearchParams(appliedFilters, {
+      includeGranularity: true,
       includeScope: true,
       includeStatus: true,
       includeSourceRecordType: true,
       includeGroupBy: true,
+      includeTariff: true,
       includeAreaKeyword: true,
       includeEquipmentNameAsKeyword: true,
     })
@@ -516,7 +522,7 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
             onFiltersChange={setFilters}
             onApply={applyFilters}
             onReset={resetFilters}
-            fields={["periodPreset", "period", "energyType", "area", "device", "groupBy", "scope", "status", "sourceRecordType", "areaKeyword"]}
+            fields={["periodPreset", "period", "granularity", "energyType", "area", "device", "tariff", "groupBy", "scope", "status", "sourceRecordType", "areaKeyword"]}
             areaValueField="id"
             defaultVisibleCount={6}
             loading={summaryQuery.isFetching || factsQuery.isFetching}
@@ -583,6 +589,7 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
                       <TableHead>ID</TableHead>
                       <TableHead>Scope</TableHead>
                       <TableHead>能源品种</TableHead>
+                      <TableHead>电价时段</TableHead>
                       <TableHead className="text-right">原始量</TableHead>
                       <TableHead className="text-right">折标基准量</TableHead>
                       <TableHead>换算来源</TableHead>
@@ -594,13 +601,16 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {facts.length === 0 && <AdminTableStateRow colSpan={12}>暂无数据</AdminTableStateRow>}
+                    {facts.length === 0 && <AdminTableStateRow colSpan={13}>暂无数据</AdminTableStateRow>}
                     {facts.map((row) => (
                       <TableRow key={`${row.source_record_type}-${row.source_record_id}`}>
                         <TableCell>{row.source_record_type}</TableCell>
                         <TableCell>{row.source_record_id}</TableCell>
                         <TableCell>{row.scope}</TableCell>
                         <TableCell>{row.energy_type_name}</TableCell>
+                        <TableCell>
+                          {row.energy_type_code === "purchased_electricity" ? tariffLabel[row.tariff_segment_type ?? "none"] || row.tariff_segment_type || "-" : "-"}
+                        </TableCell>
                         <TableCell className="text-right">
                           {formatNumber(row.original_amount)} {row.original_unit || ""}
                         </TableCell>
@@ -1275,8 +1285,6 @@ export function EnergyAnalysisPanel({ header }: { header?: ReactNode }) {
   const summary = summaryQuery.data?.data
   const anomalies = anomaliesQuery.data?.data
   const strategies = strategiesQuery.data?.data
-  const tariffLabel: Record<string, string> = { peak: "峰段", flat: "平段", valley: "谷段", none: "未分时" }
-
   function applyFilters() {
     setAppliedFilters(filters)
   }

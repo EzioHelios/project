@@ -77,6 +77,7 @@ type EnergyFactCombination = {
   area_id?: string
   equipment_id?: string
   use_system_code?: string
+  tariff_segment_type?: string
   record_count?: number
 }
 
@@ -85,6 +86,7 @@ type EnergyFactFacetsPayload = {
   areas: EnergyFactFacet[]
   devices: EnergyFactFacet[]
   use_systems: EnergyFactFacet[]
+  tariff_segments: EnergyFactFacet[]
   combinations: EnergyFactCombination[]
 }
 
@@ -146,7 +148,7 @@ const sourceRecordTypeOptions = [
   { value: "EnergyIntervalFact", label: "能源事实" },
 ] as const
 
-const tariffOptions = [
+const fallbackTariffOptions = [
   { value: "all", label: "全部时段" },
   { value: "peak", label: "峰段" },
   { value: "flat", label: "平段" },
@@ -159,6 +161,7 @@ const groupByOptions = [
   { value: "facility", label: "按设备/设施" },
   { value: "scope", label: "按 Scope" },
   { value: "source", label: "按来源" },
+  { value: "tariff", label: "按分时时段" },
 ] as const
 
 export function EnergyAnalysisFilterBar({
@@ -176,7 +179,7 @@ export function EnergyAnalysisFilterBar({
   ],
   defaultVisibleCount = 4,
 }: EnergyAnalysisFilterBarProps) {
-  const { energyTypeOptions, areaOptions, deviceOptions, useSystemOptions } = useEnergyAnalysisFilterOptions(areaValueField, filters)
+  const { energyTypeOptions, areaOptions, deviceOptions, useSystemOptions, tariffOptions } = useEnergyAnalysisFilterOptions(areaValueField, filters)
   const nodes: AdminFilterField[] = []
   const hasField = (field: EnergyAnalysisFilterField) => fields.includes(field)
   const update = (patch: Partial<EnergyAnalysisFilterState>) => onFiltersChange({ ...filters, ...patch })
@@ -247,7 +250,15 @@ export function EnergyAnalysisFilterBar({
       key: "energy-type",
       node: (
         <FilterField label="能源品种">
-          <Select value={filters.energyTypeCode} onValueChange={(value) => update({ energyTypeCode: value })}>
+          <Select
+            value={filters.energyTypeCode}
+            onValueChange={(value) =>
+              update({
+                energyTypeCode: value,
+                tariffSegmentType: value === "purchased_electricity" ? filters.tariffSegmentType : "all",
+              })
+            }
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -357,7 +368,7 @@ export function EnergyAnalysisFilterBar({
       key: "tariff",
       node: (
         <FilterField label="分时时段">
-          <Select value={filters.tariffSegmentType} onValueChange={(value) => update({ tariffSegmentType: value })}>
+          <Select value={filters.tariffSegmentType} onValueChange={(value) => update({ tariffSegmentType: value, energyTypeCode: "purchased_electricity" })}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -558,11 +569,12 @@ function FilterField({ label, children }: { label: string; children: React.React
 
 function useEnergyAnalysisFilterOptions(areaValueField: "id" | "code", filters: EnergyAnalysisFilterState) {
   const facetsQuery = useQuery({
-    queryKey: ["energy", "interval-facts", "facets", filters.periodStart, filters.periodEnd],
+    queryKey: ["energy", "interval-facts", "facets", filters.periodStart, filters.periodEnd, filters.granularity],
     queryFn: async () => {
       const qs = new URLSearchParams()
       if (filters.periodStart) qs.set("period_start", filters.periodStart)
       if (filters.periodEnd) qs.set("period_end", filters.periodEnd)
+      if (filters.granularity) qs.set("granularity", filters.granularity)
       return (await request<EnergyFactFacetsPayload>(`/api/energy/interval-facts/facets?${qs.toString()}`)).data
     },
   })
@@ -575,6 +587,7 @@ function useEnergyAnalysisFilterOptions(areaValueField: "id" | "code", filters: 
     if (except !== "area_id" && filters.areaId !== "all" && item.area_id !== filters.areaId) return false
     if (except !== "equipment_id" && filters.equipmentId !== "all" && item.equipment_id !== filters.equipmentId) return false
     if (except !== "use_system_code" && filters.useSystemCode !== "all" && item.use_system_code !== filters.useSystemCode) return false
+    if (except !== "tariff_segment_type" && filters.tariffSegmentType !== "all" && item.tariff_segment_type !== filters.tariffSegmentType) return false
     return true
   }
   const availableValues = (field: keyof EnergyFactCombination) => {
@@ -620,7 +633,17 @@ function useEnergyAnalysisFilterOptions(areaValueField: "id" | "code", filters: 
     if (availableUseSystems.size > 0 && !availableUseSystems.has(code)) return []
     return [{ value: code, label: `${display(item.name) || code} · ${countBy("use_system_code", code)}条`, data: item }]
   })
-  return { energyTypeOptions, areaOptions, deviceOptions, useSystemOptions }
+  const availableTariffs = availableValues("tariff_segment_type")
+  const tariffOptions = [
+    fallbackTariffOptions[0],
+    ...(facets?.tariff_segments ?? [])
+      .filter((item) => item.code && (availableTariffs.size === 0 || availableTariffs.has(String(item.code))))
+      .map((item) => ({
+        value: String(item.code),
+        label: `${display(item.name) || tariffLabel(String(item.code))} · ${countBy("tariff_segment_type", String(item.code))}条`,
+      })),
+  ]
+  return { energyTypeOptions, areaOptions, deviceOptions, useSystemOptions, tariffOptions }
 }
 
 function periodPresetPatch(value: string): Partial<EnergyAnalysisFilterState> {
@@ -647,4 +670,17 @@ function toDateInputValue(value: Date) {
 function display(value: unknown) {
   if (value === null || value === undefined || value === "") return ""
   return String(value)
+}
+
+function tariffLabel(value: string) {
+  return (
+    (
+      {
+        peak: "峰段",
+        flat: "平段",
+        valley: "谷段",
+        none: "未分时",
+      } as Record<string, string>
+    )[value] ?? value
+  )
 }

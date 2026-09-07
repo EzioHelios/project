@@ -104,6 +104,19 @@ LEGACY_SHOWCASE_MARKERS = (
     "华东绿色仓储",
     "绿色仓储能碳平台",
 )
+TOU_VALLEY_END_HOUR = 8
+TOU_PEAK_HOURS = frozenset({10, 11, 12, 13, 14, 18, 19, 20})
+
+
+def _demo_tou_period(reading_time: datetime) -> str:
+    """Classify demo electricity readings with the default peak-flat-valley tariff calendar."""
+    hour = reading_time.hour
+    if hour < TOU_VALLEY_END_HOUR:
+        return "valley"
+    if hour in TOU_PEAK_HOURS:
+        return "peak"
+    return "flat"
+
 
 EQUIPMENT_EFFICIENCY_SPECS: dict[str, tuple[int, str]] = {
     "TRANSFORMER-01": (1, "GB 20052-2020 电力变压器能效限定值及能效等级"),
@@ -1619,7 +1632,7 @@ class WohengShowcasePackage:
                 point_name=point_name,
                 energy_direction="import",
                 energy_kind="electricity",
-                tou_period="flat",
+                tou_period=_demo_tou_period(reading_time),
                 value_kind=value_kind,
                 raw_value=str(round(value, 4)),
                 normalized_value=value,
@@ -1635,6 +1648,7 @@ class WohengShowcasePackage:
             reading.source_point_code = source_tag
             reading.source_point_name = point_name
             reading.point_name = point_name
+            reading.tou_period = _demo_tou_period(reading_time)
             reading.raw_value = str(round(value, 4))
             reading.normalized_value = value
             reading.unit = unit
@@ -1849,6 +1863,16 @@ class WohengShowcasePackage:
                   and aggregate.is_current = true
                   and aggregate.calc_status in ('ready', 'missing_factor')
                   and aggregate.total_kwh is not null
+                  and not exists (
+                      select 1
+                      from dataapp_energyintervalfact meter_month
+                      where meter_month.team_id = aggregate.team_id
+                        and meter_month.source_system = 'meter_monthly'
+                        and meter_month.energy_type_code = 'purchased_electricity'
+                        and meter_month.equipment_id = equipment.id
+                        and meter_month.is_current = true
+                        and date_trunc('month', meter_month.period_start) = date_trunc('month', aggregate.first_reading_time)
+                  )
                 """
             ),
             {
@@ -2158,12 +2182,18 @@ class WohengShowcasePackage:
                 text(
                     """
                     with child_totals as (
-                        select granularity, period_start, period_end, sum(amount) as child_amount, sum(cost_cny) as child_cost
+                        select
+                            granularity,
+                            period_start,
+                            period_end,
+                            tariff_segment_type,
+                            sum(amount) as child_amount,
+                            sum(cost_cny) as child_cost
                         from dataapp_energyintervalfact
                         where team_id = :team_id
                           and equipment_id = any(:child_ids)
                           and is_current = true
-                        group by granularity, period_start, period_end
+                        group by granularity, period_start, period_end, tariff_segment_type
                     )
                     update dataapp_energyintervalfact pcc_fact
                     set
@@ -2183,6 +2213,7 @@ class WohengShowcasePackage:
                       and pcc_fact.granularity = child_totals.granularity
                       and pcc_fact.period_start = child_totals.period_start
                       and pcc_fact.period_end = child_totals.period_end
+                      and coalesce(pcc_fact.tariff_segment_type, '') = coalesce(child_totals.tariff_segment_type, '')
                     """
                 ),
                 {

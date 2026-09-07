@@ -21,21 +21,25 @@ ENERGY_FACT_SORT_FIELDS = {
     "scope",
     "energy_type_code",
     "energy_type_name",
+    "tariff_segment_type",
     "original_amount",
     "factor_amount",
     "tce_amount",
     "co2e_amount",
     "status",
     "source_record_id",
+    "granularity",
 }
 
 ENERGY_CONSUMPTION_EXPORT_HEADERS = [
     "source_record_type",
     "source_record_id",
+    "granularity",
     "scope",
     "emission_category",
     "energy_type_code",
     "energy_type_name",
+    "tariff_segment_type",
     "original_amount",
     "original_unit",
     "factor_amount",
@@ -62,12 +66,14 @@ ENERGY_CONSUMPTION_EXPORT_HEADERS = [
 class EnergyConsumptionQuery:
     period_start: str | None = None
     period_end: str | None = None
+    granularity: str = "month"
     energy_type_code: str | None = None
     scope: str | None = None
     status: str | None = "all"
     area_id: str | None = None
     area_keyword: str | None = None
     source_record_type: str | None = None
+    tariff_segment_type: str | None = None
     keyword: str | None = None
     limit: int = 20
     offset: int = 0
@@ -123,6 +129,7 @@ class EnergyConsumptionQueryService:
             "scope": ("scope", "scope"),
             "area": ("coalesce(area_id, '')", "coalesce(area_name, '未分区')"),
             "source": ("source_record_type", "source_record_type"),
+            "tariff": ("coalesce(tariff_segment_type, 'none')", "coalesce(tariff_segment_type, 'none')"),
             "facility": ("coalesce(facility_or_device_name, '')", "coalesce(facility_or_device_name, '未命名')"),
         }
         requested_groups = [item.strip() for item in query.group_by.split(",") if item.strip() in group_options]
@@ -251,6 +258,9 @@ def build_energy_fact_filters(query: EnergyConsumptionQuery, *, team_id: UUID | 
     if query.period_end:
         conditions.append("period_start <= :period_end")
         params["period_end"] = period_param(query.period_end)
+    if query.granularity:
+        conditions.append("granularity = :granularity")
+        params["granularity"] = query.granularity if query.granularity in {"hour", "day", "month", "year"} else "month"
     if query.energy_type_code and query.energy_type_code != "all":
         conditions.append("energy_type_code = :energy_type_code")
         params["energy_type_code"] = query.energy_type_code
@@ -266,6 +276,9 @@ def build_energy_fact_filters(query: EnergyConsumptionQuery, *, team_id: UUID | 
     if query.source_record_type and query.source_record_type != "all":
         conditions.append("source_record_type = :source_record_type")
         params["source_record_type"] = query.source_record_type
+    if query.tariff_segment_type and query.tariff_segment_type != "all":
+        conditions.append("tariff_segment_type = :tariff_segment_type")
+        params["tariff_segment_type"] = query.tariff_segment_type
     if query.area_keyword:
         conditions.append("(area_name ilike :area_keyword or area_id ilike :area_keyword)")
         params["area_keyword"] = f"%{query.area_keyword.strip()}%"
@@ -293,10 +306,12 @@ def _energy_fact_source_sql() -> str:
                 f.team_id,
                 'EnergyIntervalFact'::text as source_record_type,
                 f.source_record_id::text as source_record_id,
+                f.granularity::text as granularity,
                 et.default_scope::text as scope,
                 null::text as emission_category,
                 f.energy_type_code::text as energy_type_code,
                 coalesce(et.name, f.energy_type_code)::text as energy_type_name,
+                f.tariff_segment_type::text as tariff_segment_type,
                 f.amount::numeric as original_amount,
                 f.unit::text as original_unit,
                 case
@@ -353,7 +368,6 @@ def _energy_fact_source_sql() -> str:
                 limit 1
             ) conversion on true
             where f.is_current = true
-              and f.granularity = 'month'
         ) energy_facts
     """
 
@@ -362,11 +376,13 @@ def filters_payload(query: EnergyConsumptionQuery) -> dict[str, Any]:
     return {
         "period_start": query.period_start,
         "period_end": query.period_end,
+        "granularity": query.granularity,
         "energy_type_code": query.energy_type_code,
         "scope": query.scope,
         "status": query.status,
         "area_id": query.area_id,
         "area_keyword": query.area_keyword,
         "source_record_type": query.source_record_type,
+        "tariff_segment_type": query.tariff_segment_type,
         "keyword": query.keyword,
     }
