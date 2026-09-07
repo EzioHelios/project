@@ -1,9 +1,9 @@
 {
   "title": "沃衡汽车能碳管理平台操作手册 截图审计",
-  "generatedAt": "2026-09-03T13:28:51.978Z",
+  "generatedAt": "2026-09-07T03:57:39.026Z",
   "screenshotRoot": "outputs/woheng-showcase-woheng-full-evidence/screenshots",
-  "totalEvidence": 161,
-  "availableScreenshots": 161,
+  "totalEvidence": 164,
+  "availableScreenshots": 164,
   "missingScreenshots": 0,
   "rows": [
     {
@@ -2409,7 +2409,7 @@
         "查看活动数据台账入口",
         "/carbon-mgmt/activities"
       ],
-      "focus": "页面显示活动数据列表、筛选条件、新增活动、批量导入和生成活动数据入口。",
+      "focus": "页面显示活动数据列表、筛选条件和只读查询状态。",
       "expectedEvidenceLevel": "A"
     },
     {
@@ -2445,14 +2445,14 @@
     {
       "section": "组织碳排放源与活动数据维护",
       "title": "新增活动数据",
-      "route": "/carbon-mgmt/activities",
+      "route": "/carbon-mgmt/category/2.1",
       "evidenceId": "EV-WH-147",
       "screenshot": "EV-WH-147-活动数据新增表单.png",
       "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-147-活动数据新增表单.png",
       "status": "ready",
       "mustVisibleContents": [
         "新增活动数据",
-        "/carbon-mgmt/activities"
+        "/carbon-mgmt/category/2.1"
       ],
       "focus": "新增活动数据表单按 ISO 分类显示动态字段。",
       "expectedEvidenceLevel": "A"
@@ -2590,6 +2590,51 @@
         "/carbon-mgmt/activities"
       ],
       "focus": "当前参数值回显，并进入活动数据核算参数集。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "盘查报告管理与导出",
+      "title": "进入核算报告页面",
+      "route": "/carbon/organization/reports",
+      "evidenceId": "EV-WH-171",
+      "screenshot": "EV-WH-171-盘查报告台账.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-171-盘查报告台账.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "进入核算报告页面",
+        "/carbon/organization/reports"
+      ],
+      "focus": "页面展示历史盘查报告台账和查看、编辑、导出入口。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "盘查报告管理与导出",
+      "title": "查看盘查报告详情",
+      "route": "/carbon/organization/reports",
+      "evidenceId": "EV-WH-172",
+      "screenshot": "EV-WH-172-盘查报告详情.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-172-盘查报告详情.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "查看盘查报告详情",
+        "/carbon/organization/reports"
+      ],
+      "focus": "详情页展示报告基础信息、核算结果摘要和状态流转记录。",
+      "expectedEvidenceLevel": "A"
+    },
+    {
+      "section": "盘查报告管理与导出",
+      "title": "导出 Word 报告",
+      "route": "/carbon/organization/reports",
+      "evidenceId": "EV-WH-173",
+      "screenshot": "EV-WH-173-Word报告导出结果.png",
+      "sourcePath": "/Users/eziohelios/Dev/litestar-fullstack/outputs/woheng-showcase-woheng-full-evidence/screenshots/EV-WH-173-Word报告导出结果.png",
+      "status": "ready",
+      "mustVisibleContents": [
+        "导出 Word 报告",
+        "/carbon/organization/reports"
+      ],
+      "focus": "系统触发 Word 文件下载，并保留当前报告版本。",
       "expectedEvidenceLevel": "A"
     }
   ]

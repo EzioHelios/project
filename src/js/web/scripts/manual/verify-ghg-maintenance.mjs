@@ -94,7 +94,7 @@ try {
   await cleanupSource(sourceCode)
 
   await openActivityLedger()
-  await capture("activityEntry", "打开活动数据台账，确认盘查任务、ISO 分类、数据质量、关键词筛选和维护入口可见。")
+  await capture("activityEntry", "打开活动数据总账，确认总账用于只读查询、跨分类筛选和详情追溯。")
 
   await createSource()
   await editSource()
@@ -103,7 +103,6 @@ try {
   await openActivityDetailAndSaveAllocation()
   await editActivity()
 
-  await generateActivities()
   await cleanupCreatedRows()
   await capture("deleteResult", "删除未引用活动数据和排放源后，台账查询结果不再显示验证记录。")
 
@@ -175,7 +174,7 @@ async function openActivityLedger() {
   await page.goto(`${baseURL}/carbon-mgmt/activities`, { waitUntil: "domcontentloaded" })
   await injectScreenshotCss()
   await waitForPageReady()
-  await assertBusinessPage(["温室气体活动台账", "盘查任务", "ISO 二级分类", "新增活动", "生成活动数据"])
+  await assertBusinessPage(["温室气体活动总账", "只读查询", "盘查任务", "ISO 二级分类"])
 }
 
 async function createSource() {
@@ -211,11 +210,13 @@ async function editSource() {
 }
 
 async function createActivity() {
-  await page.goto(`${baseURL}/carbon-mgmt/activities`, { waitUntil: "domcontentloaded" })
+  await page.goto(`${baseURL}/carbon-mgmt/category/2.1`, { waitUntil: "domcontentloaded" })
   await waitForPageReady()
-  await page.getByRole("button", { name: "新增活动" }).click()
+  await assertBusinessPage(["2.1 购入电力活动数据", "能源种类", "Scope 2 方法"])
+  await page.getByRole("button", { name: "新增本类活动" }).click()
   const dialog = page.getByRole("dialog").filter({ hasText: "新增活动数据" })
   await dialog.waitFor({ state: "visible" })
+  await expectVisible("2.1 购入电力")
   await selectOption(dialog, "排放源", "已编辑")
   await fillInput(dialog, "记录编号", recordCode)
   await fillInput(dialog, "活动名称", "手册验证购入电力活动")
@@ -252,7 +253,7 @@ async function openActivityDetailAndSaveAllocation() {
 
 async function editActivity() {
   await searchActivities(recordCode)
-  await rowFor(recordCode).getByRole("button").first().click()
+  await rowFor(recordCode).getByRole("button").nth(1).click()
   const dialog = page.getByRole("dialog").filter({ hasText: "编辑活动数据" })
   await dialog.waitFor({ state: "visible" })
   await fillInput(dialog, "活动量", "1777.25")

@@ -18,12 +18,12 @@
     <header class="page-header">
       <div class="eyebrow">沃衡汽车有限公司</div>
       <h1>组织碳核算：排放源与活动数据维护</h1>
-      <div class="page-meta">操作手册 · 生成时间 2026/9/3 21:28:52</div>
+      <div class="page-meta">操作手册 · 生成时间 2026/9/7 11:57:39</div>
     </header>
     <article class="content"><h2>组织碳核算：排放源与活动数据维护</h2>
-<p>本章用于维护组织温室气体盘查的核心活动数据。使用顺序为：先维护排放源，再进入活动数据台账维护活动记录，并在活动详情中完成区域设备归集、分类字段、因子参数和证据材料的核对；批量导入和活动数据生成作为台账的批量维护能力使用。</p>
-<h3>查看活动数据台账入口</h3>
-<p>进入 <code>/carbon-mgmt/activities</code>。页面展示当前租户下的组织碳活动数据，支持按盘查任务、ISO 二级分类、数据质量和关键词筛选，并提供新增活动、批量导入和生成活动数据入口。</p>
+<p>本章用于维护组织温室气体盘查的核心活动数据。使用顺序为：先维护排放源，再按 ISO 14064 二级分类进入分类填报页面维护活动记录；活动数据总账用于跨分类只读查询和详情追溯；批量导入作为分类填报页面的批量维护能力使用。</p>
+<h3>查看活动数据总账</h3>
+<p>进入 <code>/carbon-mgmt/activities</code>。页面展示当前租户下的组织碳活动数据，支持按盘查任务、ISO 二级分类、数据质量和关键词筛选。总账定位为只读查询，适合核算前检查数据范围、归集状态和质量状态。</p>
 <figure class="evidence"><div class="evidence-meta"><span>EV-WH-144</span><span>/carbon-mgmt/activities</span><span>组织碳排放源与活动数据维护</span></div><img src="../assets/screenshots/EV-WH-144-查看活动数据台账入口.png" alt="查看活动数据台账入口" /><figcaption>查看活动数据台账入口</figcaption></figure>
 <h3>新增排放源</h3>
 <p>进入 <code>/carbon-mgmt/sources</code>，点击「<strong>新增排放源</strong>」。填写盘查任务、ISO 二级分类、排放源编号、排放源名称、组织、归集区域、默认区域、默认设备、来源类型和状态。排放源用于明确活动数据对应的排放活动、设施或外部活动对象。</p>
@@ -32,8 +32,8 @@
 <p>在排放源列表中按编号或名称搜索目标排放源，点击编辑，调整排放源名称、分类、区域设备挂载或状态。保存后列表回显更新后的排放源信息和关联活动记录数量。</p>
 <figure class="evidence"><div class="evidence-meta"><span>EV-WH-146</span><span>/carbon-mgmt/sources</span><span>组织碳排放源与活动数据维护</span></div><img src="../assets/screenshots/EV-WH-146-编辑排放源.png" alt="编辑排放源" /><figcaption>编辑排放源</figcaption></figure>
 <h3>新增活动数据</h3>
-<p>进入 <code>/carbon-mgmt/activities</code>，点击「<strong>新增活动</strong>」。选择排放源后，系统带出盘查任务、组织、区域和 ISO 分类。填写记录编号、活动名称、报告期、活动量、单位、数据来源、分类字段、测量方法和备注。不同 ISO 分类会显示对应的动态字段，例如购入电力需要维护能源种类、供应商、计量点和 Scope 2 方法。</p>
-<figure class="evidence"><div class="evidence-meta"><span>EV-WH-147</span><span>/carbon-mgmt/activities</span><span>组织碳排放源与活动数据维护</span></div><img src="../assets/screenshots/EV-WH-147-新增活动数据.png" alt="新增活动数据" /><figcaption>新增活动数据</figcaption></figure>
+<p>进入 <code>/carbon-mgmt/category/2.1</code> 等分类填报页面，点击「<strong>新增本类活动</strong>」。选择排放源后，系统带出盘查任务、组织、区域和 ISO 分类。填写记录编号、活动名称、报告期、活动量、单位、数据来源、分类字段、测量方法和备注。不同 ISO 分类会显示对应的动态字段，例如购入电力需要维护能源种类、供应商、计量点和 Scope 2 方法。</p>
+<figure class="evidence"><div class="evidence-meta"><span>EV-WH-147</span><span>/carbon-mgmt/category/2.1</span><span>组织碳排放源与活动数据维护</span></div><img src="../assets/screenshots/EV-WH-147-新增活动数据.png" alt="新增活动数据" /><figcaption>新增活动数据</figcaption></figure>
 <h3>查看详情并维护归集</h3>
 <p>在活动数据台账点击目标记录，打开活动数据详情。详情页展示记录编号、排放源、分类、期间、活动量、数据来源和分类字段，并在同一页面维护区域、设备、计量边界和归集比例。保存归集后，活动数据可按区域、设备和计量边界参与后续核算与查询。</p>
 <figure class="evidence"><div class="evidence-meta"><span>EV-WH-148</span><span>/carbon-mgmt/activities</span><span>组织碳排放源与活动数据维护</span></div><img src="../assets/screenshots/EV-WH-148-维护活动数据归集.png" alt="维护活动数据归集" /><figcaption>维护活动数据归集</figcaption></figure>
@@ -41,13 +41,13 @@
 <p>在活动数据台账点击编辑，调整活动名称、活动量、单位、来源、分类字段、测量方法或备注。保存后台账回显新的活动量、质量状态、归集状态和记录状态。</p>
 <figure class="evidence"><div class="evidence-meta"><span>EV-WH-149</span><span>/carbon-mgmt/activities</span><span>组织碳排放源与活动数据维护</span></div><img src="../assets/screenshots/EV-WH-149-编辑活动数据.png" alt="编辑活动数据" /><figcaption>编辑活动数据</figcaption></figure>
 <h3>生成活动数据</h3>
-<p>在活动数据台账点击「<strong>生成活动数据</strong>」，选择报告期后执行生成。平台从购入电力能源事实和员工通勤经营活动台账生成组织碳活动数据，重复执行时更新同一批记录，便于报告期内补数据后重新刷新活动台账。</p>
+<p>组织碳活动数据可从能源事实和经营活动台账按报告期幂等生成。生成完成后进入活动数据总账或对应分类填报页面，核对新增、更新、跳过和失败结果，确认数据已进入本期活动台账。</p>
 <figure class="evidence"><div class="evidence-meta"><span>EV-WH-150</span><span>/carbon-mgmt/activities</span><span>组织碳排放源与活动数据维护</span></div><img src="../assets/screenshots/EV-WH-150-生成活动数据.png" alt="生成活动数据" /><figcaption>生成活动数据</figcaption></figure>
 <h3>删除活动数据和排放源</h3>
 <p>未被核算结果或报告引用的活动数据可删除。活动数据删除后，再删除未关联活动数据的排放源。删除后按记录编号或排放源编号查询，列表不再显示验证记录。</p>
 <figure class="evidence"><div class="evidence-meta"><span>EV-WH-151</span><span>/carbon-mgmt/activities</span><span>组织碳排放源与活动数据维护</span></div><img src="../assets/screenshots/EV-WH-151-删除活动数据和排放源.png" alt="删除活动数据和排放源" /><figcaption>删除活动数据和排放源</figcaption></figure>
-<h3>ISO 分类筛选</h3>
-<p>ISO 14064-1 类别 1-6 不再作为分散的独立填报入口维护。进入活动数据台账后，可通过 ISO 二级分类筛选固定燃烧、购入电力、员工通勤、采购商品、售出产品和其他间接排放等活动数据，并在同一套表单中完成分类字段维护。</p></article>
+<h3>ISO 分类填报</h3>
+<p>ISO 14064-1 类别 1-6 在侧边栏「<strong>分类填报</strong>」下提供二级入口，例如 <code>/carbon-mgmt/category/1.1</code>、<code>/carbon-mgmt/category/2.1</code>、<code>/carbon-mgmt/category/3.3</code>。分类页面负责本类活动数据新增、编辑、详情归集、模板下载和本类数据导入；总账页面负责只读查询和跨分类追溯。</p></article>
     <nav class="pager">
       <a href="../pages/organization-boundary-settings.html">上一页：组织碳核算：组织边界与核算边界维护</a>
       <a href="../pages/factors-calculation.html">下一页：组织碳核算：排放因子库与企业计算因子</a>

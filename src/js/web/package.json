@@ -29,6 +29,7 @@
     "docs:manual:verify:energy-balance": "node ./scripts/manual/verify-energy-balance-maintenance.mjs",
     "docs:manual:verify:organization-boundary": "node ./scripts/manual/verify-organization-boundary-maintenance.mjs",
     "docs:manual:verify:ghg-maintenance": "node ./scripts/manual/verify-ghg-maintenance.mjs",
+    "docs:manual:verify:inventory-report": "node ./scripts/manual/verify-inventory-report-management.mjs",
     "docs:manual:verify:factors": "node ./scripts/manual/verify-factor-maintenance.mjs",
     "docs:manual:verify:area-device": "node ./scripts/manual/verify-area-device-maintenance.mjs"
   },

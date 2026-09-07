@@ -1360,14 +1360,14 @@
     {
       "sectionId": "ghg-maintenance",
       "title": "组织碳排放源与活动数据维护",
-      "summary": "用于说明排放源维护、活动数据台账、分类字段、区域设备归集、幂等生成和删除结果。",
+      "summary": "用于说明排放源维护、活动数据总账只读查询、ISO 分类填报、分类字段、区域设备归集和删除结果。",
       "steps": [
         {
           "stepNumber": "17.1",
           "title": "查看活动数据台账入口",
           "route": "/carbon-mgmt/activities",
           "action": "进入活动数据台账，查看当前租户下的活动记录，并确认盘查任务、ISO 二级分类、数据质量和关键词筛选可用。",
-          "expectedState": "页面显示活动数据列表、筛选条件、新增活动、批量导入和生成活动数据入口。",
+          "expectedState": "页面显示活动数据列表、筛选条件和只读查询状态。",
           "evidenceId": "EV-WH-144",
           "screenshot": "EV-WH-144-活动数据台账入口.png",
           "verificationStatus": "verified"
@@ -1395,8 +1395,8 @@
         {
           "stepNumber": "17.4",
           "title": "新增活动数据",
-          "route": "/carbon-mgmt/activities",
-          "action": "点击新增活动，选择排放源，填写记录编号、活动名称、报告期、活动量、单位、数据来源、分类字段和测量方法。",
+          "route": "/carbon-mgmt/category/2.1",
+          "action": "进入 ISO 分类填报页面，点击新增本类活动，选择排放源，填写记录编号、活动名称、报告期、活动量、单位、数据来源、分类字段和测量方法。",
           "expectedState": "新增活动数据表单按 ISO 分类显示动态字段。",
           "evidenceId": "EV-WH-147",
           "screenshot": "EV-WH-147-活动数据新增表单.png",
@@ -1426,7 +1426,7 @@
           "stepNumber": "17.7",
           "title": "生成活动数据",
           "route": "/carbon-mgmt/activities",
-          "action": "点击生成活动数据，从购入电力能源事实和员工通勤台账生成组织碳活动数据。",
+          "action": "从能源事实和经营活动台账按报告期生成组织碳活动数据，生成后进入总账或分类填报页面核对新增、更新、跳过和失败结果。",
           "expectedState": "生成完成后活动数据进入统一台账，重复执行更新同一批记录。",
           "evidenceId": "EV-WH-150",
           "screenshot": "EV-WH-150-组织碳活动数据生成结果.png",
@@ -1559,8 +1559,9 @@
           "route": "/carbon/organization/reports",
           "action": "进入核算报告页面，查看盘查报告列表、报告编号、版本、报告标题、关联核算运行、报告期和状态。",
           "expectedState": "页面展示历史盘查报告台账和查看、编辑、导出入口。",
-          "screenshot": "[Image]",
-          "verificationStatus": "not-verified"
+          "evidenceId": "EV-WH-171",
+          "screenshot": "EV-WH-171-盘查报告台账.png",
+          "verificationStatus": "verified"
         },
         {
           "stepNumber": "20.2",
@@ -1568,8 +1569,9 @@
           "route": "/carbon/organization/reports",
           "action": "在报告列表点击查看，进入报告详情页面，核对报告主体、报告期、组织边界、排放摘要和审核记录。",
           "expectedState": "详情页展示报告基础信息、核算结果摘要和状态流转记录。",
-          "screenshot": "[Image]",
-          "verificationStatus": "not-verified"
+          "evidenceId": "EV-WH-172",
+          "screenshot": "EV-WH-172-盘查报告详情.png",
+          "verificationStatus": "verified"
         },
         {
           "stepNumber": "20.3",
@@ -1577,8 +1579,9 @@
           "route": "/carbon/organization/reports",
           "action": "在报告列表或详情页点击导出 Word，生成当前版本的组织温室气体盘查报告文件。",
           "expectedState": "系统触发 Word 文件下载，并保留当前报告版本。",
-          "screenshot": "[Image]",
-          "verificationStatus": "not-verified"
+          "evidenceId": "EV-WH-173",
+          "screenshot": "EV-WH-173-Word报告导出结果.png",
+          "verificationStatus": "verified"
         }
       ]
     },
