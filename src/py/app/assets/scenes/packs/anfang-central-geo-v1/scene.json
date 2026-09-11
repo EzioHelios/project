@@ -1,0 +1,294 @@
+{
+  "sceneId": "anfang-central",
+  "revision": "2026-09-10.geo.1",
+  "engine": "cesium-campus",
+  "title": "安方中心库",
+  "address": "泰州市海陵区吴陵南路888号",
+  "attribution": "参考影像：Esri World Imagery",
+  "assets": [
+    "ground.glb",
+    "buildings.glb"
+  ],
+  "reference": "reference.jpg",
+  "world": {
+    "origin": [
+      119.88676071167,
+      32.4228988113
+    ],
+    "metresPerPixel": 0.5040745586,
+    "originPixel": [
+      480,
+      760
+    ],
+    "buildings": [
+      {
+        "id": "northeast",
+        "polygon": [
+          [
+            416,
+            596
+          ],
+          [
+            626,
+            600
+          ],
+          [
+            623,
+            696
+          ],
+          [
+            414,
+            690
+          ]
+        ],
+        "height": 14
+      },
+      {
+        "id": "southeast",
+        "polygon": [
+          [
+            413,
+            710
+          ],
+          [
+            625,
+            716
+          ],
+          [
+            620,
+            857
+          ],
+          [
+            409,
+            850
+          ]
+        ],
+        "height": 12
+      },
+      {
+        "id": "west",
+        "polygon": [
+          [
+            280,
+            736
+          ],
+          [
+            351,
+            738
+          ],
+          [
+            350,
+            805
+          ],
+          [
+            275,
+            802
+          ]
+        ],
+        "height": 10
+      },
+      {
+        "id": "southwest",
+        "polygon": [
+          [
+            267,
+            827
+          ],
+          [
+            381,
+            830
+          ],
+          [
+            379,
+            882
+          ],
+          [
+            263,
+            879
+          ]
+        ],
+        "height": 9
+      }
+    ],
+    "water": [
+      [
+        [
+          899,
+          0
+        ],
+        [
+          1042,
+          0
+        ],
+        [
+          969,
+          372
+        ],
+        [
+          920,
+          544
+        ],
+        [
+          877,
+          771
+        ],
+        [
+          813,
+          999
+        ],
+        [
+          729,
+          1324
+        ],
+        [
+          671,
+          1536
+        ],
+        [
+          559,
+          1536
+        ],
+        [
+          643,
+          1220
+        ],
+        [
+          719,
+          991
+        ],
+        [
+          765,
+          796
+        ],
+        [
+          831,
+          535
+        ],
+        [
+          840,
+          375
+        ]
+      ],
+      [
+        [
+          0,
+          414
+        ],
+        [
+          840,
+          410
+        ],
+        [
+          835,
+          454
+        ],
+        [
+          0,
+          453
+        ]
+      ]
+    ],
+    "walkBounds": [
+      -220,
+      175,
+      -195,
+      170
+    ],
+    "orbitPosition": [
+      235,
+      205,
+      275
+    ],
+    "orbitTarget": [
+      -10,
+      0,
+      -3
+    ],
+    "entries": [
+      {
+        "id": "west",
+        "label": "西门进入",
+        "pixel": [
+          244,
+          712
+        ],
+        "yaw": -1.57079632679
+      },
+      {
+        "id": "south",
+        "label": "南门进入",
+        "pixel": [
+          390,
+          955
+        ],
+        "yaw": 0
+      },
+      {
+        "id": "river",
+        "label": "河岸漫步",
+        "pixel": [
+          722,
+          863
+        ],
+        "yaw": 0.04
+      }
+    ],
+    "lights": [
+      [
+        395,
+        705
+      ],
+      [
+        395,
+        870
+      ],
+      [
+        647,
+        690
+      ],
+      [
+        646,
+        857
+      ],
+      [
+        265,
+        708
+      ],
+      [
+        390,
+        929
+      ]
+    ]
+  },
+  "georegistration": {
+    "version": 1,
+    "crs": "EPSG:4326",
+    "origin": [
+      119.88676071167,
+      32.4228988113
+    ],
+    "scale": [
+      1.0009636459156157,
+      0.9961774558637145,
+      1
+    ],
+    "ellipsoidHeight": 0.2,
+    "upAxis": "Y",
+    "forwardAxis": "X",
+    "terrain": "ellipsoid",
+    "heightStatus": "estimated",
+    "imagery": {
+      "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      "credit": "Esri World Imagery",
+      "maximumLevel": 18
+    },
+    "sourceRaster": {
+      "zoom": 18,
+      "x0": 218369,
+      "y0": 106088,
+      "pixels": 1536,
+      "source": "Esri World Imagery MapServer",
+      "note": "Geographic raster independent of old POI; locate named Baidu south campus against road and river topology"
+    }
+  }
+}

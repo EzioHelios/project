@@ -11,7 +11,7 @@ class BigscreenNavItem(BaseModel):
 class BigscreenMetric(BaseModel):
     id: str
     label: str
-    value: float | int
+    value: float | int | None
     unit: str | None = None
     ratio: float | None = None
     emphasis: str | None = None
@@ -40,7 +40,7 @@ class BigscreenAlertItem(BaseModel):
 class BigscreenTrendPoint(BaseModel):
     period: str
     energy_kwh: float = 0
-    carbon_co2e: float = 0
+    carbon_co2e: float | None = None
     value: float = 0
 
 

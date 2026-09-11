@@ -1,0 +1,202 @@
+{
+  "controlPoints": [
+    {
+      "name": "northeast:1",
+      "pixel": [
+        416,
+        596
+      ],
+      "longitudeLatitude": [
+        119.88641738891602,
+        32.423641429571305
+      ],
+      "conversionResidualMetres": 0.0006744421158266465
+    },
+    {
+      "name": "northeast:2",
+      "pixel": [
+        626,
+        600
+      ],
+      "longitudeLatitude": [
+        119.88754391670227,
+        32.42362331700339
+      ],
+      "conversionResidualMetres": 0.0011134611691384784
+    },
+    {
+      "name": "northeast:3",
+      "pixel": [
+        623,
+        696
+      ],
+      "longitudeLatitude": [
+        119.88752782344818,
+        32.42318861428231
+      ],
+      "conversionResidualMetres": 0.0006124901397399733
+    },
+    {
+      "name": "northeast:4",
+      "pixel": [
+        414,
+        690
+      ],
+      "longitudeLatitude": [
+        119.88640666007996,
+        32.42321578326375
+      ],
+      "conversionResidualMetres": 0.00023253434906229795
+    },
+    {
+      "name": "southeast:1",
+      "pixel": [
+        413,
+        710
+      ],
+      "longitudeLatitude": [
+        119.88640129566193,
+        32.423125219960454
+      ],
+      "conversionResidualMetres": 0.00018507208161631946
+    },
+    {
+      "name": "southeast:2",
+      "pixel": [
+        625,
+        716
+      ],
+      "longitudeLatitude": [
+        119.88753855228424,
+        32.42309805095174
+      ],
+      "conversionResidualMetres": 0.0005688348152292792
+    },
+    {
+      "name": "southeast:3",
+      "pixel": [
+        620,
+        857
+      ],
+      "longitudeLatitude": [
+        119.88751173019409,
+        32.422459576891065
+      ],
+      "conversionResidualMetres": 0.0006714276803238815
+    },
+    {
+      "name": "southeast:4",
+      "pixel": [
+        409,
+        850
+      ],
+      "longitudeLatitude": [
+        119.88637983798981,
+        32.422491274291474
+      ],
+      "conversionResidualMetres": 0.0003405839219887239
+    },
+    {
+      "name": "west:1",
+      "pixel": [
+        280,
+        736
+      ],
+      "longitudeLatitude": [
+        119.88568782806396,
+        32.42300748753023
+      ],
+      "conversionResidualMetres": 0.0009744331003617799
+    },
+    {
+      "name": "west:2",
+      "pixel": [
+        351,
+        738
+      ],
+      "longitudeLatitude": [
+        119.88606870174408,
+        32.42299843118308
+      ],
+      "conversionResidualMetres": 0.00041916229216502345
+    },
+    {
+      "name": "west:3",
+      "pixel": [
+        350,
+        805
+      ],
+      "longitudeLatitude": [
+        119.88606333732605,
+        32.42269504302809
+      ],
+      "conversionResidualMetres": 0.0004264388815392072
+    },
+    {
+      "name": "west:4",
+      "pixel": [
+        275,
+        802
+      ],
+      "longitudeLatitude": [
+        119.88566100597382,
+        32.42270862759417
+      ],
+      "conversionResidualMetres": 0.0010097467355869385
+    },
+    {
+      "name": "southwest:1",
+      "pixel": [
+        267,
+        827
+      ],
+      "longitudeLatitude": [
+        119.88561809062958,
+        32.42259542281437
+      ],
+      "conversionResidualMetres": 0.001143323502694843
+    },
+    {
+      "name": "southwest:2",
+      "pixel": [
+        381,
+        830
+      ],
+      "longitudeLatitude": [
+        119.88622963428497,
+        32.422581838231245
+      ],
+      "conversionResidualMetres": 0.00034159069273200323
+    },
+    {
+      "name": "southwest:3",
+      "pixel": [
+        379,
+        882
+      ],
+      "longitudeLatitude": [
+        119.88621890544891,
+        32.42234637179872
+      ],
+      "conversionResidualMetres": 0.0006226805883080948
+    },
+    {
+      "name": "southwest:4",
+      "pixel": [
+        263,
+        879
+      ],
+      "longitudeLatitude": [
+        119.88559663295746,
+        32.4223599564173
+      ],
+      "conversionResidualMetres": 0.0014095010331776955
+    }
+  ],
+  "maximumConversionResidualMetres": 0.0014095010331776955,
+  "assessment": "Coordinate arithmetic against the same raster only; visual verification still required. Not survey accuracy.",
+  "assetSha256": {
+    "buildings.glb": "82aacd357210ec69cbf87b6fa21c5e2c5bc705428566ae25582a48008fd746d2",
+    "ground.glb": "f1bce8945898ec1eb781b8cd92e794c2d6165c1a8cea067f1e7b15874a337ee3"
+  }
+}

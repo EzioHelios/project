@@ -1,6 +1,0 @@
-{
-  "extends": "../../taizhou-warehouse/scene.json",
-  "sceneId": "default-tenant-campus",
-  "revision": "1",
-  "attributionLabel": "沃衡汽车生产基地三维场景"
-}

@@ -1116,6 +1116,54 @@
   letter-spacing: 0.06em;
 }
 
+.bigscreen-tenant-switcher {
+  gap: 8px;
+  padding: 0 14px;
+  pointer-events: auto;
+}
+
+.bigscreen-tenant-switcher select {
+  width: 220px;
+  height: 38px;
+  padding: 0 24px 0 4px;
+  appearance: none;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: rgba(243, 249, 255, 0.92);
+  font-size: 19px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  color-scheme: dark;
+}
+
+.bigscreen-tenant-switcher select:hover {
+  background: rgba(100, 193, 255, 0.1);
+}
+
+.bigscreen-tenant-switcher select:focus-visible {
+  outline: 1px solid #7ce8ff;
+  outline-offset: -2px;
+}
+
+.bigscreen-tenant-switcher select:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.bigscreen-tenant-switcher option {
+  background: #10243c;
+  color: #f3f9ff;
+}
+
+.bigscreen-tenant-switcher svg {
+  position: absolute;
+  right: 20px;
+  pointer-events: none;
+  color: #7ce8ff;
+}
+
 .bigscreen-screen-header-utility-item-weather {
   gap: 8px;
   min-width: 144px;

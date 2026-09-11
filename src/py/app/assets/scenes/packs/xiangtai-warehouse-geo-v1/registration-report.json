@@ -1,0 +1,154 @@
+{
+  "controlPoints": [
+    {
+      "name": "south-warehouse:1",
+      "pixel": [
+        518,
+        681
+      ],
+      "longitudeLatitude": [
+        119.8787248134613,
+        32.40818555871777
+      ],
+      "conversionResidualMetres": 0.0010612289114488814
+    },
+    {
+      "name": "south-warehouse:2",
+      "pixel": [
+        911,
+        630
+      ],
+      "longitudeLatitude": [
+        119.88083302974701,
+        32.40841653320196
+      ],
+      "conversionResidualMetres": 0.0008051231621388999
+    },
+    {
+      "name": "south-warehouse:3",
+      "pixel": [
+        925,
+        720
+      ],
+      "longitudeLatitude": [
+        119.88090813159943,
+        32.40800893077221
+      ],
+      "conversionResidualMetres": 0.0009657622538120793
+    },
+    {
+      "name": "south-warehouse:4",
+      "pixel": [
+        529,
+        759
+      ],
+      "longitudeLatitude": [
+        119.87878382205963,
+        32.407832302481
+      ],
+      "conversionResidualMetres": 0.0011749057787552324
+    },
+    {
+      "name": "northeast-warehouse:1",
+      "pixel": [
+        740,
+        557
+      ],
+      "longitudeLatitude": [
+        119.87991571426392,
+        32.40874714270956
+      ],
+      "conversionResidualMetres": 0.00019423623426016089
+    },
+    {
+      "name": "northeast-warehouse:2",
+      "pixel": [
+        883,
+        537
+      ],
+      "longitudeLatitude": [
+        119.88068282604218,
+        32.408837720445504
+      ],
+      "conversionResidualMetres": 0.0009123326983164678
+    },
+    {
+      "name": "northeast-warehouse:3",
+      "pixel": [
+        895,
+        616
+      ],
+      "longitudeLatitude": [
+        119.88074719905853,
+        32.40847993785891
+      ],
+      "conversionResidualMetres": 0.0007034906383391165
+    },
+    {
+      "name": "northeast-warehouse:4",
+      "pixel": [
+        750,
+        635
+      ],
+      "longitudeLatitude": [
+        119.87996935844421,
+        32.408393888670815
+      ],
+      "conversionResidualMetres": 3.125344178403392e-05
+    },
+    {
+      "name": "east-gatehouse:1",
+      "pixel": [
+        944,
+        707
+      ],
+      "longitudeLatitude": [
+        119.88101005554199,
+        32.408067806792474
+      ],
+      "conversionResidualMetres": 0.0011161723781376862
+    },
+    {
+      "name": "east-gatehouse:2",
+      "pixel": [
+        976,
+        703
+      ],
+      "longitudeLatitude": [
+        119.88118171691895,
+        32.40808592248329
+      ],
+      "conversionResidualMetres": 0.001455148245632713
+    },
+    {
+      "name": "east-gatehouse:3",
+      "pixel": [
+        977,
+        721
+      ],
+      "longitudeLatitude": [
+        119.88118708133698,
+        32.408004401845986
+      ],
+      "conversionResidualMetres": 0.0015073982602792535
+    },
+    {
+      "name": "east-gatehouse:4",
+      "pixel": [
+        946,
+        725
+      ],
+      "longitudeLatitude": [
+        119.88102078437805,
+        32.40798628613881
+      ],
+      "conversionResidualMetres": 0.0011822599792775017
+    }
+  ],
+  "maximumConversionResidualMetres": 0.0015073982602792535,
+  "assessment": "Coordinate arithmetic against the same raster only; visual verification still required. Not survey accuracy.",
+  "assetSha256": {
+    "buildings.glb": "01aaefbba03e9e9a222b56d77d9a75f9c15ba0956b84a2e6243e8c0e4c582a08",
+    "ground.glb": "d51f9439d3ed17674695181cec7b38a6eeb9b4318714ff71ed3503b101b6a66f"
+  }
+}

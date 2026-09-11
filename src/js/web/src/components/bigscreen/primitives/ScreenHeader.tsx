@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router"
+import type { ReactNode } from "react"
 
 import { ScreenHeaderFrame } from "@/components/bigscreen/primitives/ScreenHeaderFrame"
 import { ScreenHeaderNavFrame } from "@/components/bigscreen/primitives/ScreenHeaderNavFrame"
@@ -99,6 +100,7 @@ export function ScreenHeader({
   now,
   navItems,
   pathname,
+  tenantSwitcher,
 }: {
   title: string
   shortName: string
@@ -108,6 +110,7 @@ export function ScreenHeader({
   now: Date
   navItems: BigscreenNavItem[]
   pathname: string
+  tenantSwitcher?: ReactNode
 }) {
   const skin = useBigscreenSkin()
   const weatherKind = getWeatherKind(weather)
@@ -141,6 +144,7 @@ export function ScreenHeader({
             <div className="bigscreen-screen-header-utility-item">
               <span className="bigscreen-screen-header-utility-value">{city}</span>
             </div>
+            {tenantSwitcher}
             <div className="bigscreen-screen-header-utility-item bigscreen-screen-header-utility-item-weather">
               <span className="bigscreen-screen-header-weather-icon" data-kind={weatherKind}>
                 <WeatherGlyph kind={weatherKind} />

@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router"
-
 import { BigscreenBarChart, BigscreenLineChart, BigscreenSankeyChart } from "@/components/bigscreen/charts"
 import { EnergyAssetOverviewPanel } from "@/components/bigscreen/custom/EnergyAssetOverviewPanel"
 import { TerminalStatusTriplet } from "@/components/bigscreen/custom/TerminalStatusTriplet"
+import { BigscreenDataState } from "@/components/bigscreen/data-state"
 import { BigscreenScrollBoard } from "@/components/bigscreen/motion"
 import { BigscreenPanel } from "@/components/bigscreen/panel"
-import { type BigscreenSceneAnchor, BigscreenSceneHost } from "@/components/bigscreen/scene"
+import { BigscreenSceneHost } from "@/components/bigscreen/scene"
 import { useBigscreenPower } from "@/lib/bigscreen/hooks"
 
 export const Route = createFileRoute("/_app/bigscreen/power")({
@@ -16,38 +16,9 @@ function BigscreenPowerPage() {
   const powerQuery = useBigscreenPower()
   const power = powerQuery.data?.data
 
-  const sceneAnchors: BigscreenSceneAnchor[] = [
-    {
-      id: "online",
-      label: "Online Terminals",
-      value: `${power?.hero_metrics?.[0]?.value ?? 0} 台`,
-      position: "lt",
-    },
-    {
-      id: "total",
-      label: "Total Terminals",
-      value: `${power?.hero_metrics?.[1]?.value ?? 0} 台`,
-      position: "lb",
-    },
-    {
-      id: "latest",
-      label: "Latest Load",
-      value: `${power?.hero_metrics?.[2]?.value?.toLocaleString("zh-CN", { maximumFractionDigits: 0 }) ?? "0"} ${power?.hero_metrics?.[2]?.unit ?? ""}`.trim(),
-      position: "rt",
-    },
-    {
-      id: "top-area",
-      label: "Top Area",
-      value: power?.energy_structure?.[0]?.name ?? "未分区",
-      position: "rb",
-    },
-    {
-      id: "top-meter",
-      label: "Top Meter",
-      value: power?.energy_ranking?.[0]?.name ?? "未命名电表",
-      position: "ct",
-    },
-  ]
+  if (powerQuery.isError || !power) {
+    return <BigscreenDataState failed={powerQuery.isError} retry={() => void powerQuery.refetch()} />
+  }
 
   const alertRows =
     power?.alerts?.map((item) => ({
@@ -80,9 +51,9 @@ function BigscreenPowerPage() {
             family="power"
             summary={{
               label: power?.hero_metrics?.[2]?.label ?? "最新账期总电量",
-              value: power?.hero_metrics?.[2]?.value ?? 0,
+              value: power?.hero_metrics?.[2]?.value ?? "—",
               unit: power?.hero_metrics?.[2]?.unit,
-              detail: "电表总览摘要",
+              detail: power?.hero_metrics?.[2]?.emphasis,
             }}
           />
         </BigscreenPanel>
@@ -107,15 +78,7 @@ function BigscreenPowerPage() {
       </div>
 
       <div className="bigscreen-main-stack">
-        <BigscreenSceneHost
-          eyebrow="Power Scene"
-          title="配电主视觉留白区"
-          description="配电运行总览"
-          anchors={sceneAnchors}
-          showCore={false}
-          showSafezone={false}
-          className="bigscreen-scene-ghost"
-        />
+        <BigscreenSceneHost eyebrow="Power Scene" title="配电主视觉留白区" description="配电运行总览" showCore={false} showSafezone={false} className="bigscreen-scene-ghost" />
 
         <div className="bigscreen-bottom-grid" data-columns="3">
           <BigscreenPanel title="区域电量流图" frame="wide">

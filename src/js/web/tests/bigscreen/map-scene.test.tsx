@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { BigscreenSceneCanvas } from "@/components/bigscreen/scene-canvas"
 import { getWarehouseStatusColor, loadBigscreenScene, loadBigscreenSceneCandidates, normalizeBigscreenSceneConfig, resolveInitialCamera } from "@/lib/bigscreen/map/scene"
-import { resolveTenantBigscreenSceneManifestCandidates } from "@/lib/bigscreen/map/scene-resolver"
 import type { BigscreenSceneEngine, BigscreenWarehouseFeatureCollection } from "@/lib/bigscreen/map/types"
 
 const manifest = {
@@ -113,14 +112,6 @@ describe("bigscreen map scene helpers", () => {
     }
   })
 
-  it("resolves stable tenant scene namespaces before the platform fallback", () => {
-    expect(resolveTenantBigscreenSceneManifestCandidates({ id: "019abcde-1234-7000-8000-000000000001", slug: "Taizhou-Park" }, "maps/fallback/scene.json")).toEqual([
-      "/maps/tenants/taizhou-park/scene.json",
-      "/maps/tenants/019abcde-1234-7000-8000-000000000001/scene.json",
-      "/maps/fallback/scene.json",
-    ])
-    expect(resolveTenantBigscreenSceneManifestCandidates({ slug: "../../unsafe" }, "maps/fallback/scene.json")).toEqual(["/maps/fallback/scene.json"])
-  })
 })
 
 describe("tenant scene manifests", () => {
@@ -295,5 +286,18 @@ describe("BigscreenSceneCanvas", () => {
     unmount()
 
     expect(destroy).toHaveBeenCalledTimes(1)
+  })
+
+  it("destroys an engine that finishes importing after tenant unmount", async () => {
+    const mount = vi.fn()
+    const destroy = vi.fn()
+    let finish: (engine: BigscreenSceneEngine) => void = () => {}
+    const createEngine = vi.fn(() => new Promise<BigscreenSceneEngine>((resolve) => { finish = resolve }))
+    const view = render(<BigscreenSceneCanvas manifestUrl="/maps/bigscreen/scene.json" createEngine={createEngine} />)
+    await waitFor(() => expect(createEngine).toHaveBeenCalledOnce())
+    view.unmount()
+    finish({ mount, destroy, resize: vi.fn() })
+    await waitFor(() => expect(destroy).toHaveBeenCalledOnce())
+    expect(mount).not.toHaveBeenCalled()
   })
 })

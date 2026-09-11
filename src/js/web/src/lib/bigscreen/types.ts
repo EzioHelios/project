@@ -12,7 +12,7 @@ export type BigscreenNavItem = {
 export type BigscreenMetric = {
   id: string
   label: string
-  value: number
+  value: number | null
   unit?: string | null
   ratio?: number | null
   emphasis?: string | null
@@ -41,7 +41,7 @@ export type BigscreenAlertItem = {
 export type BigscreenTrendPoint = {
   period: string
   energy_kwh: number
-  carbon_co2e: number
+  carbon_co2e: number | null
   value: number
 }
 

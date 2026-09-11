@@ -1,0 +1,222 @@
+{
+  "sceneId": "xiangtai-warehouse",
+  "revision": "2026-09-10.geo.1",
+  "engine": "cesium-campus",
+  "title": "祥泰仓库",
+  "address": "泰州市海陵区官河路与泰事达路交叉口南100米",
+  "attribution": "参考影像：Esri World Imagery",
+  "assets": [
+    "ground.glb",
+    "buildings.glb"
+  ],
+  "reference": "reference.jpg",
+  "world": {
+    "origin": [
+      119.87986207008362,
+      32.408303310489444
+    ],
+    "originPixel": [
+      730,
+      655
+    ],
+    "metresPerPixel": 0.5041559328825945,
+    "buildings": [
+      {
+        "id": "south-warehouse",
+        "polygon": [
+          [
+            518,
+            681
+          ],
+          [
+            911,
+            630
+          ],
+          [
+            925,
+            720
+          ],
+          [
+            529,
+            759
+          ]
+        ],
+        "height": 11
+      },
+      {
+        "id": "northeast-warehouse",
+        "polygon": [
+          [
+            740,
+            557
+          ],
+          [
+            883,
+            537
+          ],
+          [
+            895,
+            616
+          ],
+          [
+            750,
+            635
+          ]
+        ],
+        "height": 9
+      },
+      {
+        "id": "east-gatehouse",
+        "polygon": [
+          [
+            944,
+            707
+          ],
+          [
+            976,
+            703
+          ],
+          [
+            977,
+            721
+          ],
+          [
+            946,
+            725
+          ]
+        ],
+        "height": 3.2
+      }
+    ],
+    "water": [
+      [
+        [
+          383,
+          578
+        ],
+        [
+          408,
+          575
+        ],
+        [
+          457,
+          1015
+        ],
+        [
+          432,
+          1018
+        ]
+      ]
+    ],
+    "walkBounds": [
+      -151,
+      149,
+      -55,
+      64
+    ],
+    "orbitPosition": [
+      195,
+      195,
+      235
+    ],
+    "orbitTarget": [
+      0,
+      0,
+      0
+    ],
+    "entries": [
+      {
+        "id": "east",
+        "label": "东门进入",
+        "pixel": [
+          990,
+          622
+        ],
+        "yaw": 1.65
+      },
+      {
+        "id": "yard",
+        "label": "堆场漫步",
+        "pixel": [
+          543,
+          646
+        ],
+        "yaw": -1.45
+      },
+      {
+        "id": "main",
+        "label": "主仓前场",
+        "pixel": [
+          798,
+          637
+        ],
+        "yaw": 3.02
+      }
+    ],
+    "lights": [
+      [
+        984,
+        609
+      ],
+      [
+        937,
+        728
+      ],
+      [
+        504,
+        769
+      ],
+      [
+        474,
+        591
+      ],
+      [
+        720,
+        551
+      ],
+      [
+        745,
+        652
+      ]
+    ]
+  },
+  "georegistration": {
+    "version": 1,
+    "crs": "EPSG:4326",
+    "origin": [
+      119.87986207008362,
+      32.408303310489444
+    ],
+    "scale": [
+      1.000963212377563,
+      0.9961754751280797,
+      1
+    ],
+    "ellipsoidHeight": 0.2,
+    "upAxis": "Y",
+    "forwardAxis": "X",
+    "terrain": "ellipsoid",
+    "heightStatus": "estimated",
+    "imagery": {
+      "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      "credit": "Esri World Imagery",
+      "maximumLevel": 18
+    },
+    "sourceRaster": {
+      "source": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile",
+      "zoom": 18,
+      "x0": 218363,
+      "y0": 106101,
+      "pixels": 1280,
+      "approximate_poi_wgs84": [
+        119.879916,
+        32.408334
+      ],
+      "poi_pixel": [
+        740.0532650649548,
+        648.2236439473927
+      ],
+      "metres_per_pixel": 0.5041559328825945
+    }
+  }
+}

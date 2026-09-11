@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router"
-
 import { BigscreenCompareChart, BigscreenLineChart, BigscreenPieChart, BigscreenSankeyChart } from "@/components/bigscreen/charts"
+import { BigscreenDataState } from "@/components/bigscreen/data-state"
 import { BigscreenScrollBoard } from "@/components/bigscreen/motion"
 import { BigscreenInfoCard, BigscreenMetricCard, BigscreenPanel } from "@/components/bigscreen/panel"
-import { type BigscreenSceneAnchor, BigscreenSceneHost } from "@/components/bigscreen/scene"
+import { BigscreenSceneHost } from "@/components/bigscreen/scene"
 import { useBigscreenCarbon } from "@/lib/bigscreen/hooks"
 
 export const Route = createFileRoute("/_app/bigscreen/carbon")({
@@ -14,38 +14,9 @@ function BigscreenCarbonPage() {
   const carbonQuery = useBigscreenCarbon()
   const carbon = carbonQuery.data?.data
 
-  const sceneAnchors: BigscreenSceneAnchor[] = [
-    {
-      id: "scope1",
-      label: "Scope 1",
-      value: `${carbon?.carbon_compare?.[0]?.current?.toLocaleString("zh-CN", { maximumFractionDigits: 0 }) ?? "0"} kgCO2e`,
-      position: "lt",
-    },
-    {
-      id: "scope2",
-      label: "Scope 2",
-      value: `${carbon?.carbon_compare?.[1]?.current?.toLocaleString("zh-CN", { maximumFractionDigits: 0 }) ?? "0"} kgCO2e`,
-      position: "ct",
-    },
-    {
-      id: "scope3",
-      label: "Scope 3",
-      value: `${carbon?.carbon_compare?.[2]?.current?.toLocaleString("zh-CN", { maximumFractionDigits: 0 }) ?? "0"} kgCO2e`,
-      position: "rt",
-    },
-    {
-      id: "alerts",
-      label: "Carbon Alerts",
-      value: `${carbon?.carbon_alerts?.length ?? 0} 条`,
-      position: "lb",
-    },
-    {
-      id: "factors",
-      label: "Factor Years",
-      value: `${carbon?.hero_metrics?.[2]?.value ?? 0} 个`,
-      position: "rb",
-    },
-  ]
+  if (carbonQuery.isError || !carbon) {
+    return <BigscreenDataState failed={carbonQuery.isError} retry={() => void carbonQuery.refetch()} />
+  }
 
   const alertRows =
     carbon?.carbon_alerts?.map((item) => ({
@@ -71,22 +42,14 @@ function BigscreenCarbonPage() {
       </div>
 
       <div className="bigscreen-main-stack">
-        <BigscreenSceneHost
-          eyebrow="Carbon Scene"
-          title="能碳协同主视觉区"
-          description="能碳协同总览"
-          anchors={sceneAnchors}
-          showCore={false}
-          showSafezone={false}
-          className="bigscreen-scene-ghost"
-        />
+        <BigscreenSceneHost eyebrow="Carbon Scene" title="能碳协同主视觉区" description="能碳协同总览" showCore={false} showSafezone={false} className="bigscreen-scene-ghost" />
 
         <div className="bigscreen-bottom-grid" data-columns="3">
           <BigscreenPanel title={carbon?.carbon_flow.title ?? "范围级碳流"} frame="wide">
             <BigscreenSankeyChart flow={carbon?.carbon_flow ?? { title: "范围级碳流", nodes: [], links: [] }} height={168} />
           </BigscreenPanel>
 
-          <BigscreenPanel title="碳价 / 因子走势" frame="wide">
+          <BigscreenPanel title="电力因子走势" frame="wide">
             <BigscreenLineChart points={carbon?.carbon_price_trend ?? []} height={168} mode="single" />
           </BigscreenPanel>
 

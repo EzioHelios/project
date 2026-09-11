@@ -4,13 +4,12 @@ import { useEffect, useState } from "react"
 
 import "@/components/bigscreen/bigscreen.css"
 
+import { TenantCampusScene } from "@/components/bigscreen/campus/tenant-campus-scene"
 import { ScreenHeader } from "@/components/bigscreen/primitives/ScreenHeader"
-import { BigscreenSceneCanvas } from "@/components/bigscreen/scene-canvas"
 import { BigscreenSkinProvider } from "@/components/bigscreen/skins/context"
 import { getBigscreenSkinDefinition } from "@/components/bigscreen/skins/registry"
-import { useAuthStore } from "@/lib/auth"
+import { BigscreenTenantSwitcher } from "@/components/bigscreen/tenant-switcher"
 import { useBigscreenEnvironment, useBigscreenMeta } from "@/lib/bigscreen/hooks"
-import { resolveTenantBigscreenSceneManifestCandidates } from "@/lib/bigscreen/map/scene-resolver"
 
 const fallbackNav = [
   { label: "企业介绍", path: "/bigscreen/intro" },
@@ -69,7 +68,6 @@ function useClock() {
 
 export function BigscreenLayout() {
   const pathname = useLocation({ select: (location) => location.pathname })
-  const currentTeam = useAuthStore((state) => state.currentTeam)
   const metaVariant = pathname.startsWith("/bigscreen/huayi") ? "huayi" : pathname.startsWith("/bigscreen/zhijiang") ? "zhijiang" : "default"
   const { scale, tier } = useBigscreenViewport()
   const now = useClock()
@@ -79,7 +77,6 @@ export function BigscreenLayout() {
   const environmentQuery = useBigscreenEnvironment(meta?.show_weather !== false)
   const environment = environmentQuery.data
   const skin = getBigscreenSkinDefinition()
-  const sceneManifestUrls = resolveTenantBigscreenSceneManifestCandidates(currentTeam)
   const navItems = metaVariant === "zhijiang" ? [] : metaVariant === "huayi" ? [] : (meta?.nav_items ?? [...fallbackNavByVariant[metaVariant]])
   const resolution = tier === "2160" ? "2160" : "1080"
   const fallbackMeta =
@@ -113,7 +110,7 @@ export function BigscreenLayout() {
                 } as React.CSSProperties
               }
             >
-              <BigscreenSceneCanvas variant="stage" manifestUrls={sceneManifestUrls} />
+              <TenantCampusScene showControls={pathname === "/bigscreen/model"} />
             </div>
             <div className="bigscreen-shell">
               <ScreenHeader
@@ -121,6 +118,7 @@ export function BigscreenLayout() {
                 shortName={meta?.short_name ?? fallbackMeta?.shortName ?? "LC"}
                 description={meta?.description ?? fallbackMeta?.description ?? "围绕园区主视觉对象组织经营总览、电量监控、能碳协同与企业介绍，形成可上墙、可持续观看的大屏系统。"}
                 city={displayCity}
+                tenantSwitcher={<BigscreenTenantSwitcher />}
                 weather={displayWeather}
                 now={now}
                 navItems={navItems}

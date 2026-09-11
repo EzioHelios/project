@@ -3,13 +3,13 @@ import "cesium/Build/Cesium/Widgets/widgets.css"
 import { useEffect, useRef, useState } from "react"
 
 import { createDefaultBigscreenSceneEngine } from "@/lib/bigscreen/map/engine"
-import { loadBigscreenSceneCandidates, resolveBigscreenPublicUrl } from "@/lib/bigscreen/map/scene"
+import { loadBigscreenSceneCandidates } from "@/lib/bigscreen/map/scene"
 import type { BigscreenLoadedScene, BigscreenSceneEngine, BigscreenSceneEngineKind } from "@/lib/bigscreen/map/types"
 
 type BigscreenSceneLoadState = { status: "loading"; message: string } | { status: "ready"; message?: string } | { status: "error"; message: string }
 
 export function BigscreenSceneCanvas({
-  manifestUrl = resolveBigscreenPublicUrl("maps/taizhou-warehouse/scene.json"),
+  manifestUrl,
   manifestUrls,
   createEngine = createDefaultBigscreenSceneEngine,
   className,
@@ -29,10 +29,12 @@ export function BigscreenSceneCanvas({
     status: "loading",
     message: "正在加载园区场景",
   })
-  const manifestCandidateKey = (manifestUrls?.length ? manifestUrls : [manifestUrl]).join("|")
+  const manifestCandidateKey = (manifestUrls?.length ? manifestUrls : [manifestUrl]).filter(Boolean).join("|")
 
   useEffect(() => {
     let cancelled = false
+    let ownedEngine: BigscreenSceneEngine | null = null
+    let ownedObserver: ResizeObserver | null = null
 
     async function mountScene() {
       const manifestCandidates = manifestCandidateKey.split("|").filter(Boolean)
@@ -49,6 +51,11 @@ export function BigscreenSceneCanvas({
 
         setScene(loadedScene)
         const engine = await createEngine(loadedScene.config.sceneEngine)
+        if (cancelled || !containerRef.current) {
+          engine.destroy()
+          return
+        }
+        ownedEngine = engine
         engineRef.current = engine
         await engine.mount({
           container: containerRef.current,
@@ -69,11 +76,12 @@ export function BigscreenSceneCanvas({
           },
         })
 
-        if (typeof ResizeObserver !== "undefined") {
+        if (!cancelled && typeof ResizeObserver !== "undefined") {
           const observer = new ResizeObserver(() => {
             engine.resize()
           })
           observer.observe(containerRef.current)
+          ownedObserver = observer
           observerRef.current = observer
         }
       } catch (error) {
@@ -90,10 +98,10 @@ export function BigscreenSceneCanvas({
 
     return () => {
       cancelled = true
-      observerRef.current?.disconnect()
-      observerRef.current = null
-      engineRef.current?.destroy()
-      engineRef.current = null
+      ownedObserver?.disconnect()
+      if (observerRef.current === ownedObserver) observerRef.current = null
+      ownedEngine?.destroy()
+      if (engineRef.current === ownedEngine) engineRef.current = null
     }
   }, [createEngine, manifestCandidateKey])
 

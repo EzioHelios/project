@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router"
-
 import { BigscreenBarChart, BigscreenLineChart, BigscreenSankeyChart } from "@/components/bigscreen/charts"
+import { BigscreenDataState } from "@/components/bigscreen/data-state"
 import { BigscreenScrollBoard } from "@/components/bigscreen/motion"
 import { BigscreenInfoCard, BigscreenMetricCard, BigscreenPanel } from "@/components/bigscreen/panel"
-import { type BigscreenSceneAnchor, BigscreenSceneHost } from "@/components/bigscreen/scene"
+import { BigscreenSceneHost } from "@/components/bigscreen/scene"
 import { useBigscreenOverview } from "@/lib/bigscreen/hooks"
 
 export const Route = createFileRoute("/_app/bigscreen/overview")({
@@ -14,38 +14,9 @@ function BigscreenOverviewPage() {
   const overviewQuery = useBigscreenOverview()
   const overview = overviewQuery.data?.data
 
-  const sceneAnchors: BigscreenSceneAnchor[] = [
-    {
-      id: "month",
-      label: "Latest Window",
-      value: overview?.filters?.months?.slice(-1)[0]?.label ?? "未标注账期",
-      position: "ct",
-    },
-    {
-      id: "energy",
-      label: "Energy Focus",
-      value: `${overview?.energy_kpis?.[0]?.value?.toLocaleString("zh-CN", { maximumFractionDigits: 0 }) ?? "0"} ${overview?.energy_kpis?.[0]?.unit ?? ""}`.trim(),
-      position: "lt",
-    },
-    {
-      id: "carbon",
-      label: "Carbon Focus",
-      value: `${overview?.carbon_kpis?.[0]?.value?.toLocaleString("zh-CN", { maximumFractionDigits: 0 }) ?? "0"} ${overview?.carbon_kpis?.[0]?.unit ?? ""}`.trim(),
-      position: "rt",
-    },
-    {
-      id: "areas",
-      label: "Online Areas",
-      value: `${overview?.carbon_kpis?.[2]?.value ?? 0} 个`,
-      position: "lb",
-    },
-    {
-      id: "meters",
-      label: "Active Meters",
-      value: `${overview?.energy_kpis?.[2]?.value ?? 0} 台`,
-      position: "rb",
-    },
-  ]
+  if (overviewQuery.isError || !overview) {
+    return <BigscreenDataState failed={overviewQuery.isError} retry={() => void overviewQuery.refetch()} />
+  }
 
   const flowRanking = overview?.energy_flow?.nodes?.filter((node) => node.category === "area").map((node) => ({ name: node.name, value: node.value ?? 0 })) ?? []
 
@@ -56,7 +27,7 @@ function BigscreenOverviewPage() {
       .map((point) => ({
         period: point.period,
         energy: point.energy_kwh.toLocaleString("zh-CN", { maximumFractionDigits: 0 }),
-        carbon: point.carbon_co2e.toLocaleString("zh-CN", { maximumFractionDigits: 0 }),
+        carbon: point.carbon_co2e?.toLocaleString("zh-CN", { maximumFractionDigits: 0 }) ?? "—",
       })) ?? []
 
   return (
@@ -84,7 +55,6 @@ function BigscreenOverviewPage() {
           eyebrow="Overview Scene"
           title="园区经营总览主视觉区"
           description="园区经营总览"
-          anchors={sceneAnchors}
           showCore={false}
           showSafezone={false}
           className="bigscreen-scene-ghost"

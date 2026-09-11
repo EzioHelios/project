@@ -65,7 +65,7 @@ export function BigscreenMetricCard({
   tone = "cyan",
   compact = false,
 }: {
-  metric: { label: string; value: number; unit?: string | null; ratio?: number | null }
+  metric: { label: string; value: number | null; unit?: string | null; ratio?: number | null; emphasis?: string | null }
   tone?: "cyan" | "amber" | "emerald"
   compact?: boolean
 }) {
@@ -84,11 +84,11 @@ export function BigscreenMetricCard({
       </div>
       <div className="bigscreen-metric-card-main">
         <div className={cn("bigscreen-kpi-value bigscreen-metric-card-value", compact ? "text-[30px]" : "text-[var(--hero-metric-size)]")}>
-          <BigscreenCountUp value={metric.value} />
+          {metric.value == null ? "—" : <BigscreenCountUp value={metric.value} />}
         </div>
       </div>
       <div className="bigscreen-metric-card-bottom" data-ratio-tone={ratioTone}>
-        {metric.ratio === null || metric.ratio === undefined ? "本期暂无对比" : `较上期 ${metric.ratio > 0 ? "+" : ""}${metric.ratio.toFixed(1)}%`}
+        {metric.emphasis ?? (metric.ratio === null || metric.ratio === undefined ? "本期暂无对比" : `较上期 ${metric.ratio > 0 ? "+" : ""}${metric.ratio.toFixed(1)}%`)}
       </div>
     </article>
   )

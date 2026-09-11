@@ -27,8 +27,8 @@ def _to_float(value: Decimal | float | None) -> float:
     return float(value)
 
 
-def _percent_change(current: float, previous: float) -> float | None:
-    if previous == 0:
+def _percent_change(current: float | None, previous: float | None) -> float | None:
+    if current is None or previous is None or previous == 0:
         return None
     return round(((current - previous) / previous) * 100, 1)
 
@@ -100,6 +100,7 @@ class BigscreenMetaService:
             nav_items=[
                 bs.BigscreenNavItem(label="企业介绍", path="/bigscreen/intro"),
                 bs.BigscreenNavItem(label="态势总览", path="/bigscreen/overview"),
+                bs.BigscreenNavItem(label="园区模型", path="/bigscreen/model"),
                 bs.BigscreenNavItem(label="电量监控", path="/bigscreen/power"),
                 bs.BigscreenNavItem(label="能碳协同", path="/bigscreen/carbon"),
             ],
@@ -203,6 +204,7 @@ class BigscreenOverviewService:
                     m.Scope2MeterAggregate.billing_month,
                     func.sum(m.Scope2MeterAggregate.total_kwh),
                 )
+                .where(m.Scope2MeterAggregate.total_kwh.is_not(None))
                 .group_by(m.Scope2MeterAggregate.billing_month)
                 .order_by(m.Scope2MeterAggregate.billing_month.asc())
             )
@@ -210,22 +212,33 @@ class BigscreenOverviewService:
         monthly_carbon = await _canonical_monthly_carbon(self.session)
 
         latest_month = monthly_rows[-1][0] if monthly_rows else None
-        latest_energy = _to_float(monthly_rows[-1][1]) if monthly_rows else 0
-        prev_energy = _to_float(monthly_rows[-2][1]) if len(monthly_rows) > 1 else 0
-        latest_carbon = monthly_carbon.get(str(latest_month), 0.0) if latest_month else 0.0
-        previous_month = str(monthly_rows[-2][0]) if len(monthly_rows) > 1 else None
-        prev_carbon = monthly_carbon.get(previous_month, 0.0) if previous_month else 0.0
+        latest_energy = _to_float(monthly_rows[-1][1]) if monthly_rows and monthly_rows[-1][1] is not None else None
+        prev_energy = (
+            _to_float(monthly_rows[-2][1]) if len(monthly_rows) > 1 and monthly_rows[-2][1] is not None else None
+        )
+        carbon_months = sorted(monthly_carbon)
+        carbon_month = carbon_months[-1] if carbon_months else None
+        latest_carbon = monthly_carbon.get(carbon_month) if carbon_month else None
+        prev_carbon = monthly_carbon.get(carbon_months[-2]) if len(carbon_months) > 1 else None
+        carbon_year = carbon_month[:4] if carbon_month else datetime.now(UTC).strftime("%Y")
         current_year = (latest_month or datetime.now(UTC).strftime("%Y-%m"))[:4]
         year_rows = [row for row in monthly_rows if row[0] and row[0].startswith(current_year)]
-        ytd_energy = sum(_to_float(row[1]) for row in year_rows)
-        ytd_carbon = sum(value for month, value in monthly_carbon.items() if month.startswith(current_year))
+        ytd_energy = (
+            sum(_to_float(row[1]) for row in year_rows) if any(row[1] is not None for row in year_rows) else None
+        )
+        ytd_carbon = (
+            sum(value for month, value in monthly_carbon.items() if month.startswith(carbon_year))
+            if carbon_month
+            else None
+        )
 
         active_meter_count = (
             int(
                 (
                     await self.session.execute(
                         select(func.count(func.distinct(m.Scope2MeterAggregate.ammeter_id))).where(
-                            m.Scope2MeterAggregate.billing_month == latest_month
+                            m.Scope2MeterAggregate.billing_month == latest_month,
+                            m.Scope2MeterAggregate.total_kwh.is_not(None),
                         )
                     )
                 ).scalar_one()
@@ -247,7 +260,7 @@ class BigscreenOverviewService:
             bs.BigscreenTrendPoint(
                 period=_month_period(row[0]),
                 energy_kwh=_to_float(row[1]),
-                carbon_co2e=monthly_carbon.get(str(row[0]), 0.0),
+                carbon_co2e=monthly_carbon.get(str(row[0])),
                 value=_to_float(row[1]),
             )
             for row in monthly_rows[-12:]
@@ -258,7 +271,10 @@ class BigscreenOverviewService:
             raw_by_area_rows = (
                 await self.session.execute(
                     select(m.Scope2MeterAggregate.area_name, func.sum(m.Scope2MeterAggregate.total_kwh))
-                    .where(m.Scope2MeterAggregate.billing_month == latest_month)
+                    .where(
+                        m.Scope2MeterAggregate.billing_month == latest_month,
+                        m.Scope2MeterAggregate.total_kwh.is_not(None),
+                    )
                     .group_by(m.Scope2MeterAggregate.area_name)
                     .order_by(func.sum(m.Scope2MeterAggregate.total_kwh).desc())
                 )
@@ -281,23 +297,39 @@ class BigscreenOverviewService:
                 bs.BigscreenMetric(
                     id="month-energy",
                     label="最新账期用电",
-                    value=round(latest_energy, 2),
+                    value=round(latest_energy, 2) if latest_energy is not None else None,
+                    emphasis=f"账期 {latest_month}" if latest_energy is not None else "暂无电量汇总",
                     unit="kWh",
                     ratio=_percent_change(latest_energy, prev_energy),
                 ),
-                bs.BigscreenMetric(id="ytd-energy", label="本年累计用电", value=round(ytd_energy, 2), unit="kWh"),
-                bs.BigscreenMetric(id="active-meters", label="活跃电表", value=active_meter_count, unit="台"),
+                bs.BigscreenMetric(
+                    id="ytd-energy",
+                    label=f"{current_year}年累计用电",
+                    value=round(ytd_energy, 2) if ytd_energy is not None else None,
+                    unit="kWh",
+                    emphasis=f"截至 {latest_month}" if ytd_energy is not None else "暂无电量汇总",
+                ),
+                bs.BigscreenMetric(
+                    id="active-meters", label="账期电表", value=active_meter_count if latest_month else None, unit="台"
+                ),
             ],
             carbon_kpis=[
                 bs.BigscreenMetric(
                     id="month-carbon",
                     label="最新账期碳排",
-                    value=round(latest_carbon, 2),
+                    value=round(latest_carbon, 2) if latest_carbon is not None else None,
+                    emphasis=f"核算期 {carbon_month}" if carbon_month else "暂无核算结果",
                     unit="kgCO2e",
                     ratio=_percent_change(latest_carbon, prev_carbon),
                 ),
-                bs.BigscreenMetric(id="ytd-carbon", label="本年累计碳排", value=round(ytd_carbon, 2), unit="kgCO2e"),
-                bs.BigscreenMetric(id="area-count", label="在线区域", value=area_count, unit="个"),
+                bs.BigscreenMetric(
+                    id="ytd-carbon",
+                    label=f"{carbon_year}年累计碳排",
+                    value=round(ytd_carbon, 2) if ytd_carbon is not None else None,
+                    unit="kgCO2e",
+                    emphasis=f"截至 {carbon_month}" if carbon_month else "暂无核算结果",
+                ),
+                bs.BigscreenMetric(id="area-count", label="已启用区域", value=area_count, unit="个"),
             ],
             energy_flow=bs.BigscreenFlowData(title="购电流向", unit="kWh", nodes=flow_nodes, links=flow_links),
             production_trend=trend_points,
@@ -322,6 +354,7 @@ class BigscreenPowerService:
                     m.Scope2MeterAggregate.billing_month,
                     func.sum(m.Scope2MeterAggregate.total_kwh),
                 )
+                .where(m.Scope2MeterAggregate.total_kwh.is_not(None))
                 .group_by(m.Scope2MeterAggregate.billing_month)
                 .order_by(m.Scope2MeterAggregate.billing_month.asc())
             )
@@ -335,7 +368,10 @@ class BigscreenPowerService:
             raw_structure_rows = (
                 await self.session.execute(
                     select(m.Scope2MeterAggregate.area_name, func.sum(m.Scope2MeterAggregate.total_kwh))
-                    .where(m.Scope2MeterAggregate.billing_month == latest_month)
+                    .where(
+                        m.Scope2MeterAggregate.billing_month == latest_month,
+                        m.Scope2MeterAggregate.total_kwh.is_not(None),
+                    )
                     .group_by(m.Scope2MeterAggregate.area_name)
                     .order_by(func.sum(m.Scope2MeterAggregate.total_kwh).desc())
                 )
@@ -344,7 +380,10 @@ class BigscreenPowerService:
             raw_ranking_rows = (
                 await self.session.execute(
                     select(m.Scope2MeterAggregate.ammeter_name, func.sum(m.Scope2MeterAggregate.total_kwh))
-                    .where(m.Scope2MeterAggregate.billing_month == latest_month)
+                    .where(
+                        m.Scope2MeterAggregate.billing_month == latest_month,
+                        m.Scope2MeterAggregate.total_kwh.is_not(None),
+                    )
                     .group_by(m.Scope2MeterAggregate.ammeter_name)
                     .order_by(func.sum(m.Scope2MeterAggregate.total_kwh).desc())
                 )
@@ -377,7 +416,7 @@ class BigscreenPowerService:
             bs.BigscreenTrendPoint(
                 period=_month_period(row[0]),
                 energy_kwh=_to_float(row[1]),
-                carbon_co2e=monthly_carbon.get(str(row[0]), 0.0),
+                carbon_co2e=monthly_carbon.get(str(row[0])),
                 value=_to_float(row[1]),
             )
             for row in monthly_rows[-12:]
@@ -416,12 +455,15 @@ class BigscreenPowerService:
             energy_flow=bs.BigscreenFlowData(title="区域用电流图", unit="kWh", nodes=flow_nodes, links=flow_links),
             energy_timeseries=trend_points,
             hero_metrics=[
-                bs.BigscreenMetric(id="power-online", label="在线终端", value=device_online, unit="台"),
+                bs.BigscreenMetric(id="power-online", label="状态正常终端", value=device_online, unit="台"),
                 bs.BigscreenMetric(id="power-total", label="终端总量", value=device_total, unit="台"),
                 bs.BigscreenMetric(
                     id="power-latest",
                     label="最新账期总电量",
-                    value=round(_to_float(monthly_rows[-1][1]) if monthly_rows else 0, 2),
+                    value=round(_to_float(monthly_rows[-1][1]), 2)
+                    if monthly_rows and monthly_rows[-1][1] is not None
+                    else None,
+                    emphasis=f"账期 {latest_month}" if latest_month else "暂无电量汇总",
                     unit="kWh",
                 ),
             ],
@@ -545,13 +587,22 @@ class BigscreenCarbonService:
                 bs.BigscreenComparisonItem(name="范围1", current=round(scope1_total, 2), unit="kgCO2e"),
                 bs.BigscreenComparisonItem(name="范围2", current=round(scope2_total, 2), unit="kgCO2e"),
                 bs.BigscreenComparisonItem(name="范围3", current=round(scope3_total, 2), unit="kgCO2e"),
-            ],
+            ]
+            if category_values
+            else [],
             production_share=[
                 bs.BigscreenDistributionItem(name="范围1", value=round(scope1_total, 2)),
                 bs.BigscreenDistributionItem(name="范围2", value=round(scope2_total, 2)),
                 bs.BigscreenDistributionItem(name="范围3", value=round(scope3_total, 2)),
-            ],
-            carbon_flow=bs.BigscreenFlowData(title="范围级碳流", unit="kgCO2e", nodes=nodes, links=links),
+            ]
+            if category_values
+            else [],
+            carbon_flow=bs.BigscreenFlowData(
+                title="范围级碳流",
+                unit="kgCO2e",
+                nodes=nodes if category_values else [],
+                links=links if category_values else [],
+            ),
             carbon_alerts=[
                 bs.BigscreenAlertItem(
                     id=f"carbon-alert-{item.id}",
@@ -573,10 +624,16 @@ class BigscreenCarbonService:
                 bs.BigscreenMetric(
                     id="carbon-total",
                     label="总碳排",
-                    value=round(scope1_total + scope2_total + scope3_total, 2),
+                    value=round(scope1_total + scope2_total + scope3_total, 2) if category_values else None,
+                    emphasis="暂无核算结果" if not category_values else None,
                     unit="kgCO2e",
                 ),
-                bs.BigscreenMetric(id="carbon-scope2", label="范围2占比", value=round(scope2_total, 2), unit="kgCO2e"),
+                bs.BigscreenMetric(
+                    id="carbon-scope2",
+                    label="范围2碳排",
+                    value=round(scope2_total, 2) if category_values else None,
+                    unit="kgCO2e",
+                ),
                 bs.BigscreenMetric(id="carbon-factors", label="有效电力因子年份", value=len(factor_rows), unit="个"),
             ],
         )
