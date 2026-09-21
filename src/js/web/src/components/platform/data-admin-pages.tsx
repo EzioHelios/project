@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { CameraConfiguration } from "@/components/vision/camera-configuration"
 
 type ApiResponse<T> = { code: number; msg?: string; data: T }
 export type PageResult<T> = { items: T[]; total: number; limit: number; offset: number }
@@ -925,38 +926,52 @@ export function DevicePointsPage() {
 }
 
 export function VideoPage() {
+  const [recognitionCamera, setRecognitionCamera] = useState<number | null>(null)
   return (
-    <CrudDataPage
-      title="视频监控"
-      endpoint="/api/data/video-monitors"
-      queryKey={["data", "video-monitors"]}
-      columns={[
-        { key: "location", label: "位置" },
-        { key: "f_area", label: "区域" },
-        { key: "ip_address", label: "IP" },
-        { key: "brand", label: "品牌" },
-        { key: "status", label: "状态", render: (row) => (Number(row.status) === 1 ? "故障" : "在线") },
-      ]}
-      fields={[
-        { name: "location", label: "位置", required: true },
-        { name: "f_area", label: "所属区域" },
-        { name: "f_area_type", label: "区域类型" },
-        { name: "video_url", label: "视频地址" },
-        {
-          name: "status",
-          label: "状态",
-          type: "select",
-          options: [
-            { label: "在线", value: "0" },
-            { label: "故障", value: "1" },
-          ],
-        },
-        { name: "ip_address", label: "IP地址" },
-        { name: "brand", label: "品牌" },
-        { name: "b_model", label: "型号" },
-        { name: "install_time", label: "安装时间" },
-      ]}
-    />
+    <>
+      <CrudDataPage
+        title="视频监控"
+        endpoint="/api/data/video-monitors"
+        queryKey={["data", "video-monitors"]}
+        topActions={
+          <Button asChild variant="outline">
+            <Link to="/bigscreen/vision">视觉作业大屏</Link>
+          </Button>
+        }
+        rowActions={(row) => (
+          <Button variant="outline" size="sm" onClick={() => setRecognitionCamera(Number(row.id))}>
+            识别配置
+          </Button>
+        )}
+        columns={[
+          { key: "location", label: "位置" },
+          { key: "f_area", label: "区域" },
+          { key: "ip_address", label: "IP" },
+          { key: "brand", label: "品牌" },
+          { key: "status", label: "状态", render: (row) => (Number(row.status) === 1 ? "故障" : "在线") },
+        ]}
+        fields={[
+          { name: "location", label: "位置", required: true },
+          { name: "f_area", label: "所属区域" },
+          { name: "f_area_type", label: "区域类型" },
+          { name: "video_url", label: "视频地址" },
+          {
+            name: "status",
+            label: "状态",
+            type: "select",
+            options: [
+              { label: "在线", value: "0" },
+              { label: "故障", value: "1" },
+            ],
+          },
+          { name: "ip_address", label: "IP地址" },
+          { name: "brand", label: "品牌" },
+          { name: "b_model", label: "型号" },
+          { name: "install_time", label: "安装时间" },
+        ]}
+      />
+      <CameraConfiguration cameraId={recognitionCamera} onClose={() => setRecognitionCamera(null)} />
+    </>
   )
 }
 

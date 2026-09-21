@@ -219,6 +219,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
           pathname.startsWith("/data/commute") ||
           pathname.startsWith("/data/inbound") ||
           pathname.startsWith("/data/outbound") ||
+          pathname.startsWith("/data/material-handling") ||
           pathname.startsWith("/data/product-prices") ||
           pathname.startsWith("/data/production-output") ||
           pathname.startsWith("/data/product-resource-bindings"),
@@ -226,6 +227,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
           { title: "员工通勤", to: "/data/commute" },
           { title: "入库管理", to: "/data/inbound" },
           { title: "出库管理", to: "/data/outbound" },
+          { title: "物资作业", to: "/data/material-handling" },
           { title: "产品价格", to: "/data/product-prices" },
           { title: "产品批次产量", to: "/data/production-output" },
           { title: "产品产线关联", to: "/data/product-resource-bindings" },

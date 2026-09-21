@@ -17,6 +17,7 @@ const fallbackNav = [
   { label: "园区模型", path: "/bigscreen/model" },
   { label: "电量监控", path: "/bigscreen/power" },
   { label: "能碳协同", path: "/bigscreen/carbon" },
+  { label: "视觉作业", path: "/bigscreen/vision" },
 ]
 
 const fallbackNavByVariant = {
@@ -110,7 +111,7 @@ export function BigscreenLayout() {
                 } as React.CSSProperties
               }
             >
-              <TenantCampusScene showControls={pathname === "/bigscreen/model"} />
+              {pathname !== "/bigscreen/vision" && <TenantCampusScene showControls={pathname === "/bigscreen/model"} />}
             </div>
             <div className="bigscreen-shell">
               <ScreenHeader

@@ -103,6 +103,7 @@ class BigscreenMetaService:
                 bs.BigscreenNavItem(label="园区模型", path="/bigscreen/model"),
                 bs.BigscreenNavItem(label="电量监控", path="/bigscreen/power"),
                 bs.BigscreenNavItem(label="能碳协同", path="/bigscreen/carbon"),
+                bs.BigscreenNavItem(label="视觉作业", path="/bigscreen/vision"),
             ],
         )
 

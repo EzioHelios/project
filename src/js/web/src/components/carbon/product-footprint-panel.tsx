@@ -6,6 +6,7 @@ import { toast } from "sonner"
 
 import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, ChartPanel, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
+import { MaterialResultImport } from "@/components/carbon/material-result-import"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
 import { type PageResult, request, requestPage } from "@/components/platform/data-admin-pages"
 import { Badge } from "@/components/ui/badge"
@@ -308,6 +309,8 @@ const boundaryLabels: Record<string, string> = {
 }
 
 const resultLabels: Record<string, string> = {
+  pending: "待核算",
+  stale_source: "待更新",
   not_calculated: "未核算",
   no_inventory: "无清单",
   incomplete_inventory: "清单不完整",
@@ -738,6 +741,7 @@ export function ProductFootprintPanel({ header }: { header?: ReactNode }) {
             title="活动数据清单"
             actions={
               <div className="flex flex-wrap items-center gap-2">
+                <MaterialResultImport studyId={activeStudyId} stages={stages} />
                 <Dialog open={supplierImportOpen} onOpenChange={setSupplierImportOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" variant="outline" disabled={!activeStudyId}>
