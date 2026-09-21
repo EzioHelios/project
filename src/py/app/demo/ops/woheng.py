@@ -50,6 +50,9 @@ WOHENG_COMPANY_CONTACT = "林启航"
 WOHENG_COMPANY_CONTACT_EMAIL = "lin.qihang@voryntis-auto.example.com"
 WOHENG_SOURCE_NAME = "沃衡汽车统一演示包V1"
 WOHENG_DEMO_PERMISSION_SPECS: tuple[tuple[str, str, str, str], ...] = (
+    ("material_operations:write", "维护物资作业", "维护和确认所属租户物资作业", "material_allocation"),
+    ("material_allocation:calculate", "计算作业分配", "执行设备小时电量分配", "material_allocation"),
+    ("product_footprint:write", "维护产品碳足迹", "引用和同步物资作业结果", "product_footprint"),
     ("carbon.inventory.view", "查看温室气体盘查", "查看规范化活动、参数、证据和核算结果", "carbon"),
     ("carbon.inventory.import", "导入温室气体活动", "下载分类模板、预检并导入盘查数据", "carbon"),
     ("carbon.inventory.calculate", "执行温室气体核算", "按已发布方法和报告配置生成核算快照", "carbon"),
@@ -81,6 +84,8 @@ MIN_BOUNDARY_BOUND_ENERGY_FACT_COUNT = 120
 MIN_OPERATION_LEDGER_COUNT = 6
 MIN_PRODUCTION_DATA_COUNT = 3
 MIN_PRODUCT_FOOTPRINT_STUDY_COUNT = 1
+MIN_MATERIAL_HANDLING_OPERATION_COUNT = 8
+MIN_MATERIAL_ALLOCATION_RESULT_COUNT = 8
 MIN_SUPPLY_CHAIN_SUPPLIER_COUNT = 2
 MIN_REDUCTION_PROJECT_COUNT = 5
 MIN_ALARM_EVENT_COUNT = 1
@@ -106,6 +111,8 @@ LEGACY_SHOWCASE_MARKERS = (
 )
 TOU_VALLEY_END_HOUR = 8
 TOU_PEAK_HOURS = frozenset({10, 11, 12, 13, 14, 18, 19, 20})
+MATERIAL_HANDLING_HIGH_LOAD_START_HOUR = 10
+MATERIAL_HANDLING_HIGH_LOAD_END_HOUR = 15
 
 
 def _demo_tou_period(reading_time: datetime) -> str:
@@ -451,6 +458,8 @@ class WohengShowcasePackage:
                 and counts["production_outputs"] >= MIN_PRODUCTION_DATA_COUNT
                 and counts["production_resource_bindings"] >= MIN_PRODUCTION_DATA_COUNT
                 and counts["product_footprint_studies"] >= MIN_PRODUCT_FOOTPRINT_STUDY_COUNT
+                and counts["material_handling_operations"] >= MIN_MATERIAL_HANDLING_OPERATION_COUNT
+                and counts["material_allocation_results"] >= MIN_MATERIAL_ALLOCATION_RESULT_COUNT
                 and counts["supply_chain_suppliers"] >= MIN_SUPPLY_CHAIN_SUPPLIER_COUNT
                 and counts["supplier_disclosure_tasks"] >= MIN_SUPPLY_CHAIN_SUPPLIER_COUNT
                 and counts["category_51_activities"] >= 1
@@ -489,6 +498,8 @@ class WohengShowcasePackage:
                         "required_operation_ledger_rows": MIN_OPERATION_LEDGER_COUNT,
                         "required_production_data_rows": MIN_PRODUCTION_DATA_COUNT,
                         "required_product_footprint_studies": MIN_PRODUCT_FOOTPRINT_STUDY_COUNT,
+                        "required_material_handling_operations": MIN_MATERIAL_HANDLING_OPERATION_COUNT,
+                        "required_material_allocation_results": MIN_MATERIAL_ALLOCATION_RESULT_COUNT,
                         "required_supply_chain_suppliers": MIN_SUPPLY_CHAIN_SUPPLIER_COUNT,
                         "required_reduction_projects": MIN_REDUCTION_PROJECT_COUNT,
                         "required_alarm_events": MIN_ALARM_EVENT_COUNT,
@@ -851,6 +862,7 @@ class WohengShowcasePackage:
         await self._ensure_operational_ledgers(tenant)
         await self._ensure_production_denominators(tenant)
         await self._ensure_supply_chain_and_product_footprint(tenant)
+        await self._ensure_material_handling_allocation(tenant)
         await self._ensure_category_51_activity(tenant)
         await self._ensure_warning_events(tenant)
         await self._ensure_video_alarm_events(tenant)
@@ -3321,6 +3333,11 @@ class WohengShowcasePackage:
         result.report_status = "generated"
         result.remark = "沃衡汽车统一演示包产品碳足迹核算结果。"
 
+    async def _ensure_material_handling_allocation(self, tenant: WohengTenantSpec) -> None:
+        from app.demo.ops.material_handling import seed_material_handling
+
+        await seed_material_handling(self._session, tenant.slug, tenant.city_code)
+
     async def _ensure_warning_events(self, tenant: WohengTenantSpec) -> None:
         equipment = await self._session.scalar(
             select(m.MonitorEquipment).where(m.MonitorEquipment.code == "PCC-METER-01")
@@ -3481,6 +3498,31 @@ class WohengShowcasePackage:
             ),
             "product_footprint_results": int(
                 await self._session.scalar(select(func.count(m.ProductFootprintResult.id))) or 0
+            ),
+            "material_handling_operations": int(
+                await self._session.scalar(
+                    select(func.count(m.MaterialHandlingOperation.id)).where(
+                        m.MaterialHandlingOperation.operation_status == "confirmed",
+                        m.MaterialHandlingOperation.active_intervals.is_not(None),
+                    )
+                )
+                or 0
+            ),
+            "material_allocation_runs": int(
+                await self._session.scalar(
+                    select(func.count(m.MaterialCarbonAllocationRun.id)).where(
+                        m.MaterialCarbonAllocationRun.status == "completed"
+                    )
+                )
+                or 0
+            ),
+            "material_allocation_results": int(
+                await self._session.scalar(
+                    select(func.count(m.MaterialCarbonAllocationResult.id)).where(
+                        m.MaterialCarbonAllocationResult.data_status == "ready"
+                    )
+                )
+                or 0
             ),
             "supply_chain_suppliers": int(
                 await self._session.scalar(select(func.count(m.SupplyChainSupplier.id))) or 0
