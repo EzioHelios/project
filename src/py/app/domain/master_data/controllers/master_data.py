@@ -56,6 +56,14 @@ if TYPE_CHECKING:
 
 ADMIN_BODY = Body()
 
+VISION_PRIVATE_FIELDS = {"recognition_config", "recognition_state", "recognition_preview"}
+
+
+def _camera_payload(data: dict[str, Any]) -> dict[str, Any]:
+    if VISION_PRIVATE_FIELDS.intersection(data):
+        raise ClientException(detail="请通过识别配置维护识别参数")
+    return _payload_without_none(data)
+
 
 class MasterDataController(Controller):
     tags = ["Master Data"]
@@ -1595,7 +1603,7 @@ class MasterDataController(Controller):
         security_audit_service: AuditLogService,
         data: dict[str, Any] = ADMIN_BODY,
     ) -> Response[dict]:
-        obj = m.VideoMonitor(**_payload_without_none(data))
+        obj = m.VideoMonitor(**_camera_payload(data))
         db_session.add(obj)
         await db_session.commit()
         await db_session.refresh(obj)
@@ -1622,7 +1630,7 @@ class MasterDataController(Controller):
         obj = await db_session.get(m.VideoMonitor, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        for field, value in _payload_without_none(data).items():
+        for field, value in _camera_payload(data).items():
             setattr(obj, field, value)
         await db_session.commit()
         await self._log_admin_data_event(
@@ -1647,6 +1655,8 @@ class MasterDataController(Controller):
         obj = await db_session.get(m.VideoMonitor, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
+        if await db_session.scalar(select(m.VisionObservation.id).where(m.VisionObservation.camera_id == record_id).limit(1)):
+            raise ClientException(detail="摄像头已有识别记录，请停用并保留历史记录")
         details = {"f_area": obj.f_area, "ip_address": obj.ip_address}
         await db_session.delete(obj)
         await db_session.commit()

@@ -324,6 +324,8 @@ class SaqSettings:
 class CarbonSettings:
     """Carbon management specific settings for external APIs."""
 
+    VISION_HLS_ORIGIN: str = field(default_factory=get_env("VISION_HLS_ORIGIN", ""))
+
     YUNJI_API_KEY: str = field(default_factory=get_env("YUNJI_API_KEY", "94A26B674E5442809FD4DD9B51F83723"))
     YUNJI_API_HOST: str = field(default_factory=get_env("YUNJI_API_HOST", "http://nhapi.yunjichaobiao.com/"))
     YUNJI_PULL_START_TIME: str = field(default_factory=get_env("YUNJI_PULL_START_TIME", "2023-03-22 00:00:00"))

@@ -544,6 +544,8 @@ def model_to_dict(obj: Any) -> dict:
 
     result = {}
     for c in obj.__table__.columns:
+        if c.info.get("private"):
+            continue
         val = getattr(obj, c.name)
         # 处理不可直接 JSON 序列化的类型
         if isinstance(val, (datetime.date, datetime.datetime)):

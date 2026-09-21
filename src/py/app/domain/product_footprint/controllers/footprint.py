@@ -6,12 +6,15 @@ from litestar import Controller, delete, get, patch, post
 from litestar.params import Body
 from litestar.response import File, Response
 
+from app.domain.accounts.guards import requires_permission
 from app.domain.energy.controllers._utils import model_to_dict, ok_data
+from app.domain.material_allocation.schemas import MaterialResultImport  # noqa: TC001
 from app.domain.product_footprint.queries.footprint import (
     ProductFootprintQuery,
     ProductFootprintQueryService,
 )
 from app.domain.product_footprint.usecases.footprint import ProductFootprintUseCase
+from app.domain.product_footprint.usecases.material_import import MaterialResultImportUseCase
 from app.domain.product_footprint.usecases.report_export import ProductFootprintReportExportUseCase
 
 if TYPE_CHECKING:
@@ -23,6 +26,22 @@ FOOTPRINT_BODY = Body()
 
 class ProductFootprintController(Controller):
     tags = ["Product Footprint"]
+
+    @post("/api/carbon/product-footprint/studies/{study_id:int}/material-results", guards=[requires_permission("product_footprint:write")])
+    async def import_material(self, db_session: AsyncSession, study_id: int, data: MaterialResultImport) -> Response[dict]:
+        try:
+            item = await MaterialResultImportUseCase(db_session).import_result(study_id, data.result_id, data.stage_id)
+            await db_session.commit()
+            return Response(content=ok_data(model_to_dict(item)))
+        except ValueError as exc:
+            await db_session.rollback()
+            return Response(content={"msg":str(exc)}, status_code=400)
+
+    @delete("/api/carbon/product-footprint/material-references/{item_id:int}", status_code=200, guards=[requires_permission("product_footprint:write")])
+    async def unlink_material(self, db_session: AsyncSession, item_id: int) -> Response[dict]:
+        await MaterialResultImportUseCase(db_session).unlink(item_id)
+        await db_session.commit()
+        return Response(content=ok_data({"deleted":True}))
 
     @get("/api/carbon/product-footprint/summary")
     async def get_summary(self, db_session: AsyncSession) -> Response[dict]:

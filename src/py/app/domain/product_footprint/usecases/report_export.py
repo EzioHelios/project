@@ -39,9 +39,16 @@ class ProductFootprintReportExportUseCase:
         self._session = session
 
     async def export_report(self, study_id: int) -> ProductFootprintReportExport:
+        from app.domain.product_footprint.usecases.material_import import MaterialResultImportUseCase
+
+        await MaterialResultImportUseCase(self._session).validate_study(study_id)
         report = await ProductFootprintQueryService(self._session).report(study_id)
         if not report:
             msg = "产品碳足迹研究不存在"
+            raise ValueError(msg)
+        if (any(item.get("source_type") == "material_allocation" for item in report.get("inventory_items", []))
+            and report.get("study", {}).get("result_status") in {"pending", "stale_source"}):
+            msg = "物资作业引用已变更，请重新计算后导出"  # noqa: RUF001
             raise ValueError(msg)
 
         export_no = _export_no(report)

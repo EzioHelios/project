@@ -16,6 +16,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -619,6 +620,133 @@ class EquipmentWorkloadFact(TeamScopedMixin, BigIntAuditBase):
     remark: Mapped[str | None] = mapped_column(Text)
 
 
+class MaterialHandlingOperation(TeamScopedMixin, BigIntAuditBase):
+    """物资仓储作业记录，用于设备能耗向物资批次分摊."""
+
+    __tablename__ = "dataapp_materialhandlingoperation"
+    __table_args__ = (
+        UniqueConstraint(
+            "team_id",
+            "source_system",
+            "source_record_id",
+            name="uq_material_handling_operation_team_source",
+        ),
+        Index("ix_material_handling_operation_period", "team_id", "period_start", "period_end"),
+        Index("ix_material_handling_operation_material", "team_id", "material_code", "batch_no"),
+        Index("ix_material_handling_operation_equipment", "team_id", "equipment_id", "operation_type"),
+    )
+
+    source_system: Mapped[str] = mapped_column(String(32), default="manual", index=True)
+    source_record_id: Mapped[str] = mapped_column(String(128))
+    operation_no: Mapped[str] = mapped_column(String(64), index=True)
+    operation_type: Mapped[str] = mapped_column(String(32), index=True)
+    operation_status: Mapped[str] = mapped_column(String(16), default="confirmed", index=True)
+    material_id: Mapped[int | None] = mapped_column(ForeignKey("dataapp_productionproduct.id"), index=True)
+    active_intervals: Mapped[list[dict[str, str]] | None] = mapped_column(JSON)
+    period_start: Mapped[datetime] = mapped_column(DateTime, index=True)
+    period_end: Mapped[datetime] = mapped_column(DateTime, index=True)
+    material_code: Mapped[str] = mapped_column(String(64), index=True)
+    material_name: Mapped[str | None] = mapped_column(String(128))
+    material_spec: Mapped[str | None] = mapped_column(String(128))
+    material_category: Mapped[str | None] = mapped_column(String(64), index=True)
+    batch_no: Mapped[str | None] = mapped_column(String(64), index=True)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    unit: Mapped[str] = mapped_column(String(16), default="pcs")
+    weight_kg: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    equipment_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dataapp_monitorequipment.id", ondelete="SET NULL"), index=True
+    )
+    equipment_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    equipment_name: Mapped[str | None] = mapped_column(String(128))
+    equipment_type: Mapped[str] = mapped_column(String(32), index=True)
+    area_id: Mapped[int | None] = mapped_column(ForeignKey("dataapp_monitorsector.id", ondelete="SET NULL"), index=True)
+    area_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    area_name: Mapped[str | None] = mapped_column(String(128))
+    duration_minutes: Mapped[Decimal] = mapped_column(Numeric(12, 4))
+    handling_distance_m: Mapped[Decimal | None] = mapped_column(Numeric(14, 4))
+    source_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    data_quality: Mapped[str] = mapped_column(String(24), default="measured", index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
+class MaterialCarbonAllocationRun(TeamScopedMixin, BigIntAuditBase):
+    """物资仓储作业碳分摊计算批次."""
+
+    __tablename__ = "carbon_material_allocation_run"
+    __table_args__ = (
+        UniqueConstraint("team_id", "run_code", name="uq_material_allocation_run_team_code"),
+        UniqueConstraint("team_id", "equipment_id", "period_start", name="uq_material_allocation_equipment_hour"),
+        Index("ix_material_allocation_run_period", "team_id", "period_start", "period_end", "status"),
+    )
+
+    run_code: Mapped[str] = mapped_column(String(96), index=True)
+    equipment_id: Mapped[int | None] = mapped_column(ForeignKey("dataapp_monitorequipment.id"), index=True)
+    factor_id: Mapped[int | None] = mapped_column(ForeignKey("dataapp_emissionfactor.id"))
+    input_hash: Mapped[str | None] = mapped_column(String(64))
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    unallocated_energy_kwh: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    period_start: Mapped[datetime] = mapped_column(DateTime, index=True)
+    period_end: Mapped[datetime] = mapped_column(DateTime, index=True)
+    allocation_method: Mapped[str] = mapped_column(String(32), default="duration_minutes", index=True)
+    energy_granularity: Mapped[str] = mapped_column(String(16), default="hour")
+    emission_factor: Mapped[Decimal] = mapped_column(Numeric(18, 8))
+    emission_factor_unit: Mapped[str] = mapped_column(String(64), default="kgCO2e/kWh")
+    status: Mapped[str] = mapped_column(String(24), default="running", index=True)
+    input_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    summary_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    total_energy_kwh: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    total_co2e_kg: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
+class MaterialCarbonAllocationResult(TeamScopedMixin, BigIntAuditBase):
+    """物资仓储作业碳分摊结果，保留能耗、动因和物资批次追溯."""
+
+    __tablename__ = "carbon_material_allocation_result"
+    __table_args__ = (
+        UniqueConstraint("team_id", "run_id", "operation_id", name="uq_material_allocation_result_operation"),
+        Index("ix_material_allocation_result_material", "team_id", "material_code", "batch_no"),
+        Index("ix_material_allocation_result_equipment", "team_id", "equipment_id", "data_status"),
+    )
+
+    run_id: Mapped[int] = mapped_column(ForeignKey("carbon_material_allocation_run.id", ondelete="CASCADE"), index=True)
+    operation_id: Mapped[int] = mapped_column(
+        ForeignKey("dataapp_materialhandlingoperation.id"), index=True
+    )
+    operation_no: Mapped[str] = mapped_column(String(64), index=True)
+    operation_type: Mapped[str] = mapped_column(String(32), index=True)
+    equipment_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dataapp_monitorequipment.id", ondelete="SET NULL"), index=True
+    )
+    equipment_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    equipment_name: Mapped[str | None] = mapped_column(String(128))
+    equipment_type: Mapped[str] = mapped_column(String(32), index=True)
+    area_id: Mapped[int | None] = mapped_column(ForeignKey("dataapp_monitorsector.id", ondelete="SET NULL"), index=True)
+    area_code: Mapped[str | None] = mapped_column(String(64), index=True)
+    area_name: Mapped[str | None] = mapped_column(String(128))
+    material_code: Mapped[str] = mapped_column(String(64), index=True)
+    material_name: Mapped[str | None] = mapped_column(String(128))
+    material_spec: Mapped[str | None] = mapped_column(String(128))
+    material_category: Mapped[str | None] = mapped_column(String(64), index=True)
+    batch_no: Mapped[str | None] = mapped_column(String(64), index=True)
+    source_energy_kwh: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    driver_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    total_driver_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    allocation_ratio: Mapped[Decimal | None] = mapped_column(Numeric(12, 8))
+    allocated_energy_kwh: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    emission_factor: Mapped[Decimal | None] = mapped_column(Numeric(18, 8))
+    allocated_co2e_kg: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    allocation_method: Mapped[str] = mapped_column(String(32), index=True)
+    energy_source_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    product_footprint_item_id: Mapped[int | None] = mapped_column(
+        ForeignKey("carbon_product_footprint_inventory_item.id", ondelete="SET NULL"), index=True
+    )
+    data_status: Mapped[str] = mapped_column(String(24), default="ready", index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+
+
 class InMoney(TeamScopedMixin, BigIntBase):
     """入库金额管理（对应 Django dataapp.InMoney）。"""
 
@@ -883,6 +1011,8 @@ class ProductFootprintInventoryItem(TeamScopedMixin, BigIntAuditBase):
         UniqueConstraint("team_id", "study_id", "item_no", name="uq_product_footprint_item_team_no"),
         Index("ix_product_footprint_item_stage", "team_id", "study_id", "stage_id"),
         Index("ix_product_footprint_item_status", "team_id", "study_id", "calc_status"),
+        Index("uq_pcf_material_source", "team_id", "study_id", "source_ref", unique=True,
+              postgresql_where=text("source_type = 'material_allocation'")),
     )
 
     study_id: Mapped[int] = mapped_column(
@@ -1315,6 +1445,36 @@ class VideoMonitor(TeamScopedMixin, BigIntBase):
     install_x: Mapped[float | None] = mapped_column(Float)
     install_y: Mapped[float | None] = mapped_column(Float)
     add_time: Mapped[datetime | None] = mapped_column(DateTime, default=utc_now_naive)
+    recognition_config: Mapped[dict[str, Any] | None] = mapped_column(JSON, info={"private": True})
+    recognition_state: Mapped[dict[str, Any] | None] = mapped_column(JSON, info={"private": True})
+    recognition_preview: Mapped[bytes | None] = mapped_column(LargeBinary, info={"private": True})
+
+
+class VisionObservation(TeamScopedMixin, BigIntAuditBase):
+    """Persisted camera observations awaiting business task confirmation."""
+
+    __tablename__ = "vision_observation"
+    __table_args__ = (
+        UniqueConstraint("team_id", "event_key", name="uq_vision_observation_team_event"),
+        Index("ix_vision_observation_camera_time", "team_id", "camera_id", "started_at"),
+    )
+
+    camera_id: Mapped[int] = mapped_column(ForeignKey("dataapp_videomonitor.id"))
+    event_key: Mapped[str] = mapped_column(String(128))
+    session_id: Mapped[str] = mapped_column(String(64))
+    track_id: Mapped[int] = mapped_column(Integer)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    duration_seconds: Mapped[float] = mapped_column(Float)
+    confidence: Mapped[float] = mapped_column(Float)
+    end_reason: Mapped[str] = mapped_column(String(32))
+    single_subject: Mapped[bool] = mapped_column(Boolean)
+    model_version: Mapped[str] = mapped_column(String(128))
+    binding_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON)
+    evidence_jpeg: Mapped[bytes | None] = mapped_column(LargeBinary)
+    operation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dataapp_materialhandlingoperation.id", ondelete="SET NULL")
+    )
 
 
 class ApiResultKeyMapping(BigIntBase):

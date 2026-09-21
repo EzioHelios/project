@@ -56,7 +56,7 @@ class OutMoneyDTO(SQLAlchemyDTO[m.OutMoney]):
 class VideoMonitorDTO(SQLAlchemyDTO[m.VideoMonitor]):
     """视频监控 DTO."""
 
-    config = config(backend="sqlalchemy")
+    config = config(backend="sqlalchemy", exclude={"recognition_config", "recognition_state", "recognition_preview"})
 
 
 class ApiResultKeyMappingDTO(SQLAlchemyDTO[m.ApiResultKeyMapping]):

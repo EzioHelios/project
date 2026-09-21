@@ -1,0 +1,1 @@
+"""Material allocation integration tests."""

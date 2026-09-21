@@ -180,6 +180,9 @@ class ProductFootprintUseCase:
         await self._session.commit()
 
     async def create_inventory_item(self, data: dict[str, Any]) -> m.ProductFootprintInventoryItem:
+        if data.get("source_type") == "material_allocation":
+            msg = "请通过物资分摊引用入口维护"
+            raise ValueError(msg)
         payload = _payload(data, INVENTORY_FIELDS, required={"study_id", "item_no", "activity_type", "item_name"})
         await self._validate_inventory_refs(payload)
         validate_inventory_payload(payload)
@@ -252,6 +255,9 @@ class ProductFootprintUseCase:
 
     async def update_inventory_item(self, item_id: int, data: dict[str, Any]) -> m.ProductFootprintInventoryItem:
         obj = await self._get_or_raise(m.ProductFootprintInventoryItem, item_id, "活动数据不存在")
+        if obj.source_type == "material_allocation" or data.get("source_type") == "material_allocation":
+            msg = "派生清单请在物资作业中修改后同步引用"
+            raise ValueError(msg)
         payload = _payload(data, INVENTORY_FIELDS - {"study_id", "item_no"})
         next_payload = {**{key: getattr(obj, key) for key in INVENTORY_FIELDS if hasattr(obj, key)}, **payload}
         await self._validate_inventory_refs(next_payload)
@@ -266,6 +272,9 @@ class ProductFootprintUseCase:
 
     async def delete_inventory_item(self, item_id: int) -> None:
         obj = await self._get_or_raise(m.ProductFootprintInventoryItem, item_id, "活动数据不存在")
+        if obj.source_type == "material_allocation":
+            msg = "请使用取消物资分摊引用操作"
+            raise ValueError(msg)
         await self._session.delete(obj)
         await self._session.commit()
 
@@ -295,6 +304,9 @@ class ProductFootprintUseCase:
         await self._session.commit()
 
     async def calculate_study(self, study_id: int) -> m.ProductFootprintResult:
+        from app.domain.product_footprint.usecases.material_import import MaterialResultImportUseCase
+
+        await MaterialResultImportUseCase(self._session).validate_study(study_id)
         study = await self._get_or_raise(m.ProductFootprintStudy, study_id, "产品碳足迹研究不存在")
         boundary = await self._session.scalar(select(m.ProductSystemBoundary).where(m.ProductSystemBoundary.study_id == study_id))
         if boundary is None:
@@ -352,7 +364,11 @@ class ProductFootprintUseCase:
             result_version=version,
             total_co2e=total,
             unit="kgCO2e",
-            footprint_per_declared_unit=total if study.declared_unit or study.functional_unit else None,
+            footprint_per_declared_unit=(
+                total if (study.declared_unit or study.functional_unit)
+                and not any(item.included and item.source_type == "material_allocation" for item in items)
+                else None
+            ),
             result_status=status,
             calculated_at=_utc_now_naive(),
             inventory_count=included_count,
