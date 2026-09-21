@@ -1,0 +1,57 @@
+services:
+  recognition:
+    image: warehouse-vision-worker:local
+    build:
+      context: .
+      dockerfile: worker.Dockerfile
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    stop_grace_period: 90s
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    environment:
+      VISION_USERNAME: ${VISION_USERNAME:?Set the platform account}
+      VISION_PASSWORD_FILE: /run/secrets/vision_password
+    secrets:
+      - vision_password
+    volumes:
+      - type: bind
+        source: ${VISION_MODEL_FILE:?Set an existing model file}
+        target: /models/best.pt
+        read_only: true
+        bind:
+          create_host_path: false
+      - outbox:/var/lib/vision
+    command:
+      - --api
+      - ${VISION_API_URL:?Set the API URL reachable from this container}
+      - --tenant
+      - ${VISION_TENANT:?Set the tenant slug}
+      - --camera
+      - ${VISION_CAMERA_ID:?Set the camera ID}
+      - --model
+      - /models/best.pt
+      - --device
+      - cpu
+      - --spool
+      - /var/lib/vision
+      - --health-file
+      - /tmp/worker-health
+    healthcheck:
+      test: [CMD, python, -c, "import time; from pathlib import Path; assert time.time() - Path('/tmp/worker-health').stat().st_mtime < 45"]
+      interval: 15s
+      timeout: 5s
+      start_period: 120s
+      retries: 3
+
+volumes:
+  outbox:
+
+secrets:
+  vision_password:
+    file: ${VISION_PASSWORD_FILE:?Set the protected platform password file}

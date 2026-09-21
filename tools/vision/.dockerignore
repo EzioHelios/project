@@ -1,0 +1,9 @@
+*
+!*.Dockerfile
+!requirements.txt
+!client.py
+!outbox.py
+!tracking.py
+!worker.py
+!verify.py
+!verify_playback.py

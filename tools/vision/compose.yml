@@ -1,0 +1,53 @@
+services:
+  rtsp:
+    image: bluenviron/mediamtx@sha256:9e39256d1ba35f0063700c6f62dd32e6db4592ddd9560d78f409ec451d79b1d8
+    ports:
+      - "127.0.0.1:18115:8554"
+      - "127.0.0.1:18116:8888"
+    restart: unless-stopped
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+  publisher:
+    build:
+      context: .
+      dockerfile: publisher.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - rtsp
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - type: bind
+        source: ${VISION_VIDEO_FILE:?Set VISION_VIDEO_FILE to an existing MP4}
+        target: /media/input.mp4
+        read_only: true
+        bind:
+          create_host_path: false
+    command:
+      - -hide_banner
+      - -loglevel
+      - warning
+      - -re
+      - -stream_loop
+      - "-1"
+      - -i
+      - /media/input.mp4
+      - -an
+      - -vf
+      - scale=1280:-2
+      - -c:v
+      - libx264
+      - -pix_fmt
+      - yuv420p
+      - -preset
+      - ultrafast
+      - -tune
+      - zerolatency
+      - -g
+      - "25"
+      - -f
+      - rtsp
+      - -rtsp_transport
+      - tcp
+      - ${VISION_PUBLISH_URL:-rtsp://rtsp:8554/woheng-forklift}

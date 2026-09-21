@@ -1,0 +1,15 @@
+logLevel: warn
+rtspAddress: :8554
+rtspTransports: [tcp]
+rtmp: no
+hls: yes
+hlsAddress: :8888
+hlsVariant: mpegts
+hlsSegmentCount: 5
+hlsSegmentDuration: 1s
+hlsAlwaysRemux: yes
+webrtc: no
+srt: no
+paths:
+  all_others:
+    source: publisher

@@ -1,0 +1,4 @@
+ultralytics==8.4.40
+opencv-python==4.11.0.86
+httpx==0.27.2
+lap==0.5.13
