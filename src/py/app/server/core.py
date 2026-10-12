@@ -47,6 +47,8 @@ T = TypeVar("T")
 def _build_csp(settings: AppSettings) -> str:
     connect_sources = {
         "'self'",
+        "blob:",
+        "https://server.arcgisonline.com",
         "https://tile.openstreetmap.org",
         "https://nominatim.openstreetmap.org",
         "https://api.open-meteo.com",
@@ -65,7 +67,7 @@ def _build_csp(settings: AppSettings) -> str:
             "base-uri 'self'",
             "frame-ancestors 'none'",
             "object-src 'none'",
-            "img-src 'self' data: blob: https://tile.openstreetmap.org",
+            "img-src 'self' data: blob: https://tile.openstreetmap.org https://server.arcgisonline.com",
             "font-src 'self' data: https://fonts.gstatic.com",
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'",
