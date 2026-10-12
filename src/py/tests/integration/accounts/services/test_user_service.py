@@ -51,7 +51,8 @@ async def test_authenticate_user_not_found(user_service: UserService) -> None:
     assert "User not found or password invalid" in str(exc_info.value)
 
 
-async def test_authenticate_wrong_password(session: AsyncSession, user_service: UserService) -> None:
+@pytest.mark.parametrize("use_username", [False, True])
+async def test_authenticate_wrong_password(session: AsyncSession, user_service: UserService, use_username: bool) -> None:
     """Test authentication with wrong password fails."""
     password = "TestPassword123!"
     hashed_password = await get_password_hash(password)
@@ -60,12 +61,13 @@ async def test_authenticate_wrong_password(session: AsyncSession, user_service: 
     await session.commit()
 
     with pytest.raises(PermissionDeniedException) as exc_info:
-        await user_service.authenticate(user.email, "WrongPassword")
+        await user_service.authenticate(user.username if use_username else user.email, "WrongPassword")
 
     assert "User not found or password invalid" in str(exc_info.value)
 
 
-async def test_authenticate_inactive_user(session: AsyncSession, user_service: UserService) -> None:
+@pytest.mark.parametrize("use_username", [False, True])
+async def test_authenticate_inactive_user(session: AsyncSession, user_service: UserService, use_username: bool) -> None:
     """Test authentication with inactive user fails."""
     password = "TestPassword123!"
     hashed_password = await get_password_hash(password)
@@ -77,7 +79,7 @@ async def test_authenticate_inactive_user(session: AsyncSession, user_service: U
     await session.commit()
 
     with pytest.raises(PermissionDeniedException) as exc_info:
-        await user_service.authenticate(user.email, password)
+        await user_service.authenticate(user.username if use_username else user.email, password)
 
     assert "User account is inactive" in str(exc_info.value)
 

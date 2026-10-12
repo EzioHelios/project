@@ -60,7 +60,11 @@ class UserService(CompositeServiceMixin, service.SQLAlchemyAsyncRepositoryServic
         Raises:
             PermissionDeniedException: If the user is not found, the password is invalid, or the account is inactive.
         """
-        db_obj = await self.get_one_or_none(email=username, load=[undefer_group("security_sensitive")])
+        identifier = username.strip().lower()
+        identity_field = m.User.email if "@" in identifier else m.User.username
+        db_obj = await self.get_one_or_none(
+            identity_field == identifier, load=[undefer_group("security_sensitive")]
+        )
         if db_obj is None:
             msg = "User not found or password invalid"
             raise PermissionDeniedException(detail=msg)

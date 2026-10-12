@@ -1,5 +1,7 @@
 """Authentication-related schemas."""
 
+import re
+
 import msgspec
 
 from app.lib.schema import CamelizedBaseStruct
@@ -17,8 +19,13 @@ class AccountLogin(CamelizedBaseStruct):
     human_verification: HumanVerification | None = None
 
     def __post_init__(self) -> None:
-        """Validate email format for username."""
-        self.username = validate_email(self.username)
+        """Accept an email address or an existing account's username."""
+        self.username = self.username.strip().lower()
+        if "@" in self.username:
+            self.username = validate_email(self.username)
+        elif not re.fullmatch(r"[a-z0-9][a-z0-9_-]{2,29}", self.username):
+            msg = "Enter a valid email address or username"
+            raise ValueError(msg)
 
 
 class AccountRegister(CamelizedBaseStruct):

@@ -101,9 +101,9 @@ export function UserLoginForm({ className, redirectUrl, ...props }: UserLoginFor
             name="username"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>邮箱</FormLabel>
+                <FormLabel>账号</FormLabel>
                 <FormControl>
-                  <Input placeholder="name@example.com" autoCapitalize="none" autoComplete="username" autoCorrect="off" {...field} disabled={isLoading} />
+                  <Input placeholder="用户名或邮箱" autoCapitalize="none" autoComplete="username" autoCorrect="off" {...field} disabled={isLoading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

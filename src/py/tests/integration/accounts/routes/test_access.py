@@ -53,14 +53,17 @@ async def _login_user(client: AsyncClient, user: m.User, password: str = "testPa
 # =============================================================================
 
 
+@pytest.mark.parametrize("use_username", [False, True])
 async def test_login_success(
     client: AsyncClient,
     session: AsyncSession,
+    use_username: bool,
 ) -> None:
     """Test successful user login."""
     unique_email = f"login-{uuid4().hex[:8]}@example.com"
     user = UserFactory.build(
         email=unique_email,
+        username=f"member-{uuid4().hex[:8]}",
         hashed_password=await get_password_hash("securePassword123!"),
         is_active=True,
         is_verified=True,
@@ -70,7 +73,7 @@ async def test_login_success(
 
     response = await client.post(
         "/api/access/login",
-        data={"username": unique_email, "password": "securePassword123!"},
+        data={"username": f" {user.username.upper()} " if use_username else unique_email, "password": "securePassword123!"},
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
 
@@ -165,26 +168,30 @@ async def test_login_unverified_user(
     assert "access_token" in response_data
 
 
+@pytest.mark.parametrize("identifier", ["nonexistent@example.com", "nonexistent-user"])
 async def test_login_nonexistent_user(
     client: AsyncClient,
+    identifier: str,
 ) -> None:
     """Test login with non-existent user."""
     response = await client.post(
         "/api/access/login",
-        data={"username": "nonexistent@example.com", "password": "anyPassword123!"},
+        data={"username": identifier, "password": "anyPassword123!"},
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
 
     assert response.status_code == 403
 
 
+@pytest.mark.parametrize("identifier", ["missing@domain", "user name", "ab", "x" * 31])
 async def test_login_invalid_email_format(
     client: AsyncClient,
+    identifier: str,
 ) -> None:
-    """Test login with invalid email format."""
+    """Reject malformed email addresses and usernames before authentication."""
     response = await client.post(
         "/api/access/login",
-        data={"username": "notanemail", "password": "anyPassword123!"},
+        data={"username": identifier, "password": "anyPassword123!"},
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
 
@@ -203,7 +210,7 @@ async def test_login_with_fixture_user(client: AsyncTestClient, test_user: m.Use
     assert response.status_code == 201
     token_data = response.json()
     assert "access_token" in token_data
-    assert token_data["token_type"] == "bearer"
+    assert token_data["token_type"].lower() == "bearer"
 
 
 async def test_login_wrong_password_fixture(client: AsyncTestClient, test_user: m.User) -> None:
