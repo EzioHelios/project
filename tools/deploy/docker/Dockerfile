@@ -178,11 +178,12 @@ COPY --from=builder --chown=65532:65532 /workspace/app/src/py/app /workspace/app
 
 # Copy wheel and install
 COPY --from=builder --chown=65532:65532 /workspace/app/dist/*.whl /tmp/
+COPY --from=builder --chown=65532:65532 /workspace/app/requirements.txt /tmp/requirements.txt
 
 WORKDIR /workspace/app
 
 RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
-    uv pip install --system --quiet --disable-pip-version-check --no-cache-dir /tmp/*.whl \
+    uv pip install --system --quiet --disable-pip-version-check --no-cache-dir --constraint /tmp/requirements.txt /tmp/*.whl \
     && rm -rf /tmp/* \
     && chown -R nonroot:nonroot /workspace/app
 
