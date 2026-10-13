@@ -11,6 +11,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from itertools import pairwise
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 from sqlalchemy import func, select
 
@@ -28,6 +29,7 @@ MAX_EXPECTED_GAP = timedelta(hours=6)
 FIXED_VALUE_THRESHOLD = timedelta(hours=6)
 MONTHS_PER_YEAR = 12
 MINIMUM_INTERVAL_SAMPLES = 2
+PROJECTION_VERSION = "boundary_v3"
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,20 +105,29 @@ class ElectricityProjectionUseCase:
 
     async def rebuild_month(self, billing_month: str, *, area_id: str | None = None) -> ProjectionResult:
         period_start, period_end = month_window(billing_month)
+        # Full-month and area projections replace overlapping revisions in one transaction.
+        lock_key = int.from_bytes(hashlib.sha256(f"electricity:{self.team_id}".encode()).digest()[:8], signed=True)
+        await self.session.execute(select(func.pg_advisory_xact_lock(lock_key)))
         period_samples = await self._load_period_samples(period_start, period_end, area_id)
         previous_samples = await self._load_previous_samples(period_samples, period_start)
         boundaries, members = await self._load_boundaries(period_start.date(), period_end.date())
         use_systems = await self._load_use_system_bindings(period_start.date(), period_end.date())
         checksum = _projection_checksum(period_samples, previous_samples, boundaries, members, use_systems)
-        run_code = f"electricity:{billing_month}:{area_id or 'all'}:{checksum[:16]}"
-
         existing_run = await self.session.scalar(
-            select(m.EnergyProjectionRun).where(
-                m.EnergyProjectionRun.run_code == run_code,
+            select(m.EnergyProjectionRun)
+            .where(
+                m.EnergyProjectionRun.period_start == period_start,
+                m.EnergyProjectionRun.period_end == period_end,
                 m.EnergyProjectionRun.status == "completed",
             )
+            .order_by(m.EnergyProjectionRun.id.desc())
+            .limit(1)
         )
-        if existing_run is not None:
+        if (
+            existing_run is not None
+            and existing_run.source_checksum == checksum
+            and (existing_run.run_config or {}).get("area_id") == area_id
+        ):
             aggregate_count = int(
                 await self.session.scalar(
                     select(func.count(m.Scope2MeterAggregate.id)).where(
@@ -126,9 +137,9 @@ class ElectricityProjectionUseCase:
                 )
                 or 0
             )
-            return ProjectionResult(
+            result = ProjectionResult(
                 run_id=existing_run.id,
-                run_code=run_code,
+                run_code=existing_run.run_code,
                 source_count=existing_run.source_count,
                 hourly_facts=await self._fact_count(existing_run.id, "hour"),
                 daily_facts=await self._fact_count(existing_run.id, "day"),
@@ -136,7 +147,10 @@ class ElectricityProjectionUseCase:
                 quality_issues=existing_run.issue_count,
                 reused=True,
             )
+            await self.session.commit()
+            return result
 
+        run_code = f"electricity:{billing_month}:{area_id or 'all'}:{checksum[:16]}:{uuid4().hex[:8]}"
         run = m.EnergyProjectionRun(
             team_id=self.team_id,
             run_code=run_code,
@@ -144,7 +158,7 @@ class ElectricityProjectionUseCase:
             period_start=period_start,
             period_end=period_end,
             status="running",
-            mapping_version="boundary_v1",
+            mapping_version=PROJECTION_VERSION,
             source_high_watermark=str(max((sample.fact.id for sample in period_samples), default=0)),
             source_count=len(period_samples),
             source_checksum=checksum,
@@ -156,8 +170,7 @@ class ElectricityProjectionUseCase:
             },
         )
         self.session.add(run)
-        await self.session.commit()
-        run_id = run.id
+        await self.session.flush()
 
         try:
             hourly, issues, meter_ranges = await self._calculate_intervals(
@@ -191,14 +204,11 @@ class ElectricityProjectionUseCase:
             await self.session.commit()
         except Exception as exc:
             await self.session.rollback()
-            failed_run = await self.session.scalar(
-                select(m.EnergyProjectionRun).where(m.EnergyProjectionRun.id == run_id)
-            )
-            if failed_run is not None:
-                failed_run.status = "failed"
-                failed_run.error_detail = str(exc)[:4000]
-                failed_run.finished_at = datetime.now(UTC).replace(tzinfo=None)
-                await self.session.commit()
+            run.status = "failed"
+            run.error_detail = str(exc)[:4000]
+            run.finished_at = datetime.now(UTC).replace(tzinfo=None)
+            self.session.add(run)
+            await self.session.commit()
             raise
 
         return ProjectionResult(
@@ -252,7 +262,14 @@ class ElectricityProjectionUseCase:
                 .order_by(m.MeasurementBoundary.code)
             )
         ).all()
-        by_meter = {row.meter_equipment_id: row for row in rows if row.meter_equipment_id is not None}
+        by_meter = {}
+        for row in rows:
+            if row.meter_equipment_id is None:
+                continue
+            if row.meter_equipment_id in by_meter:
+                msg = f"本月电表匹配多个计量边界: {by_meter[row.meter_equipment_id].code}、{row.code}"
+                raise ValueError(msg)
+            by_meter[row.meter_equipment_id] = row
         boundary_ids = [row.id for row in rows]
         confirmed_members: list[m.MeasurementBoundaryMember] = (
             list(
@@ -345,8 +362,8 @@ class ElectricityProjectionUseCase:
 
             fixed_since: datetime | None = None
             for before, current in pairwise(chain):
-                if current.fact.quality_status != "valid":
-                    issues.append(_issue(current, "invalid_quality", f"Source quality={current.fact.quality_status}"))
+                if current.fact.quality_status != "valid" or before.fact.quality_status != "valid":
+                    issues.append(_issue(current, "invalid_quality", "Interval endpoint has invalid source quality"))
                     continue
                 before_value = Decimal(str(before.fact.normalized_value))
                 current_value = Decimal(str(current.fact.normalized_value))
@@ -360,7 +377,11 @@ class ElectricityProjectionUseCase:
                     issues.append(_issue(current, "abnormal_spike", "Interval delta exceeded the configured limit"))
                     fixed_since = None
                     continue
-                data_quality = "measured"
+                data_quality = (
+                    "simulated"
+                    if any(sample.fact.source_system.startswith("demo") for sample in (before, current))
+                    else "measured"
+                )
                 if elapsed > MAX_EXPECTED_GAP:
                     issues.append(
                         _issue(current, "reading_gap", f"Reading gap is {elapsed.total_seconds() / 3600:.2f} hours")
@@ -435,6 +456,21 @@ class ElectricityProjectionUseCase:
     async def _write_interval_revisions(
         self, run: m.EnergyProjectionRun, intervals: dict[tuple[int, datetime], dict[str, Any]], granularity: str
     ) -> int:
+        replaced_stmt = select(m.EnergyIntervalFact).where(
+            m.EnergyIntervalFact.source_system.in_(["meter_projection", "meter_hourly", "meter_daily"]),
+            m.EnergyIntervalFact.granularity == granularity,
+            m.EnergyIntervalFact.period_start >= run.period_start,
+            m.EnergyIntervalFact.period_start < run.period_end,
+        )
+        area_id = (run.run_config or {}).get("area_id")
+        if area_id:
+            area_code = await self.session.scalar(
+                select(m.MonitorSector.code).where(
+                    m.MonitorSector.id == int(area_id) if area_id.isdigit() else m.MonitorSector.code == area_id
+                )
+            )
+            replaced_stmt = replaced_stmt.where(m.EnergyIntervalFact.area_id == area_code)
+        replaced = (await self.session.scalars(replaced_stmt)).all()
         source_ids = [f"meter:{equipment_id}:{granularity}:{period.isoformat()}" for equipment_id, period in intervals]
         histories: list[m.EnergyIntervalFact] = (
             list(
@@ -502,6 +538,9 @@ class ElectricityProjectionUseCase:
                     source_snapshot=snapshot,
                 )
             )
+        # A corrected/invalid reading can remove an interval entirely from this revision.
+        for previous in replaced:
+            previous.is_current = False
         await self.session.flush()
         return len(intervals)
 
@@ -537,14 +576,34 @@ class ElectricityProjectionUseCase:
     ) -> list[m.Scope2MeterAggregate]:
         totals: dict[int, Decimal] = defaultdict(Decimal)
         for (equipment_id, _period), item in hourly.items():
+            boundary = boundaries.get(equipment_id)
+            day = item["sample"].fact.reading_time.date()
+            if (
+                boundary is None
+                or not boundary.include_in_scope2
+                or boundary.energy_direction != "import"
+                or (boundary.valid_from is not None and day < boundary.valid_from)
+                or (boundary.valid_to is not None and day > boundary.valid_to)
+                or item["data_quality"] == "simulated"
+            ):
+                continue
             totals[equipment_id] += item["amount"]
 
-        use_boundary_filter = bool(boundaries)
+        # Retire previous projections even when all meters have lost eligibility.
+        previous_stmt = select(m.Scope2MeterAggregate).where(
+            m.Scope2MeterAggregate.billing_month == billing_month,
+            m.Scope2MeterAggregate.projection_run_id.is_not(None),
+        )
+        if (run.run_config or {}).get("area_id"):
+            previous_stmt = previous_stmt.where(
+                m.Scope2MeterAggregate.ammeter_id.in_([pair[0].equipment.code for pair in meter_ranges.values()])
+            )
+        for previous in (await self.session.scalars(previous_stmt)).all():
+            previous.is_current = False
+        await self.session.flush()
         created: list[m.Scope2MeterAggregate] = []
         for equipment_id, total_kwh in totals.items():
-            boundary = boundaries.get(equipment_id)
-            if use_boundary_filter and (boundary is None or not boundary.include_in_scope2):
-                continue
+            boundary = boundaries[equipment_id]
             first, last = meter_ranges[equipment_id]
             previous_rows = (
                 await self.session.scalars(
@@ -556,13 +615,13 @@ class ElectricityProjectionUseCase:
                     .execution_options(include_revision_history=True)
                 )
             ).all()
-            previous_current = next((row for row in previous_rows if row.is_current), None)
+            previous_current = max(previous_rows, key=lambda row: row.revision_no, default=None)
             if previous_current is not None:
                 previous_current.is_current = False
             snapshot = {
                 "projection_run_id": run.id,
-                "boundary_code": boundary.code if boundary else None,
-                "coverage_status": "configured" if boundary else "provisional_meter_total",
+                "boundary_code": boundary.code,
+                "coverage_status": "configured",
             }
             aggregate = m.Scope2MeterAggregate(
                 team_id=self.team_id,
@@ -588,7 +647,7 @@ class ElectricityProjectionUseCase:
                 computation_note="组织温室气体排放由统一盘查运行计算。",
                 aggregation_note=None,
                 projection_run_id=run.id,
-                measurement_boundary_id=boundary.id if boundary else None,
+                measurement_boundary_id=boundary.id,
                 revision_no=max((row.revision_no for row in previous_rows), default=0) + 1,
                 is_current=True,
                 supersedes_id=previous_current.id if previous_current else None,
@@ -624,19 +683,26 @@ async def reconcile_scope2_electricity(
         msg = "Scope 2 reconciliation requires an active tenant"
         raise ValueError(msg)
 
+    month_start = date.fromisoformat(f"{billing_month}-01")
+    month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
     aggregate_rows: list[m.Scope2MeterAggregate] = list(
         (
             await session.scalars(
-                select(m.Scope2MeterAggregate).where(
+                select(m.Scope2MeterAggregate)
+                .join(m.MeasurementBoundary, m.MeasurementBoundary.id == m.Scope2MeterAggregate.measurement_boundary_id)
+                .where(
                     m.Scope2MeterAggregate.billing_month == billing_month,
                     m.Scope2MeterAggregate.total_kwh.is_not(None),
+                    m.MeasurementBoundary.status == "active",
+                    m.MeasurementBoundary.include_in_scope2.is_(True),
+                    m.MeasurementBoundary.energy_direction == "import",
+                    m.MeasurementBoundary.valid_from.is_(None) | (m.MeasurementBoundary.valid_from <= month_end),
+                    m.MeasurementBoundary.valid_to.is_(None) | (m.MeasurementBoundary.valid_to >= month_start),
                 )
             )
         ).all()
     )
     meter_total = sum((Decimal(str(row.total_kwh or 0)) for row in aggregate_rows), Decimal(0))
-    month_start = date.fromisoformat(f"{billing_month}-01")
-    month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
     activity_rows: list[m.GhgActivityRecord] = list(
         (
             await session.scalars(
@@ -665,7 +731,7 @@ async def reconcile_scope2_electricity(
     organization_total = bill_total if bill_total is not None else meter_total
     allocated = min(meter_total, organization_total)
     unallocated = max(organization_total - allocated, Decimal(0))
-    source_priority = "ghg_activity" if activity_rows else "meter_aggregate"
+    source_priority = "ghg_activity" if activity_rows else "meter_aggregate" if aggregate_rows else "none"
     snapshot = {
         "aggregate_ids": sorted(row.id for row in aggregate_rows),
         "activity_ids": sorted(row.id for row in activity_rows),
@@ -704,7 +770,7 @@ async def reconcile_scope2_electricity(
         revision_no=max((row.revision_no for row in histories), default=0) + 1,
         is_current=True,
         supersedes_id=current.id if current else None,
-        status="ready",
+        status="ready" if activity_rows or aggregate_rows else "incomplete",
         source_snapshot=snapshot,
     )
     session.add(reconciliation)
@@ -723,11 +789,12 @@ def _projection_checksum(
     members: dict[int, list[m.MeasurementBoundaryMember]],
     use_systems: dict[int, UseSystemMapping],
 ) -> str:
-    digest = hashlib.sha256()
+    digest = hashlib.sha256(PROJECTION_VERSION.encode())
     for sample in samples:
         digest.update(
             f"{sample.fact.id}|{sample.fact.reading_time.isoformat()}|{sample.fact.normalized_value}|"
-            f"{sample.fact.quality_status}|{sample.fact.mapping_version}\n".encode()
+            f"{sample.fact.quality_status}|{sample.fact.mapping_version}|{sample.fact.source_system}|"
+            f"{sample.equipment.sector_id}|{sample.area.code if sample.area else ''}\n".encode()
         )
     for equipment_id, sample in sorted(previous_samples.items()):
         digest.update(
@@ -737,7 +804,7 @@ def _projection_checksum(
     for equipment_id, boundary in sorted(boundaries.items()):
         digest.update(
             f"boundary|{equipment_id}|{boundary.id}|{boundary.mapping_version}|{boundary.include_in_scope2}|"
-            f"{boundary.valid_from}|{boundary.valid_to}\n".encode()
+            f"{boundary.valid_from}|{boundary.valid_to}|{boundary.energy_direction}\n".encode()
         )
         for member in sorted(members.get(boundary.id, []), key=lambda item: item.member_code):
             digest.update(
@@ -762,6 +829,7 @@ def _mapping_snapshot(
     if use_system_code is None and use_system_mapping is not None:
         use_system_code = use_system_mapping.code
     return {
+        "reading_source_system": sample.fact.source_system,
         "equipment_code": sample.equipment.code,
         "area_code": sample.area.code if sample.area else None,
         "area_name": sample.area.name if sample.area else None,

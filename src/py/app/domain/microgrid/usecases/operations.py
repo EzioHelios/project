@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 # ruff: noqa: EM101, PLR0915, PLR2004, RUF001, TC002, TRY003, TRY300, TRY301
+import asyncio
 import hashlib
 import json
 from copy import deepcopy
@@ -398,7 +399,8 @@ class RunForecast:
                 site=site, end=horizon_start
             )
             forecast_index = list(weather_frame.index.to_pydatetime())
-            load_points, metrics = forecast_load_quantiles(
+            load_points, metrics = await asyncio.to_thread(
+                forecast_load_quantiles,
                 history_index=history_index,
                 history_kw=history_load,
                 history_temperature_c=history_temperature,

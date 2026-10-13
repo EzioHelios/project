@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import date, datetime
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.db import models as m
 from app.domain.energy.queries.analysis import EnergyAnalysisQuery, EnergyAnalysisQueryService
@@ -234,6 +236,143 @@ async def test_current_query_filter_hides_energy_revision_history(session) -> No
     assert analysis["totals"]["total_energy"] == 10.0
 
 
+async def test_unconfigured_or_retired_boundaries_never_become_scope2_total(session) -> None:
+    team = m.Team(name="计量边界验证", slug="boundary-eligibility")
+    session.add(team)
+    await session.flush()
+    session.info[TENANT_ID_SESSION_KEY] = team.id
+    meter = m.MonitorEquipment(code="ELECTRIC-METER", name="名称不是边界依据", is_enable=True)
+    session.add(meter)
+    await session.flush()
+    session.add_all(
+        [
+            _reading(team.id, meter.id, datetime.fromisoformat("2026-05-01T00:00:00"), "100"),
+            _reading(team.id, meter.id, datetime.fromisoformat("2026-05-01T01:00:00"), "125"),
+        ]
+    )
+    await session.commit()
+    use_case = ElectricityProjectionUseCase(session)
+    missing = await use_case.rebuild_month("2026-05")
+    assert missing.hourly_facts == 1
+    assert missing.scope2_aggregates == 0
+    summary = await session.scalar(select(m.Scope2ElectricityReconciliation))
+    assert summary.status == "incomplete"
+    assert summary.source_priority == "none"
+
+    boundary = m.MeasurementBoundary(
+        code="CONFIRMED-IMPORT",
+        name="已配置购电边界",
+        meter_equipment_id=meter.id,
+        include_in_scope2=True,
+        energy_direction="import",
+        status="active",
+    )
+    session.add(boundary)
+    await session.commit()
+    configured = await use_case.rebuild_month("2026-05")
+    assert configured.scope2_aggregates == 1
+    assert (await session.scalar(select(m.Scope2MeterAggregate))).total_kwh == Decimal(25)
+
+    boundary.include_in_scope2 = False
+    await session.commit()
+    excluded = await use_case.rebuild_month("2026-05")
+    assert excluded.scope2_aggregates == 0
+    assert (await session.scalars(select(m.Scope2MeterAggregate))).all() == []
+    history = (
+        await session.scalars(select(m.Scope2MeterAggregate).execution_options(include_revision_history=True))
+    ).all()
+    assert len(history) == 1
+    assert not history[0].is_current
+    assert (await session.scalar(select(m.Scope2ElectricityReconciliation))).status == "incomplete"
+
+    reading = await session.scalar(
+        select(m.MeterReadingFact).where(m.MeterReadingFact.normalized_value == Decimal(125))
+    )
+    reading.quality_status = "invalid"
+    await session.commit()
+    invalidated = await use_case.rebuild_month("2026-05")
+    assert invalidated.hourly_facts == 0
+    assert (await session.scalars(select(m.EnergyIntervalFact))).all() == []
+
+    reading.quality_status = "valid"
+    await session.commit()
+    restored = await use_case.rebuild_month("2026-05")
+    assert not restored.reused
+    assert restored.hourly_facts == 1
+    assert (
+        await session.scalar(
+            select(func.sum(m.EnergyIntervalFact.amount)).where(m.EnergyIntervalFact.granularity == "hour")
+        )
+        == 25
+    )
+    assert (await use_case.rebuild_month("2026-05")).reused
+
+
+async def test_projection_retries_after_atomic_write_failure(session, monkeypatch) -> None:
+    team = m.Team(name="Projection retry", slug="projection-retry")
+    session.add(team)
+    await session.flush()
+    session.info[TENANT_ID_SESSION_KEY] = team.id
+    meter = m.MonitorEquipment(code="RETRY-METER", name="Meter", is_enable=True)
+    session.add(meter)
+    await session.flush()
+    session.add_all(
+        [
+            _reading(team.id, meter.id, datetime.fromisoformat("2026-05-01T00:00:00"), "100"),
+            _reading(team.id, meter.id, datetime.fromisoformat("2026-05-01T01:00:00"), "125"),
+        ]
+    )
+    await session.commit()
+    use_case = ElectricityProjectionUseCase(session)
+    original = use_case._write_quality_issues
+
+    async def fail_write(*_args):
+        msg = "interrupted projection"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(use_case, "_write_quality_issues", fail_write)
+    with pytest.raises(RuntimeError, match="interrupted projection"):
+        await use_case.rebuild_month("2026-05")
+    assert (await session.scalars(select(m.EnergyIntervalFact))).all() == []
+    assert (await session.scalar(select(m.EnergyProjectionRun))).status == "failed"
+    monkeypatch.setattr(use_case, "_write_quality_issues", original)
+    retried = await use_case.rebuild_month("2026-05")
+    assert retried.hourly_facts == 1
+    assert (await use_case.rebuild_month("2026-05")).reused
+
+    reading = await session.scalar(
+        select(m.MeterReadingFact).where(m.MeterReadingFact.normalized_value == Decimal(125))
+    )
+    reading.normalized_value = Decimal(126)
+    await session.commit()
+    tenant_id = session.info[TENANT_ID_SESSION_KEY]
+    factory = async_sessionmaker(session.bind, expire_on_commit=False)
+
+    async def rebuild_in_worker():
+        async with factory() as worker_session:
+            worker_session.info[TENANT_ID_SESSION_KEY] = tenant_id
+            return await ElectricityProjectionUseCase(worker_session).rebuild_month("2026-05")
+
+    concurrent = await asyncio.gather(rebuild_in_worker(), rebuild_in_worker())
+    assert concurrent[0].run_id == concurrent[1].run_id
+    assert sorted(result.reused for result in concurrent) == [False, True]
+
+
+async def test_overlapping_boundaries_fail_without_guessing_priority(session) -> None:
+    team = m.Team(name="边界冲突验证", slug="boundary-conflict")
+    session.add(team)
+    await session.flush()
+    session.info[TENANT_ID_SESSION_KEY] = team.id
+    meter = m.MonitorEquipment(code="METER-CONFLICT", name="电表", is_enable=True)
+    session.add(meter)
+    await session.flush()
+    for code in ("FIRST", "SECOND"):
+        session.add(m.MeasurementBoundary(code=code, name=code, meter_equipment_id=meter.id, status="active"))
+    await session.commit()
+    with pytest.raises(ValueError, match="多个计量边界"):
+        await ElectricityProjectionUseCase(session).rebuild_month("2026-05")
+
+
 async def test_energy_read_models_are_explicitly_tenant_scoped(session) -> None:  # noqa: PLR0915
     xiangtai = m.Team(name="祥泰仓库", slug="flow-xiangtai")
     anfang = m.Team(name="安方中心库", slug="flow-anfang")
@@ -261,6 +400,15 @@ async def test_energy_read_models_are_explicitly_tenant_scoped(session) -> None:
     )
     session.add_all([xiangtai_meter, anfang_meter])
     await session.flush()
+    session.add(
+        m.MeasurementBoundary(
+            team_id=xiangtai.id,
+            code="XT-ONLY-BOUNDARY",
+            name="Other tenant boundary",
+            meter_equipment_id=xiangtai_meter.id,
+            status="active",
+        )
+    )
     session.add_all(
         [
             m.EnergyIntervalFact(
@@ -419,8 +567,8 @@ async def test_energy_read_models_are_explicitly_tenant_scoped(session) -> None:
     session.info.clear()
     session.info[TENANT_ID_SESSION_KEY] = anfang.id
     result = await EnergyFlowQueryService(session).graph(EnergyFlowQuery(granularity="day"))
-    balance = await EnergyBalanceQueryService(session).overview(EnergyBalanceQuery(granularity="day"))
-    balance_table = await EnergyBalanceQueryService(session).table(EnergyBalanceQuery(granularity="day"))
+    balance = await EnergyBalanceQueryService(session).calculation(EnergyBalanceQuery(granularity="day"))
+    balance_diagnostics = await EnergyBalanceQueryService(session).diagnostics(EnergyBalanceQuery(granularity="day"))
     analysis = await EnergyAnalysisQueryService(session).summary(
         EnergyAnalysisQuery(
             period_start="2026-08-01T00:00:00",
@@ -459,10 +607,10 @@ async def test_energy_read_models_are_explicitly_tenant_scoped(session) -> None:
     assert any(node["name"] == "平置库" for node in result["nodes"])
     assert all(node["name"] != "点1-室外行吊" for node in result["nodes"])
     assert all(node["category"] != "loss" for node in result["nodes"])
-    assert balance["summary"]["total_input"] == 25.0
-    assert balance["summary"]["total_loss"] is None
-    assert balance["summary"]["balance_status"] == "insufficient_boundary"
-    assert all(row["value"] is None for row in balance_table["rows"] if "loss" in row["code"])
+    assert balance["boundary"] is None
+    assert balance["summary"]["status"] == "no_boundary"
+    assert balance["rows"] == []
+    assert balance_diagnostics["items"][0]["code"] == "no_boundary"
     assert analysis["totals"]["total_energy"] == 25.0
     assert analysis["workload"]["workload_amount"] == 5.0
     assert analysis["by_equipment"][0]["equipment_name"] == "安方平置库电表"

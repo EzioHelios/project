@@ -73,6 +73,9 @@ services:
     image: ${APP_IMAGE:-registry.xzzandzyc.store:5000/project/warehouse-carbon:latest}
     command: saq app.lib.worker.saq_worker_settings --workers ${SAQ_PROCESSES:-1}
     restart: unless-stopped
+    environment:
+      OMP_NUM_THREADS: ${WORKER_NUMERIC_THREADS:-1}
+      OPENBLAS_NUM_THREADS: ${WORKER_NUMERIC_THREADS:-1}
     env_file:
       - .env
     depends_on:

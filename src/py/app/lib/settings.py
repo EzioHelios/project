@@ -202,6 +202,7 @@ class SaqSettings:
         from app.domain.decarbonization import jobs as decarbonization_jobs
         from app.domain.iot_ingestion import infrastructure as iot_infrastructure
         from app.domain.iot_ingestion import jobs as iot_jobs
+        from app.domain.metering import jobs as metering_jobs
         from app.domain.microgrid import jobs as microgrid_jobs
         from app.domain.system import jobs as system_jobs
         from app.lib.worker import after_process, before_process, on_shutdown, on_startup
@@ -221,6 +222,7 @@ class SaqSettings:
                         carbon_jobs.pull_yunji_data,
                         carbon_jobs.sync_hw_status,
                         carbon_jobs.pull_hw_data,
+                        metering_jobs.refresh_electricity_projections,
                         carbon_verification_jobs.run_carbon_verification_export,
                         decarbonization_jobs.refresh_reduction_project_risks,
                         microgrid_jobs.run_microgrid_forecast_cycle,
@@ -229,6 +231,11 @@ class SaqSettings:
                         microgrid_jobs.project_microgrid_meter_history,
                     ],
                     scheduled_tasks=[
+                        CronJob(
+                            function=metering_jobs.refresh_electricity_projections,
+                            cron="10,40 * * * *",
+                            timeout=1800,
+                        ),
                         CronJob(
                             function=system_jobs.cleanup_auth_tokens,
                             cron="0 * * * *",

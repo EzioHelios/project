@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import builtins
+
 from app.domain.iot_ingestion.infrastructure import _reason_code_is_failure
 from app.lib import worker
 from app.lib.settings import get_settings
@@ -42,3 +44,23 @@ def test_mqtt_callback_reason_code_supports_paho_v2_objects() -> None:
     assert _reason_code_is_failure(ReasonCode(True)) is True
     assert _reason_code_is_failure(0) is False
     assert _reason_code_is_failure(1) is True
+
+
+def test_mqtt_worker_does_not_import_reporting_or_forecasting(monkeypatch) -> None:
+    original_import = builtins.__import__
+
+    def guarded_import(name, *args, **kwargs):
+        if name.startswith(("app.domain.carbon_verification", "app.domain.microgrid", "docx")):
+            msg = f"MQTT worker must not load {name}"
+            raise AssertionError(msg)
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setenv("SAQ_WORKER_QUEUE", "mqtt-ingest")
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    worker.saq_worker_settings.cache_clear()
+    try:
+        config = worker.saq_worker_settings()
+        assert config["queue"].name == "mqtt-ingest"
+        assert len(config["functions"]) == 2
+    finally:
+        worker.saq_worker_settings.cache_clear()

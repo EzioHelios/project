@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import time
 from decimal import Decimal
+from threading import get_ident
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -13,7 +14,13 @@ from sqlalchemy import func, select
 from app.db import models as m
 from app.domain.microgrid.domain.exceptions import InfeasibleDispatchError, ScenarioNotReadyError
 from app.domain.microgrid.infrastructure.weather import demo_weather
-from app.domain.microgrid.usecases import BootstrapXiangtaiDemo, CreateDispatchBatch, RunForecast, RunOptimization
+from app.domain.microgrid.usecases import (
+    BootstrapXiangtaiDemo,
+    CreateDispatchBatch,
+    RunForecast,
+    RunOptimization,
+    operations,
+)
 from app.domain.microgrid.usecases.bindings import BindingTemplate
 from app.lib.tenancy import TENANT_ID_SESSION_KEY
 
@@ -27,7 +34,16 @@ class FakeWeatherAdapter:
         return demo_weather(start=kwargs["start"], periods=kwargs["periods"])
 
 
-async def test_xiangtai_demo_persists_full_shadow_dispatch_cycle(session) -> None:
+async def test_xiangtai_demo_persists_full_shadow_dispatch_cycle(session, monkeypatch) -> None:
+    event_loop_thread = get_ident()
+    prediction_threads = []
+    original_forecast = operations.forecast_load_quantiles
+
+    def tracked_forecast(**kwargs):
+        prediction_threads.append(get_ident())
+        return original_forecast(**kwargs)
+
+    monkeypatch.setattr(operations, "forecast_load_quantiles", tracked_forecast)
     team = m.Team(name="Xiangtai Test", slug="xiangtai-test")
     session.add(team)
     await session.flush()
@@ -88,6 +104,7 @@ async def test_xiangtai_demo_persists_full_shadow_dispatch_cycle(session) -> Non
         await BindingTemplate(session).execute(site.id)
 
     forecast = await RunForecast(session, weather=FakeWeatherAdapter()).execute(site_id=site.id)
+    assert prediction_threads and all(thread != event_loop_thread for thread in prediction_threads)
     assert forecast.quality_status == "warning"
     with pytest.raises(ScenarioNotReadyError, match="acknowledged risk trial"):
         await RunOptimization(session).execute(forecast_run_id=forecast.id)
