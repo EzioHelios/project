@@ -53,6 +53,7 @@ services:
     environment:
       VITE_DEV_MODE: "false"
       SAQ_USE_SERVER_LIFESPAN: "false"
+      SECTOR_PHOTO_ROOT: /workspace/app/sector-photos
     depends_on:
       cache:
         condition: service_healthy
@@ -64,6 +65,7 @@ services:
       - "18100:8000"
     volumes:
       - export-data:/workspace/app/.exports
+      - ./assets/sector-photos:/workspace/app/sector-photos:ro
     logging:
       options:
         max-size: 10m
