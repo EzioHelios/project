@@ -145,13 +145,15 @@ export function ScreenHeader({
               <span className="bigscreen-screen-header-utility-value">{city}</span>
             </div>
             {tenantSwitcher}
-            <div className="bigscreen-screen-header-utility-item bigscreen-screen-header-utility-item-weather">
-              <span className="bigscreen-screen-header-weather-icon" data-kind={weatherKind}>
-                <WeatherGlyph kind={weatherKind} />
-              </span>
-              <span className="bigscreen-screen-header-utility-value">{weatherValue.summary}</span>
-              {weatherValue.detail ? <span className="bigscreen-screen-header-utility-detail">{weatherValue.detail}</span> : null}
-            </div>
+            {weather !== "--" && (
+              <div className="bigscreen-screen-header-utility-item bigscreen-screen-header-utility-item-weather">
+                <span className="bigscreen-screen-header-weather-icon" data-kind={weatherKind}>
+                  <WeatherGlyph kind={weatherKind} />
+                </span>
+                <span className="bigscreen-screen-header-utility-value">{weatherValue.summary}</span>
+                {weatherValue.detail ? <span className="bigscreen-screen-header-utility-detail">{weatherValue.detail}</span> : null}
+              </div>
+            )}
             <div className="bigscreen-screen-header-utility-item">
               <span className="bigscreen-screen-header-utility-value">{formatChineseDate(now)}</span>
             </div>

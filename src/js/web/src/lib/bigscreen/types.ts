@@ -40,9 +40,9 @@ export type BigscreenAlertItem = {
 
 export type BigscreenTrendPoint = {
   period: string
-  energy_kwh: number
+  energy_kwh: number | null
   carbon_co2e: number | null
-  value: number
+  value: number | null
 }
 
 export type BigscreenFlowNode = {
@@ -66,6 +66,7 @@ export type BigscreenFlowData = {
 }
 
 export type BigscreenDistributionItem = {
+  id?: string | null
   name: string
   value: number
 }
@@ -90,39 +91,87 @@ export type BigscreenMetaResponse = {
 
 export type BigscreenIntroResponse = {
   hero_title: string
-  hero_description: string
   company_gallery: BigscreenMediaItem[]
-  project_spotlights: BigscreenMediaItem[]
-  success_cases: BigscreenMediaItem[]
-  promo_video_url?: string | null
   company_facts: BigscreenInfoItem[]
+  profile: BigscreenPublicProfile | null
 }
 
-export type BigscreenOverviewResponse = {
+export type BigscreenPublicProfile = {
+  title: string
+  summary: string
+  features: BigscreenInfoItem[]
+  source_name: string
+  source_url: string
+  published_on: string
+}
+
+export type BigscreenOperationsResponse = {
+  period_start: string
+  period_end: string
+  grain: string
+  available_start: string | null
+  available_end: string | null
+  observed_at: string | null
+  areas: Array<{ value: string; label: string }>
   energy_kpis: BigscreenMetric[]
-  carbon_kpis: BigscreenMetric[]
   energy_flow: BigscreenFlowData
-  production_trend: BigscreenTrendPoint[]
-  filters: Record<string, Array<{ label: string; value: string }>>
+  profile: BigscreenPublicProfile | null
+  presentation: { overview_focus?: "business" | "sampling"; monitor_focus?: "safety" | "sampling"; carbon_focus?: "commute" | "inventory" }
+  energy_calendar: Array<{ id: string; label: string; value: number | null; unit: string; start: string; end: string; recorded_days: number; calendar_days: number }>
+  ledger: {
+    trend: Array<{ period: string; inbound: number | null; outbound: number | null }>
+    coverage: Array<{ kind: string; records: number; dated_records: number; undated_records: number; missing_amount: number }>
+  }
+  commute_power: BigscreenDistributionItem[]
+  trend: Array<{ period: string; value: number | null }>
+  area_ranking: Array<{ id: string | null; name: string; value: number }>
+  equipment_ranking: Array<{ id: string; name: string; value: number }>
+  company_name: string | null
+  company_facts: BigscreenInfoItem[]
+  devices: Array<{
+    id: string
+    name: string
+    category: number | null
+    status: number | null
+    area: string | null
+    area_id: string | null
+    last_reading: string | null
+    register_value: number | null
+    register_unit: string | null
+  }>
+  alarms: BigscreenEventSummary
+  safety: BigscreenEventSummary
+  carbon_alarms: BigscreenEventSummary
+  power_alarms: BigscreenEventSummary
+  business: Array<{ label: string; value: number | null; unit: string; detail: string }>
 }
 
-export type BigscreenPowerResponse = {
-  alerts: BigscreenAlertItem[]
-  energy_structure: BigscreenDistributionItem[]
-  energy_ranking: BigscreenDistributionItem[]
-  energy_flow: BigscreenFlowData
-  energy_timeseries: BigscreenTrendPoint[]
-  hero_metrics: BigscreenMetric[]
+export type BigscreenEventSummary = {
+  page: number
+  page_size: number
+  total: number
+  start: string | null
+  end: string | null
+  distribution: BigscreenDistributionItem[]
+  region_distribution: BigscreenDistributionItem[]
+  status_distribution: BigscreenDistributionItem[]
+  recent: Array<{ id: string; title: string; type: string; time: string | null; status: string; area: string; device: string; level: string | null; handle_note: string | null }>
 }
+
+export type BigscreenPeriod = { start?: string; end?: string; grain?: string; area?: string }
+
+export type BigscreenEventCategory = "all" | "power" | "carbon" | "video"
+export type BigscreenEventFilters = { category: BigscreenEventCategory; start?: string; end?: string; status?: string; area?: string; page?: number }
 
 export type BigscreenCarbonResponse = {
-  carbon_compare: BigscreenComparisonItem[]
-  production_share: BigscreenDistributionItem[]
-  carbon_flow: BigscreenFlowData
-  carbon_alerts: BigscreenAlertItem[]
-  carbon_price_trend: BigscreenTrendPoint[]
-  commentary: string[]
+  period_facts: BigscreenInfoItem[]
+  scope_distribution: BigscreenDistributionItem[]
+  area_ranking: BigscreenDistributionItem[]
   hero_metrics: BigscreenMetric[]
+  flow: BigscreenFlowData
+  source_ranking: BigscreenDistributionItem[]
+  activity_distribution: BigscreenDistributionItem[]
+  factors: BigscreenInfoItem[]
 }
 
 export type HuayiBigscreenKeyValue = {

@@ -1,8 +1,26 @@
 import { useQuery } from "@tanstack/react-query"
 import { useAuthStore } from "@/lib/auth"
 
-import { getBigscreenCarbon, getBigscreenIntro, getBigscreenMeta, getBigscreenOverview, getBigscreenPower, getHuayiBigscreenOverview } from "@/lib/bigscreen/api"
+import {
+  getBigscreenCarbon,
+  getBigscreenEvents,
+  getBigscreenIntro,
+  getBigscreenMeta,
+  getBigscreenOverview,
+  getBigscreenPower,
+  getHuayiBigscreenOverview,
+} from "@/lib/bigscreen/api"
 import { getBigscreenEnvironment } from "@/lib/bigscreen/environment"
+import type { BigscreenEventFilters, BigscreenPeriod } from "@/lib/bigscreen/types"
+
+export function useBigscreenEvents(filters: BigscreenEventFilters) {
+  const teamId = useAuthStore((state) => state.currentTeam?.id)
+  return useQuery({
+    queryKey: ["bigscreen", "events", teamId, filters],
+    queryFn: ({ signal }) => getBigscreenEvents(filters, { teamId, signal }),
+    enabled: Boolean(teamId),
+  })
+}
 
 export function useBigscreenMeta(variant: "default" | "huayi" = "default") {
   const teamId = useAuthStore((state) => state.currentTeam?.id)
@@ -23,30 +41,35 @@ export function useBigscreenIntro() {
   })
 }
 
-export function useBigscreenOverview() {
+export function useBigscreenOverview(period: BigscreenPeriod = {}) {
   const teamId = useAuthStore((state) => state.currentTeam?.id)
   return useQuery({
-    queryKey: ["bigscreen", "overview", teamId],
-    queryFn: ({ signal }) => getBigscreenOverview({ teamId, signal }),
+    queryKey: ["bigscreen", "overview", teamId, period],
+    queryFn: ({ signal }) => getBigscreenOverview({ teamId, signal }, period),
+    placeholderData: (previous, previousQuery) => (previousQuery?.queryKey[2] === teamId ? previous : undefined),
+    refetchInterval: 60000,
     enabled: Boolean(teamId),
   })
 }
 
-export function useBigscreenPower() {
+export function useBigscreenPower(period: BigscreenPeriod = {}) {
   const teamId = useAuthStore((state) => state.currentTeam?.id)
   return useQuery({
-    queryKey: ["bigscreen", "power", teamId],
-    queryFn: ({ signal }) => getBigscreenPower({ teamId, signal }),
+    queryKey: ["bigscreen", "power", teamId, period],
+    queryFn: ({ signal }) => getBigscreenPower({ teamId, signal }, period),
+    placeholderData: (previous, previousQuery) => (previousQuery?.queryKey[2] === teamId ? previous : undefined),
+    refetchInterval: 60000,
     enabled: Boolean(teamId),
   })
 }
 
-export function useBigscreenCarbon() {
+export function useBigscreenCarbon(enabled = true) {
   const teamId = useAuthStore((state) => state.currentTeam?.id)
   return useQuery({
     queryKey: ["bigscreen", "carbon", teamId],
     queryFn: ({ signal }) => getBigscreenCarbon({ teamId, signal }),
-    enabled: Boolean(teamId),
+    enabled: Boolean(teamId) && enabled,
+    refetchInterval: 60000,
   })
 }
 

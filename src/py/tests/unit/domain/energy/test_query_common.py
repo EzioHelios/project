@@ -44,13 +44,13 @@ def test_energy_fact_filters_always_include_the_active_team() -> None:
     assert params["team_id"] == str(team_id)
 
 
-def test_energy_analysis_month_granularity_aggregates_day_source_facts() -> None:
+def test_energy_analysis_month_granularity_reads_month_facts() -> None:
     where_sql, params = build_energy_analysis_filters(EnergyAnalysisQuery(granularity="month"), team_id="tenant-1")
 
     assert "granularity = :source_granularity" in where_sql
     assert _analysis_granularity("month") == "month"
-    assert _analysis_source_granularity("month") == "day"
-    assert params["source_granularity"] == "day"
+    assert _analysis_source_granularity("month") == "month"
+    assert params["source_granularity"] == "month"
 
 
 def test_energy_analysis_filters_include_business_object_selectors() -> None:
@@ -81,14 +81,14 @@ def test_energy_flow_filters_include_area_and_equipment_selectors() -> None:
         team_id="tenant-1",
     )
 
-    assert "energy_type_code = :energy_type_code" in where_sql
+    assert "energy_type_code in ('electricity', 'purchased_electricity')" in where_sql
     assert "area_id = :area_id" in where_sql
     assert "equipment_id = :equipment_id" in where_sql
     assert params["area_id"] == "12"
     assert params["equipment_id"] == 34
 
 
-def test_energy_flow_model_builds_metering_coverage_loss_items() -> None:
+def test_energy_flow_model_preserves_recorded_attribution_without_inventing_losses() -> None:
     model = _build_flow_model(
         [
             {
@@ -106,9 +106,23 @@ def test_energy_flow_model_builds_metering_coverage_loss_items() -> None:
 
     assert model["summary"]["total_input"] == 1200
     assert model["summary"]["high_loss_count"] == 0
-    assert model["losses"]
-    assert model["losses"][0]["stage"] == "计量覆盖诊断"
-    assert model["losses"][0]["status"] == "normal"
+    assert model["losses"] == []
+    assert model["summary"]["total_loss"] is None
+    assert {node["category"] for node in model["nodes"]} == {"source", "area", "equipment"}
+    assert [link["value"] for link in model["links"]] == [1200, 1200]
+
+
+def test_energy_flow_refuses_to_sum_incompatible_units() -> None:
+    model = _build_flow_model(
+        [
+            {"energy_type_code": "electricity", "unit": "kWh", "energy_amount": 100},
+            {"energy_type_code": "natural_gas", "unit": "m3", "energy_amount": 20},
+        ],
+        threshold_pct=5,
+    )
+    assert model["nodes"] == model["links"] == []
+    assert model["summary"]["total_input"] is None
+    assert model["summary"]["data_quality"] == "incompatible_units"
 
 
 def test_energy_flow_report_items_follow_non_empty_flow_data() -> None:
@@ -127,15 +141,16 @@ def test_energy_flow_report_items_follow_non_empty_flow_data() -> None:
         threshold_pct=5,
     )
 
-    report_items = _build_report_items(model["summary"], model["links"])
+    report_items = _build_report_items(model["summary"], model["links"], model["nodes"], model["unit"])
 
     assert len(report_items) == 1
     assert report_items[0]["title"] == "能流结构复盘"
-    assert report_items[0]["evidence"]["计量用电(kWh)"] == 860
+    assert report_items[0]["evidence"]["归集总量(kWh)"] == 860
+    assert "energy:" not in report_items[0]["evidence"]["重点链路"]
 
 
 def test_energy_flow_report_items_empty_without_flow_data() -> None:
-    report_items = _build_report_items({"total_input": 0, "utilized_energy": 0, "row_count": 0}, [])
+    report_items = _build_report_items({"total_input": 0, "utilized_energy": 0, "row_count": 0}, [], [], "kWh")
 
     assert report_items == []
 

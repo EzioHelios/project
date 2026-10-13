@@ -2,14 +2,35 @@ import { getApiBaseUrl } from "@/lib/api-base-url"
 import type {
   BigscreenApiEnvelope,
   BigscreenCarbonResponse,
+  BigscreenEventFilters,
+  BigscreenEventSummary,
   BigscreenIntroResponse,
   BigscreenMetaResponse,
-  BigscreenOverviewResponse,
-  BigscreenPowerResponse,
+  BigscreenOperationsResponse,
+  BigscreenPeriod,
   HuayiBigscreenOverviewResponse,
 } from "@/lib/bigscreen/types"
 
 type BigscreenRequestScope = { teamId?: string; signal?: AbortSignal }
+
+export function getBigscreenEvents(filters: BigscreenEventFilters, scope?: BigscreenRequestScope) {
+  const params = new URLSearchParams(
+    Object.entries(filters)
+      .filter(([, value]) => value !== "" && value != null)
+      .map(([key, value]) => [key, String(value)]),
+  )
+  return requestBigscreen<BigscreenEventSummary>(`/api/bigscreen/events?${params}`, scope)
+}
+
+export async function getBigscreenPhoto(id: string, scope: BigscreenRequestScope) {
+  const response = await fetch(`${getApiBaseUrl()}/api/bigscreen/photos/${encodeURIComponent(id)}`, {
+    credentials: "include",
+    signal: scope.signal,
+    headers: scope.teamId ? { "X-Team-Id": scope.teamId } : undefined,
+  })
+  if (!response.ok) throw new Error("照片暂不可用")
+  return response.blob()
+}
 
 async function requestBigscreen<T>(path: string, scope?: BigscreenRequestScope): Promise<BigscreenApiEnvelope<T>> {
   const apiUrl = getApiBaseUrl()
@@ -34,12 +55,18 @@ export function getBigscreenIntro(scope?: BigscreenRequestScope) {
   return requestBigscreen<BigscreenIntroResponse>("/api/bigscreen/intro", scope)
 }
 
-export function getBigscreenOverview(scope?: BigscreenRequestScope) {
-  return requestBigscreen<BigscreenOverviewResponse>("/api/bigscreen/overview", scope)
+export function getBigscreenOverview(scope?: BigscreenRequestScope, period: BigscreenPeriod = {}) {
+  return requestBigscreen<BigscreenOperationsResponse>(
+    `/api/bigscreen/overview?${new URLSearchParams(Object.entries(period).filter(([, value]) => Boolean(value)) as [string, string][])}`,
+    scope,
+  )
 }
 
-export function getBigscreenPower(scope?: BigscreenRequestScope) {
-  return requestBigscreen<BigscreenPowerResponse>("/api/bigscreen/power", scope)
+export function getBigscreenPower(scope?: BigscreenRequestScope, period: BigscreenPeriod = {}) {
+  return requestBigscreen<BigscreenOperationsResponse>(
+    `/api/bigscreen/power?${new URLSearchParams(Object.entries(period).filter(([, value]) => Boolean(value)) as [string, string][])}`,
+    scope,
+  )
 }
 
 export function getBigscreenCarbon(scope?: BigscreenRequestScope) {

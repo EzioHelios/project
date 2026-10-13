@@ -194,7 +194,6 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
         isActive: pathname.startsWith("/bigscreen"),
         items: [
           { title: "态势总览", to: "/bigscreen/overview" },
-          { title: "企业介绍", to: "/bigscreen/intro" },
           { title: "电量监控", to: "/bigscreen/power" },
           { title: "能碳协同", to: "/bigscreen/carbon" },
           { title: "华谊园区", to: "/bigscreen/huayi" },

@@ -1,101 +1,107 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { BigscreenCompareChart, BigscreenLineChart, BigscreenPieChart, BigscreenSankeyChart } from "@/components/bigscreen/charts"
+import { createFileRoute, Link } from "@tanstack/react-router"
+import { BigscreenBarChart, BigscreenSankeyChart } from "@/components/bigscreen/charts"
 import { BigscreenDataState } from "@/components/bigscreen/data-state"
-import { BigscreenScrollBoard } from "@/components/bigscreen/motion"
-import { BigscreenInfoCard, BigscreenMetricCard, BigscreenPanel } from "@/components/bigscreen/panel"
-import { BigscreenSceneHost } from "@/components/bigscreen/scene"
-import { useBigscreenCarbon } from "@/lib/bigscreen/hooks"
+import { EventList, ScreenFacts, ScreenMetrics } from "@/components/bigscreen/operations"
+import { BigscreenPanel } from "@/components/bigscreen/panel"
+import { CommuteEnergy } from "@/components/bigscreen/warehouse-subjects"
+import { useBigscreenCarbon, useBigscreenOverview } from "@/lib/bigscreen/hooks"
+import type { BigscreenDistributionItem } from "@/lib/bigscreen/types"
 
-export const Route = createFileRoute("/_app/bigscreen/carbon")({
-  component: BigscreenCarbonPage,
-})
-
-function BigscreenCarbonPage() {
-  const carbonQuery = useBigscreenCarbon()
-  const carbon = carbonQuery.data?.data
-
-  if (carbonQuery.isError || !carbon) {
-    return <BigscreenDataState failed={carbonQuery.isError} retry={() => void carbonQuery.refetch()} />
-  }
-
-  const alertRows =
-    carbon?.carbon_alerts?.map((item) => ({
-      title: item.title,
-      detail: item.detail ?? "无补充说明",
-      time: item.occurred_at ? item.occurred_at.slice(5, 16).replace("T", " ") : "未记录",
-    })) ?? []
-
+export const Route = createFileRoute("/_app/bigscreen/carbon")({ component: CarbonPage })
+function topItems(items: BigscreenDistributionItem[], count = 5) {
+  const sorted = [...items].sort((a, b) => b.value - a.value)
+  return sorted.length > count ? [...sorted.slice(0, count), { name: "其他", value: sorted.slice(count).reduce((sum, item) => sum + item.value, 0) }] : sorted
+}
+function CarbonPage() {
+  const query = useBigscreenCarbon()
+  const operations = useBigscreenOverview()
+  const data = query.data?.data
+  if (!data || !operations.data?.data)
+    return (
+      <BigscreenDataState
+        failed={query.isError || operations.isError}
+        retry={() => {
+          void query.refetch()
+          void operations.refetch()
+        }}
+      />
+    )
+  const context = operations.data.data
+  const commute = context.presentation.carbon_focus === "commute"
   return (
-    <div className="bigscreen-page">
-      <div className="bigscreen-side-stack">
-        <BigscreenPanel title="碳排指标" frame="tall">
-          <div className="bigscreen-kpi-grid" data-columns="1">
-            {(carbon?.hero_metrics ?? []).map((metric, index) => (
-              <BigscreenMetricCard key={metric.id} metric={metric} tone={index === 0 ? "emerald" : index === 1 ? "amber" : "cyan"} compact />
-            ))}
-          </div>
-        </BigscreenPanel>
-
-        <BigscreenPanel title="范围对比" frame="tall">
-          <BigscreenCompareChart items={carbon?.carbon_compare ?? []} height={244} />
-        </BigscreenPanel>
+    <div className="warehouse-screen" data-screen-ready={!query.isFetching && !operations.isFetching && !query.isError && !operations.isError}>
+      <div className="warehouse-toolbar">
+        <span>组织碳核算</span>
+        <span className="warehouse-data-period">{data.period_facts[0]?.value}</span>
+        <Link to="/carbon/organization/reports">盘查报告</Link>
+        <Link to="/bigscreen/model">模型全屏</Link>
       </div>
-
-      <div className="bigscreen-main-stack">
-        <BigscreenSceneHost eyebrow="Carbon Scene" title="能碳协同主视觉区" description="能碳协同总览" showCore={false} showSafezone={false} className="bigscreen-scene-ghost" />
-
-        <div className="bigscreen-bottom-grid" data-columns="3">
-          <BigscreenPanel title={carbon?.carbon_flow.title ?? "范围级碳流"} frame="wide">
-            <BigscreenSankeyChart flow={carbon?.carbon_flow ?? { title: "范围级碳流", nodes: [], links: [] }} height={168} />
+      {(query.isError || operations.isError) && (
+        <div role="alert" className="warehouse-query-error">
+          数据更新失败{" "}
+          <button
+            type="button"
+            onClick={() => {
+              void query.refetch()
+              void operations.refetch()
+            }}
+          >
+            重试
+          </button>
+        </div>
+      )}
+      <div className="bigscreen-page warehouse-page warehouse-carbon-page">
+        <aside className="warehouse-carbon-rail">
+          <BigscreenPanel title="核算结果" frame="tall">
+            <ScreenMetrics items={data.hero_metrics} />
           </BigscreenPanel>
-
-          <BigscreenPanel title="电力因子走势" frame="wide">
-            <BigscreenLineChart points={carbon?.carbon_price_trend ?? []} height={168} mode="single" />
+          <BigscreenPanel title="核算活动构成" frame="tall">
+            <BigscreenBarChart items={topItems(data.activity_distribution)} unit="条活动" height="100%" />
           </BigscreenPanel>
-
-          <BigscreenPanel title="协同说明" frame="wide">
-            <div className="bigscreen-stack">
-              {(carbon?.commentary?.length ? carbon.commentary : ["暂无协同说明"]).slice(0, 4).map((item, index) => (
-                <BigscreenInfoCard key={item} label={`Insight ${index + 1}`} value={item} accent={index % 2 === 0 ? "cyan" : "amber"} />
-              ))}
+          <BigscreenPanel title="核算档案" frame="tall">
+            <ScreenFacts items={data.period_facts} emptyLabel="暂无核算记录" />
+          </BigscreenPanel>
+        </aside>
+        <div className="warehouse-center">
+          <BigscreenPanel title="组织边界至区域设备碳流 · kgCO2e" frame="wide">
+            <BigscreenSankeyChart flow={data.flow} height="100%" />
+          </BigscreenPanel>
+          <div className="warehouse-bottom">
+            <BigscreenPanel title="主要排放源贡献" frame="wide">
+              <BigscreenBarChart items={topItems(data.source_ranking)} unit="kgCO2e" height="100%" />
+            </BigscreenPanel>
+            <BigscreenPanel title="区域设备排放归集" frame="wide">
+              <BigscreenBarChart items={topItems(data.area_ranking)} unit="kgCO2e" height="100%" />
+            </BigscreenPanel>
+          </div>
+        </div>
+        <aside className="warehouse-carbon-rail">
+          <BigscreenPanel title="核算采用因子" frame="tall">
+            <div className="warehouse-factor-list">
+              <ScreenFacts items={data.factors} emptyLabel="暂无因子记录" />
             </div>
           </BigscreenPanel>
-        </div>
-      </div>
-
-      <div className="bigscreen-side-stack">
-        <BigscreenPanel title="贡献构成" frame="tall">
-          <BigscreenPieChart items={carbon?.production_share ?? []} height={238} />
-          <div className="mt-4 grid gap-2">
-            {carbon?.production_share?.slice(0, 3).map((item, index) => (
-              <BigscreenInfoCard
-                key={item.name}
-                label={`Share ${index + 1}`}
-                value={item.name}
-                accent={index === 0 ? "emerald" : index === 1 ? "cyan" : "amber"}
-                detail={`${item.value.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} kgCO2e`}
-              />
-            ))}
-          </div>
-        </BigscreenPanel>
-
-        <BigscreenPanel title="碳排预警滚动榜" frame="tall">
-          <BigscreenScrollBoard
-            rows={alertRows}
-            headers={["事件", "补充说明", "时间"]}
-            columns="1.2fr 1.8fr 1fr"
-            visibleRows={5}
-            emptyLabel="暂无碳排预警"
-            getRowKey={(row) => `${row.title}-${row.time}`}
-            renderRow={(row) => (
-              <>
-                <div className="text-sm font-medium text-white">{row.title}</div>
-                <div className="text-xs text-white/58">{row.detail}</div>
-                <div className="text-xs text-cyan-100/60">{row.time}</div>
-              </>
+          <BigscreenPanel title={commute ? "通勤车辆能源构成" : "排放分类构成"} frame="tall">
+            {commute ? <CommuteEnergy data={context} /> : <BigscreenBarChart items={data.scope_distribution} unit="kgCO2e" height="100%" />}
+          </BigscreenPanel>
+          <BigscreenPanel title={commute ? "历史碳排预警" : "排放源清单"} frame="tall">
+            {commute ? (
+              <EventList events={context.carbon_alarms} category="carbon" />
+            ) : (
+              <div className="warehouse-area-register">
+                {data.source_ranking.map((item) => (
+                  <div key={item.name}>
+                    <span>{item.name}</span>
+                    <strong>
+                      {item.value.toLocaleString("zh-CN", { maximumFractionDigits: 2 })}
+                      <small> kgCO2e</small>
+                    </strong>
+                  </div>
+                ))}
+              </div>
             )}
-          />
-        </BigscreenPanel>
+          </BigscreenPanel>
+        </aside>
       </div>
     </div>
   )

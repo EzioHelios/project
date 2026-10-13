@@ -89,36 +89,26 @@ class BigscreenMetaPayload(BaseModel):
 
 class BigscreenIntroPayload(BaseModel):
     hero_title: str
-    hero_description: str
     company_gallery: list[BigscreenMediaItem] = Field(default_factory=list)
-    project_spotlights: list[BigscreenMediaItem] = Field(default_factory=list)
-    success_cases: list[BigscreenMediaItem] = Field(default_factory=list)
-    promo_video_url: str | None = None
     company_facts: list[BigscreenInfoItem] = Field(default_factory=list)
+    profile: BigscreenPublicProfile | None = None
 
 
-class BigscreenOverviewPayload(BaseModel):
-    energy_kpis: list[BigscreenMetric] = Field(default_factory=list)
-    carbon_kpis: list[BigscreenMetric] = Field(default_factory=list)
-    energy_flow: BigscreenFlowData
-    production_trend: list[BigscreenTrendPoint] = Field(default_factory=list)
-    filters: dict[str, list[dict[str, str]]] = Field(default_factory=dict)
-
-
-class BigscreenPowerPayload(BaseModel):
-    alerts: list[BigscreenAlertItem] = Field(default_factory=list)
-    energy_structure: list[BigscreenDistributionItem] = Field(default_factory=list)
-    energy_ranking: list[BigscreenDistributionItem] = Field(default_factory=list)
-    energy_flow: BigscreenFlowData
-    energy_timeseries: list[BigscreenTrendPoint] = Field(default_factory=list)
-    hero_metrics: list[BigscreenMetric] = Field(default_factory=list)
+class BigscreenPublicProfile(BaseModel):
+    title: str
+    summary: str
+    features: list[BigscreenInfoItem] = Field(default_factory=list)
+    source_name: str
+    source_url: str
+    published_on: str
 
 
 class BigscreenCarbonPayload(BaseModel):
-    carbon_compare: list[BigscreenComparisonItem] = Field(default_factory=list)
-    production_share: list[BigscreenDistributionItem] = Field(default_factory=list)
-    carbon_flow: BigscreenFlowData
-    carbon_alerts: list[BigscreenAlertItem] = Field(default_factory=list)
-    carbon_price_trend: list[BigscreenTrendPoint] = Field(default_factory=list)
-    commentary: list[str] = Field(default_factory=list)
+    period_facts: list[BigscreenInfoItem] = Field(default_factory=list)
+    scope_distribution: list[BigscreenDistributionItem] = Field(default_factory=list)
+    area_ranking: list[BigscreenDistributionItem] = Field(default_factory=list)
     hero_metrics: list[BigscreenMetric] = Field(default_factory=list)
+    flow: BigscreenFlowData = Field(default_factory=lambda: BigscreenFlowData(title="组织碳流", unit="kgCO2e"))
+    source_ranking: list[BigscreenDistributionItem] = Field(default_factory=list)
+    activity_distribution: list[BigscreenDistributionItem] = Field(default_factory=list)
+    factors: list[BigscreenInfoItem] = Field(default_factory=list)

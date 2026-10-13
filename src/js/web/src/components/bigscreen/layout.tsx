@@ -9,15 +9,14 @@ import { ScreenHeader } from "@/components/bigscreen/primitives/ScreenHeader"
 import { BigscreenSkinProvider } from "@/components/bigscreen/skins/context"
 import { getBigscreenSkinDefinition } from "@/components/bigscreen/skins/registry"
 import { BigscreenTenantSwitcher } from "@/components/bigscreen/tenant-switcher"
+import { useAuthStore } from "@/lib/auth"
 import { useBigscreenEnvironment, useBigscreenMeta } from "@/lib/bigscreen/hooks"
 
 const fallbackNav = [
-  { label: "企业介绍", path: "/bigscreen/intro" },
   { label: "态势总览", path: "/bigscreen/overview" },
-  { label: "园区模型", path: "/bigscreen/model" },
+  { label: "运行监测", path: "/bigscreen/monitor" },
   { label: "电量监控", path: "/bigscreen/power" },
-  { label: "能碳协同", path: "/bigscreen/carbon" },
-  { label: "视觉作业", path: "/bigscreen/vision" },
+  { label: "碳排管理", path: "/bigscreen/carbon" },
 ]
 
 const fallbackNavByVariant = {
@@ -68,6 +67,7 @@ function useClock() {
 }
 
 export function BigscreenLayout() {
+  const teamName = useAuthStore((state) => state.currentTeam?.name)
   const pathname = useLocation({ select: (location) => location.pathname })
   const metaVariant = pathname.startsWith("/bigscreen/huayi") ? "huayi" : pathname.startsWith("/bigscreen/zhijiang") ? "zhijiang" : "default"
   const { scale, tier } = useBigscreenViewport()
@@ -115,9 +115,9 @@ export function BigscreenLayout() {
             </div>
             <div className="bigscreen-shell">
               <ScreenHeader
-                title={meta?.title ?? fallbackMeta?.title ?? "仓储能碳态势指挥大屏"}
-                shortName={meta?.short_name ?? fallbackMeta?.shortName ?? "LC"}
-                description={meta?.description ?? fallbackMeta?.description ?? "围绕园区主视觉对象组织经营总览、电量监控、能碳协同与企业介绍，形成可上墙、可持续观看的大屏系统。"}
+                title={metaVariant === "default" && teamName ? `${teamName}能碳驾驶舱` : (meta?.title ?? fallbackMeta?.title ?? "能碳驾驶舱")}
+                shortName={metaVariant === "default" ? "能碳" : (meta?.short_name ?? fallbackMeta?.shortName ?? "LC")}
+                description=""
                 city={displayCity}
                 tenantSwitcher={<BigscreenTenantSwitcher />}
                 weather={displayWeather}
