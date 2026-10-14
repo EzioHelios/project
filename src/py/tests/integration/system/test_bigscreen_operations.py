@@ -10,6 +10,68 @@ from app.lib.tenancy import TENANT_ID_SESSION_KEY
 pytestmark = pytest.mark.anyio
 
 
+async def test_latest_reading_seek_preserves_filters_ties_empty_devices_and_tenant_scope(session):
+    teams = [m.Team(name="Readings A", slug="readings-a"), m.Team(name="Readings B", slug="readings-b")]
+    session.add_all(teams)
+    await session.flush()
+    for index, team in enumerate(teams):
+        session.info[TENANT_ID_SESSION_KEY] = team.id
+        devices = [
+            m.MonitorEquipment(code="LATEST", name="Latest", category=0, is_enable=True),
+            m.MonitorEquipment(code="EMPTY", name="Empty", category=0, is_enable=True),
+            m.MonitorEquipment(code="DISABLED", name="Disabled", category=0, is_enable=False),
+            m.MonitorEquipment(code="NULL", name="Null value", category=1, is_enable=True),
+        ]
+        session.add_all(devices)
+        await session.flush()
+        for seq, (device, day, source, quality, point, kind, amount) in enumerate(
+            [
+                (0, 1, "mqtt", "valid", "forward_active_total", "register_index", "100"),
+                (0, 2, "mqtt", "valid", "forward_active_total", "register_index", "110"),
+                (0, 2, "mqtt", "valid", "forward_active_total", "register_index", str(111 + index)),
+                (0, 3, "demo_seed", "valid", "forward_active_total", "register_index", "999"),
+                (0, 4, "mqtt", "invalid", "forward_active_total", "register_index", "999"),
+                (0, 5, "mqtt", "valid", "reverse_active_total", "register_index", "999"),
+                (0, 6, "mqtt", "valid", "forward_active_total", "interval_delta", "999"),
+                (2, 2, "mqtt", "valid", "forward_active_total", "register_index", "999"),
+                (3, 2, "mqtt", "valid", "forward_active_total", "register_index", None),
+            ]
+        ):
+            session.add(
+                m.MeterReadingFact(
+                    equipment_id=devices[device].id,
+                    source_system=source,
+                    source_record_id=str(seq),
+                    source_point_code=point,
+                    point_code=point,
+                    point_name="Meter register",
+                    energy_direction="forward",
+                    energy_kind="active",
+                    tou_period="total",
+                    value_kind=kind,
+                    normalized_value=Decimal(amount) if amount is not None else None,
+                    unit="kWh",
+                    quality_status=quality,
+                    reading_time=datetime(2026, 10, day),  # noqa: DTZ001 - business timestamps are naive.
+                    mapping_version="1",
+                )
+            )
+            await session.flush()
+        await session.commit()
+    for index, team in enumerate(teams):
+        session.info[TENANT_ID_SESSION_KEY] = team.id
+        view = await BigscreenOperationsService(session).build(start=date(2026, 10, 1), end=date(2026, 10, 6))
+        devices = {d["name"]: d for d in view["devices"]}
+        assert set(devices) == {"Latest", "Empty", "Null value"}
+        assert devices["Latest"]["register_value"] == 111 + index
+        assert devices["Latest"]["last_reading"] == "2026-10-02T00:00:00"
+        assert devices["Latest"]["register_unit"] == "kWh"
+        assert devices["Empty"]["last_reading"] is None
+        assert devices["Empty"]["register_value"] is None
+        assert devices["Null value"]["last_reading"] == "2026-10-02T00:00:00"
+        assert devices["Null value"]["register_value"] is None
+
+
 async def test_screen_meter_totals_exclude_demo_and_do_not_mix_tenants(session):
     teams = [m.Team(name="Screen A", slug="screen-a"), m.Team(name="Screen B", slug="screen-b")]
     session.add_all(teams)

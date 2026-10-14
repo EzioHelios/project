@@ -6,11 +6,12 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, true
 
 from app.db import models as m
 from app.domain.carbon.services._bigscreen_ledger import ledger_overview
 from app.domain.energy.queries.flow import EnergyFlowQuery, EnergyFlowQueryService
+from app.lib.tenancy import require_session_tenant_id
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -191,28 +192,36 @@ class BigscreenOperationsService:
         equipment = (
             await self.session.scalars(select(m.MonitorEquipment).where(m.MonitorEquipment.is_enable.is_(True)))
         ).all()
+        tenant_id = require_session_tenant_id(self.session)
+        meter = m.MonitorEquipment.__table__
+        reading_fact = m.MeterReadingFact.__table__
+        # Seek the newest eligible row per device instead of sorting its entire history.
+        latest_reading = (
+            select(reading_fact.c.reading_time, reading_fact.c.normalized_value, reading_fact.c.unit)
+            .where(
+                reading_fact.c.team_id == tenant_id,
+                reading_fact.c.equipment_id == meter.c.id,
+                reading_fact.c.quality_status == "valid",
+                reading_fact.c.point_code == "forward_active_total",
+                reading_fact.c.value_kind == "register_index",
+                ~reading_fact.c.source_system.like("demo%"),
+            )
+            .order_by(reading_fact.c.reading_time.desc(), reading_fact.c.id.desc())
+            .limit(1)
+            .lateral("latest_reading")
+        )
         readings = {
             row.equipment_id: row
             for row in (
                 await self.session.execute(
                     select(
-                        m.MeterReadingFact.equipment_id,
-                        m.MeterReadingFact.reading_time,
-                        m.MeterReadingFact.normalized_value,
-                        m.MeterReadingFact.unit,
+                        meter.c.id.label("equipment_id"),
+                        latest_reading.c.reading_time,
+                        latest_reading.c.normalized_value,
+                        latest_reading.c.unit,
                     )
-                    .where(
-                        m.MeterReadingFact.quality_status == "valid",
-                        m.MeterReadingFact.point_code == "forward_active_total",
-                        m.MeterReadingFact.value_kind == "register_index",
-                        ~m.MeterReadingFact.source_system.like("demo%"),
-                    )
-                    .distinct(m.MeterReadingFact.equipment_id)
-                    .order_by(
-                        m.MeterReadingFact.equipment_id,
-                        m.MeterReadingFact.reading_time.desc(),
-                        m.MeterReadingFact.id.desc(),
-                    )
+                    .select_from(meter.join(latest_reading, true()))
+                    .where(meter.c.team_id == tenant_id, meter.c.is_enable.is_(True))
                 )
             ).all()
         }

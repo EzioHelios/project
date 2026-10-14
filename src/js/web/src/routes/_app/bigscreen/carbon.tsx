@@ -16,18 +16,10 @@ function CarbonPage() {
   const query = useBigscreenCarbon()
   const operations = useBigscreenOverview()
   const data = query.data?.data
-  if (!data || !operations.data?.data)
-    return (
-      <BigscreenDataState
-        failed={query.isError || operations.isError}
-        retry={() => {
-          void query.refetch()
-          void operations.refetch()
-        }}
-      />
-    )
-  const context = operations.data.data
-  const commute = context.presentation.carbon_focus === "commute"
+  if (!data) return <BigscreenDataState failed={query.isError} retry={() => void query.refetch()} />
+  const context = operations.data?.data
+  const commute = context?.presentation.carbon_focus === "commute"
+  const operationsState = <BigscreenDataState compact failed={operations.isError} retry={() => void operations.refetch()} />
   return (
     <div className="warehouse-screen" data-screen-ready={!query.isFetching && !operations.isFetching && !query.isError && !operations.isError}>
       <div className="warehouse-toolbar">
@@ -36,14 +28,13 @@ function CarbonPage() {
         <Link to="/carbon/organization/reports">盘查报告</Link>
         <Link to="/bigscreen/model">模型全屏</Link>
       </div>
-      {(query.isError || operations.isError) && (
+      {query.isError && (
         <div role="alert" className="warehouse-query-error">
           数据更新失败{" "}
           <button
             type="button"
             onClick={() => {
               void query.refetch()
-              void operations.refetch()
             }}
           >
             重试
@@ -81,11 +72,19 @@ function CarbonPage() {
               <ScreenFacts items={data.factors} emptyLabel="暂无因子记录" />
             </div>
           </BigscreenPanel>
-          <BigscreenPanel title={commute ? "通勤车辆能源构成" : "排放分类构成"} frame="tall">
-            {commute ? <CommuteEnergy data={context} /> : <BigscreenBarChart items={data.scope_distribution} unit="kgCO2e" height="100%" />}
+          <BigscreenPanel title={!context ? "运营信息" : commute ? "通勤车辆能源构成" : "排放分类构成"} frame="tall">
+            {!context || operations.isError ? (
+              operationsState
+            ) : commute ? (
+              <CommuteEnergy data={context} />
+            ) : (
+              <BigscreenBarChart items={data.scope_distribution} unit="kgCO2e" height="100%" />
+            )}
           </BigscreenPanel>
-          <BigscreenPanel title={commute ? "历史碳排预警" : "排放源清单"} frame="tall">
-            {commute ? (
+          <BigscreenPanel title={!context ? "预警信息" : commute ? "历史碳排预警" : "排放源清单"} frame="tall">
+            {!context || operations.isError ? (
+              operationsState
+            ) : commute ? (
               <EventList events={context.carbon_alarms} category="carbon" />
             ) : (
               <div className="warehouse-area-register">
