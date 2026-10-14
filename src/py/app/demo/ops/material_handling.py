@@ -11,11 +11,11 @@ from app.db import models as m
 from app.domain.material_allocation.policies import fingerprint
 from app.domain.material_allocation.schemas import HourCalculation, OperationCreate
 from app.domain.material_allocation.usecases import CalculateMaterialCarbonAllocation, MaterialHandlingOperationUseCase
-from app.lib.tenancy import require_session_tenant_id
+from app.lib.demo_tenancy import require_demo_tenant
 
 
 async def seed_material_handling(session: Any, tenant_slug: str, city_code: str) -> None:
-    team = require_session_tenant_id(session)
+    team = await require_demo_tenant(session)
     area = await session.scalar(
         select(m.MonitorSector).where(m.MonitorSector.team_id == team, m.MonitorSector.code == "AUTO_WH")
     )

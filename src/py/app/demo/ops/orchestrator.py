@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.demo.ops.contracts import DemoAction, DemoExecutionContext, DemoPackage, DemoRunResult
-from app.demo.ops.woheng import WohengShowcasePackage
+from app.demo.ops.woheng import WOHENG_NAMESPACE, WohengShowcasePackage
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,6 +40,9 @@ class DemoOpsOrchestrator:
         package = self._packages.get(package_key)
         if package is None:
             msg = f"Unknown demo package: {package_key}"
+            raise DemoOpsError(msg)
+        if namespace != WOHENG_NAMESPACE:
+            msg = "The Woheng showcase package requires namespace 'woheng'."
             raise DemoOpsError(msg)
         if profile not in package.supported_profiles:
             msg = f"Profile {profile!r} is not supported by {package_key!r}."

@@ -236,7 +236,7 @@ async def test_cross_tenant_operation_and_factor_rejected(session):
 async def test_demo_repeat_install_preserves_objects_and_user_changes(session):
     from app.demo.ops.material_handling import seed_material_handling
 
-    team = m.Team(name="Demo Handling", slug="demo-handling-tests")
+    team = m.Team(name="Demo Handling", slug="woheng-taizhou-production-base", is_active=True)
     session.add(team)
     await session.flush()
     session.info[TENANT_ID_SESSION_KEY] = team.id

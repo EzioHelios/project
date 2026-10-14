@@ -19,7 +19,7 @@ async def test_woheng_package_install_plan_is_non_mutating() -> None:
 
     assert result.status == DemoStepStatus.PLANNED
     assert result.applied is False
-    assert [step.module_key for step in result.steps] == ["tenant", "dataset", "mqtt"]
+    assert [step.module_key for step in result.steps] == ["energy-types", "tenant", "dataset", "mqtt"]
 
 
 def test_woheng_package_is_registered() -> None:
@@ -41,4 +41,17 @@ async def test_unknown_woheng_profile_is_rejected() -> None:
             profile="legacy-customer",
             action=DemoAction.INSTALL,
             apply=False,
+        )
+
+
+@pytest.mark.anyio
+async def test_customer_namespace_is_rejected_before_package_execution() -> None:
+    orchestrator = DemoOpsOrchestrator(session=object())  # type: ignore[arg-type]
+    with pytest.raises(DemoOpsError, match="namespace"):
+        await orchestrator.execute(
+            package_key="woheng-showcase",
+            namespace="xiangtai",
+            profile="full",
+            action=DemoAction.INSTALL,
+            apply=True,
         )

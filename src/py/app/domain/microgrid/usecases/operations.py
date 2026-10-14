@@ -29,7 +29,7 @@ from app.domain.microgrid.infrastructure.forecasting import (
 from app.domain.microgrid.infrastructure.metering import MicrogridMeterProjection
 from app.domain.microgrid.infrastructure.optimization import OptimizationResult, optimize_dispatch
 from app.domain.microgrid.infrastructure.weather import OpenMeteoWeatherAdapter, WeatherAdapter, history_for_training
-from app.lib.tenancy import DEFAULT_TENANT_ID, session_tenant_id
+from app.lib.demo_tenancy import require_demo_tenant
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -56,7 +56,7 @@ class BootstrapXiangtaiDemo:
         self._session = session
 
     async def execute(self) -> m.MicrogridSite:
-        team_id = session_tenant_id(self._session) or DEFAULT_TENANT_ID
+        team_id = await require_demo_tenant(self._session)
         existing = await self._session.scalar(
             select(m.MicrogridSite).where(
                 m.MicrogridSite.team_id == team_id, m.MicrogridSite.code == XIANGTAI_SITE_CODE

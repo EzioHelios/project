@@ -22,7 +22,7 @@ from app.domain.ghg_inventory.models import (
 from app.domain.ghg_inventory.usecases.allocations import ReplaceActivityAllocations
 from app.domain.ghg_inventory.usecases.calculation import RunInventoryCalculation
 from app.domain.metering.models import MeasurementBoundary, MeasurementBoundaryMember
-from app.lib.tenancy import require_session_tenant_id
+from app.lib.demo_tenancy import require_demo_tenant
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,7 +51,7 @@ class CompleteWarehouseTenantInventory:
         self.session = session
 
     async def execute(self) -> TenantInventoryCompletionResult:
-        require_session_tenant_id(self.session)
+        await require_demo_tenant(self.session)
         root = await self._get_required_area("ROOT")
         areas = {row.code: row for row in (await self.session.scalars(select(m.MonitorSector))).all()}
         organization = await self._get_or_create_organization()

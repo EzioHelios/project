@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
+from app.lib.demo_tenancy import require_demo_tenant
 from app.lib.tenancy import require_session_tenant_id
 
 if TYPE_CHECKING:
@@ -32,7 +33,7 @@ class EnergyAnalysisSeedResult:
 async def seed_energy_analysis_data(session: AsyncSession) -> EnergyAnalysisSeedResult:
     """Maintain legacy reference dictionaries without rebuilding versioned facts."""
 
-    require_session_tenant_id(session)
+    await require_demo_tenant(session)
     await _upsert_use_systems(session)
     await _upsert_use_system_bindings(session)
     await _upsert_default_tariff(session)

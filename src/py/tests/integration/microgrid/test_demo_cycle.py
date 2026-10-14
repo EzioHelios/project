@@ -44,7 +44,7 @@ async def test_xiangtai_demo_persists_full_shadow_dispatch_cycle(session, monkey
         return original_forecast(**kwargs)
 
     monkeypatch.setattr(operations, "forecast_load_quantiles", tracked_forecast)
-    team = m.Team(name="Xiangtai Test", slug="xiangtai-test")
+    team = m.Team(name="Woheng Test", slug="woheng-taizhou-production-base", is_active=True)
     session.add(team)
     await session.flush()
     session.info[TENANT_ID_SESSION_KEY] = team.id

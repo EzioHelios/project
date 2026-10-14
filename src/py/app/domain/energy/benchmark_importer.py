@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
+from app.lib.demo_tenancy import require_demo_tenant
 from app.lib.tenancy import require_session_tenant_id
 
 if TYPE_CHECKING:
@@ -26,7 +27,7 @@ class EnergyBenchmarkSeedResult:
 async def seed_warehouse_energy_benchmark_data(session: AsyncSession) -> EnergyBenchmarkSeedResult:
     """Seed a reusable warehouse scenario benchmark library for the energy benchmark page."""
 
-    require_session_tenant_id(session)
+    await require_demo_tenant(session)
     result = EnergyBenchmarkSeedResult()
     result.profiles_deleted = await _delete_existing_warehouse_profiles(session)
     result.profiles_inserted = await _insert_warehouse_profiles(session)

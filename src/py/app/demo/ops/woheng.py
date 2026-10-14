@@ -27,6 +27,7 @@ from app.domain.energy.usecases.energy_types import (
 )
 from app.lib import constants
 from app.lib.crypt import get_password_hash
+from app.lib.demo_tenancy import require_demo_tenant, validate_demo_team
 from app.lib.tenancy import TENANT_BYPASS_SESSION_KEY, TENANT_ID_SESSION_KEY
 
 if TYPE_CHECKING:
@@ -243,6 +244,9 @@ class WohengShowcasePackage:
 
     async def execute(self, context: DemoExecutionContext, action: DemoAction) -> DemoRunResult:
         """Plan or execute one Woheng package action."""
+        if context.package_key != self.key or context.namespace != WOHENG_NAMESPACE:
+            msg = "Woheng demo operations require package woheng-showcase and namespace woheng."
+            raise ValueError(msg)
         if action == DemoAction.PREFLIGHT:
             return await self._preflight(context)
         if action == DemoAction.INSTALL:
@@ -318,6 +322,7 @@ class WohengShowcasePackage:
             team = await self._ensure_team(tenant)
             self._session.info[TENANT_ID_SESSION_KEY] = team.id
             self._session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
+            await require_demo_tenant(self._session)
             await self._synchronize_bigint_sequences()
             existing_counts = await self._tenant_counts()
             if self._has_base_showcase_dataset(existing_counts):
@@ -549,6 +554,10 @@ class WohengShowcasePackage:
                 continue
             team = await self._session.get(Team, row.object_id)
             if team is not None:
+                validate_demo_team(team)
+                if row.object_key != team.slug or row.team_id != team.id:
+                    msg = "Demo manifest tenant identity mismatch; cleanup refused."
+                    raise ValueError(msg)
                 await self._session.delete(team)
                 deleted += 1
         await self._session.execute(
@@ -716,6 +725,7 @@ class WohengShowcasePackage:
             self._session.add(team)
             await self._session.flush()
         else:
+            validate_demo_team(team)
             team.name = tenant.name
             team.description = f"{WOHENG_SOURCE_NAME}; {tenant.role}。"
             team.is_active = True

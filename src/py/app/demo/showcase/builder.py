@@ -18,10 +18,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import delete, func, select
 
 from app.db import models as m
-from app.db.models import Team, TeamMember, TeamRoles, User
 from app.demo.showcase.market_data import PUBLIC_MARKET_QUOTES
 from app.domain.carbon.energy_analysis_importer import seed_energy_analysis_data
 from app.domain.carbon_assets.domain.policies import calculate_cost_result
@@ -60,6 +59,7 @@ from app.domain.microgrid.usecases.operations import (
     RunForecast,
     RunOptimization,
 )
+from app.lib.demo_tenancy import require_demo_tenant
 from app.lib.tenancy import require_session_tenant_id
 
 if TYPE_CHECKING:
@@ -417,72 +417,6 @@ class _ShowcaseWeatherAdapter:
         return demo_weather(start=start, periods=periods)
 
 
-async def ensure_showcase_team(session: AsyncSession) -> Team:
-    """Create the dedicated tenant and grant all superusers access, idempotently."""
-
-    await session.execute(text("SELECT set_config('app.tenant_bypass', 'true', true)"))
-    await session.execute(
-        text(
-            """
-            DO $repair_sequences$
-            DECLARE
-                item record;
-                last_id bigint;
-            BEGIN
-                FOR item IN
-                    SELECT
-                        columns.table_schema,
-                        columns.table_name,
-                        columns.column_name,
-                        format('%I.%I_id_seq', columns.table_schema, columns.table_name) AS sequence_name
-                    FROM information_schema.columns AS columns
-                    WHERE columns.table_schema = 'public'
-                      AND columns.column_name = 'id'
-                      AND (
-                          columns.table_name LIKE 'dataapp_%'
-                          OR columns.table_name LIKE 'carbon_%'
-                          OR columns.table_name LIKE 'ghg_%'
-                          OR columns.table_name LIKE 'decarbonization_%'
-                          OR columns.table_name LIKE 'climate_governance_%'
-                          OR columns.table_name LIKE 'microgrid_%'
-                      )
-                LOOP
-                    IF to_regclass(item.sequence_name) IS NOT NULL THEN
-                        EXECUTE format(
-                            'SELECT max(%I) FROM %I.%I',
-                            item.column_name,
-                            item.table_schema,
-                            item.table_name
-                        ) INTO last_id;
-                        PERFORM setval(item.sequence_name::regclass, COALESCE(last_id, 0) + 1000, true);
-                    END IF;
-                END LOOP;
-            END
-            $repair_sequences$;
-            """
-        )
-    )
-    team = await session.scalar(select(Team).where(Team.slug == SHOWCASE_TENANT_SLUG))
-    if team is None:
-        team = Team(
-            slug=SHOWCASE_TENANT_SLUG,
-            name=SHOWCASE_TENANT_NAME,
-            description=f"{SOURCE_NAME}；可重复安装，数据覆盖2024年至2026年8月。",
-            is_active=True,
-        )
-        session.add(team)
-        await session.flush()
-    superusers = list((await session.scalars(select(User).where(User.is_superuser.is_(True)))).all())
-    for user in superusers:
-        membership = await session.scalar(
-            select(TeamMember).where(TeamMember.team_id == team.id, TeamMember.user_id == user.id)
-        )
-        if membership is None:
-            session.add(TeamMember(team_id=team.id, user_id=user.id, role=TeamRoles.ADMIN, is_owner=True))
-    await session.commit()
-    return team
-
-
 class ShowcaseDemoBuilder:
     """Populate all organization-carbon demonstration surfaces for one dedicated tenant."""
 
@@ -490,7 +424,7 @@ class ShowcaseDemoBuilder:
         self.session = session
 
     async def execute(self, *, climate_profile: str = "transition") -> ShowcaseDemoResult:
-        require_session_tenant_id(self.session)
+        await require_demo_tenant(self.session)
         await ensure_standard_energy_types(self.session, apply=True)
         enterprise, areas, equipment = await self._master_data()
         _organization, periods, boundaries = await self._inventory_context(enterprise=enterprise, areas=areas)

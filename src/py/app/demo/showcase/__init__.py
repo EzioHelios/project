@@ -6,7 +6,6 @@ from app.demo.showcase.builder import (
     ShowcaseCoverage,
     ShowcaseDemoBuilder,
     ShowcaseDemoResult,
-    ensure_showcase_team,
 )
 
 __all__ = (
@@ -15,5 +14,4 @@ __all__ = (
     "ShowcaseCoverage",
     "ShowcaseDemoBuilder",
     "ShowcaseDemoResult",
-    "ensure_showcase_team",
 )

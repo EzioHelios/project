@@ -2,7 +2,7 @@
 
 `app.demo` 是能碳平台的跨领域演示编排层。客户向演示统一使用 `woheng-showcase`，品牌口径为“沃衡汽车能碳管理平台”。
 
-## 推荐入口
+## 唯一安装入口
 
 ```bash
 app demo package list
@@ -36,6 +36,11 @@ app demo package cleanup woheng-showcase --namespace woheng --profile full
 app demo package cleanup woheng-showcase --namespace woheng --profile full --apply
 ```
 
-## 兼容入口
+## 写入限制
 
-历史客户向演示入口仅保留用于追溯旧材料。新增客户演示、截图和材料生成应使用 `woheng-showcase`。
+所有演示业务生成器要求显式租户上下文，仅允许上述两个沃衡租户，禁止租户绕过及默认租户回退。
+安方、祥泰及其他客户租户拒绝生成演示数据。政策参考库、平台账号等公共配置不属于租户业务事实。
+namespace 固定为 `woheng`；清理时同时校验 manifest 的租户ID、slug与允许名单，不因错误登记而删除客户租户。
+
+旧 `app demo apply`、`install-showcase`、`verify-showcase` 以及 `tools/seed_carbon_data.py` 已删除，不保留转发兼容。
+能源样例及微电网样例等内部生成能力也使用同一租户校验，不允许通过单独入口绕过。
