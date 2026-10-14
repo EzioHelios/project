@@ -31,6 +31,12 @@ BIGSCREEN_ENDPOINTS: dict[str, tuple[str, ...]] = {
 }
 
 
+@pytest.mark.parametrize("path", ["/api/bigscreen/huayi/meta", "/api/bigscreen/huayi/overview"])
+async def test_retired_static_bigscreen_endpoints_are_unavailable(authenticated_client: AsyncClient, path: str) -> None:
+    response = await authenticated_client.get(path)
+    assert response.status_code == 404
+
+
 @pytest.mark.parametrize("query", ["category=bad", "page=0", "status=bad", "start=2026-10-02&end=2026-10-01"])
 async def test_event_query_rejects_invalid_filters(authenticated_client, query):
     response = await authenticated_client.get(f"/api/bigscreen/events?{query}")

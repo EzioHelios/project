@@ -484,7 +484,9 @@ function OperationsContent({ mode }: { mode: "overview" | "power" | "monitor" })
                 {meters.map((item) => (
                   <button type="button" key={item.id} onClick={() => setMeterId(item.id)}>
                     <span>{item.name}</span>
-                    <strong>{item.register_unit ?? "未采样"}</strong>
+                    <strong>
+                      {item.register_value == null ? "未采样" : `${item.register_value.toLocaleString("zh-CN", { maximumFractionDigits: 3 })} ${item.register_unit ?? ""}`}
+                    </strong>
                   </button>
                 ))}
               </div>

@@ -17,7 +17,6 @@ from app.domain.carbon.services._bigscreen import (
     BigscreenMetaService,
 )
 from app.domain.carbon.services._bigscreen_operations import BigscreenOperationsService
-from app.domain.carbon.services._huayi_bigscreen import HuayiBigscreenMetaService, HuayiBigscreenOverviewService
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -129,18 +128,3 @@ class BigscreenController(Controller):
         except ValueError as exc:
             raise ValidationException(detail=str(exc)) from exc
         return Response(content={"code": 200, "data": payload})
-
-
-class HuayiBigscreenController(Controller):
-    path = "/api/bigscreen/huayi"
-    tags = ["Bigscreen"]
-
-    @get("/meta")
-    async def get_meta(self) -> Response[dict]:
-        payload = HuayiBigscreenMetaService().build()
-        return Response(content={"code": 200, "msg": "获取成功", "data": payload.model_dump(mode="json")})
-
-    @get("/overview")
-    async def get_overview(self) -> Response[dict]:
-        payload = HuayiBigscreenOverviewService().build()
-        return Response(content={"code": 200, "msg": "获取成功", "data": payload.model_dump(mode="json")})

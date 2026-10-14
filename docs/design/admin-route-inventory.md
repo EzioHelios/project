@@ -38,12 +38,12 @@ The following routes are presentation surfaces and remain outside the admin visu
 
 - `/bigscreen`
 - `/bigscreen/carbon`
-- `/bigscreen/huayi`
 - `/bigscreen/intro`
 - `/bigscreen/model`
 - `/bigscreen/overview`
 - `/bigscreen/power`
-- `/bigscreen/zhijiang`
+
+大屏使用统一路由并根据当前租户加载业务数据；不为演示场景单设客户可访问的大屏路由。
 
 ## First Migration Order
 

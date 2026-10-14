@@ -19,12 +19,6 @@ const fallbackNav = [
   { label: "碳排管理", path: "/bigscreen/carbon" },
 ]
 
-const fallbackNavByVariant = {
-  default: fallbackNav,
-  huayi: [],
-  zhijiang: [],
-} as const
-
 function resolveStageScale() {
   return Math.min(window.innerWidth / 1920, window.innerHeight / 1080)
 }
@@ -69,33 +63,16 @@ function useClock() {
 export function BigscreenLayout() {
   const teamName = useAuthStore((state) => state.currentTeam?.name)
   const pathname = useLocation({ select: (location) => location.pathname })
-  const metaVariant = pathname.startsWith("/bigscreen/huayi") ? "huayi" : pathname.startsWith("/bigscreen/zhijiang") ? "zhijiang" : "default"
   const { scale, tier } = useBigscreenViewport()
   const now = useClock()
-  const queryVariant = metaVariant === "zhijiang" ? "default" : metaVariant
-  const metaQuery = useBigscreenMeta(queryVariant)
+  const metaQuery = useBigscreenMeta()
   const meta = metaQuery.data?.data
   const environmentQuery = useBigscreenEnvironment(meta?.show_weather !== false)
   const environment = environmentQuery.data
   const skin = getBigscreenSkinDefinition()
-  const navItems = metaVariant === "zhijiang" ? [] : metaVariant === "huayi" ? [] : (meta?.nav_items ?? [...fallbackNavByVariant[metaVariant]])
+  const navItems = meta?.nav_items ?? fallbackNav
   const resolution = tier === "2160" ? "2160" : "1080"
-  const fallbackMeta =
-    metaVariant === "zhijiang"
-      ? {
-          title: "公共设施节能降碳管理平台",
-          shortName: "ZJ",
-          description: "围绕县域试点点位，把设备改造、节能验证、碳减排成果与复制推广潜力汇聚到一张 GIS 主屏。",
-          city: "浙江省杭州市",
-        }
-      : metaVariant === "huayi"
-        ? {
-            city: "上海市",
-          }
-        : {
-            city: "江苏省泰州市",
-          }
-  const displayCity = meta?.city ?? fallbackMeta?.city ?? environment?.city ?? "--"
+  const displayCity = meta?.city ?? environment?.city ?? "--"
   const displayWeather = meta?.show_weather === false ? "--" : (environment?.weather ?? "--")
 
   return (
@@ -115,8 +92,8 @@ export function BigscreenLayout() {
             </div>
             <div className="bigscreen-shell">
               <ScreenHeader
-                title={metaVariant === "default" && teamName ? `${teamName}能碳驾驶舱` : (meta?.title ?? fallbackMeta?.title ?? "能碳驾驶舱")}
-                shortName={metaVariant === "default" ? "能碳" : (meta?.short_name ?? fallbackMeta?.shortName ?? "LC")}
+                title={teamName ? `${teamName}能碳驾驶舱` : (meta?.title ?? "能碳驾驶舱")}
+                shortName="能碳"
                 description=""
                 city={displayCity}
                 tenantSwitcher={<BigscreenTenantSwitcher />}

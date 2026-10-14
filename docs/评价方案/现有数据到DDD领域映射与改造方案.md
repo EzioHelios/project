@@ -144,7 +144,7 @@ flowchart LR
 | `CarbonDashboardController` | `carbon.controllers` | `analytics` 或 legacy bigscreen | 老大屏/历史页面查询 | 保持兼容；不再新增业务。 |
 | `CarbonAnalyticsController` | `carbon.controllers` | `analytics` | 旧碳/能流分析聚合 | 拆为 analytics query service。 |
 | `EnergyCarbonCenterController` | `carbon.controllers` | `analytics` | 能碳中心汇总旧接口 | 只消费各领域查询，不直接做业务计算。 |
-| `BigscreenController` / `HuayiBigscreenController` | `carbon.routes` | `analytics.bigscreen` | 大屏展示 API | 与业务办理分离。 |
+| `BigscreenController` | `carbon.routes` | `analytics.bigscreen` | 按租户展示大屏 API | 与业务办理分离。 |
 
 ### 2.8 高阶碳管理新增领域映射
 

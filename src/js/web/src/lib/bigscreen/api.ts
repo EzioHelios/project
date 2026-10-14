@@ -8,7 +8,6 @@ import type {
   BigscreenMetaResponse,
   BigscreenOperationsResponse,
   BigscreenPeriod,
-  HuayiBigscreenOverviewResponse,
 } from "@/lib/bigscreen/types"
 
 type BigscreenRequestScope = { teamId?: string; signal?: AbortSignal }
@@ -47,8 +46,8 @@ async function requestBigscreen<T>(path: string, scope?: BigscreenRequestScope):
   return raw as BigscreenApiEnvelope<T>
 }
 
-export function getBigscreenMeta(variant: "default" | "huayi" = "default", scope?: BigscreenRequestScope) {
-  return requestBigscreen<BigscreenMetaResponse>(variant === "huayi" ? "/api/bigscreen/huayi/meta" : "/api/bigscreen/meta", scope)
+export function getBigscreenMeta(scope?: BigscreenRequestScope) {
+  return requestBigscreen<BigscreenMetaResponse>("/api/bigscreen/meta", scope)
 }
 
 export function getBigscreenIntro(scope?: BigscreenRequestScope) {
@@ -71,8 +70,4 @@ export function getBigscreenPower(scope?: BigscreenRequestScope, period: Bigscre
 
 export function getBigscreenCarbon(scope?: BigscreenRequestScope) {
   return requestBigscreen<BigscreenCarbonResponse>("/api/bigscreen/carbon", scope)
-}
-
-export function getHuayiBigscreenOverview(scope?: BigscreenRequestScope) {
-  return requestBigscreen<HuayiBigscreenOverviewResponse>("/api/bigscreen/huayi/overview", scope)
 }
