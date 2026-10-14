@@ -11,7 +11,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import selectinload
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_superuser
+from app.domain.accounts.guards import requires_permission, requires_superuser
 from app.domain.admin.deps import provide_audit_log_service
 from app.domain.admin.services import AuditLogService  # noqa: TC001
 from app.domain.carbon import services  # noqa: TC001
@@ -48,6 +48,7 @@ from app.domain.carbon.deps import (
     provide_video_monitor_service,
     provide_warning_rule_service,
 )
+from app.domain.master_data.enterprise_profile import EnterpriseProfileUpdate, update_enterprise_profile
 from app.domain.production_denominator.controllers._utils import log_admin_data_event
 
 if TYPE_CHECKING:
@@ -82,6 +83,22 @@ class MasterDataController(Controller):
     async def get_enterprise_profile(self, db_session: AsyncSession) -> Response[dict]:
         row = await db_session.scalar(select(m.EnterpriseInfo).order_by(m.EnterpriseInfo.id.desc()).limit(1))
         return Response(content={"code": 200, "msg": "获取成功", "data": model_to_dict(row) if row else {}})
+
+    @patch(
+        "/api/master-data/enterprise-profile/{enterprise_id:int}",
+        guards=[requires_permission("carbon.inventory.report.manage")],
+    )
+    async def edit_enterprise_profile(
+        self,
+        db_session: AsyncSession,
+        enterprise_id: int,
+        data: EnterpriseProfileUpdate,
+    ) -> Response[dict]:
+        try:
+            row = await update_enterprise_profile(db_session, enterprise_id, data)
+        except ValueError as exc:
+            raise ClientException(detail=str(exc)) from exc
+        return Response(content={"code": 200, "msg": "保存成功", "data": model_to_dict(row)})
 
     @get("/api/master-data/import-workbooks/template", guards=[requires_superuser])
     async def download_master_data_import_template(self) -> Response[bytes]:
@@ -1655,7 +1672,9 @@ class MasterDataController(Controller):
         obj = await db_session.get(m.VideoMonitor, record_id)
         if obj is None:
             return Response(content={"code": 404, "msg": "记录不存在"}, status_code=404)
-        if await db_session.scalar(select(m.VisionObservation.id).where(m.VisionObservation.camera_id == record_id).limit(1)):
+        if await db_session.scalar(
+            select(m.VisionObservation.id).where(m.VisionObservation.camera_id == record_id).limit(1)
+        ):
             raise ClientException(detail="摄像头已有识别记录，请停用并保留历史记录")
         details = {"f_area": obj.f_area, "ip_address": obj.ip_address}
         await db_session.delete(obj)

@@ -527,6 +527,7 @@ class GhgInventoryReportController(Controller):
                 version=version,
                 title=data.title,
                 change_summary=data.change_summary,
+                narrative=data.narrative,
             )
         except ValueError as exc:
             raise ClientException(status_code=422, detail=str(exc)) from exc

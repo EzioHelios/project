@@ -793,6 +793,7 @@ class GhgInventoryReportCreateRequest(CamelizedBaseStruct, kw_only=True):
 class GhgInventoryReportUpdateRequest(CamelizedBaseStruct, kw_only=True):
     title: str
     change_summary: str | None = None
+    narrative: dict[str, str] | None = None
 
     def __post_init__(self) -> None:
         _bounded(self.title, "报告名称", 255)
@@ -843,6 +844,7 @@ class GhgInventoryReportResponse(CamelizedBaseStruct):
     approved_by: str | None
     approved_at: str | None
     published_at: str | None
+    narrative: dict[str, str]
     reviews: list[GhgInventoryReportReviewResponse]
 
 

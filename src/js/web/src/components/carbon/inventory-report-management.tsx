@@ -295,21 +295,23 @@ function EditReportDialog({ report, onOpenChange }: { report: GhgInventoryReport
   const actions = useGhgInventoryReportActions()
   const [title, setTitle] = useState("")
   const [changeSummary, setChangeSummary] = useState("")
+  const [narrative, setNarrative] = useState<Record<string, string>>({})
   useEffect(() => {
     if (!report) return
     setTitle(report.title)
     setChangeSummary(report.changeSummary ?? "")
+    setNarrative(report.narrative ?? {})
   }, [report])
   const submit = () => {
     if (!report || !title.trim()) return
     actions.update.mutate(
-      { reportCode: report.reportCode, version: report.version, body: { title: title.trim(), changeSummary: changeSummary.trim() || null } },
+      { reportCode: report.reportCode, version: report.version, body: { title: title.trim(), changeSummary: changeSummary.trim() || null, narrative } },
       { onSuccess: () => onOpenChange(false) },
     )
   }
   return (
     <Dialog open={Boolean(report)} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>编辑核算报告</DialogTitle>
         </DialogHeader>
@@ -320,6 +322,17 @@ function EditReportDialog({ report, onOpenChange }: { report: GhgInventoryReport
           <CarbonFormField label="变更说明">
             <Textarea aria-label="变更说明" value={changeSummary} onChange={(event) => setChangeSummary(event.target.value)} rows={4} />
           </CarbonFormField>
+          {reportNarrativeFields.map(([key, label]) => (
+            <CarbonFormField key={key} label={label}>
+              <Textarea
+                aria-label={label}
+                value={narrative[key] ?? ""}
+                maxLength={10000}
+                rows={3}
+                onChange={(event) => setNarrative((current) => ({ ...current, [key]: event.target.value }))}
+              />
+            </CarbonFormField>
+          ))}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -333,6 +346,20 @@ function EditReportDialog({ report, onOpenChange }: { report: GhgInventoryReport
     </Dialog>
   )
 }
+
+const reportNarrativeFields = [
+  ["purpose", "编制目的与预期用途"],
+  ["intended_users", "预期使用者与披露范围"],
+  ["prepared_by", "编制负责人及联系方式"],
+  ["boundary_rationale", "边界确定与重要性评价"],
+  ["base_year_policy", "基准年选择与重新计算政策"],
+  ["monitoring_procedures", "数据收集与监测方法"],
+  ["missing_data_treatment", "缺失数据与估算处理"],
+  ["quality_controls", "质量管理与记录保存"],
+  ["uncertainty_assessment", "不确定性评价"],
+  ["results_commentary", "排放结果分析"],
+  ["reduction_actions", "减排措施与绩效"],
+] as const
 
 function ReportDetailSheet({ report, onOpenChange }: { report: GhgInventoryReport | null; onOpenChange: (open: boolean) => void }) {
   return (
@@ -402,6 +429,14 @@ function ReportDetailContent({ report }: { report: GhgInventoryReport }) {
             </TableBody>
           </Table>
         </AdminDataTable>
+      </AdminPanel>
+      <AdminPanel title="报告正文" contentClassName="space-y-4">
+        {reportNarrativeFields.map(([key, label]) => (
+          <div key={key} className="border-b pb-3 last:border-0">
+            <h3 className="mb-1 text-sm font-medium">{label}</h3>
+            <p className="whitespace-pre-wrap break-words text-sm leading-6">{report.narrative?.[key] || "未填写"}</p>
+          </div>
+        ))}
       </AdminPanel>
       <AdminPanel title="流转记录" contentClassName="p-0">
         <AdminDataTable className="rounded-none border-0">

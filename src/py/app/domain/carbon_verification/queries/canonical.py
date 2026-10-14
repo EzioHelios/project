@@ -297,9 +297,9 @@ class CanonicalVerificationQueryService:
         }
 
     async def report_context(self, query: VerificationQuery) -> dict[str, Any]:
+        from app.domain.ghg_inventory.usecases.reports import ExportInventoryReport
+
         context = await self._context(query)
-        records = await self._records(context, query)
-        summary = await self.summary(query)
         evidence = await self.evidence_manifest(query)
         findings = list(
             (
@@ -313,38 +313,16 @@ class CanonicalVerificationQueryService:
         template = await CarbonVerificationTemplateQueryService(self.session).active_template(
             project_id=context.project.id
         )
-        result_summaries = await self._result_summaries(context, query)
-        report = {
-            "project": self._project_ref(context),
-            "template": template,
-            "standard": self._standard(context),
-            "enterprise": summary["enterprise"],
-            "reporting_period": summary["reporting_period"],
-            "inventory": {
-                "totals": summary["totals"],
-                "scope_summary": summary["scope_summary"],
-                "source_summary": self._source_summary(records),
-                **result_summaries,
-                "source": summary["inventory_source"],
-            },
-            "activity_data": [self._activity_row(row) for row in records],
-            "factor_parameters": self._factor_rows(records),
-            "quality_issues": self._issues(records),
-            "verification_findings": [self._finding_row(row) for row in findings],
-            "verification_attachments": evidence["items"],
-            "exclusions": [
-                {
-                    "name": item.facility_name or item.facility_code or "未命名边界对象",
-                    "reason": item.exclusion_reason,
-                    "impact": item.remark,
-                }
-                for item in context.boundary.facilities
-                if not item.included
-            ],
-            "export_fields": self._template_field_map(),
-            "inventory_source": summary["inventory_source"],
-            "filters": self._filters(query),
-        }
+        report = await ExportInventoryReport(self.session).report_context(context.report)
+        report["project"].update(self._project_ref(context))
+        report["template"] = template
+        report["verification_findings"] = [self._finding_row(row) for row in findings]
+        report["verification_attachments"] = [
+            *evidence["items"],
+            *(item for item in report["verification_attachments"] if item.get("evidence_role") == "factor"),
+        ]
+        report["export_fields"] = self._template_field_map()
+        report["filters"] = self._filters(query)
         report["formal_readiness"] = readiness_dict(formal_report_readiness(report))
         validate_report_context(report)
         return report

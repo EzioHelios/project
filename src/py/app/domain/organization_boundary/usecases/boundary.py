@@ -93,6 +93,7 @@ class OrganizationBoundaryUseCase:
     async def create_organization(self, data: dict[str, Any]) -> m.ReportingOrganization:
         payload = _payload(data, ORG_FIELDS, required={"code", "name"})
         validate_boundary_method(str(payload.get("control_method") or "operational_control"))
+        await self._validate_enterprise(payload)
         obj = m.ReportingOrganization(**payload)
         self._session.add(obj)
         await self._session.commit()
@@ -104,10 +105,15 @@ class OrganizationBoundaryUseCase:
         payload = _payload(data, ORG_FIELDS)
         if "control_method" in payload:
             validate_boundary_method(str(payload["control_method"]))
+        await self._validate_enterprise(payload)
         _assign(obj, payload)
         await self._session.commit()
         await self._session.refresh(obj)
         return obj
+
+    async def _validate_enterprise(self, payload: dict[str, Any]) -> None:
+        if payload.get("enterprise_id") is not None:
+            await self._get_or_raise(m.EnterpriseInfo, int(payload["enterprise_id"]), "关联企业档案不存在")
 
     async def delete_organization(self, organization_id: int) -> None:
         obj = await self._get_or_raise(m.ReportingOrganization, organization_id, "报告主体不存在")
@@ -517,7 +523,11 @@ class OrganizationBoundaryUseCase:
 
 
 def _payload(data: dict[str, Any], fields: set[str], required: set[str] | None = None) -> dict[str, Any]:
-    payload = {key: _coerce_value(key, value) for key, value in data.items() if key in fields and value is not None}
+    payload = {
+        key: _coerce_value(key, value)
+        for key, value in data.items()
+        if key in fields and (value is not None or key == "base_year")
+    }
     for key in required or set():
         if payload.get(key) in (None, ""):
             msg = f"{key} 不能为空"
@@ -526,6 +536,11 @@ def _payload(data: dict[str, Any], fields: set[str], required: set[str] | None =
 
 
 def _coerce_value(key: str, value: Any) -> Any:
+    if key == "base_year" and value is not None:
+        if isinstance(value, bool) or not str(value).isdigit() or not 1 <= int(value) <= date.max.year:
+            msg = "基准年须为有效的整数年份"
+            raise ValueError(msg)
+        return int(value)
     if key in DATE_FIELDS and isinstance(value, str):
         return date.fromisoformat(value)
     if key in DECIMAL_FIELDS and value not in (None, ""):

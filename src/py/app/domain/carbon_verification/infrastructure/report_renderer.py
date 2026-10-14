@@ -4,25 +4,26 @@
 
 from __future__ import annotations
 
-import datetime
 import shutil
 import subprocess
 from dataclasses import dataclass
-from datetime import UTC
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 from docx import Document
 from docx.document import Document as DocumentObject
-from docx.enum.section import WD_SECTION
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT, WD_TAB_LEADER
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor
 
-from app.domain.carbon_verification.domain.reporting import validate_report_context
+from app.domain.carbon_verification.domain.reporting import ISO_CATEGORY_LABELS, validate_report_context
+from app.domain.ghg_inventory.domain.catalog import CATEGORIES
+
+MONTH_LABEL_LENGTH = 7
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,18 +80,458 @@ def _build_document(report: dict[str, Any]) -> DocumentObject:
     document = Document()
     _configure_document(document)
     _cover(document, report)
-    _declaration(document, report)
-    _contents(document)
-    _organization_section(document, report)
-    _basis_and_boundary_section(document, report)
-    _inventory_chart_section(document, report)
-    _inventory_summary_section(document, report)
-    _activity_section(document, report)
-    _factor_section(document, report)
-    _quality_section(document, report)
-    _evidence_section(document, report)
-    _approval_section(document, report)
+    document.add_paragraph("目录", style="Title")
+    chapters = (
+        "一、报告说明与组织概况",
+        "二、组织边界与报告边界",
+        "三、核算方法、活动数据与参数",
+        "四、温室气体排放结果",
+        "五、质量管理与不确定性",
+        "六、编制与签署",
+        "附表一：设备月度活动数据汇总",
+        "附表二：资料清单",
+    )
+    for index, chapter in enumerate(chapters):
+        paragraph = document.add_paragraph(chapter + "\t")
+        paragraph.paragraph_format.tab_stops.add_tab_stop(Cm(16), WD_TAB_ALIGNMENT.RIGHT, WD_TAB_LEADER.DOTS)
+        field = OxmlElement("w:fldSimple")
+        field.set(qn("w:instr"), f" PAGEREF chapter{index} \\h ")
+        paragraph._p.append(field)
+    document.add_page_break()
+    _organization_body(document, report, chapters)
+    _boundary_body(document, report, chapters)
+    _methods_body(document, report, chapters)
+    _results_body(document, report, chapters)
+    _quality_body(document, report, chapters)
+    _appendices_body(document, report, chapters)
+    for index, chapter in enumerate(chapters):
+        paragraph = next(p for p in document.paragraphs if p.text == chapter and p.style.name == "Heading 1")
+        start, end = OxmlElement("w:bookmarkStart"), OxmlElement("w:bookmarkEnd")
+        start.set(qn("w:id"), str(index))
+        start.set(qn("w:name"), f"chapter{index}")
+        end.set(qn("w:id"), str(index))
+        paragraph._p.insert(0, start)
+        paragraph._p.append(end)
     return document
+
+
+def _organization_body(document: DocumentObject, report: dict[str, Any], chapters: tuple[str, ...]) -> None:
+    inventory = _mapping(report.get("inventory"))
+    enterprise = _mapping(report.get("enterprise"))
+    period = _mapping(report.get("reporting_period"))
+    details = _mapping(report.get("organization_details"))
+    total = _mapping(inventory.get("totals")).get("total_t_co2e")
+    _heading(document, chapters[0], 1)
+    _prose(
+        document,
+        f"{enterprise.get('name')}本期温室气体盘查报告的报告期为"
+        f"{period.get('period_start')}至{period.get('period_end')}。"
+        f"本期纳入边界内的温室气体排放量为{_number(total)} tCO₂e。",
+    )
+    _narrative(document, report, "purpose", "（一）编制目的与预期用途")
+    _narrative(document, report, "intended_users", "（二）预期使用者与披露范围")
+    _heading(document, "（三）组织概况", 2)
+    _key_value_table(
+        document,
+        (
+            ("报告主体", enterprise.get("name")),
+            (
+                "组织类型",
+                {"enterprise": "企业", "facility": "设施", "group": "集团"}.get(
+                    str(enterprise.get("organization_type")), "【待补充：组织类型】"
+                ),
+            ),
+            *(
+                (
+                    ("统一社会信用代码", enterprise.get("unify_code") or "【待补充】"),
+                    ("注册地址", enterprise.get("registered_address") or "【待补充】"),
+                    ("法定代表人", details.get("legal_representative") or "【待补充】"),
+                )
+                if enterprise.get("organization_type") != "facility"
+                else ()
+            ),
+            ("所属单位", enterprise.get("belong_unit")),
+            ("行业", enterprise.get("industry") or "【待补充：行业】"),
+            ("运营地址", enterprise.get("operation_address")),
+            ("联系人", details.get("contact_name") or "【待补充：联系人】"),
+            ("联系方式", details.get("contact_details") or "【待补充：联系方式】"),
+        ),
+    )
+    _prose(document, details.get("organization_description") or "【待补充：组织概况】")
+    _heading(document, "（四）主要业务及作业过程", 2)
+    _prose(document, details.get("process_description") or "【待补充：主要业务及作业过程】")
+
+
+def _boundary_body(document: DocumentObject, report: dict[str, Any], chapters: tuple[str, ...]) -> None:
+    period = _mapping(report.get("reporting_period"))
+    source = _mapping(report.get("inventory_source"))
+    _heading(document, chapters[1], 1)
+    method = {"operational_control": "运营控制法", "financial_control": "财务控制法", "equity_share": "股权比例法"}.get(
+        str(source.get("consolidation_method")), "【待补充：组织边界合并方法】"
+    )
+    _prose(
+        document,
+        f"本期采用{method}确定组织边界，引用边界为“{source.get('boundary_name')}”。"
+        f"报告期覆盖{period.get('period_start')}至{period.get('period_end')}；"
+        f"纳入记录的数据覆盖期为{period.get('data_period_start')} 至 {period.get('data_period_end')}。",
+    )
+    _narrative(document, report, "boundary_rationale", "（一）边界确定与重要性评价")
+    _heading(document, "（二）设施及纳入情况", 2)
+    _data_table(
+        document,
+        ("设施 / 区域", "纳入情况", "依据 / 排除理由"),
+        [
+            (
+                row.get("name") or "【待补充：设施名称】",
+                "纳入" if row.get("included") else "排除",
+                row.get("source") if row.get("included") else row.get("reason"),
+            )
+            for row in _rows(report, "facilities")
+        ],
+        widths=(5, 2.5, 8.1),
+    )
+    _heading(document, "（三）排放源与类别", 2)
+    _data_table(
+        document,
+        ("活动类别", "范围"),
+        [
+            (_category_label(category), _scope_label(scope))
+            for category, scope in sorted(
+                {(str(row.get("iso_category_code")), str(row.get("scope"))) for row in _rows(report, "activity_data")}
+            )
+        ],
+        widths=(11, 5),
+    )
+    _narrative(document, report, "base_year_policy", "（四）基准年与重新计算")
+    if period.get("base_year"):
+        _prose(document, f"基准年：{period['base_year']}。")
+
+
+def _methods_body(document: DocumentObject, report: dict[str, Any], chapters: tuple[str, ...]) -> None:
+    inventory = _mapping(report.get("inventory"))
+    activities = _rows(report, "activity_data")
+    _heading(document, chapters[2], 1)
+    standard = _mapping(report.get("standard"))
+    _prose(
+        document,
+        f"本次核算采用的规则为{_display(standard.get('name'))}（{_display(standard.get('code'))}）。"
+        "排放量按活动数据与选定方法中的因子及参数计算，并以吨二氧化碳当量汇总。",
+    )
+    _heading(document, "（一）量化方法", 2)
+    for index, item in enumerate(_rows(report, "methods"), 1):
+        _prose(
+            document,
+            f"{index}. {_display(item.get('methodName'))}：{item.get('humanFormula') or '【待补充：计算表达式】'}。",
+        )
+    _prose(document, f"输入能源排放方法：{_scope2_label(inventory.get('default_scope2_method'))}。")
+    if inventory.get("gwp_versions"):
+        _prose(document, f"GWP版本：{'、'.join(inventory['gwp_versions'])}。")
+    _narrative(document, report, "monitoring_procedures", "（二）活动数据收集与监测")
+    _data_table(document, ("活动类型", "数量", "单位"), _activity_totals(activities), widths=(8, 4, 3.6))
+    _narrative(document, report, "missing_data_treatment", "（三）缺失数据与估算处理")
+    _heading(document, "（四）因子及参数", 2)
+    factors = _unique_factors(_rows(report, "factor_parameters"))
+    _data_table(
+        document,
+        ("序号", "参数", "数值", "单位", "来源及版本"),
+        [
+            (
+                index,
+                row.get("parameter_name") or "【待补充：参数名称】",
+                format(_decimal(row["factor_value"]).normalize(), "f")
+                if row.get("factor_value") is not None
+                else "【待补充：参数数值】",
+                row.get("factor_unit"),
+                f"{_display(row.get('factor_source'))}\n{_display(row.get('factor_version'))}",
+            )
+            for index, row in enumerate(factors, 1)
+        ],
+        widths=(1.2, 2.4, 2.3, 2.5, 7.2),
+    )
+    for index, factor in enumerate(factors, 1):
+        snapshot = _mapping(factor.get("snapshot"))
+        codes = {
+            row.get("record_code")
+            for row in _rows(report, "factor_parameters")
+            if _factor_key(row) == _factor_key(factor)
+        }
+        categories = sorted(
+            {_category_label(row.get("iso_category_code")) for row in activities if row.get("record_code") in codes}
+        )
+        _prose(
+            document,
+            f"参数{index}：依据{_display(factor.get('standard_code'))}，"
+            f"引用位置{_display(factor.get('table_reference') or factor.get('clause_reference'))}；"
+            f"适用地区{_display(snapshot.get('geography'))}，参考年份{_display(snapshot.get('referenceYear'))}。"
+            f"本期用于{'、'.join(categories) or '【待补充：适用活动类别】'}。",
+        )
+
+
+def _results_body(document: DocumentObject, report: dict[str, Any], chapters: tuple[str, ...]) -> None:
+    inventory = _mapping(report.get("inventory"))
+    activities = _rows(report, "activity_data")
+    total = _mapping(inventory.get("totals")).get("total_t_co2e")
+    _heading(document, chapters[3], 1)
+    document.paragraphs[-1].paragraph_format.page_break_before = True
+    _prose(
+        document,
+        f"在上述边界与方法下，本报告期温室气体排放总量为{_number(total)} tCO₂e。排放类别、期间变化及计量对象贡献如下。",
+    )
+    _heading(document, "（一）排放类别汇总", 2)
+    groups: dict[tuple[str, str], Decimal] = {}
+    for row in activities:
+        key = (_category_label(row.get("iso_category_code")), _scope_label(row.get("scope")))
+        groups[key] = groups.get(key, Decimal(0)) + _decimal(row.get("computed_co2e")) / 1000
+    _data_table(
+        document,
+        ("活动类别", "范围", "排放量（tCO₂e）"),
+        [(category, scope, _number(value)) for (category, scope), value in groups.items()],
+        widths=(8, 3.5, 4.5),
+    )
+    gas_rows = [row for row in _rows(inventory, "gas_summary") if str(row.get("gas_code")).upper() != "CO2E"]
+    if gas_rows:
+        _summary_table(document, gas_rows, "gas_code", _gas_label)
+    _heading(document, "（二）期间排放变化", 2)
+    periods: dict[str, Decimal] = {}
+    for row in activities:
+        label = _period_label(row)
+        periods[label] = periods.get(label, Decimal(0)) + _decimal(row.get("computed_co2e")) / Decimal(1000)
+    period_rows = sorted(periods.items())
+    if all(len(label) == MONTH_LABEL_LENGTH for label, _ in period_rows):
+        _caption(document, "图1 月度温室气体排放量")
+        _chart(document, period_rows, line=True)
+    else:
+        _data_table(
+            document,
+            ("数据期间", "排放量（tCO₂e）"),
+            [(label, _number(value)) for label, value in period_rows],
+            widths=(11, 5),
+        )
+    _heading(document, "（三）计量对象排放贡献", 2)
+    document.paragraphs[-1].paragraph_format.page_break_before = True
+    _caption(document, "图2 计量对象排放贡献及占比")
+    _device_contribution(document, activities, _decimal(total))
+    _narrative(document, report, "results_commentary", "（四）结果分析")
+    if _mapping(report.get("narrative")).get("reduction_actions"):
+        _narrative(document, report, "reduction_actions", "（五）减排措施与绩效")
+
+
+def _quality_body(document: DocumentObject, report: dict[str, Any], chapters: tuple[str, ...]) -> None:
+    _heading(document, chapters[4], 1)
+    document.paragraphs[-1].paragraph_format.page_break_before = True
+    _narrative(document, report, "quality_controls", "（一）质量管理与记录保存")
+    _narrative(document, report, "uncertainty_assessment", "（二）不确定性评价")
+    activities = _rows(report, "activity_data")
+    groups: dict[tuple[str, str], set[str]] = {}
+    for row in _rows(report, "quality_issues"):
+        key = (str(row.get("title")), str(row.get("action")))
+        groups.setdefault(key, set()).add(str(row.get("record_code")))
+    pending = sum(row.get("evidence_status") != "ready" for row in activities)
+    for title, action in groups:
+        if not (pending and title == "核算记录待复核"):
+            _prose(document, f"【待补充：{title}；{action}】")
+    if pending:
+        _prose(document, "【待补充：活动数据、因子参数及原始凭证的复核资料】。")
+    _heading(document, chapters[5], 1)
+    _prose(document, _mapping(report.get("narrative")).get("prepared_by") or "【待补充：编制负责人及联系方式】")
+    _prose(document, "报告主体对本报告所依据资料的真实性、准确性和完整性负责。")
+    _signature_grid(document, ("编制人 / 日期", "复核人 / 日期", "批准人 / 日期"))
+
+
+def _appendices_body(document: DocumentObject, report: dict[str, Any], chapters: tuple[str, ...]) -> None:
+    activities = _rows(report, "activity_data")
+    _heading(document, chapters[6], 1)
+    document.paragraphs[-1].paragraph_format.page_break_before = True
+    for (category, unit), rows in _device_month_groups(activities).items():
+        _heading(document, f"{_category_label(category)}（{unit}）", 2)
+        months = sorted({month for row in rows for month in row["months"]})
+        # Six months per panel keep an A4 portrait table readable without reducing type size.
+        for offset in range(0, len(months), 6):
+            selected = months[offset : offset + 6]
+            _data_table(
+                document,
+                ("设备 / 计量对象", *selected, "小计"),
+                [
+                    (
+                        row["name"],
+                        *(_number(row["months"][month]) if month in row["months"] else "—" for month in selected),
+                        _number(sum((row["months"].get(month, Decimal(0)) for month in selected), Decimal(0))),
+                    )
+                    for row in rows
+                ]
+                + [
+                    (
+                        "合计",
+                        *(
+                            _number(sum((row["months"].get(month, Decimal(0)) for row in rows), Decimal(0)))
+                            for month in selected
+                        ),
+                        _number(
+                            sum(
+                                (row["months"].get(month, Decimal(0)) for row in rows for month in selected), Decimal(0)
+                            )
+                        ),
+                    )
+                ],
+                widths=(3.7, *(1.7 for _ in selected), 2.1),
+                font_size=10.5,
+            )
+    _heading(document, chapters[7], 1)
+    _data_table(
+        document,
+        ("序号", "文件名称", "资料用途"),
+        _evidence_index(_rows(report, "verification_attachments")),
+        widths=(1.2, 9.8, 5),
+    )
+
+
+def _prose(document: DocumentObject, text: str) -> None:
+    for line in text.splitlines():
+        if line.strip():
+            paragraph = document.add_paragraph(line.strip())
+            paragraph.paragraph_format.first_line_indent = Cm(0.74)
+
+
+def _gas_label(value: Any) -> str:
+    return "CO₂当量（汇总项）" if str(value).upper() == "CO2E" else _uppercase_label(value)
+
+
+def _narrative(document: DocumentObject, report: dict[str, Any], key: str, title: str) -> None:
+    _heading(document, title, 2)
+    _prose(document, _mapping(report.get("narrative")).get(key) or f"【待补充：{title.split('）')[-1]}】")
+
+
+def _factor_key(row: dict[str, Any]) -> tuple[str, ...]:
+    return tuple(
+        str(row.get(key) or "")
+        for key in (
+            "parameter_code",
+            "factor_value",
+            "factor_unit",
+            "factor_source",
+            "factor_version",
+            "standard_code",
+            "clause_reference",
+            "table_reference",
+        )
+    )
+
+
+def _unique_factors(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return list({_factor_key(row): row for row in rows}.values())
+
+
+def _evidence_index(rows: list[dict[str, Any]]) -> list[tuple[Any, ...]]:
+    groups: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in rows:
+        key = (str(row.get("evidence_code")), str(row.get("evidence_role")))
+        groups[key] = row
+    return [
+        (
+            index,
+            item.get("file_name") or "【待补充：文件名称】",
+            "因子来源文件" if item.get("evidence_role") == "factor" else "活动数据凭证",
+        )
+        for index, item in enumerate(groups.values(), 1)
+    ]
+
+
+def _period_label(row: dict[str, Any]) -> str:
+    start, end = str(row.get("period_start") or ""), str(row.get("period_end") or "")
+    try:
+        begin, finish = date.fromisoformat(start), date.fromisoformat(end)
+    except ValueError:
+        return "【待补充：数据期间】"
+    if (begin.year, begin.month) == (finish.year, finish.month):
+        return start[:7]
+    return f"{start} 至 {end}"
+
+
+def _device_month_groups(activities: list[dict[str, Any]]) -> dict[tuple[str, str], list[dict[str, Any]]]:
+    groups: dict[tuple[str, str], dict[str, dict[str, Any]]] = {}
+    for activity in activities:
+        category = (str(activity.get("iso_category_code") or ""), str(activity.get("activity_unit") or ""))
+        devices = groups.setdefault(category, {})
+        allocations = _rows(activity, "device_allocations")
+        if not allocations:
+            allocations = [{"device_id": None, "ratio": "1"}]
+        ratios = [_decimal(row.get("ratio")) for row in allocations]
+        if any(ratio <= 0 for ratio in ratios) or sum(ratios) != Decimal(1):
+            msg = "活动数据的设备归集比例不完整，请核实后导出"
+            raise ValueError(msg)
+        for allocation, ratio in zip(allocations, ratios, strict=True):
+            key = str(allocation.get("device_id") or f"unassigned:{activity.get('record_code')}")
+            row = devices.setdefault(
+                key,
+                {
+                    "device_id": allocation.get("device_id"),
+                    "name": allocation.get("device_name") or "【待补充：设备归属】",
+                    "months": {},
+                    "co2e_kg": Decimal(0),
+                },
+            )
+            month = _period_label(activity)
+            row["months"][month] = (
+                row["months"].get(month, Decimal(0)) + _decimal(activity.get("activity_amount")) * ratio
+            )
+            row["co2e_kg"] += _decimal(activity.get("computed_co2e")) * ratio
+    return {
+        key: sorted(rows.values(), key=lambda row: (row["device_id"] is None, row["device_id"] or 0))
+        for key, rows in groups.items()
+    }
+
+
+def _device_contribution(document: DocumentObject, activities: list[dict[str, Any]], total: Decimal) -> None:
+    from app.domain.carbon_verification.infrastructure.report_charts import contribution_bar
+
+    devices: dict[Any, dict[str, Any]] = {}
+    for group in _device_month_groups(activities).values():
+        for row in group:
+            key = row["device_id"] if row["device_id"] is not None else id(row)
+            item = devices.setdefault(key, {"name": row["name"], "co2e_kg": Decimal(0)})
+            item["co2e_kg"] += row["co2e_kg"]
+    rows = list(devices.values())
+    rows.sort(key=lambda row: row["co2e_kg"], reverse=True)
+    table = _table(document, len(rows) + 1, 4, widths=(6, 3.2, 2.1, 4.7))
+    table.rows[0]._tr.get_or_add_trPr().append(OxmlElement("w:tblHeader"))
+    for index, label in enumerate(("计量对象", "排放量\n（tCO₂e）", "占比", "排放贡献")):
+        _set_cell(table.cell(0, index), label, header=True)
+    maximum = max((abs(row["co2e_kg"]) for row in rows), default=Decimal(0))
+    signed = any(row["co2e_kg"] < 0 for row in rows)
+    for index, row in enumerate(rows, 1):
+        value = row["co2e_kg"] / 1000
+        for column, text in enumerate((row["name"], _number(value), _percent(value / total) if total else "—")):
+            _set_cell(table.cell(index, column), text)
+        table.cell(index, 3).paragraphs[0].add_run().add_picture(
+            contribution_bar(row["co2e_kg"], maximum, signed=signed), width=Cm(4)
+        )
+
+
+def _category_label(value: Any) -> str:
+    names = {item.code: item.name for item in CATEGORIES}
+    return names.get(str(value)) or ISO_CATEGORY_LABELS.get(str(value), f"ISO类别{value}")
+
+
+def _caption(document: DocumentObject, text: str) -> None:
+    paragraph = document.add_paragraph(text)
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    paragraph.paragraph_format.keep_with_next = True
+    _set_run_font(paragraph.runs[0], "宋体", 10.5)
+
+
+def _activity_totals(rows: list[dict[str, Any]]) -> list[tuple[Any, ...]]:
+    groups: dict[tuple[str, str], Decimal] = {}
+    for row in rows:
+        key = (str(row.get("iso_category_code")), str(row.get("activity_unit")))
+        groups[key] = groups.get(key, Decimal(0)) + _decimal(row.get("activity_amount"))
+    return [(_category_label(category), _number(amount), unit) for (category, unit), amount in groups.items()]
+
+
+def _chart(document: DocumentObject, rows: list[tuple[str, Decimal]], *, line: bool = False) -> None:
+    from app.domain.carbon_verification.infrastructure.report_charts import result_chart
+
+    if rows:
+        document.add_picture(result_chart(rows, line=line), width=Cm(15.6))
 
 
 def _configure_document(document: DocumentObject) -> None:
@@ -100,351 +541,65 @@ def _configure_document(document: DocumentObject) -> None:
     section.left_margin, section.right_margin = Cm(2.6), Cm(2.4)
     section.header_distance, section.footer_distance = Cm(1.2), Cm(1.2)
     normal = document.styles["Normal"]
-    _style_font(normal, "宋体", 10.5)
+    _style_font(normal, "宋体", 14)
     normal.paragraph_format.line_spacing = 1.5
     normal.paragraph_format.space_after = Pt(3)
-    for name, size in (("Title", 22), ("Heading 1", 15), ("Heading 2", 12)):
+    _style_font(document.styles["Footer"], "宋体", 9)
+    for name, size in (("Title", 22), ("Heading 1", 15), ("Heading 2", 14)):
         style = document.styles[name]
-        _style_font(style, "黑体", size, bold=True, color="000000")
+        _style_font(style, "宋体", size, bold=True, color="000000")
         _clear_style_paragraph_borders(style)
     document.styles["Heading 1"].paragraph_format.space_before = Pt(12)
     document.styles["Heading 1"].paragraph_format.space_after = Pt(8)
     document.styles["Heading 2"].paragraph_format.space_before = Pt(8)
     document.styles["Heading 2"].paragraph_format.space_after = Pt(5)
-    header = section.header.paragraphs[0]
-    header.text, header.alignment = "组织温室气体排放盘查报告", WD_ALIGN_PARAGRAPH.RIGHT
-    _set_run_font(header.runs[0], "宋体", 8, color="666666")
+    section.different_first_page_header_footer = True
     footer = section.footer.paragraphs[0]
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
     _add_page_number(footer)
     document.core_properties.title = "组织温室气体排放盘查报告"
-    document.core_properties.author = "能碳管理平台"
+    document.core_properties.author = ""
+    document.core_properties.comments = ""
+    update = OxmlElement("w:updateFields")
+    update.set(qn("w:val"), "true")
+    document.settings.element.append(update)
 
 
 def _cover(document: DocumentObject, report: dict[str, Any]) -> None:
     enterprise, period = _mapping(report.get("enterprise")), _mapping(report.get("reporting_period"))
-    template, project = _mapping(report.get("template")), _mapping(report.get("project"))
     document.add_paragraph().paragraph_format.space_after = Pt(70)
+    subject = document.add_paragraph(str(enterprise.get("name") or "【待补充：报告主体】"), style="Title")
+    subject.alignment = WD_ALIGN_PARAGRAPH.CENTER
     title = document.add_paragraph("组织温室气体排放盘查报告", style="Title")
     title.alignment, title.paragraph_format.space_after = WD_ALIGN_PARAGRAPH.CENTER, Pt(36)
-    document.add_paragraph().paragraph_format.space_after = Pt(42)
+    document.add_paragraph().paragraph_format.space_after = Pt(20)
     rows = (
         ("报告主体（盖章）", enterprise.get("name")),
-        ("统一社会信用代码", enterprise.get("unify_code") or enterprise.get("code")),
-        ("报告年度", period.get("year")),
-        ("编制日期", datetime.datetime.now(UTC).date().isoformat()),
-        ("核算依据", f"{_display(template.get('standard_name'))} / {_display(template.get('standard_code'))}"),
-        ("报告版本", project.get("report_version")),
+        ("报告期", f"{_display(period.get('period_start'))} 至 {_display(period.get('period_end'))}"),
+        ("报告状态", _report_status(report)),
     )
     _key_value_table(document, rows)
     document.add_page_break()
 
 
-def _declaration(document: DocumentObject, report: dict[str, Any]) -> None:
-    _heading(document, "一、报告声明", 1)
-    enterprise, period = _mapping(report.get("enterprise")), _mapping(report.get("reporting_period"))
-    paragraphs = (
-        f"本报告由{_display(enterprise.get('name'))}依据已发布的组织温室气体盘查结果编制，报告期为"
-        f"{_display(period.get('period_start'))}至{_display(period.get('period_end'))}。",
-        "报告中的组织边界、活动数据、排放因子、温室气体排放量及证据索引均来自报告发布时冻结的数据快照。",
-        "报告主体对所提供资料的真实性、完整性和一致性负责；任何后续修订均应形成新版本并保留变更记录。",
-        "本报告适用于组织碳盘查成果归档、内部复核、核查支撑材料准备及披露材料编制。",
-    )
-    for text in paragraphs:
-        paragraph = document.add_paragraph(text)
-        paragraph.paragraph_format.first_line_indent = Cm(0.74)
-    _signature_grid(document, ("编制人", "复核人", "批准人"))
-    document.add_page_break()
-
-
-def _contents(document: DocumentObject) -> None:
-    _heading(document, "目录", 1)
-    for entry in (
-        "一、报告声明",
-        "二、报告主体基本情况",
-        "三、核算边界与排放源识别",
-        "四、温室气体排放关键图表",
-        "五、温室气体排放量化明细",
-        "六、活动水平数据及来源说明",
-        "七、排放因子与计算参数说明",
-        "八、数据质量控制与文件存档",
-        "九、编制、复核与批准",
-    ):
-        paragraph = document.add_paragraph(entry)
-        paragraph.paragraph_format.left_indent, paragraph.paragraph_format.space_after = Cm(0.8), Pt(8)
-    document.add_page_break()
-
-
-def _organization_section(document: DocumentObject, report: dict[str, Any]) -> None:
-    _heading(document, "二、报告主体基本情况", 1)
-    enterprise, period = _mapping(report.get("enterprise")), _mapping(report.get("reporting_period"))
-    rows = (
-        ("组织名称", enterprise.get("name"), "统一标识", enterprise.get("unify_code") or enterprise.get("code")),
-        ("组织类型", enterprise.get("organization_type"), "所属行业", enterprise.get("industry")),
-        ("注册地址", enterprise.get("registered_address"), "运营地址", enterprise.get("operation_address")),
-        (
-            "报告期",
-            f"{_display(period.get('period_start'))} 至 {_display(period.get('period_end'))}",
-            "基准年",
-            period.get("base_year"),
-        ),
-    )
-    table = _table(document, len(rows), 4, widths=(2.6, 5.0, 2.8, 5.2))
-    for row_index, row in enumerate(rows):
-        for column_index, value in enumerate(row):
-            _set_cell(table.cell(row_index, column_index), value, header=column_index in {0, 2})
-
-
-def _basis_and_boundary_section(document: DocumentObject, report: dict[str, Any]) -> None:
-    _heading(document, "三、核算边界与排放源识别", 1)
-    standard, template = _mapping(report.get("standard")), _mapping(report.get("template"))
-    source, inventory = _mapping(report.get("inventory_source")), _mapping(report.get("inventory"))
-    _key_value_table(
-        document,
-        (
-            (
-                "核算与报告依据",
-                f"{_display(template.get('standard_name') or standard.get('name'))}（{_display(template.get('standard_code') or standard.get('code'))}）",
-            ),
-            ("模板与数据结构版本", f"{_display(template.get('version'))} / {_display(template.get('schema_version'))}"),
-            ("组织边界版本", _display(source.get("boundary_no"))),
-            ("Scope 2 默认方法", _scope2_label(inventory.get("default_scope2_method"))),
-            ("GWP 版本", "、".join(str(item) for item in inventory.get("gwp_versions", [])) or "未记录"),
-        ),
-    )
-    _heading(document, "（一）纳入边界的排放源", 2)
-    _data_table(
-        document,
-        ("Scope", "排放源", "记录数", "排放量（tCO₂e）"),
-        [
-            (
-                _scope_label(row.get("scope")),
-                row.get("record_label"),
-                row.get("record_count"),
-                _number(row.get("t_co2e")),
-            )
-            for row in _rows(inventory, "source_summary")
-        ],
-        widths=(2.5, 7.2, 2.3, 3.5),
-    )
-    _heading(document, "（二）排除项", 2)
-    exclusions = _rows(report, "exclusions")
-    if exclusions:
-        _data_table(
-            document,
-            ("排除项", "理由", "影响评估"),
-            [(row.get("name"), row.get("reason"), row.get("impact")) for row in exclusions],
-            widths=(4.2, 6.2, 5.1),
-        )
-    else:
-        document.add_paragraph("本报告冻结数据中未登记排除项。")
-
-
-def _inventory_chart_section(document: DocumentObject, report: dict[str, Any]) -> None:
-    document.add_page_break()
-    _heading(document, "四、温室气体排放关键图表", 1)
-    inventory = _mapping(report.get("inventory"))
-    totals = _mapping(inventory.get("totals"))
-    activity_rows = _rows(report, "activity_data")
-    evidence_rows = _rows(report, "verification_attachments")
-    total_t = _decimal(totals.get("total_t_co2e"))
-    _key_value_table(
-        document,
-        (
-            ("报告期排放总量", f"{_number(total_t)} tCO₂e"),
-            ("活动数据记录", f"{len(activity_rows)} 条"),
-            ("证据文件记录", f"{len(evidence_rows)} 项"),
-        ),
-    )
-    _heading(document, "（一）按 Scope 排放构成", 2)
-    _bar_chart_table(
-        document,
-        [
-            (_scope_label(row.get("scope")), _decimal(row.get("t_co2e")))
-            for row in _rows(inventory, "scope_summary")
-        ],
-        total=total_t,
-        widths=(3.2, 6.0, 2.8, 2.4),
-    )
-    _heading(document, "（二）主要排放源贡献", 2)
-    source_rows = sorted(
-        (
-            (_display(row.get("record_label")), _decimal(row.get("t_co2e")))
-            for row in _rows(inventory, "source_summary")
-        ),
-        key=lambda item: item[1],
-        reverse=True,
-    )[:8]
-    _bar_chart_table(document, source_rows, total=total_t, widths=(4.6, 5.0, 2.7, 2.2), font_size=7.5)
-    document.add_page_break()
-
-
-def _inventory_summary_section(document: DocumentObject, report: dict[str, Any]) -> None:
-    _heading(document, "五、温室气体排放量化明细", 1)
-    inventory, totals = _mapping(report.get("inventory")), _mapping(_mapping(report.get("inventory")).get("totals"))
-    paragraph = document.add_paragraph()
-    paragraph.add_run("报告期温室气体排放总量：").bold = True
-    total_run = paragraph.add_run(f"{_number(totals.get('total_t_co2e'))} tCO₂e")
-    _set_run_font(total_run, "Arial", 12, bold=True, color="000000")
-    for heading, rows, key, labeler in (
-        ("（一）按 Scope 汇总", _rows(inventory, "scope_summary"), "scope", _scope_label),
-        ("（二）按温室气体汇总", _rows(inventory, "gas_summary"), "gas_code", _uppercase_label),
-        ("（三）按 ISO 14064-1 六类汇总", _rows(inventory, "iso_category_summary"), "label", _display),
-        ("（四）Scope 2 方法结果", _rows(inventory, "scope2_method_summary"), "method", _scope2_label),
-        ("（五）Scope 3 类别结果", _rows(inventory, "scope3_category_summary"), "label", _display),
-    ):
-        if rows:
-            _heading(document, heading, 2)
-            _summary_table(document, rows, key, labeler)
-
-
-def _activity_section(document: DocumentObject, report: dict[str, Any]) -> None:
-    document.add_section(WD_SECTION.NEW_PAGE)
-    _heading(document, "六、活动水平数据及来源说明", 1)
-    _data_table(
-        document,
-        ("记录编号", "Scope/ISO类", "活动数据", "数量", "单位", "排放量（tCO₂e）", "证据状态"),
-        [
-            (
-                row.get("record_code"),
-                f"{_scope_label(row.get('scope'))} / {row.get('iso_category_code') or '—'}",
-                row.get("activity_name") or row.get("source_category"),
-                _number(row.get("activity_amount")),
-                row.get("activity_unit"),
-                _number(_decimal(row.get("computed_co2e")) / Decimal(1000)),
-                _material_status(row.get("evidence_status")),
-            )
-            for row in _rows(report, "activity_data")
-        ],
-        widths=(2.8, 2.4, 4.1, 2.0, 1.8, 2.5, 2.3),
-        font_size=7.5,
-    )
-
-
-def _factor_section(document: DocumentObject, report: dict[str, Any]) -> None:
-    _heading(document, "七、排放因子与计算参数说明", 1)
-    _data_table(
-        document,
-        ("记录编号", "Scope", "参数来源", "版本/年份", "单位"),
-        [
-            (
-                row.get("record_code"),
-                _scope_label(row.get("scope")),
-                row.get("factor_source"),
-                row.get("factor_version"),
-                row.get("factor_unit"),
-            )
-            for row in _rows(report, "factor_parameters")
-        ],
-        widths=(3.2, 2.1, 6.2, 2.6, 2.6),
-        font_size=8,
-    )
-
-
-def _quality_section(document: DocumentObject, report: dict[str, Any]) -> None:
-    _heading(document, "八、数据质量控制与文件存档", 1)
-    issues, findings = _rows(report, "quality_issues"), _rows(report, "verification_findings")
-    readiness = _mapping(report.get("formal_readiness"))
-    _key_value_table(
-        document,
-        (
-            ("正式报告就绪状态", "满足正式导出条件" if readiness.get("status") == "ready" else "存在待完善事项"),
-            ("数据质量问题", f"{len(issues)} 项"),
-            ("核查发现", f"{len(findings)} 项"),
-            (
-                "不确定性管理",
-                "活动数据、计算参数、计量与证据状态按记录逐项留痕；重大估算和替代数据应在审批记录中说明。",
-            ),
-        ),
-    )
-    issue_rows = [(row.get("record_code"), row.get("title"), row.get("severity"), row.get("action")) for row in issues]
-    issue_rows += [
-        (row.get("finding_no"), row.get("title"), row.get("severity"), row.get("status")) for row in findings
-    ]
-    if issue_rows:
-        _data_table(document, ("编号", "事项", "级别", "处理状态/要求"), issue_rows, widths=(3.0, 5.4, 2.0, 5.4))
-    else:
-        document.add_paragraph("截至本报告版本发布时，未发现未解决的数据质量问题或核查发现。")
-
-
-def _evidence_section(document: DocumentObject, report: dict[str, Any]) -> None:
-    _heading(document, "附表：证据文件索引", 1)
-    _data_table(
-        document,
-        ("证据编号", "活动记录", "文件名称", "文件类型", "复核状态", "SHA-256"),
-        [
-            (
-                row.get("evidence_code"),
-                row.get("record_code"),
-                row.get("file_name"),
-                row.get("attachment_type"),
-                _material_status(row.get("material_status")),
-                str(row.get("sha256") or "—")[:12],
-            )
-            for row in _rows(report, "verification_attachments")
-        ],
-        widths=(2.7, 2.7, 4.4, 2.2, 2.1, 3.0),
-        font_size=7.5,
-    )
-
-
-def _approval_section(document: DocumentObject, report: dict[str, Any]) -> None:
-    _heading(document, "九、编制、复核与批准", 1)
-    project = _mapping(report.get("project"))
-    _key_value_table(
-        document,
-        (
-            ("盘查报告编号", _display(project.get("report_code"))),
-            ("盘查报告版本", _display(project.get("report_version"))),
-            ("核算运行编号", _display(project.get("run_code"))),
-            ("核查依据", _display(project.get("verification_basis"))),
-        ),
-    )
-    _signature_grid(document, ("编制人/日期", "复核人/日期", "批准人/日期"))
+def _report_status(report: dict[str, Any]) -> str:
+    return {
+        "draft": "草稿",
+        "submitted": "待审核",
+        "approved": "已审核",
+        "rejected": "已退回",
+        "published": "已发布",
+        "archived": "已归档",
+    }.get(str(_mapping(report.get("inventory_source")).get("status") or ""), "【待确认】")
 
 
 def _summary_table(document: DocumentObject, rows: list[dict[str, Any]], key: str, labeler: Any) -> None:
     _data_table(
         document,
-        ("分类", "排放量（kgCO₂e）", "排放量（tCO₂e）"),
-        [
-            (labeler(row.get(key) or row.get("label")), _number(row.get("kg_co2e")), _number(row.get("t_co2e")))
-            for row in rows
-        ],
-        widths=(7.8, 4.0, 4.0),
+        ("气体", "排放量（tCO₂e）"),
+        [(labeler(row.get(key) or row.get("label")), _number(row.get("t_co2e"))) for row in rows],
+        widths=(10, 6),
     )
-
-
-def _bar_chart_table(
-    document: DocumentObject,
-    rows: list[tuple[str, Decimal]],
-    *,
-    total: Decimal,
-    widths: tuple[float, float, float, float],
-    font_size: float = 8,
-) -> None:
-    bar_segments = 20
-    table = _table(document, max(1, len(rows)) + 1, 4, widths=widths)
-    table.rows[0]._tr.get_or_add_trPr().append(OxmlElement("w:tblHeader"))
-    _set_cell(table.cell(0, 0), "分类", header=True, font_size=font_size)
-    _set_cell(table.cell(0, 1), "构成比例", header=True, font_size=font_size, align=WD_ALIGN_PARAGRAPH.CENTER)
-    _set_cell(table.cell(0, 2), "排放量（tCO₂e）", header=True, font_size=font_size)
-    _set_cell(table.cell(0, 3), "占比", header=True, font_size=font_size)
-    if not rows:
-        merged = table.cell(1, 0).merge(table.cell(1, 3))
-        _set_cell(merged, "无相关记录", font_size=font_size, align=WD_ALIGN_PARAGRAPH.CENTER)
-        return
-    denominator = total if total > 0 else sum((value for _, value in rows), Decimal(0))
-    max_value = max((value for _, value in rows), default=Decimal(0))
-    for row_index, (label, value) in enumerate(rows, start=1):
-        share = (value / denominator) if denominator > 0 else Decimal(0)
-        relative = (value / max_value) if max_value > 0 else Decimal(0)
-        filled = max(1 if value > 0 else 0, min(bar_segments, int((relative * bar_segments).to_integral_value())))
-        _set_cell(table.cell(row_index, 0), label, font_size=font_size)
-        bar = f"{'■' * filled}{'□' * (bar_segments - filled)}"
-        _set_cell(table.cell(row_index, 1), bar, font_size=font_size, align=WD_ALIGN_PARAGRAPH.LEFT)
-        _set_cell(table.cell(row_index, 2), _number(value), font_size=font_size, align=WD_ALIGN_PARAGRAPH.RIGHT)
-        _set_cell(table.cell(row_index, 3), _percent(share), font_size=font_size, align=WD_ALIGN_PARAGRAPH.RIGHT)
 
 
 def _key_value_table(document: DocumentObject, rows: tuple[tuple[str, Any], ...]) -> None:
@@ -460,7 +615,7 @@ def _data_table(
     rows: list[tuple[Any, ...]],
     *,
     widths: tuple[float, ...],
-    font_size: float = 8.5,
+    font_size: float = 10.5,
 ) -> None:
     table = _table(document, max(1, len(rows)) + 1, len(headers), widths=widths)
     table.rows[0]._tr.get_or_add_trPr().append(OxmlElement("w:tblHeader"))
@@ -473,47 +628,60 @@ def _data_table(
     for row_index, values in enumerate(rows, start=1):
         for column_index, value in enumerate(values):
             _set_cell(table.cell(row_index, column_index), value, font_size=font_size)
+    for cell in table.rows[0].cells:
+        cell.paragraphs[0].paragraph_format.keep_with_next = True
 
 
 def _table(document: DocumentObject, rows: int, columns: int, *, widths: tuple[float, ...]) -> Any:
     table = document.add_table(rows=rows, cols=columns)
     table.alignment, table.autofit, table.style = WD_TABLE_ALIGNMENT.CENTER, False, "Table Grid"
+    available = 16.0
+    widths = tuple(width * available / sum(widths) for width in widths)
+    for index, width in enumerate(widths):
+        table.columns[index].width = Cm(width)
     for row in table.rows:
         row._tr.get_or_add_trPr().append(OxmlElement("w:cantSplit"))
         for index, width in enumerate(widths):
             row.cells[index].width = Cm(width)
             row.cells[index].vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
             _set_cell_margins(row.cells[index])
-    document.add_paragraph().paragraph_format.space_after = Pt(2)
+    spacer = document.add_paragraph()
+    spacer.paragraph_format.line_spacing = 1
+    spacer.paragraph_format.space_after = Pt(4)
+    _set_run_font(spacer.add_run(), "宋体", 2)
+    spacer.paragraph_format.line_spacing = Pt(2)
     return table
 
 
 def _set_cell(
-    cell: Any, value: Any, *, header: bool = False, font_size: float = 9, align: Any = WD_ALIGN_PARAGRAPH.LEFT
+    cell: Any, value: Any, *, header: bool = False, font_size: float = 10.5, align: Any = WD_ALIGN_PARAGRAPH.LEFT
 ) -> None:
     cell.text = ""
     paragraph = cell.paragraphs[0]
     paragraph.alignment, paragraph.paragraph_format.space_after = align, Pt(0)
+    paragraph.paragraph_format.line_spacing = 1.15
     run = paragraph.add_run(_display(value))
-    _set_run_font(run, "黑体" if header else "宋体", font_size, bold=header, color="000000")
+    _set_run_font(run, "宋体", font_size, bold=header, color="000000")
 
 
 def _heading(document: DocumentObject, text: str, level: int) -> None:
     paragraph = document.add_heading(text, level=level)
-    paragraph.keep_with_next = True
+    paragraph.paragraph_format.keep_with_next = True
 
 
 def _signature_grid(document: DocumentObject, labels: tuple[str, ...]) -> None:
     table = _table(document, 2, len(labels), widths=tuple(5.2 for _ in labels))
     for index, label in enumerate(labels):
         _set_cell(table.cell(0, index), label, header=True, align=WD_ALIGN_PARAGRAPH.CENTER)
-        _set_cell(table.cell(1, index), "签字：                 日期：", font_size=8)
+        table.cell(0, index).paragraphs[0].paragraph_format.keep_with_next = True
+        _set_cell(table.cell(1, index), "签字：\n日期：", font_size=10.5)
         table.rows[1].height = Cm(2.1)
 
 
 def _style_font(style: Any, name: str, size: float, *, bold: bool = False, color: str | None = None) -> None:
     style.font.name, style.font.size, style.font.bold = name, Pt(size), bold
     style._element.rPr.rFonts.set(qn("w:eastAsia"), name)
+    _explicit_fonts(style._element.rPr.rFonts)
     if color:
         style.font.color.rgb = RGBColor.from_string(color)
 
@@ -528,8 +696,16 @@ def _clear_style_paragraph_borders(style: Any) -> None:
 def _set_run_font(run: Any, name: str, size: float, *, bold: bool = False, color: str | None = None) -> None:
     run.font.name, run.font.size, run.font.bold = name, Pt(size), bold
     run._element.rPr.rFonts.set(qn("w:eastAsia"), name)
+    _explicit_fonts(run._element.rPr.rFonts)
     if color:
         run.font.color.rgb = RGBColor.from_string(color)
+
+
+def _explicit_fonts(fonts: Any) -> None:
+    for key in ("asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme"):
+        fonts.attrib.pop(qn(f"w:{key}"), None)
+    for key in ("ascii", "hAnsi", "cs"):
+        fonts.set(qn(f"w:{key}"), "Times New Roman")
 
 
 def _set_cell_margins(cell: Any) -> None:
@@ -546,18 +722,9 @@ def _set_cell_margins(cell: Any) -> None:
 
 
 def _add_page_number(paragraph: Any) -> None:
-    run = paragraph.add_run("第 ")
-    _set_run_font(run, "宋体", 8, color="666666")
-    for kind, text in (("begin", None), (None, " PAGE "), ("end", None)):
-        node = OxmlElement("w:instrText" if text else "w:fldChar")
-        if text:
-            node.set(qn("xml:space"), "preserve")
-            node.text = text
-        else:
-            node.set(qn("w:fldCharType"), kind)
-        run._r.append(node)
-    suffix = paragraph.add_run(" 页")
-    _set_run_font(suffix, "宋体", 8, color="666666")
+    field = OxmlElement("w:fldSimple")
+    field.set(qn("w:instr"), " PAGE ")
+    paragraph._p.append(field)
 
 
 def _convert_docx_to_pdf(docx_path: Path, pdf_path: Path) -> bool:
@@ -623,17 +790,6 @@ def _scope2_label(value: Any) -> str:
         "market": "市场法",
         "market_based": "市场法",
         "not_applicable": "不适用",
-    }.get(str(value), _display(value))
-
-
-def _material_status(value: Any) -> str:
-    return {
-        "ready": "已复核",
-        "pending_review": "待复核",
-        "missing_result": "缺少结果",
-        "missing_factor": "缺少参数",
-        "missing_evidence": "缺少证据",
-        "approved": "已批准",
     }.get(str(value), _display(value))
 
 

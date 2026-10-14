@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tempfile
 from collections import defaultdict
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -14,6 +15,7 @@ from sqlalchemy import func, select
 
 from app.db import models as m
 from app.domain.carbon_verification.domain.reporting import (
+    ISO_CATEGORY_LABELS,
     SCOPE3_CATEGORY_LABELS,
     formal_report_readiness,
     readiness_dict,
@@ -23,7 +25,7 @@ from app.domain.carbon_verification.queries.templates import (
     CarbonVerificationTemplateQueryService,
     default_template_payload,
 )
-from app.domain.ghg_inventory.domain.catalog import CATEGORY_BY_CODE
+from app.domain.ghg_inventory.domain.report_narrative import validate_narrative
 from app.domain.ghg_inventory.models import (
     GhgActivityRecord,
     GhgCalculationMethodDefinition,
@@ -192,6 +194,9 @@ class TransitionInventoryReport:
             raise ValueError(msg)
         now = datetime.now().astimezone()
         original_status = report.status
+        if action in {"submit", "resubmit"}:
+            context = await ExportInventoryReport(self.session).report_context(report)
+            report.content_snapshot = {**report.content_snapshot, "reportContext": context}
         report.status = target_status
         if action in {"submit", "resubmit"}:
             report.submitted_by = actor
@@ -231,6 +236,7 @@ class UpdateInventoryReport:
         version: int,
         title: str,
         change_summary: str | None,
+        narrative: dict[str, str] | None = None,
     ) -> GhgInventoryReport:
         require_session_tenant_id(self.session)
         report = await self.session.scalar(
@@ -246,6 +252,11 @@ class UpdateInventoryReport:
             msg = "只有草稿或退回状态的盘查报告允许编辑"
             raise ValueError(msg)
         report.title = title
+        if narrative is not None:
+            snapshot = dict(report.content_snapshot or {})
+            snapshot["narrative"] = validate_narrative(narrative)
+            snapshot.pop("reportContext", None)
+            report.content_snapshot = snapshot
         report.change_summary = change_summary
         await self.session.commit()
         return report
@@ -323,7 +334,7 @@ class ExportInventoryReport:
         if report is None:
             msg = "盘查报告不存在"
             raise ValueError(msg)
-        context = await self._report_context(report)
+        context = await self.report_context(report)
         with tempfile.TemporaryDirectory(prefix="ghg-report-") as temp_dir:
             rendered_files = ReportDocumentRenderer(
                 template_path=Path(str(context["template"].get("path") or "")),
@@ -342,7 +353,16 @@ class ExportInventoryReport:
                 content_type=selected.content_type,
             )
 
-    async def _report_context(self, report: GhgInventoryReport) -> dict[str, Any]:
+    async def report_context(self, report: GhgInventoryReport) -> dict[str, Any]:
+        snapshot = dict(report.content_snapshot or {})
+        if report.status not in {"draft", "rejected"}:
+            if not snapshot.get("reportContext"):
+                msg = "此报告版本未保存完整正文快照; 请从核算结果创建新版本后提交"
+                raise ValueError(msg)
+            context = deepcopy(snapshot["reportContext"])
+            context["inventory_source"]["status"] = report.status
+            context["formal_readiness"] = readiness_dict(formal_report_readiness(context))
+            return context
         run = await self.session.get(GhgCalculationRun, report.run_id)
         if run is None:
             msg = "盘查报告引用的核算运行不存在"
@@ -359,7 +379,9 @@ class ExportInventoryReport:
             if organization.enterprise_id is not None
             else None
         )
-        scope2_method = str(report.metrics_snapshot.get("defaultScope2Method") or run.default_scope2_method or "location")
+        scope2_method = str(
+            report.metrics_snapshot.get("defaultScope2Method") or run.default_scope2_method or "location"
+        )
         rows = [
             row
             for row in await self._result_rows(run.id)
@@ -367,36 +389,69 @@ class ExportInventoryReport:
         ]
         activity_ids = {activity.id for _result, activity, _method, _source in rows}
         record_codes = {activity.record_code for _result, activity, _method, _source in rows}
-        evidence_rows = await self._evidence_rows(record_codes)
         factor_rows = await self._factor_rows(run.id, activity_ids)
+        evidence_rows = await self._evidence_rows(record_codes, factor_rows)
         inventory = self._inventory_summary(run=run, rows=rows, scope2_method=scope2_method)
         template = await self._organization_template()
+        enterprise_details = dict(enterprise.other_info or {}) if enterprise else {}
+        facilities = list(
+            (
+                await self.session.scalars(
+                    select(m.BoundaryFacility)
+                    .where(m.BoundaryFacility.boundary_id == boundary.id)
+                    .order_by(m.BoundaryFacility.id)
+                )
+            ).all()
+        )
         context = {
             "project": {
                 "report_code": report.report_code,
                 "report_version": f"v{report.version}",
+                "title": report.title,
                 "run_code": run.run_code,
                 "verification_basis": boundary.standard_code or profile.standard_code if profile else None,
             },
             "template": template,
-            "standard": {"name": template.get("standard_name"), "code": template.get("standard_code")},
+            "standard": {"name": profile.name if profile else None, "code": profile.standard_code if profile else None},
+            "narrative": snapshot.get("narrative", {}),
+            "organization_details": enterprise_details,
+            "methods": list(
+                {str(result.method_id): dict(result.formula_snapshot or {}) for result, *_ in rows}.values()
+            ),
+            "facilities": [
+                {
+                    "name": item.facility_name,
+                    "code": item.facility_code,
+                    "included": item.included,
+                    "reason": item.exclusion_reason,
+                    "source": item.source_name,
+                }
+                for item in facilities
+            ],
             "enterprise": {
-                "name": (enterprise.name if enterprise else None) or organization.name,
+                "name": organization.name,
                 "code": organization.code,
-                "unify_code": (enterprise.unify_code if enterprise else None) or organization.legal_entity_code,
+                "unify_code": organization.legal_entity_code,
+                "linked_enterprise_name": enterprise.name if enterprise else None,
+                "linked_enterprise_unify_code": enterprise.unify_code if enterprise else None,
                 "organization_type": organization.organization_type,
                 "industry": enterprise.industry if enterprise else None,
-                "registered_address": enterprise.location if enterprise else None,
+                "registered_address": (enterprise.other_info or {}).get("registered_address") if enterprise else None,
                 "operation_address": enterprise.location if enterprise else None,
+                "belong_unit": enterprise.belong_unit if enterprise else None,
             },
             "reporting_period": {
                 "year": period.period_start.year,
                 "period_start": period.period_start.isoformat(),
                 "period_end": period.period_end.isoformat(),
                 "base_year": period.base_year,
+                "data_period_start": min(
+                    (activity.period_start.isoformat() for _, activity, _, _ in rows), default=None
+                ),
+                "data_period_end": max((activity.period_end.isoformat() for _, activity, _, _ in rows), default=None),
             },
             "inventory": inventory,
-            "activity_data": self._activity_rows(rows, evidence_rows),
+            "activity_data": await self._allocated_activity_rows(run, rows, evidence_rows),
             "factor_parameters": factor_rows,
             "quality_issues": self._quality_rows(rows),
             "verification_findings": [],
@@ -407,6 +462,9 @@ class ExportInventoryReport:
                 "boundary_status": boundary.status,
                 "boundary_no": boundary.boundary_no,
                 "boundary_name": boundary.boundary_name,
+                "consolidation_method": boundary.boundary_method,
+                "boundary_remark": boundary.remark,
+                "operational_boundary": boundary.operational_boundary,
                 "inventory_code": report.inventory_code,
                 "run_code": run.run_code,
             },
@@ -446,6 +504,14 @@ class ExportInventoryReport:
                 .order_by(GhgParameterAssignment.activity_id, GhgParameterAssignment.parameter_code)
             )
         ).all()
+        definitions = (
+            await self.session.scalars(
+                select(m.GhgMethodParameterDefinition).where(
+                    m.GhgMethodParameterDefinition.method_id.in_({item.method_id for item in assignments})
+                )
+            )
+        ).all()
+        names = {(item.method_id, item.parameter_code): item.parameter_name for item in definitions}
         return [
             {
                 "record_code": activities[item.activity_id].record_code,
@@ -453,12 +519,19 @@ class ExportInventoryReport:
                 "factor_source": item.source_name,
                 "factor_version": item.source_version or item.standard_code or item.selection_rule,
                 "factor_unit": item.unit,
+                "parameter_code": item.parameter_code,
+                "parameter_name": names.get((item.method_id, item.parameter_code)),
+                "factor_value": str(item.value),
+                "standard_code": item.standard_code,
+                "clause_reference": item.clause_reference,
+                "table_reference": item.table_reference,
+                "snapshot": item.snapshot,
             }
             for item in assignments
             if item.activity_id in activities
         ]
 
-    async def _evidence_rows(self, record_codes: set[str]) -> list[dict[str, Any]]:
+    async def _evidence_rows(self, record_codes: set[str], factor_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if not record_codes:
             return []
         rows = (
@@ -469,7 +542,7 @@ class ExportInventoryReport:
                 .order_by(GhgEvidenceLink.record_code, m.GhgEvidenceFile.evidence_code)
             )
         ).all()
-        return [
+        evidence_rows = [
             {
                 "evidence_code": evidence.evidence_code,
                 "record_code": link.record_code,
@@ -477,9 +550,38 @@ class ExportInventoryReport:
                 "attachment_type": evidence.document_type,
                 "material_status": self._material_status(link.review_status, evidence.verification_status),
                 "sha256": evidence.sha256,
+                "evidence_role": "activity",
             }
             for link, evidence in rows
         ]
+        factor_codes = {
+            row["snapshot"]["evidenceCode"] for row in factor_rows if (row.get("snapshot") or {}).get("evidenceCode")
+        }
+        files = (
+            (
+                await self.session.scalars(
+                    select(m.GhgEvidenceFile).where(m.GhgEvidenceFile.evidence_code.in_(factor_codes))
+                )
+            ).all()
+            if factor_codes
+            else []
+        )
+        by_code = {item.evidence_code: item for item in files}
+        for row in factor_rows:
+            evidence = by_code.get((row.get("snapshot") or {}).get("evidenceCode"))
+            if evidence is not None:
+                evidence_rows.append(
+                    {
+                        "evidence_code": evidence.evidence_code,
+                        "record_code": row["record_code"],
+                        "file_name": evidence.file_name,
+                        "attachment_type": evidence.document_type,
+                        "material_status": self._material_status("ready", evidence.verification_status),
+                        "sha256": evidence.sha256,
+                        "evidence_role": "factor",
+                    }
+                )
+        return evidence_rows
 
     async def _exclusion_rows(self, boundary_id: int) -> list[dict[str, Any]]:
         facilities = (
@@ -536,10 +638,21 @@ class ExportInventoryReport:
                 scope3_groups[str(activity.scope3_category)] += result.co2e_kg
         return {
             "default_scope2_method": scope2_method,
-            "gwp_versions": sorted({result.gwp_version for result, *_rest in rows}),
+            "gwp_versions": sorted(
+                {
+                    result.gwp_version
+                    for result, *_rest in rows
+                    if result.gwp_version and result.gwp_version != "reporting-profile"
+                }
+            ),
             "totals": {"total_t_co2e": str(total_kg / Decimal(1000))},
             "scope_summary": [
-                {"scope": key, "record_count": self._record_count(rows, ghg_scope=key), "kg_co2e": str(value), "t_co2e": str(value / Decimal(1000))}
+                {
+                    "scope": key,
+                    "record_count": self._record_count(rows, ghg_scope=key),
+                    "kg_co2e": str(value),
+                    "t_co2e": str(value / Decimal(1000)),
+                }
                 for key, value in sorted(scope_groups.items())
             ],
             "gas_summary": [
@@ -547,7 +660,12 @@ class ExportInventoryReport:
                 for key, value in sorted(gas_groups.items())
             ],
             "iso_category_summary": [
-                {"label": CATEGORY_BY_CODE.get(key, CATEGORY_BY_CODE.get(f"{key}.1")).name if CATEGORY_BY_CODE.get(key) or CATEGORY_BY_CODE.get(f"{key}.1") else key, "kg_co2e": str(value), "t_co2e": str(value / Decimal(1000))}
+                {
+                    "iso_category_code": key,
+                    "label": ISO_CATEGORY_LABELS.get(key, key),
+                    "kg_co2e": str(value),
+                    "t_co2e": str(value / Decimal(1000)),
+                }
                 for key, value in sorted(iso_groups.items())
             ],
             "scope2_method_summary": [
@@ -555,7 +673,11 @@ class ExportInventoryReport:
                 for key, value in sorted(scope2_groups.items())
             ],
             "scope3_category_summary": [
-                {"label": SCOPE3_CATEGORY_LABELS.get(key, key), "kg_co2e": str(value), "t_co2e": str(value / Decimal(1000))}
+                {
+                    "label": SCOPE3_CATEGORY_LABELS.get(key, key),
+                    "kg_co2e": str(value),
+                    "t_co2e": str(value / Decimal(1000)),
+                }
                 for key, value in sorted(scope3_groups.items())
             ],
             "source_summary": [
@@ -569,29 +691,74 @@ class ExportInventoryReport:
             ],
         }
 
+    async def _allocated_activity_rows(
+        self, run: GhgCalculationRun, rows: list[ResultRow], evidence_rows: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        activities = self._activity_rows(rows, evidence_rows)
+        allocations = {item["recordCode"]: item["items"] for item in (run.input_snapshot or {}).get("allocations", [])}
+        equipment_ids = {
+            item["equipmentId"] for items in allocations.values() for item in items if item.get("equipmentId")
+        }
+        equipment = (
+            list(
+                (
+                    await self.session.scalars(
+                        select(m.MonitorEquipment).where(m.MonitorEquipment.id.in_(equipment_ids))
+                    )
+                ).all()
+            )
+            if equipment_ids
+            else []
+        )
+        names = {item.id: item.name for item in equipment}
+        for activity in activities:
+            # Ratios and membership belong to the calculation snapshot, not today's editable allocations.
+            activity["device_allocations"] = [
+                {
+                    "device_id": item.get("equipmentId"),
+                    "device_name": names.get(item.get("equipmentId")),
+                    "area_path": item.get("areaPath"),
+                    "ratio": item["ratio"],
+                }
+                for item in allocations.get(activity["record_code"], [])
+            ]
+        return activities
+
     def _activity_rows(self, rows: list[ResultRow], evidence_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        ready_evidence = {row["record_code"] for row in evidence_rows if row.get("material_status") == "ready"}
-        return [
-            {
-                "record_code": activity.record_code,
-                "scope": result.ghg_scope,
-                "iso_category_code": result.iso_category_code,
-                "activity_name": activity.activity_name,
-                "source_category": (source.source_name if source is not None else activity.source_code),
-                "activity_amount": str(activity.activity_amount),
-                "activity_unit": activity.activity_unit,
-                "computed_co2e": str(result.co2e_kg),
-                "evidence_status": "ready" if activity.record_code in ready_evidence else "pending",
-            }
-            for result, activity, _method, source in rows
-        ]
+        ready_evidence = {
+            row["record_code"]
+            for row in evidence_rows
+            if row.get("material_status") == "ready" and row.get("evidence_role") != "factor"
+        }
+        activities: dict[str, dict[str, Any]] = {}
+        for result, activity, _method, source in rows:
+            row = activities.setdefault(
+                activity.record_code,
+                {
+                    "record_code": activity.record_code,
+                    "scope": result.ghg_scope,
+                    "iso_category_code": result.iso_category_code,
+                    "activity_name": activity.activity_name,
+                    "source_category": (source.source_name if source is not None else activity.source_code),
+                    "activity_amount": str(activity.activity_amount),
+                    "activity_unit": activity.activity_unit,
+                    "computed_co2e": "0",
+                    "period_start": activity.period_start.isoformat(),
+                    "period_end": activity.period_end.isoformat(),
+                    "data_source_type": activity.data_source_type,
+                    "measurement_method": activity.measurement_method,
+                    "evidence_status": "ready" if activity.record_code in ready_evidence else "pending",
+                },
+            )
+            row["computed_co2e"] = str(Decimal(row["computed_co2e"]) + result.co2e_kg)
+        return list(activities.values())
 
     @staticmethod
     def _quality_rows(rows: list[ResultRow]) -> list[dict[str, Any]]:
         return [
             {
                 "record_code": activity.record_code,
-                "title": f"{activity.activity_name}核算质量状态为{result.quality_status}",
+                "title": "核算记录待复核" if result.quality_status != "failed" else "核算记录检查未通过",
                 "severity": "high" if result.quality_status == "failed" else "medium",
                 "action": "复核活动数据、因子参数和证据材料",
             }
@@ -611,7 +778,9 @@ class ExportInventoryReport:
 
     @staticmethod
     def _record_count(rows: list[ResultRow], *, ghg_scope: str) -> int:
-        return len({activity.record_code for result, activity, _method, _source in rows if result.ghg_scope == ghg_scope})
+        return len(
+            {activity.record_code for result, activity, _method, _source in rows if result.ghg_scope == ghg_scope}
+        )
 
     @staticmethod
     def _material_status(link_status: str, evidence_status: str) -> str:

@@ -53,6 +53,7 @@ class ReportEnterprise(msgspec.Struct, frozen=True, kw_only=True):
     industry: str | None = None
     registered_address: str | None = None
     operation_address: str | None = None
+    belong_unit: str | None = None
 
 
 class ReportPeriod(msgspec.Struct, frozen=True, kw_only=True):
@@ -62,6 +63,8 @@ class ReportPeriod(msgspec.Struct, frozen=True, kw_only=True):
     period_start: str
     period_end: str
     base_year: int | None = None
+    data_period_start: str | None = None
+    data_period_end: str | None = None
 
 
 class ReportTemplateReference(msgspec.Struct, frozen=True, kw_only=True):
@@ -94,6 +97,10 @@ class OrganizationReportContext(msgspec.Struct, frozen=True, kw_only=True):
     verification_findings: list[dict[str, Any]]
     formal_readiness: dict[str, Any]
     exclusions: list[dict[str, Any]]
+    narrative: dict[str, str] = msgspec.field(default_factory=dict)
+    organization_details: dict[str, Any] = msgspec.field(default_factory=dict)
+    methods: list[dict[str, Any]] = msgspec.field(default_factory=list)
+    facilities: list[dict[str, Any]] = msgspec.field(default_factory=list)
 
 
 ISO_CATEGORY_LABELS: dict[str, str] = {
@@ -145,7 +152,7 @@ def formal_report_readiness(report: dict[str, Any]) -> ReportReadiness:
     evidence_codes = {
         str(row.get("record_code"))
         for row in evidence
-        if row.get("record_code") and row.get("material_status") == "ready"
+        if row.get("record_code") and row.get("material_status") == "ready" and row.get("evidence_role") != "factor"
     }
     activity_codes = {str(row.get("record_code")) for row in activities if row.get("record_code")}
     open_findings = [row for row in findings if row.get("status") not in {"closed", "accepted"}]

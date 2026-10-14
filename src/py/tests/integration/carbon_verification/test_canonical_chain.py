@@ -16,6 +16,7 @@ from app.domain.carbon_verification.queries.projects import CarbonVerificationPr
 from app.domain.carbon_verification.usecases.evidence import CanonicalEvidenceUseCase
 from app.domain.carbon_verification.usecases.findings import CarbonVerificationFindingUseCase
 from app.domain.carbon_verification.usecases.projects import CarbonVerificationProjectUseCase
+from app.domain.ghg_inventory.usecases.reports import ExportInventoryReport
 from app.lib.tenancy import TENANT_BYPASS_SESSION_KEY, TENANT_ID_SESSION_KEY
 
 pytestmark = [pytest.mark.anyio, pytest.mark.integration]
@@ -174,13 +175,17 @@ async def test_report_bound_verification_requires_reviewed_evidence_and_closed_f
         reporting_period_id=period.id,
         organization_boundary_id=boundary.id,
         reporting_profile_id=profile.id,
-        status="published",
-        published_at=datetime.now(UTC),
+        status="draft",
     )
     session.add(report)
     await session.commit()
     session.info.clear()
     session.info[TENANT_ID_SESSION_KEY] = team.id
+
+    report.content_snapshot = {"reportContext": await ExportInventoryReport(session).report_context(report)}
+    report.status = "published"
+    report.published_at = datetime.now(UTC)
+    await session.commit()
 
     project_use_case = CarbonVerificationProjectUseCase(session)
     project = await project_use_case.create_project(
@@ -293,7 +298,7 @@ async def test_report_bound_verification_requires_reviewed_evidence_and_closed_f
         {
             "iso_category_code": "2",
             "label": "输入能源产生的间接温室气体排放",
-            "kg_co2e": 100.0,
-            "t_co2e": 0.1,
+            "kg_co2e": "100.00000000",
+            "t_co2e": "0.10000000",
         }
     ]

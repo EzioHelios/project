@@ -27,6 +27,7 @@ type ReportingOrganization = {
   organization_type?: string | null
   control_method?: string | null
   legal_entity_code?: string | null
+  enterprise_id?: number | null
   status?: string | null
   source_name?: string | null
 }
@@ -38,6 +39,7 @@ type ReportingPeriod = {
   name: string
   period_start: string
   period_end: string
+  base_year?: number | null
   status?: string | null
 }
 
@@ -83,6 +85,8 @@ type OrganizationForm = {
   name: string
   legal_entity_code: string
   control_method: string
+  enterprise_id: string
+  organization_type: string
 }
 
 type PeriodForm = {
@@ -91,6 +95,7 @@ type PeriodForm = {
   name: string
   period_start: string
   period_end: string
+  base_year: string
 }
 
 type BoundaryForm = {
@@ -131,6 +136,8 @@ const defaultOrganizationForm: OrganizationForm = {
   name: "",
   legal_entity_code: "",
   control_method: "operational_control",
+  enterprise_id: "",
+  organization_type: "enterprise",
 }
 
 const defaultPeriodForm: PeriodForm = {
@@ -139,6 +146,7 @@ const defaultPeriodForm: PeriodForm = {
   name: "",
   period_start: "",
   period_end: "",
+  base_year: "",
 }
 
 const defaultBoundaryForm: BoundaryForm = {
@@ -202,6 +210,10 @@ export function OrganizationBoundaryPanel() {
   const summary = summaryQuery.data?.data
 
   const organizationById = useMemo(() => new Map(organizations.map((item) => [item.id, item])), [organizations])
+  const enterpriseQuery = useQuery({
+    queryKey: ["data", "company", "enterprise-info"],
+    queryFn: () => fetchCarbonApi<{ id?: number; name?: string }>("/api/master-data/enterprise-profile"),
+  })
   const periodById = useMemo(() => new Map(periods.map((item) => [item.id, item])), [periods])
   const boundaryById = useMemo(() => new Map(boundaries.map((item) => [item.id, item])), [boundaries])
 
@@ -215,6 +227,8 @@ export function OrganizationBoundaryPanel() {
           name: organizationForm.name.trim(),
           legal_entity_code: optional(organizationForm.legal_entity_code),
           control_method: organizationForm.control_method,
+          enterprise_id: organizationForm.enterprise_id ? toNumber(organizationForm.enterprise_id) : null,
+          organization_type: organizationForm.organization_type,
           source_name: "enterprise_inventory",
         },
       ),
@@ -247,6 +261,7 @@ export function OrganizationBoundaryPanel() {
           period_start: periodForm.period_start,
           period_end: periodForm.period_end,
           period_type: "annual",
+          base_year: periodForm.base_year ? toNumber(periodForm.base_year) : null,
           source_name: "enterprise_inventory",
         },
       ),
@@ -391,6 +406,8 @@ export function OrganizationBoundaryPanel() {
             name: item.name,
             legal_entity_code: item.legal_entity_code ?? "",
             control_method: item.control_method ?? "operational_control",
+            enterprise_id: item.enterprise_id ? String(item.enterprise_id) : "",
+            organization_type: item.organization_type ?? "enterprise",
           }
         : defaultOrganizationForm,
     )
@@ -409,6 +426,7 @@ export function OrganizationBoundaryPanel() {
       item
         ? {
             reporting_org_id: String(item.reporting_org_id),
+            base_year: item.base_year ? String(item.base_year) : "",
             code: item.code,
             name: item.name,
             period_start: item.period_start,
@@ -497,6 +515,31 @@ export function OrganizationBoundaryPanel() {
                     onChange={(legal_entity_code) => setOrganizationForm((state) => ({ ...state, legal_entity_code }))}
                   />
                   <MethodSelect value={organizationForm.control_method} onChange={(control_method) => setOrganizationForm((state) => ({ ...state, control_method }))} />
+                  <label className="grid gap-2 text-sm">
+                    主体类型
+                    <select
+                      aria-label="主体类型"
+                      className="h-9 rounded-md border bg-background px-3"
+                      value={organizationForm.organization_type}
+                      onChange={(event) => setOrganizationForm((state) => ({ ...state, organization_type: event.target.value }))}
+                    >
+                      <option value="enterprise">企业</option>
+                      <option value="facility">设施</option>
+                      <option value="group">集团</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-2 text-sm">
+                    关联企业档案
+                    <select
+                      aria-label="关联企业档案"
+                      className="h-9 rounded-md border bg-background px-3"
+                      value={organizationForm.enterprise_id}
+                      onChange={(event) => setOrganizationForm((state) => ({ ...state, enterprise_id: event.target.value }))}
+                    >
+                      <option value="">未关联</option>
+                      {enterpriseQuery.data?.data.id ? <option value={enterpriseQuery.data.data.id}>{enterpriseQuery.data.data.name}</option> : null}
+                    </select>
+                  </label>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={closeOrganizationDialog}>
@@ -590,6 +633,7 @@ export function OrganizationBoundaryPanel() {
                   <Field label="报告期名称" value={periodForm.name} onChange={(name) => setPeriodForm((state) => ({ ...state, name }))} />
                   <DateField label="开始日期" value={periodForm.period_start} onChange={(period_start) => setPeriodForm((state) => ({ ...state, period_start }))} />
                   <DateField label="结束日期" value={periodForm.period_end} onChange={(period_end) => setPeriodForm((state) => ({ ...state, period_end }))} />
+                  <Field label="基准年" type="number" value={periodForm.base_year} onChange={(base_year) => setPeriodForm((state) => ({ ...state, base_year }))} />
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={closePeriodDialog}>
@@ -858,11 +902,11 @@ function MetricGrid({ items }: { items: { label: string; value: number }[] }) {
   )
 }
 
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function Field({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: "text" | "number" }) {
   return (
     <div className="grid gap-2">
       <Label>{label}</Label>
-      <Input value={value} onChange={(event) => onChange(event.target.value)} />
+      <Input aria-label={label} type={type} value={value} onChange={(event) => onChange(event.target.value)} />
     </div>
   )
 }

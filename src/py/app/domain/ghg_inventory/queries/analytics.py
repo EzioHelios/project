@@ -1109,6 +1109,7 @@ class GhgAnalyticsQueryService:
             "status": report.status,
             "metricsSnapshot": report.metrics_snapshot,
             "evidenceSnapshot": report.evidence_snapshot,
+            "narrative": (report.content_snapshot or {}).get("narrative", {}),
             "changeSummary": report.change_summary,
             "submittedBy": report.submitted_by,
             "submittedAt": report.submitted_at.isoformat() if report.submitted_at else None,
