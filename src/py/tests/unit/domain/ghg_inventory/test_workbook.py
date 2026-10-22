@@ -3,8 +3,10 @@
 import base64
 from io import BytesIO
 
+import pytest
 from openpyxl import load_workbook
 
+from app.domain.ghg_inventory.domain.catalog import CATEGORIES
 from app.domain.ghg_inventory.infrastructure.workbook import build_template_bytes, decode_and_preview
 
 
@@ -151,8 +153,16 @@ def _valid_purchased_electricity_workbook() -> tuple[str, dict[str, str]]:
     return base64.b64encode(stream.getvalue()).decode(), context
 
 
-def test_template_has_stable_codes_and_bounded_visible_sheets() -> None:
-    workbook = load_workbook(BytesIO(build_template_bytes(_context())))
+@pytest.mark.parametrize(
+    ("category_code", "method_code"),
+    [(category.code, method) for category in CATEGORIES for method in category.default_methods],
+)
+def test_template_has_stable_codes_and_bounded_visible_sheets(category_code: str, method_code: str) -> None:
+    context = _context(method_code=method_code, category_code=category_code)
+    workbook = load_workbook(BytesIO(build_template_bytes(context)))
+    metadata = dict(workbook["_metadata"].values)
+    assert metadata["iso_category_code"] == category_code
+    assert metadata["method_code"] == method_code
     assert workbook["_metadata"].sheet_state == "veryHidden"
     assert workbook["03_活动数据"].row_dimensions[2].hidden is True
     assert workbook["03_活动数据"].freeze_panes == "A3"

@@ -387,7 +387,7 @@ class GhgInventoryController(Controller):
     @get(
         "/import/template",
         operation_id="GhgInventoryDownloadTemplate",
-        guards=[requires_permission("carbon.inventory.import")],
+        guards=[requires_permission("carbon.inventory.view", "carbon.inventory.import")],
     )
     async def template(
         self,
