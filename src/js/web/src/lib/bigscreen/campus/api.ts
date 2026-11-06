@@ -36,7 +36,7 @@ export async function fetchSceneManifest(teamId: string, signal: AbortSignal): P
       const g = manifest.georegistration
       if (
         !g ||
-        g.version !== 1 ||
+        g.version !== 2 ||
         g.crs !== "EPSG:4326" ||
         g.terrain !== "ellipsoid" ||
         g.upAxis !== "Y" ||
@@ -46,6 +46,8 @@ export async function fetchSceneManifest(teamId: string, signal: AbortSignal): P
         !g.origin.every(Number.isFinite) ||
         Math.abs(g.origin[0]) > 180 ||
         Math.abs(g.origin[1]) > 85 ||
+        !Number.isFinite(g.headingDegrees) ||
+        Math.abs(g.headingDegrees) > 180 ||
         !Array.isArray(g.scale) ||
         g.scale.length !== 3 ||
         !g.scale.every((v) => Number.isFinite(v) && v > 0) ||

@@ -1,0 +1,40 @@
+{
+  "registrationVersion": 2,
+  "reviewedAt": "2026-11-06",
+  "horizontalAlignment": {
+    "status": "user-boundary-native-scale-south-shifted",
+    "headingDegrees": -66.72317223933021,
+    "originWgs84": [120.08038346048886, 32.17507088188703],
+    "horizontalScale": [1, 1],
+    "basis": "User-marked L-shaped parcel, entrance-side canal road, southeast warehouse roof and the Amap POI image anchor; native model scale preserved and complete scene shifted 20 metres south after webpage review",
+    "controlPoints": [
+      {
+        "modelPlanPixel": [1843, 130],
+        "markedImagePixel": [1085, 895],
+        "role": "orientation control from the initial parcel fit"
+      },
+      {
+        "modelPlanPixel": [1843, 1198],
+        "markedImagePixel": [555, 1123],
+        "role": "orientation control from the initial parcel fit"
+      },
+      {
+        "markedImagePixel": [450.2247191011236, 723.6163723916533],
+        "wgs84": [120.08083253338953, 32.17444537273718],
+        "role": "Amap POI image anchor"
+      }
+    ],
+    "scaleControl": {
+      "method": "Native model scale with webpage top-view checks against the warehouse roof, canal-side road and parcel edges",
+      "previousHorizontalScale": [1.2011405965686427, 1.1953658469612045],
+      "adjustedHorizontalScale": [1, 1]
+    }
+  },
+  "verticalAlignment": {
+    "viewerTerrain": "ellipsoid",
+    "ellipsoidHeight": 0,
+    "status": "display-ground-only",
+    "surveyed": false
+  },
+  "assessment": "The parcel orientation follows the user-confirmed site boundary. Model scale is fixed at its native 1.0 value, and the complete scene is shifted 20 metres south after webpage comparison with the warehouse roof, canal-side road and parcel edges. Placement is suitable for site-scale display but remains image-derived rather than surveyed. The model ground is aligned to the viewer's zero-height ellipsoid; building heights and real-world terrain elevation remain unverified."
+}

@@ -26,8 +26,8 @@ C = UUID("00000000-0000-7000-8000-000000000030")
 WAREHOUSE_SCENES = {
     UUID("00000000-0000-7000-8000-000000000001"): ("xiangtai-warehouse", "cesium-campus"),
     UUID("00000000-0000-7000-8000-000000000002"): ("anfang-central", "cesium-campus"),
-    UUID("00000000-0000-7000-8000-000000000003"): ("jiangyan-tianmu-road", "three"),
-    UUID("00000000-0000-7000-8000-000000000004"): ("taixing-keneng-road", "three"),
+    UUID("00000000-0000-7000-8000-000000000003"): ("jiangyan-tianmu-road", "cesium-campus"),
+    UUID("00000000-0000-7000-8000-000000000004"): ("taixing-keneng-road", "cesium-campus"),
 }
 pytestmark = pytest.mark.unit
 

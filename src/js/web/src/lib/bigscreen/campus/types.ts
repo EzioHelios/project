@@ -34,9 +34,10 @@ export type LegacyCampusManifest = {
   legacyManifest: string
 }
 export type CampusGeoregistration = {
-  version: 1
+  version: 2
   crs: "EPSG:4326"
   origin: PixelPoint
+  headingDegrees: number
   scale: [number, number, number]
   ellipsoidHeight: number
   heightStatus: "estimated" | "surveyed"

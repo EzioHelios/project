@@ -1,0 +1,17 @@
+{
+  "registrationVersion": 2,
+  "reviewedAt": "2026-11-06",
+  "horizontalAlignment": {
+    "status": "map-imagery-user-rotated",
+    "headingDegrees": 5,
+    "originWgs84": [120.09832503855228, 32.525053922718946],
+    "basis": "Main warehouse roof edge and Tianmu West Road in Esri World Imagery z18; additionally rotated 7.5 degrees counter-clockwise from the initial fit after webpage review"
+  },
+  "verticalAlignment": {
+    "viewerTerrain": "ellipsoid",
+    "ellipsoidHeight": 0,
+    "status": "display-ground-only",
+    "surveyed": false
+  },
+  "assessment": "The model ground is aligned to the viewer's zero-height ellipsoid. The heading is set to 5 degrees after a total 7.5-degree counter-clockwise visual adjustment from the initial fit. This is not a surveyed bearing. Building heights and the real-world terrain elevation remain unverified."
+}

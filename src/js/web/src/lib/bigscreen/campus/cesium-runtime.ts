@@ -2,7 +2,7 @@ import "cesium/Build/Cesium/Widgets/widgets.css"
 import { Axis, Cartesian3, Color, DirectionalLight, EllipsoidTerrainProvider, Matrix4, Model, ShadowMode, UrlTemplateImageryProvider, Viewer } from "cesium"
 import { fetchSceneAsset } from "./api"
 import { blocksWalkAt } from "./collision"
-import { campusModelMatrix, campusPointToFixed } from "./georegistration"
+import { campusModelMatrix, campusOffsetToEnu, campusPointToFixed } from "./georegistration"
 import type { CampusRuntime, CampusViewState, ModelCampusManifest, PixelPoint } from "./types"
 
 /** Geographic renderer for the same tenant GLBs and controls used by the local viewer. */
@@ -89,7 +89,8 @@ export function createCesiumCampusRuntime(
     const [tx, ty, tz] = world.orbitTarget
     const [cx, cy, cz] = top ? [tx, 355, tz + 0.01] : world.orbitPosition
     const target = campusPointToFixed(matrix, tx, ty, tz)
-    viewer.camera.lookAt(target, new Cartesian3((cx - tx) * registration.scale[0], -(cz - tz) * registration.scale[1], cy - ty))
+    const offset = top ? new Cartesian3(0, -(cz - tz) * registration.scale[1], cy - ty) : campusOffsetToEnu(registration, cx - tx, -(cz - tz), cy - ty)
+    viewer.camera.lookAt(target, offset)
     viewer.camera.lookAtTransform(Matrix4.IDENTITY)
     viewer.scene.requestRender()
     publish()

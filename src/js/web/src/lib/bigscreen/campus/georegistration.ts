@@ -1,9 +1,23 @@
-import { Cartesian3, Matrix4, Transforms } from "cesium"
+import { Cartesian3, Math as CesiumMath, Matrix3, Matrix4, Transforms } from "cesium"
 import type { CampusGeoregistration } from "./types"
 
 export function campusModelMatrix(registration: CampusGeoregistration) {
   const anchor = Cartesian3.fromDegrees(...registration.origin, registration.ellipsoidHeight)
-  return Matrix4.multiplyByScale(Transforms.eastNorthUpToFixedFrame(anchor), Cartesian3.fromArray(registration.scale), new Matrix4())
+  const frame = Transforms.eastNorthUpToFixedFrame(anchor)
+  const heading = Matrix4.fromRotationTranslation(Matrix3.fromRotationZ(CesiumMath.toRadians(registration.headingDegrees)))
+  const rotatedFrame = Matrix4.multiply(frame, heading, new Matrix4())
+  return Matrix4.multiplyByScale(rotatedFrame, Cartesian3.fromArray(registration.scale), rotatedFrame)
+}
+
+export function campusOffsetToEnu(registration: CampusGeoregistration, east: number, north: number, up: number) {
+  const heading = CesiumMath.toRadians(registration.headingDegrees)
+  const scaledEast = east * registration.scale[0]
+  const scaledNorth = north * registration.scale[1]
+  return new Cartesian3(
+    scaledEast * Math.cos(heading) - scaledNorth * Math.sin(heading),
+    scaledEast * Math.sin(heading) + scaledNorth * Math.cos(heading),
+    up * registration.scale[2],
+  )
 }
 
 /** Existing controls use glTF/Three coordinates: east, up, south. */

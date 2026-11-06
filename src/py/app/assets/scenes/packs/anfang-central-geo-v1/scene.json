@@ -261,12 +261,13 @@
     ]
   },
   "georegistration": {
-    "version": 1,
+    "version": 2,
     "crs": "EPSG:4326",
     "origin": [
       119.88676071167,
       32.4228988113
     ],
+    "headingDegrees": 0,
     "scale": [
       1.0009636459156157,
       0.9961774558637145,

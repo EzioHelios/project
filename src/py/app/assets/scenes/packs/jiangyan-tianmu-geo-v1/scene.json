@@ -1,14 +1,15 @@
 {
   "sceneId": "jiangyan-tianmu-road",
-  "revision": "2026-10-22.local.1",
-  "engine": "three",
+  "revision": "2026-11-06.geo.5",
+  "engine": "cesium-campus",
   "title": "姜堰天目路仓库",
-  "address": "泰州市姜堰区天目路",
-  "attribution": "依据项目平面图重建，未进行地理配准",
+  "address": "泰州市姜堰区三水街道天目西路686号",
+  "attribution": "场地定位：高德地图；参考影像：Esri World Imagery",
   "assets": [
     "ground.glb",
     "buildings.glb"
   ],
+  "reference": "reference.jpg",
   "world": {
     "origin": [
       0,
@@ -94,5 +95,38 @@
       [350, 250],
       [900, 250]
     ]
+  },
+  "georegistration": {
+    "version": 2,
+    "crs": "EPSG:4326",
+    "origin": [120.09832503855228, 32.525053922718946],
+    "headingDegrees": 5,
+    "scale": [1.0009627580514384, 0.9961873623116502, 1],
+    "ellipsoidHeight": 0,
+    "upAxis": "Y",
+    "forwardAxis": "X",
+    "terrain": "ellipsoid",
+    "heightStatus": "estimated",
+    "imagery": {
+      "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      "credit": "Esri World Imagery",
+      "maximumLevel": 18
+    },
+    "sourceRaster": {
+      "zoom": 18,
+      "x0": 218521,
+      "y0": 106000,
+      "pixels": 1792,
+      "source": "Esri World Imagery MapServer",
+      "retrievedAt": "2026-11-06",
+      "imageryDate": "unknown",
+      "amapPoiId": "B0JDBDCDZH",
+      "amapPoiGcj02": [120.10277, 32.522778],
+      "poiWgs84": [120.09775836283012, 32.52462407527625],
+      "originPixel": [1006.449, 715.337],
+      "metresPerPixel": 0.5035053071993887,
+      "placementStatus": "map-imagery-user-rotated",
+      "orientationBasis": "main warehouse roof edge and Tianmu West Road; additionally rotated 7.5 degrees counter-clockwise from the initial fit after webpage review"
+    }
   }
 }

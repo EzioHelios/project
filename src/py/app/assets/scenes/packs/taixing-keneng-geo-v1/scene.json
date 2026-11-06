@@ -1,0 +1,124 @@
+{
+  "sceneId": "taixing-keneng-road",
+  "revision": "2026-11-06.geo.6",
+  "engine": "cesium-campus",
+  "title": "泰兴科能路仓库",
+  "address": "泰州市泰兴市科能路3号",
+  "attribution": "场地定位：高德地图；参考影像：Esri World Imagery",
+  "assets": [
+    "ground.glb",
+    "buildings.glb"
+  ],
+  "reference": "reference.jpg",
+  "world": {
+    "origin": [
+      0,
+      0
+    ],
+    "originPixel": [
+      75,
+      1198
+    ],
+    "metresPerPixel": 0.096,
+    "buildings": [
+      {
+        "id": "warehouse",
+        "polygon": [
+          [1214, 180],
+          [1799, 180],
+          [1799, 1147],
+          [1214, 1147]
+        ],
+        "height": 9.2
+      },
+      {
+        "id": "office",
+        "polygon": [
+          [600, 1060],
+          [1034, 1060],
+          [1034, 1181],
+          [600, 1181]
+        ],
+        "height": 3.5
+      }
+    ],
+    "water": [],
+    "walkBounds": [
+      2,
+      168,
+      -100,
+      -2
+    ],
+    "orbitPosition": [
+      205,
+      175,
+      190
+    ],
+    "orbitTarget": [
+      85,
+      0,
+      -52
+    ],
+    "entries": [
+      {
+        "id": "main-entry",
+        "label": "主入口",
+        "pixel": [1140, 1170],
+        "yaw": 0
+      },
+      {
+        "id": "secondary-entry",
+        "label": "次入口",
+        "pixel": [486, 1170],
+        "yaw": 0
+      },
+      {
+        "id": "warehouse-front",
+        "label": "库房前场",
+        "pixel": [1170, 900],
+        "yaw": -1.57079632679
+      }
+    ],
+    "lights": [
+      [1140, 1170],
+      [486, 1170],
+      [1170, 900],
+      [1100, 350],
+      [1800, 650]
+    ]
+  },
+  "georegistration": {
+    "version": 2,
+    "crs": "EPSG:4326",
+    "origin": [120.08038346048886, 32.17507088188703],
+    "headingDegrees": -66.72317223933021,
+    "scale": [1, 1, 1],
+    "ellipsoidHeight": 0,
+    "upAxis": "Y",
+    "forwardAxis": "X",
+    "terrain": "ellipsoid",
+    "heightStatus": "estimated",
+    "imagery": {
+      "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      "credit": "Esri World Imagery",
+      "maximumLevel": 18
+    },
+    "sourceRaster": {
+      "zoom": 18,
+      "x0": 218509,
+      "y0": 106302,
+      "pixels": 1792,
+      "source": "Esri World Imagery MapServer",
+      "retrievedAt": "2026-11-06",
+      "imageryDate": "unknown",
+      "amapPoiId": "B0FFGZCJVF",
+      "amapPoiGcj02": [120.085819, 32.172585],
+      "poiWgs84": [120.08083253338953, 32.17444537273718],
+      "originPixel": [733.9002086931292, 631.2803240066174],
+      "metresPerPixel": 0.5054582131573844,
+      "placementStatus": "user-boundary-native-scale-south-shifted",
+      "orientationBasis": "user-marked parcel outline, entrance-side canal road and southeast warehouse roof",
+      "translationBasis": "native model scale preserved; complete scene shifted 20 metres south after webpage boundary review"
+    }
+  }
+}
