@@ -1,0 +1,158 @@
+[
+  {
+    "dry_run": true,
+    "team_id": "00000000-0000-7000-8000-000000000001",
+    "month": null,
+    "tables": [
+      {
+        "table": "dataapp_energyintervalfact",
+        "total": 1099896,
+        "retained": 256268,
+        "obsolete": 843628,
+        "cutoff": 1768341,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "baf474016171a39eee6d505083d39d1566443f88ce495a21890af470fd1b35b3"
+      },
+      {
+        "table": "dataapp_scope2meteraggregate",
+        "total": 461,
+        "retained": 433,
+        "obsolete": 28,
+        "cutoff": 2362,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "18d32052366bf290d41c40dee8ac4c99a42a2b26a9acc014a0b46ae075be0481"
+      },
+      {
+        "table": "metering_scope2_electricity_reconciliation",
+        "total": 20,
+        "retained": 10,
+        "obsolete": 10,
+        "cutoff": 36,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "c6b6409ffa080ea753cc3889327f3897d0449e1838c50cfde2e756c2c2bc2bb5"
+      }
+    ],
+    "blocked": false,
+    "team_name": "祥泰仓库"
+  },
+  {
+    "dry_run": true,
+    "team_id": "00000000-0000-7000-8000-000000000002",
+    "month": null,
+    "tables": [
+      {
+        "table": "dataapp_energyintervalfact",
+        "total": 649391,
+        "retained": 15974,
+        "obsolete": 633417,
+        "cutoff": 1772557,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "8a038719151dff74aa68912863cb1e6eb3eff1d9a3ad3ad2c316276a82dd52e2"
+      },
+      {
+        "table": "dataapp_scope2meteraggregate",
+        "total": 1750,
+        "retained": 31,
+        "obsolete": 1719,
+        "cutoff": 4238,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "c72b3c1238e43a84b97ac051075171f706f3b04be1b33079bededa3ce626d2ad"
+      },
+      {
+        "table": "metering_scope2_electricity_reconciliation",
+        "total": 221,
+        "retained": 6,
+        "obsolete": 215,
+        "cutoff": 247,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "935f036e181ea3411ea914072ec433fb0426d33cdb58d431f89466b13e762c81"
+      }
+    ],
+    "blocked": false,
+    "team_name": "安方中心库"
+  },
+  {
+    "dry_run": true,
+    "team_id": "01a0571f-0949-7731-8ed6-c78f5c6c0dc6",
+    "month": null,
+    "tables": [
+      {
+        "table": "dataapp_energyintervalfact",
+        "total": 5452,
+        "retained": 4762,
+        "obsolete": 690,
+        "cutoff": 233861,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "2d8bd5490785d96d981e036460e191ea835477ad622591e8143d41a9a7f766b8"
+      },
+      {
+        "table": "dataapp_scope2meteraggregate",
+        "total": 63,
+        "retained": 53,
+        "obsolete": 10,
+        "cutoff": 2512,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "5828eee9950a1f85de62d15bf8f22411b7662b58049bc228f2c94ed59625f22b"
+      },
+      {
+        "table": "metering_scope2_electricity_reconciliation",
+        "total": 3,
+        "retained": 3,
+        "obsolete": 0,
+        "cutoff": 17,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "b1ea5ac367e3573a94cc0aa32fcbe82a51f9d02851bf91742bf0f441e117b430"
+      }
+    ],
+    "blocked": false,
+    "team_name": "沃衡汽车泰州生产基地"
+  },
+  {
+    "dry_run": true,
+    "team_id": "01a05740-8b70-7873-b1ea-9d8dfa603733",
+    "month": null,
+    "tables": [
+      {
+        "table": "dataapp_energyintervalfact",
+        "total": 5452,
+        "retained": 4762,
+        "obsolete": 690,
+        "cutoff": 234551,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "56a66eb064cad41b4271ed23a7210248644a9d8be84283df2e339d475ca34021"
+      },
+      {
+        "table": "dataapp_scope2meteraggregate",
+        "total": 63,
+        "retained": 53,
+        "obsolete": 10,
+        "cutoff": 2527,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "14daa2a4ce9ac9cb61950515c51c0796a438fa4cbff7f2ad254fb5d56dc29a9e"
+      },
+      {
+        "table": "metering_scope2_electricity_reconciliation",
+        "total": 3,
+        "retained": 3,
+        "obsolete": 0,
+        "cutoff": 20,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "0d4a7ab175383228fa3c4cfc662f8c2a276e3fbf79a595f98b0f5f1aac50210f"
+      }
+    ],
+    "blocked": false,
+    "team_name": "沃衡汽车湖州生产基地"
+  }
+]

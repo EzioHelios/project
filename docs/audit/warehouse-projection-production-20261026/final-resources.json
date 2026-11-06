@@ -1,0 +1,64 @@
+{
+  "checked_at": "2026-10-26T07:11:44.002647+00:00",
+  "worker": {
+    "cgroup": {
+      "memory.current": "344821760",
+      "memory.peak": "360296448",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+      "memory.max": "2147483648"
+    },
+    "processes": [
+      {
+        "pid": "7",
+        "Name": "saq",
+        "VmRSS": "404228 kB",
+        "VmHWM": "404228 kB"
+      }
+    ]
+  },
+  "containers": {
+    "warehouse-app-1": {
+      "id": "31020daaf27934ae3c901743a81a1c283050f21047fe44bc0f2fc64540d640ee",
+      "image": "warehouse-carbon:projection-app-20261026-v2",
+      "running": true,
+      "oom_killed": false,
+      "restart_count": 0
+    },
+    "warehouse-worker-1": {
+      "id": "caf08d42cbfb8cccbdfe37a5b5cecac7fee0d28459d54a4cf742f5f8c9f852eb",
+      "image": "warehouse-carbon:projection-worker-20261026-v2",
+      "running": true,
+      "oom_killed": false,
+      "restart_count": 0
+    },
+    "warehouse-mqtt-ingest-worker-1": {
+      "id": "b22fdbd6e923a59ef8dfe35d703c719253021ab9a38c1ca22865e613cbcccf02",
+      "image": "registry.xzzandzyc.store:5000/project/warehouse-carbon:c4fbe47-20261014-bigscreen-clean",
+      "running": true,
+      "oom_killed": false,
+      "restart_count": 0
+    },
+    "warehouse-emqx-1": {
+      "id": "fe546ddc8791206c9654f214a3c428bf66d8d3fab13f37ef6a1ec5403f8fa426",
+      "image": "emqx/emqx:5.8",
+      "running": true,
+      "oom_killed": false,
+      "restart_count": 0
+    },
+    "warehouse-cache-1": {
+      "id": "f918a3900f2d2f507528f7eebd482217861bcd81adf9688552113544a2d21799",
+      "image": "valkey/valkey:latest",
+      "running": true,
+      "oom_killed": false,
+      "restart_count": 0
+    }
+  },
+  "host_memory": {
+    "MemTotal": "15494944 kB",
+    "MemAvailable": "3525272 kB",
+    "SwapTotal": "4194300 kB",
+    "SwapFree": "4194300 kB"
+  },
+  "host_load": "0.77 0.79 0.85 3/1105 112839",
+  "host_oom_kills_this_boot": 0
+}

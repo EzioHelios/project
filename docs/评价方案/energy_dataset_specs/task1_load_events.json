@@ -1,0 +1,118 @@
+{
+  "schema_version": "1.0",
+  "task_id": "load_state_and_sustained_energy_events",
+  "name": "电表负荷状态与持续用能事件识别",
+  "status": "real_data_pilot_generated_pending_field_validation",
+  "real_samples_generated": true,
+  "task_modes": [
+    "offline_curve_review"
+  ],
+  "sampling_policy": "preserve_verified_native_intervals",
+  "expected_native_interval_seconds": [
+    300,
+    900
+  ],
+  "input_files": [
+    "observations.csv",
+    "metadata.json"
+  ],
+  "observation_columns": [
+    "interval_start",
+    "interval_end",
+    "electricity_kwh",
+    "average_power_kw",
+    "quality_flag"
+  ],
+  "optional_observation_columns": [
+    "reactive_energy_kvarh",
+    "reverse_energy_kwh"
+  ],
+  "required_metadata": [
+    "sequence_id",
+    "site_id",
+    "meter_id",
+    "timezone",
+    "source_type",
+    "source_record_refs",
+    "processing_version",
+    "mapping_version",
+    "meter_purpose",
+    "meter_purpose_confirmation",
+    "meter_scope",
+    "rule_version"
+  ],
+  "state_labels": [
+    "low_load",
+    "active_load",
+    "high_load",
+    "unknown"
+  ],
+  "candidate_event_types": [
+    "sustained_high_load",
+    "intermittent_activity",
+    "charging_activity_candidate",
+    "extended_activity_review",
+    "data_gap",
+    "unknown"
+  ],
+  "event_output_fields": [
+    "event_id",
+    "start_interval",
+    "end_interval_exclusive",
+    "event_type",
+    "electricity_kwh",
+    "average_power_kw",
+    "max_interval_average_power_kw",
+    "boundary_resolution_seconds",
+    "evidence_refs",
+    "label_source",
+    "verification_level",
+    "rule_version"
+  ],
+  "verification_levels": [
+    "rule_candidate",
+    "curve_reviewed",
+    "independently_confirmed"
+  ],
+  "rule_parameters": {
+    "scope": "per_meter",
+    "calibration_period_required": true,
+    "rule_source_required": true,
+    "low_load_threshold_kw": null,
+    "high_load_threshold_kw": null,
+    "minimum_event_duration_minutes": null,
+    "extended_activity_threshold_minutes": null,
+    "note": "设计中的逐表阈值占位；本次实际校准值保存在输出包task1_events/evaluator_only/calibration，不能作为识别输入。"
+  },
+  "quality_rules": {
+    "break_events_at_data_gaps": true,
+    "unknown_values_are_not_zero": true,
+    "estimated_intervals_require_explicit_flags": true,
+    "group_meter_events_do_not_identify_individual_vehicles": true,
+    "long_duration_does_not_imply_fault": true,
+    "uncalibrated_scores_are_not_probabilities": true,
+    "coarse_quantization_does_not_produce_operation_timing_candidates": true
+  },
+  "evaluation": {
+    "annotations_are_hidden_from_evaluation_input": true,
+    "business_accuracy_label_requirement": "independently_confirmed",
+    "rule_agreement_is_not_business_accuracy": true,
+    "online_mode_uses_only_available_past_observations": true,
+    "offline_and_online_results_reported_separately": true
+  },
+  "processing_version": "pilot-1.2.0",
+  "output_directory": "outputs/工业互联网能耗数据集_20260928/package",
+  "implementation": "tools/datasets/build_energy_datasets.py",
+  "metering_semantics_confirmation": "system_mapping_only_pending_field_CT_PT_and_register_resolution_check",
+  "verified_business_labels_generated": false,
+  "implementation_rule_parameters": {
+    "scope": "per_meter_train_only",
+    "smoothing_window_minutes": 30,
+    "minimum_candidate_duration_minutes": 30,
+    "extended_activity_review_minutes": 120,
+    "active_threshold": "max(training smoothed p90, training smoothed median + min positive training increment / 0.5h)",
+    "high_threshold": "max(training smoothed p99, active threshold + min positive training increment / 0.5h)",
+    "quantization_screen": "event timing suppressed when min positive training increment / ((training smoothed p99-median)*0.5h) >= 0.5, or dynamic range absent",
+    "source_name": "explicit_pilot_enterprise_assumptions_not_national_standard_thresholds"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "observed_at": "2026-10-26T15:11:10.715708",
+  "line": "2026-10-26 07:11:09 [info     ] job refresh_electricity_projections with id 'saq:job:background-tasks:cron:refresh_electricity_projections' completed after 69.221 seconds. attempts=1 completed=1792998669534 error=None function=refresh_electricity_projections key=cron:refresh_electricity_projections kwargs=None pickup_time_ms=1798638 queued=1792996801675 result={'tenants': 4, 'months': 2, 'reused': 0, 'hourly_facts': 10934, 'pending_months': 0, 'deferred': 0, 'failed': 0} scheduled=1792998600 started=1792998600313 total_runtime_ms=69221 total_time_ms=1867859",
+  "result": {
+    "tenants": 4,
+    "months": 2,
+    "reused": 0,
+    "hourly_facts": 10934,
+    "pending_months": 0,
+    "deferred": 0,
+    "failed": 0
+  }
+}

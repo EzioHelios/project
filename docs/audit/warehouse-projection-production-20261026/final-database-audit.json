@@ -1,0 +1,538 @@
+{
+  "checked_at": "2026-10-26T07:11:47.873122+00:00",
+  "teams": [
+    {
+      "team_id": "00000000-0000-7000-8000-000000000001",
+      "name": "祥泰仓库",
+      "runs": [
+        {
+          "period_start": "2025-07-01 00:00:00",
+          "status": "completed",
+          "source_count": 29716,
+          "source_high_watermark": "1520922",
+          "finished_at": "2026-10-26 06:52:38.157040",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              7435,
+              310,
+              0,
+              394
+            ],
+            "peak_rss_mb": 388.2890625
+          }
+        },
+        {
+          "period_start": "2025-08-01 00:00:00",
+          "status": "completed",
+          "source_count": 29559,
+          "source_high_watermark": "1743122",
+          "finished_at": "2026-10-26 06:52:02.728140",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              7398,
+              310,
+              0,
+              443
+            ],
+            "peak_rss_mb": 388.2890625
+          }
+        },
+        {
+          "period_start": "2025-09-01 00:00:00",
+          "status": "completed",
+          "source_count": 28789,
+          "source_high_watermark": "1959533",
+          "finished_at": "2026-10-26 06:51:52.273573",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              7200,
+              300,
+              0,
+              393
+            ],
+            "peak_rss_mb": 388.2890625
+          }
+        },
+        {
+          "period_start": "2025-10-01 00:00:00",
+          "status": "completed",
+          "source_count": 29613,
+          "source_high_watermark": "2195030",
+          "finished_at": "2026-10-26 06:51:42.409487",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              7406,
+              310,
+              0,
+              401
+            ],
+            "peak_rss_mb": 388.2890625
+          }
+        },
+        {
+          "period_start": "2025-11-01 00:00:00",
+          "status": "completed",
+          "source_count": 28363,
+          "source_high_watermark": "2422436",
+          "finished_at": "2026-10-26 06:51:16.718267",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              7100,
+              300,
+              0,
+              354
+            ],
+            "peak_rss_mb": 388.2890625
+          }
+        },
+        {
+          "period_start": "2025-12-01 00:00:00",
+          "status": "completed",
+          "source_count": 29754,
+          "source_high_watermark": "2660839",
+          "finished_at": "2026-10-26 06:51:06.697573",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              7440,
+              310,
+              0,
+              362
+            ],
+            "peak_rss_mb": 388.2890625
+          }
+        },
+        {
+          "period_start": "2026-01-01 00:00:00",
+          "status": "completed",
+          "source_count": 28999,
+          "source_high_watermark": "2900759",
+          "finished_at": "2026-10-26 06:50:56.756079",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              7254,
+              303,
+              0,
+              359
+            ],
+            "peak_rss_mb": 388.2890625
+          }
+        },
+        {
+          "period_start": "2026-02-01 00:00:00",
+          "status": "completed",
+          "source_count": 25300,
+          "source_high_watermark": "3101359",
+          "finished_at": "2026-10-26 06:50:19.895634",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              6327,
+              264,
+              0,
+              319
+            ],
+            "peak_rss_mb": 388.2890625
+          }
+        },
+        {
+          "period_start": "2026-03-01 00:00:00",
+          "status": "completed",
+          "source_count": 27892,
+          "source_high_watermark": "3326230",
+          "finished_at": "2026-10-26 06:50:11.145777",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              6974,
+              291,
+              0,
+              354
+            ],
+            "peak_rss_mb": 388.2890625
+          }
+        },
+        {
+          "period_start": "2026-04-01 00:00:00",
+          "status": "completed",
+          "source_count": 28794,
+          "source_high_watermark": "3556987",
+          "finished_at": "2026-10-26 06:50:01.453981",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              7200,
+              300,
+              0,
+              354
+            ],
+            "peak_rss_mb": 388.2890625
+          }
+        },
+        {
+          "period_start": "2026-05-01 00:00:00",
+          "status": "completed",
+          "source_count": 29631,
+          "source_high_watermark": "3802079",
+          "finished_at": "2026-10-26 06:49:04.889733",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              7410,
+              310,
+              0,
+              380
+            ],
+            "peak_rss_mb": 388.2890625
+          }
+        },
+        {
+          "period_start": "2026-06-01 00:00:00",
+          "status": "completed",
+          "source_count": 28799,
+          "source_high_watermark": "4033078",
+          "finished_at": "2026-10-26 06:48:54.876404",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              7200,
+              300,
+              0,
+              351
+            ],
+            "peak_rss_mb": 388.2890625
+          }
+        },
+        {
+          "period_start": "2026-07-01 00:00:00",
+          "status": "completed",
+          "source_count": 58324,
+          "source_high_watermark": "4271776",
+          "finished_at": "2026-10-26 06:48:45.076683",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              9496,
+              398,
+              0,
+              20894
+            ],
+            "peak_rss_mb": 388.2890625
+          }
+        },
+        {
+          "period_start": "2026-08-01 00:00:00",
+          "status": "completed",
+          "source_count": 41694,
+          "source_high_watermark": "4889523",
+          "finished_at": "2026-10-26 06:47:07.437690",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              8216,
+              346,
+              0,
+              9296
+            ],
+            "peak_rss_mb": 386.8984375
+          }
+        },
+        {
+          "period_start": "2026-09-01 00:00:00",
+          "status": "completed",
+          "source_count": 28799,
+          "source_high_watermark": "6684054",
+          "finished_at": "2026-10-26 06:46:51.444145",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              7200,
+              300,
+              0,
+              350
+            ],
+            "peak_rss_mb": 382.41796875
+          }
+        },
+        {
+          "period_start": "2026-10-01 00:00:00",
+          "status": "completed",
+          "source_count": 24268,
+          "source_high_watermark": "8154190",
+          "finished_at": "2026-10-26 07:10:53.691034",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              6070,
+              260,
+              0,
+              285
+            ],
+            "peak_rss_mb": 394.390625
+          }
+        }
+      ]
+    },
+    {
+      "team_id": "00000000-0000-7000-8000-000000000002",
+      "name": "安方中心库",
+      "runs": [
+        {
+          "period_start": "2026-07-01 00:00:00",
+          "status": "completed",
+          "source_count": 20336,
+          "source_high_watermark": "406701",
+          "finished_at": "2026-10-26 06:47:47.782103",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              1491,
+              70,
+              7,
+              2660
+            ],
+            "peak_rss_mb": 388.0546875
+          }
+        },
+        {
+          "period_start": "2026-08-01 00:00:00",
+          "status": "completed",
+          "source_count": 54856,
+          "source_high_watermark": "4888875",
+          "finished_at": "2026-10-26 06:47:43.200212",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              4504,
+              200,
+              8,
+              2328
+            ],
+            "peak_rss_mb": 388.0546875
+          }
+        },
+        {
+          "period_start": "2026-09-01 00:00:00",
+          "status": "completed",
+          "source_count": 68344,
+          "source_high_watermark": "6683262",
+          "finished_at": "2026-10-26 06:47:27.629668",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              5253,
+              240,
+              8,
+              8474
+            ],
+            "peak_rss_mb": 388.0546875
+          }
+        },
+        {
+          "period_start": "2026-10-01 00:00:00",
+          "status": "completed",
+          "source_count": 55096,
+          "source_high_watermark": "8154502",
+          "finished_at": "2026-10-26 07:11:09.475295",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              4864,
+              208,
+              8,
+              503
+            ],
+            "peak_rss_mb": 394.75390625
+          }
+        }
+      ]
+    },
+    {
+      "team_id": "01a0571f-0949-7731-8ed6-c78f5c6c0dc6",
+      "name": "沃衡汽车泰州生产基地",
+      "runs": [
+        {
+          "period_start": "2026-07-01 00:00:00",
+          "status": "completed",
+          "source_count": 576,
+          "source_high_watermark": "5016173",
+          "finished_at": "2026-10-26 06:47:49.001441",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              144,
+              6,
+              5,
+              288
+            ],
+            "peak_rss_mb": 388.0546875
+          }
+        },
+        {
+          "period_start": "2026-08-01 00:00:00",
+          "status": "completed",
+          "source_count": 456,
+          "source_high_watermark": "4906719",
+          "finished_at": "2026-10-26 06:47:48.562669",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              228,
+              12,
+              5,
+              18
+            ],
+            "peak_rss_mb": 388.0546875
+          }
+        },
+        {
+          "period_start": "2026-09-01 00:00:00",
+          "status": "completed",
+          "source_count": 564,
+          "source_high_watermark": "5054424",
+          "finished_at": "2026-10-26 06:47:48.207125",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              282,
+              18,
+              5,
+              12
+            ],
+            "peak_rss_mb": 388.0546875
+          }
+        }
+      ]
+    },
+    {
+      "team_id": "01a05740-8b70-7873-b1ea-9d8dfa603733",
+      "name": "沃衡汽车湖州生产基地",
+      "runs": [
+        {
+          "period_start": "2026-07-01 00:00:00",
+          "status": "completed",
+          "source_count": 576,
+          "source_high_watermark": "5017038",
+          "finished_at": "2026-10-26 06:47:50.466156",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              144,
+              6,
+              5,
+              288
+            ],
+            "peak_rss_mb": 388.0546875
+          }
+        },
+        {
+          "period_start": "2026-08-01 00:00:00",
+          "status": "completed",
+          "source_count": 456,
+          "source_high_watermark": "4907097",
+          "finished_at": "2026-10-26 06:47:50.090987",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              228,
+              12,
+              5,
+              18
+            ],
+            "peak_rss_mb": 388.0546875
+          }
+        },
+        {
+          "period_start": "2026-09-01 00:00:00",
+          "status": "completed",
+          "source_count": 564,
+          "source_high_watermark": "5054694",
+          "finished_at": "2026-10-26 06:47:49.717880",
+          "run_config": {
+            "area_id": null,
+            "counts": [
+              282,
+              18,
+              5,
+              12
+            ],
+            "peak_rss_mb": 388.0546875
+          }
+        }
+      ]
+    }
+  ],
+  "revision": "c0261026a001",
+  "constraints": [
+    {
+      "table_name": "dataapp_energyintervalfact",
+      "conname": "uq_energy_interval_team_source_record",
+      "convalidated": true,
+      "definition": "UNIQUE (team_id, source_system, source_record_id)"
+    },
+    {
+      "table_name": "dataapp_energyintervalfact",
+      "conname": "ck_dataapp_energyintervalfact_ck_energy_interval_current_only",
+      "convalidated": true,
+      "definition": "CHECK ((is_current AND (revision_no >= 1) AND (supersedes_id IS NULL)))"
+    },
+    {
+      "table_name": "dataapp_scope2meteraggregate",
+      "conname": "uq_scope2_meter_aggregate_team_meter_month",
+      "convalidated": true,
+      "definition": "UNIQUE (team_id, ammeter_id, billing_month)"
+    },
+    {
+      "table_name": "dataapp_scope2meteraggregate",
+      "conname": "ck_dataapp_scope2meteraggregate_ck_scope2_meter_current_only",
+      "convalidated": true,
+      "definition": "CHECK ((is_current AND (revision_no >= 1) AND (supersedes_id IS NULL)))"
+    },
+    {
+      "table_name": "metering_scope2_electricity_reconciliation",
+      "conname": "uq_scope2_reconciliation_team_month",
+      "convalidated": true,
+      "definition": "UNIQUE (team_id, billing_month)"
+    },
+    {
+      "table_name": "metering_scope2_electricity_reconciliation",
+      "conname": "ck_metering_scope2_electricity_reconciliation_ck_scope2_c9fd",
+      "convalidated": true,
+      "definition": "CHECK ((is_current AND (revision_no >= 1) AND (supersedes_id IS NULL)))"
+    }
+  ],
+  "tables": [
+    {
+      "table": "dataapp_energyintervalfact",
+      "total": 283682,
+      "obsolete": 0,
+      "linked": 0
+    },
+    {
+      "table": "dataapp_scope2meteraggregate",
+      "total": 570,
+      "obsolete": 0,
+      "linked": 0
+    },
+    {
+      "table": "metering_scope2_electricity_reconciliation",
+      "total": 28,
+      "obsolete": 0,
+      "linked": 0
+    }
+  ],
+  "source_latest": [
+    {
+      "id": 8154521,
+      "team_id": "00000000-0000-7000-8000-000000000002",
+      "reading_time": "2026-10-26 07:07:40",
+      "source_system": "mqtt_szscada"
+    }
+  ]
+}

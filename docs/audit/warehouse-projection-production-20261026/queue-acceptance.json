@@ -1,0 +1,114 @@
+[
+  {
+    "cycle": 1,
+    "status": "Status.COMPLETE",
+    "result": {
+      "tenants": 4,
+      "months": 12,
+      "reused": 0,
+      "hourly_facts": 34042,
+      "pending_months": 13,
+      "deferred": 0,
+      "failed": 0
+    },
+    "started": 1792997166181,
+    "completed": 1792997270470,
+    "error": null
+  },
+  {
+    "cycle": 2,
+    "status": "Status.COMPLETE",
+    "result": {
+      "tenants": 4,
+      "months": 4,
+      "reused": 0,
+      "hourly_facts": 28962,
+      "pending_months": 10,
+      "deferred": 0,
+      "failed": 0
+    },
+    "started": 1792997271272,
+    "completed": 1792997360869,
+    "error": null
+  },
+  {
+    "cycle": 3,
+    "status": "Status.COMPLETE",
+    "result": {
+      "tenants": 4,
+      "months": 3,
+      "reused": 0,
+      "hourly_facts": 20501,
+      "pending_months": 7,
+      "deferred": 0,
+      "failed": 0
+    },
+    "started": 1792997361347,
+    "completed": 1792997423505,
+    "error": null
+  },
+  {
+    "cycle": 4,
+    "status": "Status.COMPLETE",
+    "result": {
+      "tenants": 4,
+      "months": 3,
+      "reused": 0,
+      "hourly_facts": 21794,
+      "pending_months": 4,
+      "deferred": 0,
+      "failed": 0
+    },
+    "started": 1792997424401,
+    "completed": 1792997479321,
+    "error": null
+  },
+  {
+    "cycle": 5,
+    "status": "Status.COMPLETE",
+    "result": {
+      "tenants": 4,
+      "months": 3,
+      "reused": 0,
+      "hourly_facts": 22004,
+      "pending_months": 1,
+      "deferred": 0,
+      "failed": 0
+    },
+    "started": 1792997480121,
+    "completed": 1792997526968,
+    "error": null
+  },
+  {
+    "cycle": 6,
+    "status": "Status.COMPLETE",
+    "result": {
+      "tenants": 4,
+      "months": 1,
+      "reused": 0,
+      "hourly_facts": 7435,
+      "pending_months": 0,
+      "deferred": 0,
+      "failed": 0
+    },
+    "started": 1792997528163,
+    "completed": 1792997562454,
+    "error": null
+  },
+  {
+    "cycle": 7,
+    "status": "Status.COMPLETE",
+    "result": {
+      "tenants": 4,
+      "months": 1,
+      "reused": 0,
+      "hourly_facts": 4856,
+      "pending_months": 0,
+      "deferred": 0,
+      "failed": 0
+    },
+    "started": 1792997564195,
+    "completed": 1792997595493,
+    "error": null
+  }
+]

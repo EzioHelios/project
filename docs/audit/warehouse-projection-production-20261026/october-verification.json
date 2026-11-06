@@ -1,0 +1,112 @@
+[
+  {
+    "team_id": "00000000-0000-7000-8000-000000000001",
+    "before": {
+      "run_id": 569,
+      "watermark": "7936336",
+      "finished_at": "2026-10-22 00:43:56.508576"
+    },
+    "first": {
+      "run_id": 673,
+      "run_code": "electricity:2026-10:83f59648fc0043bf888b2a83b189add9",
+      "source_count": 24248,
+      "hourly_facts": 6070,
+      "daily_facts": 260,
+      "scope2_aggregates": 0,
+      "quality_issues": 285,
+      "reused": false
+    },
+    "after": {
+      "watermark": "8152690",
+      "finished_at": "2026-10-26 06:43:40.275626",
+      "config": {
+        "area_id": null,
+        "counts": [
+          6070,
+          260,
+          0,
+          285
+        ],
+        "peak_rss_mb": 215.04296875
+      }
+    },
+    "repeat": {
+      "run_id": 673,
+      "run_code": "electricity:2026-10:83f59648fc0043bf888b2a83b189add9",
+      "source_count": 24248,
+      "hourly_facts": 6070,
+      "daily_facts": 260,
+      "scope2_aggregates": 0,
+      "quality_issues": 285,
+      "reused": true
+    },
+    "pending_months": [
+      "2026-09",
+      "2026-08",
+      "2026-07",
+      "2026-06",
+      "2026-05",
+      "2026-04",
+      "2026-03",
+      "2026-02",
+      "2026-01",
+      "2025-12",
+      "2025-11",
+      "2025-10",
+      "2025-09",
+      "2025-08",
+      "2025-07"
+    ],
+    "seconds": 56.34877391700002,
+    "peak_rss_mb": 215.0546875
+  },
+  {
+    "team_id": "00000000-0000-7000-8000-000000000002",
+    "before": {
+      "run_id": 570,
+      "watermark": "7937204",
+      "finished_at": "2026-10-22 00:45:52.270065"
+    },
+    "first": {
+      "run_id": 674,
+      "run_code": "electricity:2026-10:0a5b48082c5f4f66b5e72860b5eb8ced",
+      "source_count": 55056,
+      "hourly_facts": 4856,
+      "daily_facts": 208,
+      "scope2_aggregates": 8,
+      "quality_issues": 502,
+      "reused": false
+    },
+    "after": {
+      "watermark": "8153398",
+      "finished_at": "2026-10-26 06:44:37.185368",
+      "config": {
+        "area_id": null,
+        "counts": [
+          4856,
+          208,
+          8,
+          502
+        ],
+        "peak_rss_mb": 220.66796875
+      }
+    },
+    "repeat": {
+      "run_id": 674,
+      "run_code": "electricity:2026-10:0a5b48082c5f4f66b5e72860b5eb8ced",
+      "source_count": 55056,
+      "hourly_facts": 4856,
+      "daily_facts": 208,
+      "scope2_aggregates": 8,
+      "quality_issues": 502,
+      "reused": true
+    },
+    "pending_months": [
+      "2026-09",
+      "2026-08",
+      "2026-07"
+    ],
+    "seconds": 18.353589578999845,
+    "peak_rss_mb": 220.66796875
+  }
+]

@@ -1,0 +1,83 @@
+{
+  "dry_run": false,
+  "before": {
+    "team_id": "01a05740-8b70-7873-b1ea-9d8dfa603733",
+    "month": null,
+    "tables": [
+      {
+        "table": "dataapp_energyintervalfact",
+        "total": 5452,
+        "retained": 4762,
+        "obsolete": 690,
+        "cutoff": 234551,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "56a66eb064cad41b4271ed23a7210248644a9d8be84283df2e339d475ca34021"
+      },
+      {
+        "table": "dataapp_scope2meteraggregate",
+        "total": 63,
+        "retained": 53,
+        "obsolete": 10,
+        "cutoff": 2527,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "14daa2a4ce9ac9cb61950515c51c0796a438fa4cbff7f2ad254fb5d56dc29a9e"
+      },
+      {
+        "table": "metering_scope2_electricity_reconciliation",
+        "total": 3,
+        "retained": 3,
+        "obsolete": 0,
+        "cutoff": 20,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "0d4a7ab175383228fa3c4cfc662f8c2a276e3fbf79a595f98b0f5f1aac50210f"
+      }
+    ],
+    "blocked": false
+  },
+  "after": {
+    "team_id": "01a05740-8b70-7873-b1ea-9d8dfa603733",
+    "month": null,
+    "tables": [
+      {
+        "table": "dataapp_energyintervalfact",
+        "total": 4762,
+        "retained": 4762,
+        "obsolete": 0,
+        "cutoff": 234551,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "56a66eb064cad41b4271ed23a7210248644a9d8be84283df2e339d475ca34021"
+      },
+      {
+        "table": "dataapp_scope2meteraggregate",
+        "total": 53,
+        "retained": 53,
+        "obsolete": 0,
+        "cutoff": 2527,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "14daa2a4ce9ac9cb61950515c51c0796a438fa4cbff7f2ad254fb5d56dc29a9e"
+      },
+      {
+        "table": "metering_scope2_electricity_reconciliation",
+        "total": 3,
+        "retained": 3,
+        "obsolete": 0,
+        "cutoff": 20,
+        "conflicts": 0,
+        "references": [],
+        "current_digest": "0d4a7ab175383228fa3c4cfc662f8c2a276e3fbf79a595f98b0f5f1aac50210f"
+      }
+    ],
+    "blocked": false
+  },
+  "deleted": {
+    "dataapp_energyintervalfact": 690,
+    "dataapp_scope2meteraggregate": 10,
+    "metering_scope2_electricity_reconciliation": 0
+  },
+  "backup_waived": true
+}

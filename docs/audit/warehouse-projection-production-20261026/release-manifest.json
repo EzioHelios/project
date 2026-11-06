@@ -1,0 +1,50 @@
+{
+  "source_head": "68a622efbb0d5ceb6b25f72f5056810701c0e9fe",
+  "files": {
+    "domain/metering/projection.py": "48e4b3cbe62194edc546756c7e240445d9789578fb2626df9ee578fd2cf8709d",
+    "domain/metering/jobs.py": "5c9cdb36f7532ab5a825a32e48175249b28e0a997eb4795ed1fac1778113770e",
+    "domain/metering/projection_guard.py": "c2f8197ac5e963785683037d88b11baed9b793881c8e61238608b8dd4fc76eec",
+    "domain/metering/projection_cleanup.py": "9566139a60193fbc4df9a961708be96d567f35336ce9090d3625546ad40db98c",
+    "domain/metering/models.py": "d264f2e28825e1b0e60882a6e3178794e59bc0f9e80fb23f9ad28938a731df09",
+    "domain/carbon/models.py": "3a8257054339f426ae813069fe57aa55da6ac20de895160f44fea65ff271cf8b",
+    "domain/energy/usecases/imports.py": "2061e6a81c250b54f56f8d59adfdf49b4f5c5366066f409587c46e2e8e41e086",
+    "domain/material_allocation/usecases.py": "47d4338be082c7325f30daeaf2edf069e306b9d6eb5a32251259efb7db6be094",
+    "cli/commands.py": "5ab19f823739b57d1c040c1ac46a8eefca9177800fdd7530370be2e8272ca95b",
+    "db/migrations/versions/2026_10_26_current_only_projections_c0261026a001.py": "880e0e9608e32126fd46f3ccfe7df0439ab9a9f872b0049f449b18d022bfc05c",
+    "domain/energy/controllers/consumption.py": "a11d0a3676e9fc6b6f335e08ccca76d3eaf9d791b78d49e4be04a0bad5650037"
+  },
+  "containers": {
+    "warehouse-app-1": {
+      "files": {
+        "domain/metering/projection.py": "48e4b3cbe62194edc546756c7e240445d9789578fb2626df9ee578fd2cf8709d",
+        "domain/metering/jobs.py": "5c9cdb36f7532ab5a825a32e48175249b28e0a997eb4795ed1fac1778113770e",
+        "domain/metering/projection_guard.py": "c2f8197ac5e963785683037d88b11baed9b793881c8e61238608b8dd4fc76eec",
+        "domain/metering/projection_cleanup.py": "9566139a60193fbc4df9a961708be96d567f35336ce9090d3625546ad40db98c",
+        "domain/metering/models.py": "d264f2e28825e1b0e60882a6e3178794e59bc0f9e80fb23f9ad28938a731df09",
+        "domain/carbon/models.py": "3a8257054339f426ae813069fe57aa55da6ac20de895160f44fea65ff271cf8b",
+        "domain/energy/usecases/imports.py": "2061e6a81c250b54f56f8d59adfdf49b4f5c5366066f409587c46e2e8e41e086",
+        "domain/material_allocation/usecases.py": "47d4338be082c7325f30daeaf2edf069e306b9d6eb5a32251259efb7db6be094",
+        "cli/commands.py": "5ab19f823739b57d1c040c1ac46a8eefca9177800fdd7530370be2e8272ca95b",
+        "db/migrations/versions/2026_10_26_current_only_projections_c0261026a001.py": "880e0e9608e32126fd46f3ccfe7df0439ab9a9f872b0049f449b18d022bfc05c",
+        "domain/energy/controllers/consumption.py": "a11d0a3676e9fc6b6f335e08ccca76d3eaf9d791b78d49e4be04a0bad5650037"
+      },
+      "projection_enabled": "true"
+    },
+    "warehouse-worker-1": {
+      "files": {
+        "domain/metering/projection.py": "48e4b3cbe62194edc546756c7e240445d9789578fb2626df9ee578fd2cf8709d",
+        "domain/metering/jobs.py": "5c9cdb36f7532ab5a825a32e48175249b28e0a997eb4795ed1fac1778113770e",
+        "domain/metering/projection_guard.py": "c2f8197ac5e963785683037d88b11baed9b793881c8e61238608b8dd4fc76eec",
+        "domain/metering/projection_cleanup.py": "9566139a60193fbc4df9a961708be96d567f35336ce9090d3625546ad40db98c",
+        "domain/metering/models.py": "d264f2e28825e1b0e60882a6e3178794e59bc0f9e80fb23f9ad28938a731df09",
+        "domain/carbon/models.py": "3a8257054339f426ae813069fe57aa55da6ac20de895160f44fea65ff271cf8b",
+        "domain/energy/usecases/imports.py": "2061e6a81c250b54f56f8d59adfdf49b4f5c5366066f409587c46e2e8e41e086",
+        "domain/material_allocation/usecases.py": "47d4338be082c7325f30daeaf2edf069e306b9d6eb5a32251259efb7db6be094",
+        "cli/commands.py": "5ab19f823739b57d1c040c1ac46a8eefca9177800fdd7530370be2e8272ca95b",
+        "db/migrations/versions/2026_10_26_current_only_projections_c0261026a001.py": "880e0e9608e32126fd46f3ccfe7df0439ab9a9f872b0049f449b18d022bfc05c",
+        "domain/energy/controllers/consumption.py": "a11d0a3676e9fc6b6f335e08ccca76d3eaf9d791b78d49e4be04a0bad5650037"
+      },
+      "projection_enabled": "true"
+    }
+  }
+}

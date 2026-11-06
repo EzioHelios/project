@@ -1,0 +1,134 @@
+{
+  "schema_version": "1.0",
+  "task_id": "short_term_meter_load_forecast",
+  "name": "短期负荷预测",
+  "status": "real_data_pilot_generated_pending_field_validation",
+  "real_samples_generated": true,
+  "profiles": [
+    {
+      "profile_id": "next_day_15min",
+      "sampling_interval_seconds": 900,
+      "history_length": 672,
+      "forecast_horizon": 96,
+      "history_duration_hours": 168,
+      "forecast_duration_hours": 24,
+      "default_window_stride_steps": 96
+    },
+    {
+      "profile_id": "next_hour_15min",
+      "sampling_interval_seconds": 900,
+      "history_length": 96,
+      "forecast_horizon": 4,
+      "history_duration_hours": 24,
+      "forecast_duration_hours": 1,
+      "default_window_stride_steps": 4
+    },
+    {
+      "profile_id": "next_day_short_history_15min",
+      "sampling_interval_seconds": 900,
+      "history_length": 96,
+      "forecast_horizon": 96,
+      "history_duration_hours": 24,
+      "forecast_duration_hours": 24,
+      "default_window_stride_steps": 96,
+      "reason": "安方缺少连续8天有效数据，补充短历史任务，不替代7天历史任务"
+    }
+  ],
+  "target_columns": [
+    "average_power_kw"
+  ],
+  "units": {
+    "average_power_kw": "kW",
+    "electricity_kwh": "kWh"
+  },
+  "input_files": [
+    "history.csv",
+    "metadata.json",
+    "future_covariates.csv"
+  ],
+  "history_columns": [
+    "step",
+    "interval_start",
+    "interval_end",
+    "average_power_kw",
+    "quality_flag"
+  ],
+  "future_covariate_columns": [
+    "step",
+    "interval_start",
+    "interval_end",
+    "hour",
+    "weekday"
+  ],
+  "future_actual_load_is_not_an_input": true,
+  "required_metadata": [
+    "sequence_id",
+    "parent_series_id",
+    "site_id",
+    "meter_id",
+    "timezone",
+    "prediction_origin",
+    "sampling_interval_seconds",
+    "history_length",
+    "forecast_horizon",
+    "target_columns",
+    "source_type",
+    "source_record_refs",
+    "processing_version",
+    "mapping_version",
+    "split"
+  ],
+  "metadata_excludes": [
+    "future_condition_label",
+    "future_anomaly_intervals",
+    "future_observed_load_summary"
+  ],
+  "time_semantics": {
+    "intervals": "half_open",
+    "history": "interval_end <= prediction_origin and observation available at prediction_origin",
+    "future": "interval_start >= prediction_origin",
+    "future_steps": "zero_based_relative_to_prediction_origin",
+    "history_lag_steps_by_site": {
+      "S01": 0,
+      "S02": 1
+    },
+    "source_available_time_limit": "MQTT接收时间<=预测起点逐样本校验；Yunji入库时间未知，仅支持按观测时间历史回测"
+  },
+  "evaluation_files": [
+    "future.csv",
+    "ground_truth.json"
+  ],
+  "ground_truth_policy": {
+    "target_source": "valid_measured_register_differences_under_existing_system_unit_mapping_pending_field_confirmation",
+    "future_csv_is_canonical": true,
+    "ground_truth_json_references_future_csv": true,
+    "estimated_targets_excluded_from_primary_test": true,
+    "synthetic_cases_reported_separately": true,
+    "hidden_test_targets_stay_on_evaluator": true,
+    "time_alignment_assumption_targets_excluded_from_primary_metrics": true
+  },
+  "split_policy": {
+    "time_split_before_window_generation": true,
+    "training_targets_do_not_overlap_test_targets": true,
+    "fit_transforms_on_training_only": true,
+    "augmentation_inherits_parent_split": true,
+    "rolling_backtest_may_use_past_observed_history": true,
+    "future_covariates_require_availability_time": true
+  },
+  "baseline_models": [
+    "last_observed_value",
+    "previous_day",
+    "previous_week"
+  ],
+  "metrics": [
+    "MAE",
+    "RMSE",
+    "WAPE_when_actual_total_is_positive"
+  ],
+  "derived_energy_is_not_an_independent_forecast_target": true,
+  "independent_observation_count_reported_separately_from_window_count": true,
+  "processing_version": "pilot-1.2.0",
+  "output_directory": "outputs/工业互联网能耗数据集_20260928/package",
+  "implementation": "tools/datasets/build_energy_datasets.py",
+  "metering_semantics_confirmation": "system_mapping_only_pending_field_CT_PT_and_register_resolution_check"
+}

@@ -61,6 +61,7 @@ error_body.txt
 *_results.txt
 *_list.txt
 outputs/
+output/
 .exports/
 .storage/
 
