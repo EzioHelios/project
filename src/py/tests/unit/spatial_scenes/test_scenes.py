@@ -15,7 +15,7 @@ from litestar.middleware.authentication import AbstractAuthenticationMiddleware,
 from litestar.testing import TestClient
 
 from app.domain.spatial_scenes.controllers import TenantSceneController
-from app.domain.spatial_scenes.store import SceneAssetStore
+from app.domain.spatial_scenes.store import DEFAULT_ROOT, SceneAssetStore
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -23,6 +23,12 @@ if TYPE_CHECKING:
 A = UUID("00000000-0000-7000-8000-000000000010")
 B = UUID("00000000-0000-7000-8000-000000000020")
 C = UUID("00000000-0000-7000-8000-000000000030")
+WAREHOUSE_SCENES = {
+    UUID("00000000-0000-7000-8000-000000000001"): ("xiangtai-warehouse", "cesium-campus"),
+    UUID("00000000-0000-7000-8000-000000000002"): ("anfang-central", "cesium-campus"),
+    UUID("00000000-0000-7000-8000-000000000003"): ("jiangyan-tianmu-road", "three"),
+    UUID("00000000-0000-7000-8000-000000000004"): ("taixing-keneng-road", "three"),
+}
 pytestmark = pytest.mark.unit
 
 
@@ -121,3 +127,19 @@ def test_file_symlink_cannot_escape_pack(tmp_path):
 def test_stale_asset_revision_cannot_mix_scene_versions(scene_client):
     response = scene_client.get(f"/api/teams/{A}/scene/assets/model.glb?revision=old", headers={"x-test-identity": "a"})
     assert response.status_code == 404
+
+
+@pytest.mark.parametrize(("team_id", "expected"), WAREHOUSE_SCENES.items())
+def test_warehouse_tenants_have_dedicated_scene_packs(team_id, expected):
+    scene_id, engine = expected
+    store = SceneAssetStore(DEFAULT_ROOT)
+
+    manifest = store.manifest(team_id)
+
+    assert manifest["sceneId"] == scene_id
+    assert manifest["engine"] == engine
+    assert manifest["teamId"] == str(team_id)
+    assert manifest["assets"]
+    for asset_url in manifest["assets"]:
+        asset_name = asset_url.rsplit("/", maxsplit=1)[-1].split("?", maxsplit=1)[0]
+        assert store.asset(team_id, asset_name, manifest["revision"]).is_file()

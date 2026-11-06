@@ -1,0 +1,89 @@
+{
+  "sceneId": "taixing-keneng-road",
+  "revision": "2026-10-22.local.1",
+  "engine": "three",
+  "title": "泰兴科能路仓库",
+  "address": "泰州市泰兴市科能路",
+  "attribution": "依据项目平面图重建，未进行地理配准",
+  "assets": [
+    "ground.glb",
+    "buildings.glb"
+  ],
+  "world": {
+    "origin": [
+      0,
+      0
+    ],
+    "originPixel": [
+      75,
+      1198
+    ],
+    "metresPerPixel": 0.096,
+    "buildings": [
+      {
+        "id": "warehouse",
+        "polygon": [
+          [1214, 180],
+          [1799, 180],
+          [1799, 1147],
+          [1214, 1147]
+        ],
+        "height": 9.2
+      },
+      {
+        "id": "office",
+        "polygon": [
+          [600, 1060],
+          [1034, 1060],
+          [1034, 1181],
+          [600, 1181]
+        ],
+        "height": 3.5
+      }
+    ],
+    "water": [],
+    "walkBounds": [
+      2,
+      168,
+      -100,
+      -2
+    ],
+    "orbitPosition": [
+      205,
+      175,
+      190
+    ],
+    "orbitTarget": [
+      85,
+      0,
+      -52
+    ],
+    "entries": [
+      {
+        "id": "main-entry",
+        "label": "主入口",
+        "pixel": [1140, 1170],
+        "yaw": 0
+      },
+      {
+        "id": "secondary-entry",
+        "label": "次入口",
+        "pixel": [486, 1170],
+        "yaw": 0
+      },
+      {
+        "id": "warehouse-front",
+        "label": "库房前场",
+        "pixel": [1170, 900],
+        "yaw": -1.57079632679
+      }
+    ],
+    "lights": [
+      [1140, 1170],
+      [486, 1170],
+      [1170, 900],
+      [1100, 350],
+      [1800, 650]
+    ]
+  }
+}

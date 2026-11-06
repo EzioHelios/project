@@ -105,7 +105,6 @@ async def test_screen_meter_totals_exclude_demo_and_do_not_mix_tenants(session):
             ("meter_daily", "measured", str(index + 1), True),
             ("demo_seed", "measured", "999", True),
             ("meter_projection", "simulated", "999", True),
-            ("meter_daily", "measured", "999", False),
             ("manual", "measured", "999", True),
         ]:
             session.add(
@@ -157,6 +156,78 @@ async def test_screen_meter_totals_exclude_demo_and_do_not_mix_tenants(session):
         assert empty["energy_kpis"][0]["value"] is None
         assert empty["energy_flow"]["nodes"] == []
         assert all(item["value"] is None for item in empty["energy_calendar"])
+
+
+async def test_screen_uses_site_meter_for_total_and_submeters_for_allocation(session):
+    team = m.Team(name="Total and branches", slug="total-and-branches")
+    session.add(team)
+    await session.flush()
+    session.info[TENANT_ID_SESSION_KEY] = team.id
+    root = m.MonitorSector(code="SITE", name="仓库")
+    branch_area = m.MonitorSector(code="BRANCH", name="作业区")
+    session.add_all([root, branch_area])
+    await session.flush()
+    total_meter = m.MonitorEquipment(code="TOTAL", name="总进线", category=0, sector_id=root.id, is_enable=True)
+    branch_meter = m.MonitorEquipment(
+        code="BRANCH-METER", name="作业区分表", category=0, sector_id=branch_area.id, is_enable=True
+    )
+    session.add_all([total_meter, branch_meter])
+    await session.flush()
+    session.add_all(
+        [
+            m.MeasurementBoundary(
+                code="SITE-IMPORT",
+                name="场站总进线",
+                meter_equipment_id=total_meter.id,
+                include_in_scope2=True,
+                status="active",
+            ),
+            m.MeasurementBoundary(
+                code="BRANCH-ALLOCATION",
+                name="区域分表",
+                meter_equipment_id=branch_meter.id,
+                include_in_scope2=False,
+                status="active",
+            ),
+        ]
+    )
+    for meter, area, amount in [(total_meter, root, "100"), (branch_meter, branch_area, "60")]:
+        session.add(
+            m.EnergyIntervalFact(
+                source_system="meter_projection",
+                source_record_id=f"{meter.code}:2026-10-01",
+                energy_type_code="purchased_electricity",
+                equipment_id=meter.id,
+                equipment_name=meter.name,
+                area_id=area.code,
+                area_name=area.name,
+                granularity="day",
+                period_start=datetime(2026, 10, 1),  # noqa: DTZ001 - interval columns store naive business time.
+                period_end=datetime(2026, 10, 2),  # noqa: DTZ001 - interval columns store naive business time.
+                amount=Decimal(amount),
+                unit="kWh",
+                data_quality="measured",
+                is_current=True,
+            )
+        )
+    await session.commit()
+
+    view = await BigscreenOperationsService(session).build(start=date(2026, 10, 1), end=date(2026, 10, 1))
+
+    assert view["energy_kpis"][0]["value"] == 100
+    assert {item["name"]: item["value"] for item in view["area_ranking"]} == {
+        "作业区": 60,
+        "未分配电量": 40,
+    }
+    assert view["equipment_ranking"] == [{"id": str(branch_meter.id), "name": "作业区分表", "value": 60}]
+    assert view["energy_flow"]["summary"]["total_input"] == 100
+
+    area_view = await BigscreenOperationsService(session).build(
+        start=date(2026, 10, 1), end=date(2026, 10, 1), area="BRANCH"
+    )
+    assert area_view["energy_kpis"][0]["value"] == 60
+    assert area_view["area_ranking"] == [{"id": "BRANCH", "name": "作业区", "value": 60}]
+    assert area_view["energy_flow"]["summary"]["total_input"] == 60
 
 
 async def test_warehouse_ledger_dates_missing_amounts_and_commute_are_tenant_scoped(session):

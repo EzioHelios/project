@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import func, select, true
+from sqlalchemy import exists, func, or_, select, true
 
 from app.db import models as m
 from app.domain.carbon.services._bigscreen_ledger import ledger_overview
@@ -59,9 +59,9 @@ def descendant_codes(rows: Any, selected: str) -> list[str]:
         found |= children
 
 
-def energy_filters() -> list[Any]:
+def energy_filters(meter_scope: str | None = None) -> list[Any]:
     fact = m.EnergyIntervalFact
-    return [
+    conditions = [
         fact.is_current.is_(True),
         fact.energy_type_code.in_(["electricity", "purchased_electricity"]),
         fact.unit == "kWh",
@@ -70,16 +70,61 @@ def energy_filters() -> list[Any]:
         fact.data_quality != "simulated",
         ~fact.source_system.like("demo%"),
     ]
+    active_boundaries = select(m.MeasurementBoundary.meter_equipment_id).where(
+        m.MeasurementBoundary.status == "active",
+        m.MeasurementBoundary.meter_equipment_id.is_not(None),
+    )
+    if meter_scope == "site_total":
+        site_meters = active_boundaries.where(m.MeasurementBoundary.include_in_scope2.is_(True))
+        conditions.append(or_(~exists(active_boundaries), fact.equipment_id.in_(site_meters)))
+    elif meter_scope == "allocation":
+        allocation_meters = active_boundaries.where(m.MeasurementBoundary.include_in_scope2.is_(False))
+        conditions.append(or_(~exists(allocation_meters), fact.equipment_id.in_(allocation_meters)))
+    return conditions
+
+
+def add_unallocated_energy(flow: dict[str, Any], amount: float) -> None:
+    """Represent the metered site residual without assigning it to a real area or device."""
+    if amount <= 0:
+        return
+    source = next((node for node in flow["nodes"] if node["category"] == "source"), None)
+    if source is None:
+        source = {"id": "energy:electricity:kWh", "name": "电量", "category": "source", "value": 0.0}
+        flow["nodes"].append(source)
+    source["value"] = float(source.get("value") or 0) + amount
+    area = {"id": "area:electricity:kWh:unallocated", "name": "未分配电量", "category": "area", "value": amount}
+    device = {
+        "id": "equipment:electricity:kWh:unallocated",
+        "name": "未分配电量",
+        "category": "equipment",
+        "value": amount,
+    }
+    flow["nodes"].extend([area, device])
+    flow["links"].extend(
+        [
+            {"source": source["id"], "target": area["id"], "value": amount},
+            {"source": area["id"], "target": device["id"], "value": amount},
+        ]
+    )
+    flow["summary"]["total_input"] = float(flow["summary"].get("total_input") or 0) + amount
+    flow["summary"]["utilized_energy"] = float(flow["summary"].get("utilized_energy") or 0) + amount
+    flow["summary"]["row_count"] = int(flow["summary"].get("row_count") or 0) + 1
 
 
 @dataclass
 class BigscreenOperationsService:
     session: AsyncSession
 
-    async def energy_calendar(self, end: date, area_codes: list[str] | None = None) -> list[dict[str, Any]]:
+    async def energy_calendar(
+        self,
+        end: date,
+        area_codes: list[str] | None = None,
+        *,
+        meter_scope: str = "site_total",
+    ) -> list[dict[str, Any]]:
         fact = m.EnergyIntervalFact
         conditions = [
-            *energy_filters(),
+            *energy_filters(meter_scope),
             fact.granularity == "day",
             fact.period_start >= datetime.combine(end.replace(month=1, day=1), datetime.min.time()),
             fact.period_start < datetime.combine(end + timedelta(days=1), datetime.min.time()),
@@ -111,7 +156,7 @@ class BigscreenOperationsService:
             )
         return result
 
-    async def build(
+    async def build(  # noqa: PLR0915 - one read model keeps dashboard queries on one consistent filter set.
         self, *, start: date | None = None, end: date | None = None, grain: str = "day", area: str | None = None
     ) -> dict[str, Any]:
         if grain not in {"hour", "day", "month"}:
@@ -121,7 +166,7 @@ class BigscreenOperationsService:
         first, latest = (
             await self.session.execute(
                 select(func.min(fact.period_start), func.max(fact.period_start)).where(
-                    *energy_filters(), fact.granularity == "day"
+                    *energy_filters("site_total"), fact.granularity == "day"
                 )
             )
         ).one()
@@ -136,15 +181,17 @@ class BigscreenOperationsService:
         if grain == "hour" and (end - start).days >= MAX_HOURLY_DAYS:
             msg = "小时趋势请选择不超过31天的期间"
             raise ValueError(msg)
+        selected_area_codes = descendant_codes(area_rows, area) if area else None
+        summary_scope = "allocation" if selected_area_codes is not None else "site_total"
         conditions = [
-            *energy_filters(),
+            *energy_filters(summary_scope),
             fact.granularity == ("hour" if grain == "hour" else "day"),
             fact.period_start >= datetime.combine(start, datetime.min.time()),
             fact.period_start < datetime.combine(end + timedelta(days=1), datetime.min.time()),
         ]
-        if area:
-            conditions.append(fact.area_id.in_(descendant_codes(area_rows, area)))
-        calendar = await self.energy_calendar(end, descendant_codes(area_rows, area) if area else None)
+        if selected_area_codes is not None:
+            conditions.append(fact.area_id.in_(selected_area_codes))
+        calendar = await self.energy_calendar(end, selected_area_codes, meter_scope=summary_scope)
         flow = await EnergyFlowQueryService(self.session).graph(
             EnergyFlowQuery(
                 period_start=start.isoformat(),
@@ -152,16 +199,15 @@ class BigscreenOperationsService:
                 granularity="hour" if grain == "hour" else "day",
                 energy_type_code="electricity",
                 metered_only=True,
-                area_codes=tuple(descendant_codes(area_rows, area)) if area else None,
+                area_codes=tuple(selected_area_codes) if selected_area_codes is not None else None,
+                meter_scope="allocation",
             )
         )
-        count, total, covered_devices, covered_areas, observed = (
+        count, total, observed = (
             await self.session.execute(
                 select(
                     func.count(),
                     func.sum(fact.amount),
-                    func.count(func.distinct(fact.equipment_id)),
-                    func.count(func.distinct(fact.area_id)),
                     func.max(fact.created_at),
                 ).where(*conditions)
             )
@@ -173,10 +219,26 @@ class BigscreenOperationsService:
             )
         ).all()
         areas = [(code, name) for _, code, _, name in area_rows]
+        allocation_conditions = [
+            *energy_filters("allocation"),
+            fact.granularity == ("hour" if grain == "hour" else "day"),
+            fact.period_start >= datetime.combine(start, datetime.min.time()),
+            fact.period_start < datetime.combine(end + timedelta(days=1), datetime.min.time()),
+        ]
+        if selected_area_codes is not None:
+            allocation_conditions.append(fact.area_id.in_(selected_area_codes))
+        covered_devices, covered_areas = (
+            await self.session.execute(
+                select(
+                    func.count(func.distinct(fact.equipment_id)),
+                    func.count(func.distinct(fact.area_id)),
+                ).where(*allocation_conditions)
+            )
+        ).one()
         by_area = (
             await self.session.execute(
                 select(fact.area_id, fact.area_name, func.sum(fact.amount))
-                .where(*conditions)
+                .where(*allocation_conditions)
                 .group_by(fact.area_id, fact.area_name)
                 .order_by(func.sum(fact.amount).desc())
             )
@@ -184,11 +246,16 @@ class BigscreenOperationsService:
         by_device = (
             await self.session.execute(
                 select(fact.equipment_id, fact.equipment_name, func.sum(fact.amount))
-                .where(*conditions)
+                .where(*allocation_conditions)
                 .group_by(fact.equipment_id, fact.equipment_name)
                 .order_by(func.sum(fact.amount).desc())
             )
         ).all()
+        allocated_total = sum(float(value) for _, _, value in by_area)
+        unallocated = max(float(total or 0) - allocated_total, 0.0) if selected_area_codes is None else 0.0
+        if unallocated > 0:
+            by_area.append(("unallocated", "未分配电量", unallocated))
+            add_unallocated_energy(flow, unallocated)
         equipment = (
             await self.session.scalars(select(m.MonitorEquipment).where(m.MonitorEquipment.is_enable.is_(True)))
         ).all()

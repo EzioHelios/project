@@ -1,0 +1,98 @@
+{
+  "sceneId": "jiangyan-tianmu-road",
+  "revision": "2026-10-22.local.1",
+  "engine": "three",
+  "title": "姜堰天目路仓库",
+  "address": "泰州市姜堰区天目路",
+  "attribution": "依据项目平面图重建，未进行地理配准",
+  "assets": [
+    "ground.glb",
+    "buildings.glb"
+  ],
+  "world": {
+    "origin": [
+      0,
+      0
+    ],
+    "originPixel": [
+      686.5,
+      360.5
+    ],
+    "metresPerPixel": 0.1163,
+    "buildings": [
+      {
+        "id": "main-hall",
+        "polygon": [
+          [229, 286],
+          [809, 286],
+          [809, 624],
+          [229, 624]
+        ],
+        "height": 8.8
+      },
+      {
+        "id": "northwest-auxiliary",
+        "polygon": [
+          [35, 82],
+          [349, 82],
+          [349, 211],
+          [35, 211]
+        ],
+        "height": 4.9
+      },
+      {
+        "id": "gatehouse",
+        "polygon": [
+          [42, 658],
+          [107, 658],
+          [107, 691],
+          [42, 691]
+        ],
+        "height": 2.7
+      }
+    ],
+    "water": [],
+    "walkBounds": [
+      -76,
+      76,
+      -37,
+      37
+    ],
+    "orbitPosition": [
+      98,
+      136,
+      128
+    ],
+    "orbitTarget": [
+      0,
+      0,
+      0
+    ],
+    "entries": [
+      {
+        "id": "south-entry",
+        "label": "南侧入口",
+        "pixel": [165, 650],
+        "yaw": 0
+      },
+      {
+        "id": "main-hall-front",
+        "label": "主库前场",
+        "pixel": [520, 650],
+        "yaw": 0
+      },
+      {
+        "id": "north-yard",
+        "label": "北侧堆放区",
+        "pixel": [900, 250],
+        "yaw": 3.14159265359
+      }
+    ],
+    "lights": [
+      [165, 650],
+      [520, 650],
+      [350, 250],
+      [900, 250]
+    ]
+  }
+}

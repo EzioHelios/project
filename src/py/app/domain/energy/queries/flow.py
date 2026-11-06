@@ -33,6 +33,7 @@ class EnergyFlowQuery:
     limit: int = 50
     metered_only: bool = False
     area_codes: tuple[str, ...] | None = None
+    meter_scope: str | None = None
 
 
 class EnergyFlowQueryService:
@@ -183,6 +184,36 @@ def _build_filters(query: EnergyFlowQuery, *, team_id: str) -> tuple[str, dict[s
                 "equipment_id in (select id from dataapp_monitorequipment where team_id = :team_id and category = 0)",
             ]
         )
+    if query.meter_scope == "site_total":
+        conditions.append(
+            """(
+                not exists (
+                    select 1 from metering_measurement_boundary boundary
+                    where boundary.team_id = :team_id and boundary.status = 'active'
+                      and boundary.meter_equipment_id is not null
+                )
+                or equipment_id in (
+                    select boundary.meter_equipment_id from metering_measurement_boundary boundary
+                    where boundary.team_id = :team_id and boundary.status = 'active'
+                      and boundary.include_in_scope2 = true and boundary.meter_equipment_id is not null
+                )
+            )"""
+        )
+    elif query.meter_scope == "allocation":
+        conditions.append(
+            """(
+                not exists (
+                    select 1 from metering_measurement_boundary boundary
+                    where boundary.team_id = :team_id and boundary.status = 'active'
+                      and boundary.include_in_scope2 = false and boundary.meter_equipment_id is not null
+                )
+                or equipment_id in (
+                    select boundary.meter_equipment_id from metering_measurement_boundary boundary
+                    where boundary.team_id = :team_id and boundary.status = 'active'
+                      and boundary.include_in_scope2 = false and boundary.meter_equipment_id is not null
+                )
+            )"""
+        )
     if query.equipment_id and query.equipment_id != "all":
         conditions.append("equipment_id = :equipment_id")
         params["equipment_id"] = int(query.equipment_id)
@@ -298,5 +329,6 @@ def _filters(query: EnergyFlowQuery) -> dict[str, Any]:
         "area_keyword": query.area_keyword,
         "equipment_id": query.equipment_id,
         "use_system_code": query.use_system_code,
+        "meter_scope": query.meter_scope,
         "loss_threshold_pct": _threshold(query.loss_threshold_pct),
     }
