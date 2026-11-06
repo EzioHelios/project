@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 MQTT_BODY = Body()
-SUPPORTED_PARSER_CODES = {"szscada_scada_v1"}
+SUPPORTED_PARSER_CODES = {"szscada_metering_v2", "szscada_scada_v1"}
 SOURCE_FIELDS = {
     "code",
     "name",

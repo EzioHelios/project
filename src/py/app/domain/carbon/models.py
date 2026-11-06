@@ -10,6 +10,7 @@ from advanced_alchemy.base import BigIntAuditBase, BigIntBase
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Float,
@@ -538,8 +539,11 @@ class EnergyIntervalFact(TeamScopedMixin, BigIntAuditBase):
     """由原始计量数据聚合得到的小时/日能源消费事实."""
 
     __tablename__ = "dataapp_energyintervalfact"
+    # Compatibility fields remain, but the database forbids derived history.
     __current_revision_scoped__ = True
     __table_args__ = (
+        UniqueConstraint("team_id", "source_system", "source_record_id", name="uq_energy_interval_team_source_record"),
+        CheckConstraint("is_current AND revision_no >= 1 AND supersedes_id IS NULL", name="ck_energy_interval_current_only"),
         UniqueConstraint(
             "team_id",
             "source_system",
@@ -1579,8 +1583,11 @@ class Scope2MeterAggregate(TeamScopedMixin, BigIntAuditBase):
     """Scope2 电表月度聚合快照。"""
 
     __tablename__ = "dataapp_scope2meteraggregate"
+    # Compatibility fields remain, but the database forbids derived history.
     __current_revision_scoped__ = True
     __table_args__ = (
+        UniqueConstraint("team_id", "ammeter_id", "billing_month", name="uq_scope2_meter_aggregate_team_meter_month"),
+        CheckConstraint("is_current AND revision_no >= 1 AND supersedes_id IS NULL", name="ck_scope2_meter_current_only"),
         UniqueConstraint(
             "team_id",
             "ammeter_id",
@@ -1602,7 +1609,7 @@ class Scope2MeterAggregate(TeamScopedMixin, BigIntAuditBase):
     )
 
     source_kind: Mapped[str] = mapped_column(String(24), default="meter_aggregate")
-    ammeter_id: Mapped[str] = mapped_column(String(20), index=True)
+    ammeter_id: Mapped[str] = mapped_column(String(64), index=True)
     ammeter_name: Mapped[str | None] = mapped_column(String(30))
     area_id: Mapped[str | None] = mapped_column(String(20), index=True)
     area_name: Mapped[str | None] = mapped_column(String(50))

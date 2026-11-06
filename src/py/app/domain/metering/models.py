@@ -11,6 +11,7 @@ from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -189,8 +190,11 @@ class Scope2ElectricityReconciliation(TeamScopedMixin, BigIntAuditBase):
     """Versioned organization electricity total with bill-over-meter precedence."""
 
     __tablename__ = "metering_scope2_electricity_reconciliation"
+    # Compatibility fields remain, but the database forbids derived history.
     __current_revision_scoped__ = True
     __table_args__ = (
+        UniqueConstraint("team_id", "billing_month", name="uq_scope2_reconciliation_team_month"),
+        CheckConstraint("is_current AND revision_no >= 1 AND supersedes_id IS NULL", name="ck_scope2_reconciliation_current_only"),
         UniqueConstraint("team_id", "billing_month", "revision_no", name="uq_scope2_reconciliation_month_revision"),
         Index("ix_scope2_reconciliation_current", "team_id", "billing_month", "is_current"),
         Index("ix_scope2_reconciliation_activity", "activity_record_id"),

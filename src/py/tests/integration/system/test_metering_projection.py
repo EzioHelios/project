@@ -53,7 +53,7 @@ async def test_projection_is_idempotent_and_bill_supersedes_meter_total(session)
     area = m.MonitorSector(code="HMAZ-PZK", name="平置库")
     session.add(area)
     await session.flush()
-    meter = m.MonitorEquipment(code="AF-M002", name="安方2号电表", sector_id=area.id, is_enable=True)
+    meter = m.MonitorEquipment(code="JY-METER-202501020786", name="安方2号电表", sector_id=area.id, is_enable=True)
     candidate_group = m.MonitorEquipment(code="AF-PZK-AGV-GRP", name="AGV设备组", sector_id=area.id, is_enable=True)
     session.add_all([meter, candidate_group])
     await session.flush()
@@ -115,6 +115,9 @@ async def test_projection_is_idempotent_and_bill_supersedes_meter_total(session)
         await session.scalars(select(m.EnergyIntervalFact).where(m.EnergyIntervalFact.granularity == "hour"))
     ).all()
     assert aggregate is not None
+    assert aggregate.ammeter_id == meter.code
+    aggregate_id = aggregate.id
+    hourly_ids = [row.id for row in hourly]
     assert aggregate.total_kwh == Decimal(25)
     assert aggregate.status == "provisional"
     assert reconciliation is not None
@@ -142,6 +145,12 @@ async def test_projection_is_idempotent_and_bill_supersedes_meter_total(session)
     current_aggregate = await session.scalar(select(m.Scope2MeterAggregate))
     assert current_aggregate is not None
     assert current_aggregate.total_kwh == Decimal(20)
+    assert current_aggregate.id == aggregate_id
+    current_hourly = (
+        await session.scalars(select(m.EnergyIntervalFact).where(m.EnergyIntervalFact.granularity == "hour"))
+    ).all()
+    assert sorted(row.id for row in current_hourly) == sorted(hourly_ids)
+    assert all(row.revision_no == 1 for row in current_hourly)
 
     session.add(
         m.GhgActivityRecord(
@@ -182,58 +191,33 @@ async def test_projection_is_idempotent_and_bill_supersedes_meter_total(session)
             .execution_options(include_revision_history=True)
         )
     ).all()
-    assert len(history) == 3
+    assert len(history) == 1
     assert sum(row.is_current for row in history) == 1
 
 
-async def test_current_query_filter_hides_energy_revision_history(session) -> None:
-    team = m.Team(name="查询隔离租户", slug="query-filter-test")
+async def test_database_rejects_derived_history(session) -> None:
+    from sqlalchemy.exc import IntegrityError
+
+    team = m.Team(name="Current only", slug="current-only")
     session.add(team)
     await session.flush()
     session.info[TENANT_ID_SESSION_KEY] = team.id
-    session.add_all(
-        [
-            m.EnergyIntervalFact(
-                source_system="projection",
-                source_record_id="meter:1:hour:2026-05-01T00:00:00",
-                energy_type_code="electricity",
-                granularity="hour",
-                period_start=datetime.fromisoformat("2026-05-01T00:00:00"),
-                period_end=datetime.fromisoformat("2026-05-01T01:00:00"),
-                amount=Decimal(9),
-                revision_no=1,
-                is_current=False,
-            ),
-            m.EnergyIntervalFact(
-                source_system="projection",
-                source_record_id="meter:1:hour:2026-05-01T00:00:00",
-                energy_type_code="electricity",
-                granularity="hour",
-                period_start=datetime.fromisoformat("2026-05-01T00:00:00"),
-                period_end=datetime.fromisoformat("2026-05-01T01:00:00"),
-                amount=Decimal(10),
-                revision_no=2,
-                is_current=True,
-            ),
-        ]
-    )
-    await session.commit()
-
-    current_facts = (await session.scalars(select(m.EnergyIntervalFact))).all()
-    all_facts = (
-        await session.scalars(select(m.EnergyIntervalFact).execution_options(include_revision_history=True))
-    ).all()
-    analysis = await EnergyAnalysisQueryService(session).summary(
-        EnergyAnalysisQuery(
-            period_start="2026-05-01T00:00:00",
-            period_end="2026-05-01T01:00:00",
+    session.add(
+        m.EnergyIntervalFact(
+            source_system="projection",
+            source_record_id="one",
+            energy_type_code="electricity",
             granularity="hour",
+            period_start=datetime.fromisoformat("2026-05-01"),
+            period_end=datetime.fromisoformat("2026-05-01T01:00:00"),
+            amount=Decimal(9),
+            revision_no=2,
+            is_current=False,
         )
     )
-
-    assert [row.revision_no for row in current_facts] == [2]
-    assert {row.revision_no for row in all_facts} == {1, 2}
-    assert analysis["totals"]["total_energy"] == 10.0
+    with pytest.raises(IntegrityError, match="current_only"):
+        await session.flush()
+    await session.rollback()
 
 
 async def test_unconfigured_or_retired_boundaries_never_become_scope2_total(session) -> None:
@@ -281,8 +265,7 @@ async def test_unconfigured_or_retired_boundaries_never_become_scope2_total(sess
     history = (
         await session.scalars(select(m.Scope2MeterAggregate).execution_options(include_revision_history=True))
     ).all()
-    assert len(history) == 1
-    assert not history[0].is_current
+    assert history == []
     assert (await session.scalar(select(m.Scope2ElectricityReconciliation))).status == "incomplete"
 
     reading = await session.scalar(
@@ -353,9 +336,11 @@ async def test_projection_retries_after_atomic_write_failure(session, monkeypatc
             worker_session.info[TENANT_ID_SESSION_KEY] = tenant_id
             return await ElectricityProjectionUseCase(worker_session).rebuild_month("2026-05")
 
-    concurrent = await asyncio.gather(rebuild_in_worker(), rebuild_in_worker())
-    assert concurrent[0].run_id == concurrent[1].run_id
-    assert sorted(result.reused for result in concurrent) == [False, True]
+    concurrent = await asyncio.gather(rebuild_in_worker(), rebuild_in_worker(), return_exceptions=True)
+    from app.domain.metering.projection import ProjectionUnavailableError
+
+    assert sum(isinstance(result, ProjectionUnavailableError) for result in concurrent) == 1
+    assert sum(getattr(result, "hourly_facts", 0) for result in concurrent) == 1
 
 
 async def test_overlapping_boundaries_fail_without_guessing_priority(session) -> None:
@@ -622,3 +607,116 @@ async def test_energy_read_models_are_explicitly_tenant_scoped(session) -> None:
     assert benchmark["total"] == 1
     assert benchmark["items"][0]["target_code"] == str(anfang_meter.id)
     assert benchmark["items"][0]["benchmark_value"] == 5.0
+
+
+async def test_large_projection_is_bounded_and_does_not_accumulate_versions(session, monkeypatch):
+    import json
+    from time import monotonic
+
+    from sqlalchemy import text
+
+    from app.domain.metering import projection
+
+    team = m.Team(name="Projection load test", slug="projection-load-test")
+    session.add(team)
+    await session.flush()
+    session.info[TENANT_ID_SESSION_KEY] = team.id
+    meter = m.MonitorEquipment(code="LOAD-METER", name="Load test", is_enable=True)
+    session.add(meter)
+    await session.flush()
+    # Generate 120k source facts in PostgreSQL, without constructing a Python list.
+    await session.execute(
+        text("""
+        INSERT INTO metering_meter_reading_fact
+        (id, team_id, source_system, source_record_id, equipment_id, source_point_code,
+         point_code, point_name, energy_direction, energy_kind, tou_period, value_kind,
+         normalized_value, unit, quality_status, reading_time, mapping_version)
+        SELECT nextval('metering_meter_reading_fact_id_seq'), CAST(:team AS uuid), 'load_test', i::text,
+               :meter, 'total', 'forward_active_total', 'Total', 'forward', 'active', 'total',
+               'register_index', i, 'kWh', 'valid', timestamp '2026-10-01' + i * interval '1 second', 'test'
+        FROM generate_series(1,120000) i
+    """),
+        {"team": str(team.id), "meter": meter.id},
+    )
+    await session.commit()
+    metrics = []
+    original = projection.ProjectionMonitor.check
+
+    def capture(self, stage, rows):
+        original(self, stage, rows)
+        metrics.append({"stage": stage, "rows": rows, "peak_rss_mb": self.peak_mb, "rss_mb": self.last_mb})
+
+    monkeypatch.setattr(projection.ProjectionMonitor, "check", capture)
+    use_case = ElectricityProjectionUseCase(session)
+    start = monotonic()
+    first = await use_case.rebuild_month("2026-10")
+    assert first.source_count == 120000
+    assert first.hourly_facts == 34
+    assert first.daily_facts == 2
+    assert (
+        await session.scalar(
+            select(func.sum(m.EnergyIntervalFact.amount)).where(m.EnergyIntervalFact.granularity == "hour")
+        )
+        == 119999
+    )
+    repeated = await use_case.rebuild_month("2026-10")
+    assert repeated.reused
+    assert await session.scalar(select(func.count()).select_from(m.EnergyIntervalFact)) == 36
+    assert max(item["rss_mb"] for item in metrics) < 768
+    print(  # noqa: T201 - retain measurable benchmark evidence in the test log.
+        "PROJECTION_BENCHMARK="
+        + json.dumps(
+            {
+                "source_rows": first.source_count,
+                "output_rows": 36,
+                "two_runs_seconds": round(monotonic() - start, 2),
+                "peak_rss_mb": max(item["peak_rss_mb"] for item in metrics),
+            }
+        )
+    )
+
+
+async def test_manual_fact_duplicates_ignore_frozen_legacy_revision(session):
+    from litestar.exceptions import ClientException
+
+    from app.domain.energy.controllers.consumption import EnergyConsumptionController
+
+    team = m.Team(name="Current-only CRUD", slug="projection-crud")
+    session.add(team)
+    await session.flush()
+    session.info[TENANT_ID_SESSION_KEY] = team.id
+    payload = {
+        "source_system": "manual_entry",
+        "source_record_id": "existing",
+        "energy_type_code": "electricity",
+        "period_start": "2026-10-01",
+        "amount": "10",
+    }
+    existing = m.EnergyIntervalFact(
+        team_id=team.id,
+        source_system="manual_entry",
+        source_record_id="existing",
+        energy_type_code="electricity",
+        period_start=datetime.fromisoformat("2026-10-01"),
+        period_end=datetime.fromisoformat("2026-10-01"),
+        amount=Decimal(10),
+        unit="kWh",
+        revision_no=20,
+    )
+    other = m.EnergyIntervalFact(
+        team_id=team.id,
+        source_system="manual_entry",
+        source_record_id="other",
+        energy_type_code="electricity",
+        period_start=datetime.fromisoformat("2026-10-01"),
+        period_end=datetime.fromisoformat("2026-10-01"),
+        amount=Decimal(20),
+        unit="kWh",
+        revision_no=1,
+    )
+    session.add_all([existing, other])
+    await session.commit()
+    with pytest.raises(ClientException, match="同一数据来源"):
+        await EnergyConsumptionController.create_energy_interval_fact.fn(None, session, payload)
+    with pytest.raises(ClientException, match="同一数据来源"):
+        await EnergyConsumptionController.update_energy_interval_fact.fn(None, session, other.id, payload)

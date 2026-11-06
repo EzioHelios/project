@@ -10,6 +10,15 @@ x-development-volumes: &development-volumes
     - .env.docker:/workspace/app/.env
 
 services:
+  db:
+    profiles:
+      - bundled-infra
+  cache:
+    profiles:
+      - bundled-infra
+  sentinel:
+    profiles:
+      - bundled-infra
   app:
     build:
       context: ../../..
@@ -30,6 +39,7 @@ services:
     command: granian --interface asgi --factory app.server.asgi:create_app --host 0.0.0.0 --port 8000 --reload --reload-paths /workspace/app/src/py
     restart: always
     <<: *development-volumes
+    depends_on: !reset {}
   worker:
     profiles:
       - worker
@@ -46,11 +56,7 @@ services:
       DATABASE_URL: postgresql://app:app@host.docker.internal:18102/app
       SAQ_REDIS_URL: redis://host.docker.internal:18103/0
     <<: *development-volumes
-    depends_on:
-      db:
-        condition: service_healthy
-      cache:
-        condition: service_healthy
+    depends_on: !reset {}
 
   mqtt-ingest-worker:
     profiles:
@@ -69,16 +75,33 @@ services:
       DATABASE_URL: postgresql://app:app@host.docker.internal:18102/app
       SAQ_REDIS_URL: redis://host.docker.internal:18103/0
     <<: *development-volumes
-    depends_on:
-      db:
-        condition: service_healthy
-      cache:
-        condition: service_healthy
+    depends_on: !reset {}
 
     env_file:
       - .env.docker
       - .env.mqtt.local
+  metering-projection-worker:
+    profiles:
+      - worker
+    build:
+      context: ../../..
+      dockerfile: tools/deploy/docker/Dockerfile.dev
+    command: saq app.lib.worker.saq_worker_settings --workers 1
+    tty: true
+    restart: always
+    environment:
+      PYTHONPATH: "/workspace/app/src/py"
+      SAQ_WORKER_QUEUE: metering-projection
+      METERING_PROJECTION_CONCURRENCY: "1"
+      DATABASE_HOST: host.docker.internal
+      DATABASE_PORT: "18102"
+      DATABASE_URL: postgresql://app:app@host.docker.internal:18102/app
+      SAQ_REDIS_URL: redis://host.docker.internal:18103/0
+    <<: *development-volumes
+    depends_on: !reset {}
   migrator:
+    profiles:
+      - migration
     build:
       context: ../../..
       dockerfile: tools/deploy/docker/Dockerfile.dev
@@ -89,8 +112,4 @@ services:
     <<: *development-volumes
     env_file:
       - .env.docker
-    depends_on:
-      db:
-        condition: service_healthy
-      cache:
-        condition: service_healthy
+    depends_on: !reset {}

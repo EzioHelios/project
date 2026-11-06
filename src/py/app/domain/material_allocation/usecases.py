@@ -24,6 +24,12 @@ from app.domain.material_allocation.schemas import HourCalculation, OperationCre
 from app.lib.tenancy import require_session_tenant_id
 
 
+def _energy_input_fingerprint(snapshot: dict[str, Any]) -> str:
+    """Ignore retired projection revision metadata, retaining all substantive input values."""
+    energy = {key: value for key, value in snapshot.get("energy", {}).items() if key != "revision"}
+    return fingerprint({**snapshot, "energy": energy})
+
+
 class MaterialHandlingOperationUseCase:
     def __init__(self, session: Any) -> None:
         self.session = session
@@ -325,7 +331,6 @@ class CalculateMaterialCarbonAllocation:
             "hour": start.isoformat(),
             "energy": {
                 "id": fact.id,
-                "revision": fact.revision_no,
                 "amount": str(energy),
                 "quality": fact.data_quality,
                 "source": fact.source_system,
@@ -369,7 +374,7 @@ class CalculateMaterialCarbonAllocation:
         runs = []
         while start < end:
             snapshot, operations, energy, factor = await self.inputs(data, start)
-            digest = fingerprint(snapshot)
+            digest = _energy_input_fingerprint(snapshot)
             run = await self.session.scalar(
                 select(m.MaterialCarbonAllocationRun)
                 .where(
@@ -379,7 +384,7 @@ class CalculateMaterialCarbonAllocation:
                 )
                 .with_for_update()
             )
-            if run and run.input_hash == digest and run.status == "completed":
+            if run and run.status == "completed" and _energy_input_fingerprint(run.input_snapshot or {}) == digest:
                 runs.append(run)
                 start += timedelta(hours=1)
                 continue
@@ -486,6 +491,6 @@ class CalculateMaterialCarbonAllocation:
             raise MaterialAllocationError(msg)
         data = HourCalculation.model_validate((run.input_snapshot or {}).get("command", {}))
         snapshot, _, _, _ = await self.inputs(data, run.period_start)
-        if fingerprint(snapshot) != run.input_hash:
+        if _energy_input_fingerprint(snapshot) != _energy_input_fingerprint(run.input_snapshot or {}):
             msg = "能源、因子或作业已变更，请重新计算"
             raise MaterialAllocationError(msg)

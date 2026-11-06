@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any
 
 from advanced_alchemy.base import BigIntAuditBase, BigIntBase
 from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint
@@ -105,7 +106,7 @@ class MqttInboundMessage(TeamScopedMixin, BigIntAuditBase):
         DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), index=True
     )
     published_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
-    payload: Mapped[dict] = mapped_column(JSON)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON)
     payload_hash: Mapped[str] = mapped_column(String(64), index=True)
     contract_version: Mapped[str] = mapped_column(String(32))
     status: Mapped[str] = mapped_column(String(32), default="received", index=True)

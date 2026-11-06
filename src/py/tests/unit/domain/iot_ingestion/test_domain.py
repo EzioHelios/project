@@ -7,6 +7,8 @@ import pytest
 
 from app.domain.iot_ingestion.domain import (
     PayloadValidationError,
+    normalize_meter_unit,
+    parse_szscada_metering_v2,
     parse_szscada_scada_v1,
     temporary_equipment_code,
     temporary_external_device_id,
@@ -47,3 +49,62 @@ def test_szscada_rejects_points_without_temporary_meter_selector() -> None:
 
     with pytest.raises(PayloadValidationError, match="temporary meter identity"):
         parse_szscada_scada_v1(payload)
+
+
+def test_addressed_szscada_payload_uses_device_address_and_normalizes_units() -> None:
+    payload = {
+        "guid": "gateway-jy",
+        "ts": 1_784_120_146,
+        "devs": [
+            {
+                "devName": "办公室",
+                "devAddress": "202501020786",
+                "data": [
+                    {
+                        "t": 0,
+                        "tag": "tag_010_p001",
+                        "name": "正向有功总电能",
+                        "valid": 1,
+                        "value": 23.42,
+                        "unit": "kWh",
+                    },
+                    {
+                        "t": 0,
+                        "tag": "tag_010_p006",
+                        "name": "正向无功总电能",
+                        "valid": 0,
+                        "value": 3.14,
+                        "unit": "kVarh",
+                    },
+                ],
+            }
+        ],
+    }
+
+    parsed = parse_szscada_metering_v2(payload)
+
+    assert parsed.gateway_key == "gateway-jy"
+    assert parsed.devices[0].device_address == "202501020786"
+    assert [point.source_unit for point in parsed.devices[0].points] == ["kWh", "kvarh"]
+    assert parsed.devices[0].points[0].source_type == 0
+    assert parsed.devices[0].points[1].is_valid is False
+    assert normalize_meter_unit("KVARH") == "kvarh"
+
+
+def test_addressed_szscada_payload_rejects_duplicate_tags() -> None:
+    point = {
+        "t": 0,
+        "tag": "tag_010_p001",
+        "name": "正向有功总电能",
+        "valid": 1,
+        "value": 1,
+        "unit": "kWh",
+    }
+    payload = {
+        "guid": "gateway-jy",
+        "ts": 1_784_120_146,
+        "devs": [{"devName": "办公室", "devAddress": "202501020786", "data": [point, point]}],
+    }
+
+    with pytest.raises(PayloadValidationError, match="duplicate tag"):
+        parse_szscada_metering_v2(payload)

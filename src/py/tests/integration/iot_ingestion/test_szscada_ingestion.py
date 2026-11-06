@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 
 from app.db import models as m
 from app.domain.iot_ingestion.usecases import MqttIngestionUseCase
+from app.domain.metering.reading_facts import point_spec
 from app.lib.tenancy import TENANT_ID_SESSION_KEY
 
 if TYPE_CHECKING:
@@ -18,6 +19,37 @@ if TYPE_CHECKING:
 FIXTURE_PATH = Path(__file__).parents[2] / "fixtures" / "carbon" / "mqtt" / "szscada_xc_v1.json"
 
 pytestmark = pytest.mark.anyio
+
+
+def addressed_payload(*, device_address: str = "202501020786") -> dict:
+    return {
+        "guid": "3850524f85185900a5e4190e167fc226",
+        "ts": 1_784_120_146,
+        "devs": [
+            {
+                "devName": "办公室",
+                "devAddress": device_address,
+                "data": [
+                    {
+                        "t": 0,
+                        "tag": "tag_010_p001",
+                        "name": "正向有功总电能",
+                        "valid": 1,
+                        "value": 23.42,
+                        "unit": "kWh",
+                    },
+                    {
+                        "t": 0,
+                        "tag": "tag_010_p006",
+                        "name": "正向无功总电能",
+                        "valid": 1,
+                        "value": 3.14,
+                        "unit": "kVarh",
+                    },
+                ],
+            }
+        ],
+    }
 
 
 async def test_szscada_message_is_durable_idempotent_and_projects_valid_totals(session) -> None:
@@ -180,3 +212,94 @@ async def test_mqtt_test_message_projects_to_bound_device_point(
     assert reading["source_point_code"] == "EPI"
     assert reading["point_code"] == "forward_active_total"
     assert reading["normalized_value"] == 901.25
+
+
+async def test_addressed_szscada_message_projects_only_to_confirmed_device(session: AsyncSession) -> None:
+    team = m.Team(name="Addressed MQTT Tenant", slug="addressed-mqtt-tenant")
+    session.add(team)
+    await session.flush()
+    session.info[TENANT_ID_SESSION_KEY] = team.id
+    source = m.MqttDataSource(
+        code="szscada-jy",
+        name="SZSCADA JY",
+        broker_host="broker.example",
+        client_id="test-jy-ingest",
+    )
+    area = m.MonitorSector(code="JY-ROOT", name="姜堰天目路仓库", area_type="site", path="/JY-ROOT", level=0)
+    session.add_all([source, area])
+    await session.flush()
+    equipment = m.MonitorEquipment(
+        code="JY-METER-202501020786",
+        name="办公室电表",
+        sector_id=area.id,
+        external_device_id="202501020786",
+        category=0,
+        protocol="mqtt",
+        data_acquisition_method="mqtt",
+        is_enable=True,
+    )
+    subscription = m.MqttSubscription(
+        source_id=source.id,
+        topic_filter="szscada/jy",
+        parser_code="szscada_metering_v2",
+        contract_version="v2",
+    )
+    session.add_all([equipment, subscription])
+    await session.flush()
+    binding = m.MqttDeviceBinding(
+        subscription_id=subscription.id,
+        gateway_key="3850524f85185900a5e4190e167fc226",
+        meter_key="202501020786",
+        selector_name_pattern="^办公室$",
+        equipment_id=equipment.id,
+        external_device_id="202501020786",
+        temporary_address="202501020786",
+        identity_status="confirmed",
+    )
+    session.add(binding)
+    await session.flush()
+    for tag, point_code in (
+        ("tag_010_p001", "forward_active_total"),
+        ("tag_010_p006", "forward_reactive_total"),
+    ):
+        spec = point_spec(point_code)
+        session.add(
+            m.MqttPointMapping(
+                binding_id=binding.id,
+                source_tag=tag,
+                source_name_suffix=spec.point_name,
+                point_code=point_code,
+                point_name=spec.point_name,
+                unit=spec.unit,
+                mapping_version="v2",
+                enabled=True,
+            )
+        )
+    await session.commit()
+
+    use_case = MqttIngestionUseCase(session)
+    message, _ = await use_case.receive_message(
+        source_id=source.id,
+        subscription_id=subscription.id,
+        topic="szscada/jy",
+        payload=addressed_payload(),
+    )
+    processed = await use_case.process_message(message.id)
+
+    assert processed.status == "processed"
+    readings = list((await session.scalars(select(m.MeterReadingFact).order_by(m.MeterReadingFact.point_code))).all())
+    assert len(readings) == 2
+    assert {reading.unit for reading in readings} == {"kWh", "kvarh"}
+    assert {reading.source_type for reading in readings} == {0}
+    assert all(reading.mapping_version == "v2" for reading in readings)
+
+    unknown, _ = await use_case.receive_message(
+        source_id=source.id,
+        subscription_id=subscription.id,
+        topic="szscada/jy",
+        payload=addressed_payload(device_address="unconfigured-meter"),
+    )
+    rejected = await use_case.process_message(unknown.id)
+    assert rejected.status == "rejected"
+    assert rejected.error_code == "projection_config"
+    assert await session.scalar(select(func.count()).select_from(m.MonitorEquipment)) == 1

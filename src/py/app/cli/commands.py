@@ -227,7 +227,12 @@ def validate_energy_types_command() -> None:
         async with alchemy.get_session() as session:
             result = await ensure_standard_energy_types(session, apply=False)
         _print_energy_type_init_result(result)
-        if result.energy_types_created or result.energy_types_updated or result.conversions_created or result.conversions_updated:
+        if (
+            result.energy_types_created
+            or result.energy_types_updated
+            or result.conversions_created
+            or result.conversions_updated
+        ):
             message = "Standard energy type dictionary is not up to date."
             raise click.ClickException(message)
 
@@ -277,7 +282,9 @@ def repair_energy_types_command(team_slug: str, apply: bool) -> None:
     anyio.run(_repair)
 
 
-@energy_benchmark_group.command(name="sync-policy-library", help="Download and sync official energy benchmark policy PDFs.")
+@energy_benchmark_group.command(
+    name="sync-policy-library", help="Download and sync official energy benchmark policy PDFs."
+)
 @click.option("--source", "sources", type=click.STRING, default="ndrc-2023,ndrc-equipment-2024", show_default=True)
 @click.option("--team", "team_slug", type=click.STRING, default="woheng-taizhou-production-base", show_default=True)
 @click.option("--apply", is_flag=True, help="Write downloaded policy benchmark rows into the tenant benchmark library.")
@@ -367,14 +374,14 @@ def migrate_legacy_meter_data(
 
 @metering_management_group.command(
     name="project-electricity",
-    help="Build versioned monthly electricity and Scope 2 projections from canonical facts.",
+    help="Build current monthly electricity and Scope 2 projections from canonical facts.",
 )
 @click.option("--team", "team_slug", type=click.STRING, required=True, help="Tenant team slug.")
 @click.option("--from-month", type=click.STRING, required=True, help="Inclusive month in YYYY-MM format.")
 @click.option("--to-month", type=click.STRING, required=True, help="Inclusive month in YYYY-MM format.")
 @click.option("--area", "area_id", type=click.STRING, default=None, help="Optional area code or numeric area id.")
 def project_meter_electricity(team_slug: str, from_month: str, to_month: str, area_id: str | None) -> None:
-    """Project canonical cumulative readings without replacing prior revisions."""
+    """Update current projections from canonical cumulative readings."""
     from app.domain.metering.legacy_migration import resolve_team_id
     from app.domain.metering.projection import ElectricityProjectionUseCase, iter_billing_months
 
@@ -382,6 +389,12 @@ def project_meter_electricity(team_slug: str, from_month: str, to_month: str, ar
     months = iter_billing_months(from_month, to_month)
 
     async def _project() -> None:
+        from redis.asyncio import Redis
+
+        async with Redis.from_url(get_settings().saq.REDIS_URL) as redis:
+            if await redis.get("metering:projection:paused") == b"1":
+                msg = "Electricity projection is paused for maintenance"
+                raise click.ClickException(msg)
         async with alchemy.get_session() as session:
             session.info[TENANT_BYPASS_SESSION_KEY] = True
             team_id = await resolve_team_id(session, team_slug)
@@ -399,6 +412,100 @@ def project_meter_electricity(team_slug: str, from_month: str, to_month: str, ar
 
     console.rule("Project meter electricity.")
     anyio.run(_project)
+
+
+@metering_management_group.command(
+    name="reset-projection-guard",
+    help="Inspect or reset one tenant-month electricity projection circuit breaker.",
+)
+@click.option("--team", "team_slug", type=click.STRING, required=True, help="Tenant team slug.")
+@click.option("--month", "billing_month", type=click.STRING, required=True, help="Billing month in YYYY-MM format.")
+@click.option("--apply", is_flag=True, help="Delete the scoped breaker state; omitted means read-only inspection.")
+def reset_projection_guard(team_slug: str, billing_month: str, apply: bool) -> None:
+    """Inspect or reset a reviewed projection failure without touching business data."""
+    from redis.asyncio import Redis
+
+    from app.domain.metering.legacy_migration import resolve_team_id
+    from app.domain.metering.projection import month_window
+    from app.domain.metering.projection_guard import ProjectionGuard
+
+    month_window(billing_month)
+    console = get_console()
+
+    async def _reset() -> None:
+        async with alchemy.get_session() as session:
+            session.info[TENANT_BYPASS_SESSION_KEY] = True
+            team_id = await resolve_team_id(session, team_slug)
+            await session.commit()
+        async with Redis.from_url(get_settings().saq.REDIS_URL) as redis:
+            guard = ProjectionGuard(redis, str(team_id), billing_month)
+            before = await guard.state()
+            deleted = await guard.reset() if apply else 0
+            console.print(
+                f"team={team_slug} month={billing_month} apply={apply} deleted={deleted} state={before or '{}'}"
+            )
+
+    console.rule("Reset electricity projection guard.")
+    anyio.run(_reset)
+
+
+@metering_management_group.command(
+    name="cleanup-projection-history", help="Preview or clean obsolete derived statistics."
+)
+@click.option("--team", "team_slug", required=True, help="Tenant team slug.")
+@click.option("--month", default=None, help="Optional YYYY-MM; default all months.")
+@click.option("--batch-size", default=2000, type=click.IntRange(1, 5000))
+@click.option("--pause-ms", default=50, type=click.IntRange(0, 10000), help="Delay between delete batches.")
+@click.option("--apply", is_flag=True, help="Delete obsolete rows; omitted means read-only dry-run.")
+@click.option("--writers-paused", is_flag=True, help="Confirm all projection writers are paused.")
+@click.option("--backup-verified", is_flag=True, help="Confirm a recoverable backup has been verified.")
+@click.option("--backup-waived", is_flag=True, help="Explicitly delete obsolete derived rows without a backup.")
+@click.option(
+    "--report", "report_path", required=True, type=click.Path(path_type=Path), help="Write JSON audit report."
+)
+def cleanup_projection_history(
+    team_slug: str,
+    month: str | None,
+    batch_size: int,
+    pause_ms: int,
+    apply: bool,
+    writers_paused: bool,
+    backup_verified: bool,
+    backup_waived: bool,
+    report_path: Path,
+) -> None:
+    """Run an explicit tenant-scoped cleanup, defaulting to a dry-run."""
+    import json
+
+    from sqlalchemy import text
+
+    from app.domain.metering.legacy_migration import resolve_team_id
+    from app.domain.metering.projection_cleanup import ProjectionCleanup
+
+    async def _cleanup() -> None:
+        async with alchemy.get_session() as session:
+            session.info[TENANT_BYPASS_SESSION_KEY] = True
+            team_id = await resolve_team_id(session, team_slug)
+            await session.commit()
+            session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
+            session.info[TENANT_ID_SESSION_KEY] = team_id
+            if not apply:
+                await session.execute(text("SET TRANSACTION READ ONLY"))
+            cleaner = ProjectionCleanup(session, month=month, batch_size=batch_size, pause_ms=pause_ms)
+            result = await cleaner.execute()
+            # Persist the preflight and verify the output path BEFORE any destructive operation.
+            report_path.write_text(json.dumps(result, ensure_ascii=False, indent=2, default=str) + "\n")
+            if apply:
+                result = await cleaner.execute(
+                    apply=True,
+                    writers_paused=writers_paused,
+                    backup_verified=backup_verified,
+                    backup_waived=backup_waived,
+                )
+                report_path.write_text(json.dumps(result, ensure_ascii=False, indent=2, default=str) + "\n")
+            get_console().print(f"Projection cleanup dry_run={not apply}; report={report_path}")
+
+    anyio.run(_cleanup)
 
 
 async def load_database_fixtures() -> None:

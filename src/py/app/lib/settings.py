@@ -189,6 +189,8 @@ class SaqSettings:
     """Auto start and stop `saq` processes when starting the Litestar application."""
     MQTT_INGEST_CONCURRENCY: int = field(default_factory=get_env("MQTT_INGEST_CONCURRENCY", 1))
     """Dedicated MQTT queue concurrency. Keep this at one for a single subscription runner."""
+    METERING_PROJECTION_CONCURRENCY: int = field(default_factory=get_env("METERING_PROJECTION_CONCURRENCY", 1))
+    """Dedicated electricity-projection queue concurrency."""
 
     def get_config(self) -> SAQConfig:
         """Get SAQ configuration.
@@ -222,7 +224,6 @@ class SaqSettings:
                         carbon_jobs.pull_yunji_data,
                         carbon_jobs.sync_hw_status,
                         carbon_jobs.pull_hw_data,
-                        metering_jobs.refresh_electricity_projections,
                         carbon_verification_jobs.run_carbon_verification_export,
                         decarbonization_jobs.refresh_reduction_project_risks,
                         microgrid_jobs.run_microgrid_forecast_cycle,
@@ -231,11 +232,6 @@ class SaqSettings:
                         microgrid_jobs.project_microgrid_meter_history,
                     ],
                     scheduled_tasks=[
-                        CronJob(
-                            function=metering_jobs.refresh_electricity_projections,
-                            cron="10,40 * * * *",
-                            timeout=1800,
-                        ),
                         CronJob(
                             function=system_jobs.cleanup_auth_tokens,
                             cron="0 * * * *",
@@ -319,6 +315,24 @@ class SaqSettings:
                     concurrency=self.MQTT_INGEST_CONCURRENCY,
                     startup=[on_startup, iot_infrastructure.on_mqtt_ingest_startup],
                     shutdown=[iot_infrastructure.on_mqtt_ingest_shutdown, on_shutdown],
+                    before_process=before_process,
+                    after_process=after_process,
+                    separate_process=True,
+                ),
+                QueueConfig(
+                    name="metering-projection",
+                    dsn=self.REDIS_URL,
+                    tasks=[metering_jobs.refresh_electricity_projections],
+                    scheduled_tasks=[
+                        CronJob(
+                            function=metering_jobs.refresh_electricity_projections,
+                            cron="10,40 * * * *",
+                            timeout=1800,
+                        )
+                    ],
+                    concurrency=self.METERING_PROJECTION_CONCURRENCY,
+                    startup=on_startup,
+                    shutdown=on_shutdown,
                     before_process=before_process,
                     after_process=after_process,
                     separate_process=True,

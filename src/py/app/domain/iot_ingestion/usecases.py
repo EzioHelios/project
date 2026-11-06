@@ -12,8 +12,10 @@ from sqlalchemy import select
 
 from app.db import models as m
 from app.domain.iot_ingestion.domain import (
+    ParsedAddressedPoint,
     ParsedPoint,
     PayloadValidationError,
+    parse_szscada_metering_v2,
     parse_szscada_scada_v1,
     payload_hash,
     temporary_equipment_code,
@@ -29,6 +31,8 @@ from app.domain.metering.reading_facts import (
 from app.lib.tenancy import TENANT_ID_SESSION_KEY
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -97,7 +101,7 @@ class MqttIngestionUseCase:
         subscription = await self._session.get(m.MqttSubscription, message.subscription_id)
         if subscription is None:
             raise ValueError(ERR_SUBSCRIPTION_MISSING)
-        if subscription.parser_code != "szscada_scada_v1":
+        if subscription.parser_code not in {"szscada_metering_v2", "szscada_scada_v1"}:
             message.status = "rejected"
             message.error_code = "unsupported_parser"
             message.error_detail = f"unsupported parser: {subscription.parser_code}"
@@ -106,7 +110,10 @@ class MqttIngestionUseCase:
 
         message.dispatch_attempts += 1
         try:
-            await self._process_szscada_metering(message, subscription)
+            if subscription.parser_code == "szscada_metering_v2":
+                await self._process_szscada_metering_v2(message, subscription)
+            else:
+                await self._process_szscada_metering_v1(message, subscription)
             message.status = "processed"
             message.error_code = None
             message.error_detail = None
@@ -124,7 +131,9 @@ class MqttIngestionUseCase:
             await self._session.commit()
         return message
 
-    async def _process_szscada_metering(self, message: m.MqttInboundMessage, subscription: m.MqttSubscription) -> None:
+    async def _process_szscada_metering_v1(
+        self, message: m.MqttInboundMessage, subscription: m.MqttSubscription
+    ) -> None:
         parsed = parse_szscada_scada_v1(message.payload)
         message.published_at = parsed.published_at
         points_by_meter: dict[int, list[ParsedPoint]] = defaultdict(list)
@@ -142,7 +151,49 @@ class MqttIngestionUseCase:
                 binding=binding,
                 points=points,
                 reading_time=parsed.published_at,
+                allow_mapping_create=True,
             )
+
+    async def _process_szscada_metering_v2(
+        self, message: m.MqttInboundMessage, subscription: m.MqttSubscription
+    ) -> None:
+        parsed = parse_szscada_metering_v2(message.payload)
+        message.published_at = parsed.published_at
+        for device in parsed.devices:
+            binding = await self._resolve_addressed_binding(
+                subscription=subscription,
+                gateway_key=parsed.gateway_key,
+                device_address=device.device_address,
+            )
+            await self._project_meter_points(
+                message=message,
+                binding=binding,
+                points=list(device.points),
+                reading_time=parsed.published_at,
+                allow_mapping_create=False,
+            )
+
+    async def _resolve_addressed_binding(
+        self,
+        *,
+        subscription: m.MqttSubscription,
+        gateway_key: str,
+        device_address: str,
+    ) -> m.MqttDeviceBinding:
+        binding = await self._session.scalar(
+            select(m.MqttDeviceBinding).where(
+                m.MqttDeviceBinding.subscription_id == subscription.id,
+                m.MqttDeviceBinding.gateway_key == gateway_key,
+                m.MqttDeviceBinding.meter_key == device_address,
+                m.MqttDeviceBinding.identity_status == "confirmed",
+            )
+        )
+        if binding is None:
+            msg = f"未配置已确认的 SZSCADA 电表绑定: {gateway_key}/{device_address}"
+            raise ValueError(msg)
+        if binding.equipment_id is None:
+            raise ValueError(ERR_BINDING_EQUIPMENT_MISSING)
+        return binding
 
     async def _resolve_binding(
         self,
@@ -210,15 +261,22 @@ class MqttIngestionUseCase:
         *,
         message: m.MqttInboundMessage,
         binding: m.MqttDeviceBinding,
-        points: list[ParsedPoint],
+        points: Sequence[ParsedPoint | ParsedAddressedPoint],
         reading_time: datetime,
+        allow_mapping_create: bool,
     ) -> None:
         if binding.equipment_id is None:  # pragma: no cover - guarded by _resolve_binding.
             raise ValueError(ERR_BINDING_EQUIPMENT_MISSING)
         writer = MeterReadingFactWriter(self._session)
         readings: list[MeterReadingFactInput] = []
         for point in points:
-            mapping = await self._resolve_mapping(binding, point)
+            mapping = await self._resolve_mapping(binding, point, allow_create=allow_mapping_create)
+            if isinstance(point, ParsedAddressedPoint) and point.source_unit != mapping.unit:
+                msg = (
+                    f"SZSCADA 点位单位与配置不一致: {binding.meter_key}/{point.source_tag} "
+                    f"source={point.source_unit} configured={mapping.unit}"
+                )
+                raise PayloadValidationError(msg)
             normalized_value = point.numeric_value * mapping.multiplier if point.numeric_value is not None else None
             readings.append(
                 MeterReadingFactInput(
@@ -242,7 +300,13 @@ class MqttIngestionUseCase:
             )
         await writer.write_many(readings)
 
-    async def _resolve_mapping(self, binding: m.MqttDeviceBinding, point: ParsedPoint) -> m.MqttPointMapping:
+    async def _resolve_mapping(
+        self,
+        binding: m.MqttDeviceBinding,
+        point: ParsedPoint | ParsedAddressedPoint,
+        *,
+        allow_create: bool,
+    ) -> m.MqttPointMapping:
         mapping = await self._session.scalar(
             select(m.MqttPointMapping)
             .where(
@@ -254,6 +318,9 @@ class MqttIngestionUseCase:
         )
         if mapping is not None:
             return mapping
+        if not allow_create:
+            msg = f"未配置 SZSCADA 点位映射: {binding.meter_key}/{point.source_tag}"
+            raise PayloadValidationError(msg)
         point_code = SZSCADA_TAG_TO_POINT.get(point.source_tag)
         if point_code is None:
             msg = f"未配置 SZSCADA 点位映射: {point.source_tag}"

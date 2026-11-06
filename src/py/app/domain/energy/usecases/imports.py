@@ -104,7 +104,7 @@ class EnergyDatasetImportUseCase:
                     :amount, :unit, :cost_cny, :tariff_segment_type, :reading_count, :data_quality, 1, true,
                     :remark, now(), now()
                 )
-                on conflict on constraint uq_energy_interval_team_source_record_revision do update set
+                on conflict on constraint uq_energy_interval_team_source_record do update set
                     energy_type_code = excluded.energy_type_code,
                     equipment_code = excluded.equipment_code,
                     equipment_name = excluded.equipment_name,

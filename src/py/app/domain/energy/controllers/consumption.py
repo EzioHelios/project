@@ -381,7 +381,6 @@ class EnergyConsumptionController(Controller):
                 m.EnergyIntervalFact.team_id == team_id,
                 m.EnergyIntervalFact.source_system == payload["source_system"],
                 m.EnergyIntervalFact.source_record_id == payload["source_record_id"],
-                m.EnergyIntervalFact.revision_no == 1,
             )
         )
         if exists is not None:
@@ -409,7 +408,6 @@ class EnergyConsumptionController(Controller):
                 m.EnergyIntervalFact.team_id == team_id,
                 m.EnergyIntervalFact.source_system == payload["source_system"],
                 m.EnergyIntervalFact.source_record_id == payload["source_record_id"],
-                m.EnergyIntervalFact.revision_no == obj.revision_no,
                 m.EnergyIntervalFact.id != obj.id,
             )
         )

@@ -355,3 +355,26 @@ async def test_write_permission_is_required_for_non_superuser(session, authentic
     allowed = await authenticated_client.patch(path, json={"remark": "permission test"}, headers=headers)
     assert allowed.status_code == 200, allowed.text
     assert allowed.json()["data"]["remark"] == "permission test"
+
+
+async def test_projection_revision_cleanup_keeps_valid_snapshot_but_detects_amount_change(session):
+    from app.domain.material_allocation.policies import fingerprint
+
+    _, _, command, fact, _, _ = await fixture(session)
+    calc = CalculateMaterialCarbonAllocation(session)
+    run = (await calc.execute(command))[0]
+    original_revision = run.revision
+    # Existing saved snapshots may refer to a derived revision removed by maintenance.
+    old_snapshot = {**run.input_snapshot, "energy": {**run.input_snapshot["energy"], "revision": 216}}
+    run.input_snapshot = old_snapshot
+    run.input_hash = fingerprint(old_snapshot)
+    await session.commit()
+    await calc.require_current(run)
+    repeated = (await calc.execute(command))[0]
+    assert repeated.id == run.id
+    assert repeated.revision == original_revision
+    assert repeated.input_snapshot == old_snapshot
+    fact.amount = Decimal(12)
+    await session.flush()
+    with pytest.raises(MaterialAllocationError, match="已变更"):
+        await calc.require_current(run)
