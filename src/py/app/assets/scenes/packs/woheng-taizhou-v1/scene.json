@@ -1,0 +1,228 @@
+{
+  "sceneId": "woheng-taizhou",
+  "revision": "2026-11-13.2",
+  "engine": "cesium-campus",
+  "title": "沃衡汽车泰州生产基地",
+  "address": "江苏省泰州市泰州港经济开发区 · 演示选址",
+  "attribution": "沃衡汽车虚构厂区演示模型；建筑布局与尺寸为演示设定；底图由 Esri World Imagery 提供",
+  "assets": [
+    "ground.glb",
+    "buildings.glb"
+  ],
+  "world": {
+    "origin": [
+      0,
+      0
+    ],
+    "originPixel": [
+      0,
+      0
+    ],
+    "metresPerPixel": 1,
+    "buildings": [
+      {
+        "id": "vehicle-assembly",
+        "polygon": [
+          [
+            -65,
+            16
+          ],
+          [
+            45,
+            16
+          ],
+          [
+            45,
+            -27
+          ],
+          [
+            -65,
+            -27
+          ]
+        ],
+        "height": 14
+      },
+      {
+        "id": "inbound-logistics",
+        "polygon": [
+          [
+            -105,
+            10
+          ],
+          [
+            -72,
+            10
+          ],
+          [
+            -72,
+            -49
+          ],
+          [
+            -105,
+            -49
+          ]
+        ],
+        "height": 10
+      },
+      {
+        "id": "inspection-dispatch",
+        "polygon": [
+          [
+            51,
+            12
+          ],
+          [
+            91,
+            12
+          ],
+          [
+            91,
+            -26
+          ],
+          [
+            51,
+            -26
+          ]
+        ],
+        "height": 10
+      },
+      {
+        "id": "office",
+        "polygon": [
+          [
+            -37,
+            -39
+          ],
+          [
+            29,
+            -39
+          ],
+          [
+            29,
+            -57
+          ],
+          [
+            -37,
+            -57
+          ]
+        ],
+        "height": 13
+      },
+      {
+        "id": "power-station",
+        "polygon": [
+          [
+            48,
+            57
+          ],
+          [
+            87,
+            57
+          ],
+          [
+            87,
+            39
+          ],
+          [
+            48,
+            39
+          ]
+        ],
+        "height": 4.5
+      }
+    ],
+    "water": [],
+    "walkBounds": [
+      -111,
+      111,
+      -81,
+      81
+    ],
+    "orbitPosition": [
+      240,
+      185,
+      240
+    ],
+    "orbitTarget": [
+      0,
+      0,
+      0
+    ],
+    "entries": [
+      {
+        "id": "main-gate",
+        "label": "主入口",
+        "pixel": [
+          -96,
+          76
+        ],
+        "yaw": 0
+      },
+      {
+        "id": "production-road",
+        "label": "生产区通道",
+        "pixel": [
+          0,
+          34
+        ],
+        "yaw": 0
+      }
+    ],
+    "lights": [
+      [
+        -100,
+        65
+      ],
+      [
+        -50,
+        65
+      ],
+      [
+        10,
+        65
+      ],
+      [
+        65,
+        65
+      ],
+      [
+        -100,
+        -64
+      ],
+      [
+        30,
+        -64
+      ]
+    ]
+  },
+  "georegistration": {
+    "version": 2,
+    "crs": "EPSG:4326",
+    "origin": [
+      119.92300272,
+      32.36004393
+    ],
+    "headingDegrees": 0,
+    "scale": [
+      1,
+      1,
+      1
+    ],
+    "ellipsoidHeight": 0.2,
+    "heightStatus": "estimated",
+    "upAxis": "Y",
+    "forwardAxis": "X",
+    "terrain": "ellipsoid",
+    "imagery": {
+      "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      "credit": "Esri World Imagery",
+      "maximumLevel": 18
+    },
+    "placement": {
+      "kind": "fictional-demonstration",
+      "basis": "泰州港经济开发区许庄片区，Esri World Imagery 2026-11-13 检视的开敞地",
+      "imageryDate": "unknown",
+      "parcelOwnership": "unverified"
+    }
+  }
+}

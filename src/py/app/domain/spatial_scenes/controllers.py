@@ -9,7 +9,10 @@ from litestar import Controller, Request, get
 from litestar.di import Provide
 from litestar.exceptions import PermissionDeniedException
 from litestar.response import File, Response
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: TC002 - Litestar resolves route annotations at registration.
 
+from app.db.models import Team
 from app.domain.accounts.guards import requires_authenticated_user
 from app.domain.spatial_scenes.store import SceneAssetStore, provide_scene_store
 from app.lib.tenancy import resolve_tenant_context
@@ -38,10 +41,12 @@ class TenantSceneController(Controller):
         request: Request,
         team_id: UUID,
         scene_store: SceneAssetStore,
+        db_session: AsyncSession,
     ) -> Response[dict[str, Any]]:
         """Read the current team's assigned scene manifest."""
         authorize_scene_team(request, team_id)
-        return Response(scene_store.manifest(team_id), headers=PRIVATE_HEADERS)
+        team_slug = await db_session.scalar(select(Team.slug).where(Team.id == team_id))
+        return Response(scene_store.manifest(team_id, team_slug), headers=PRIVATE_HEADERS)
 
     @get("/assets/{asset_name:str}")
     async def get_asset(
@@ -50,11 +55,13 @@ class TenantSceneController(Controller):
         team_id: UUID,
         asset_name: str,
         scene_store: SceneAssetStore,
+        db_session: AsyncSession,
         revision: str | None = None,
     ) -> File:
         """Authorize every asset read, including requests for copied URLs."""
         authorize_scene_team(request, team_id)
-        path = scene_store.asset(team_id, asset_name, revision)
+        team_slug = await db_session.scalar(select(Team.slug).where(Team.id == team_id))
+        path = scene_store.asset(team_id, asset_name, revision, team_slug)
         return File(
             path=path,
             media_type={

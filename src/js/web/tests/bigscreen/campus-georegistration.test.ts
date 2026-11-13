@@ -2,12 +2,16 @@ import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { Cartesian3, Cartographic, Math as CesiumMath } from "cesium"
 import { describe, expect, it } from "vitest"
-import { campusModelMatrix, campusPointToFixed } from "@/lib/bigscreen/campus/georegistration"
+import { campusCameraHeading, campusModelMatrix, campusPointToFixed } from "@/lib/bigscreen/campus/georegistration"
 import type { CampusGeoregistration } from "@/lib/bigscreen/campus/types"
 
 describe("geographic campus placement", () => {
+  it("aligns walking direction with a clockwise site rotation", () => {
+    expect(campusCameraHeading({ headingDegrees: -25 } as CampusGeoregistration, 0)).toBeCloseTo((25 * Math.PI) / 180, 6)
+  })
+
   it("maps glTF east/up/south into the Earth's east/north/up frame", () => {
-    const matrix = campusModelMatrix({ origin: [0, 0], scale: [1, 1, 1], ellipsoidHeight: 0 } as CampusGeoregistration)
+    const matrix = campusModelMatrix({ origin: [0, 0], scale: [1, 1, 1], ellipsoidHeight: 0, headingDegrees: 0 } as CampusGeoregistration)
     expect(campusPointToFixed(matrix, 0, 0, 0)).toEqual(new Cartesian3(6378137, 0, 0))
     expect(campusPointToFixed(matrix, 10, 2, 3)).toEqual(new Cartesian3(6378139, 10, -3))
   })

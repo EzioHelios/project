@@ -24,10 +24,12 @@ class SceneAssetStore:
     def __init__(self, root: Path) -> None:
         self.root = root.resolve()
 
-    def _pack(self, team_id: UUID) -> Path:
+    def _pack(self, team_id: UUID, team_slug: str | None = None) -> Path:
         bindings_path = self.root / "bindings.json"
         bindings = json.loads(bindings_path.read_text()) if bindings_path.is_file() else {}
         key = bindings.get(str(team_id))
+        if key is None and team_slug is not None:
+            key = bindings.get(f"slug:{team_slug}")
         if not isinstance(key, str) or not PACK_KEY.fullmatch(key):
             raise NotFoundException(detail="当前租户尚未配置园区模型")
         packs = (self.root / "packs").resolve()
@@ -36,9 +38,9 @@ class SceneAssetStore:
             raise NotFoundException(detail="园区模型资源不存在")
         return pack
 
-    def manifest(self, team_id: UUID) -> dict[str, Any]:
+    def manifest(self, team_id: UUID, team_slug: str | None = None) -> dict[str, Any]:
         """Return only the assigned scene, with protected asset references."""
-        pack = self._pack(team_id)
+        pack = self._pack(team_id, team_slug)
         source = json.loads((pack / "scene.json").read_text())
         revision = source["revision"]
         base = f"/api/teams/{team_id}/scene/assets"
@@ -50,9 +52,9 @@ class SceneAssetStore:
         source["teamId"] = str(team_id)
         return source
 
-    def asset(self, team_id: UUID, name: str, revision: str | None = None) -> Path:
+    def asset(self, team_id: UUID, name: str, revision: str | None = None, team_slug: str | None = None) -> Path:
         """Serve only manifest-listed files inside the assigned pack."""
-        pack = self._pack(team_id)
+        pack = self._pack(team_id, team_slug)
         source = json.loads((pack / "scene.json").read_text())
         allowed = {*source["assets"], source.get("reference")}
         if revision is not None and revision != source.get("revision"):

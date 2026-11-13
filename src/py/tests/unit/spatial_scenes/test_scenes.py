@@ -13,6 +13,7 @@ from litestar.di import Provide
 from litestar.exceptions import NotAuthorizedException
 from litestar.middleware.authentication import AbstractAuthenticationMiddleware, AuthenticationResult
 from litestar.testing import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.spatial_scenes.controllers import TenantSceneController
 from app.domain.spatial_scenes.store import DEFAULT_ROOT, SceneAssetStore
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
 A = UUID("00000000-0000-7000-8000-000000000010")
 B = UUID("00000000-0000-7000-8000-000000000020")
 C = UUID("00000000-0000-7000-8000-000000000030")
+D = UUID("00000000-0000-7000-8000-000000000040")
 WAREHOUSE_SCENES = {
     UUID("00000000-0000-7000-8000-000000000001"): ("xiangtai-warehouse", "cesium-campus"),
     UUID("00000000-0000-7000-8000-000000000002"): ("anfang-central", "cesium-campus"),
@@ -37,9 +39,9 @@ class TestIdentity(AbstractAuthenticationMiddleware):
 
     async def authenticate_request(self, connection):
         identity = connection.headers.get("x-test-identity")
-        if identity not in {"a", "b", "c", "admin", "inactive"}:
+        if identity not in {"a", "b", "c", "d", "admin", "inactive"}:
             raise NotAuthorizedException
-        team = {"a": A, "b": B, "c": C, "inactive": A}.get(identity)
+        team = {"a": A, "b": B, "c": C, "d": D, "inactive": A}.get(identity)
         user = SimpleNamespace(
             id=A,
             is_active=identity != "inactive",
@@ -52,8 +54,10 @@ class TestIdentity(AbstractAuthenticationMiddleware):
 
 @pytest.fixture
 def scene_client(tmp_path: Path):
-    (tmp_path / "bindings.json").write_text(json.dumps({str(A): "a", str(B): "b"}))
-    for key in ["a", "b"]:
+    (tmp_path / "bindings.json").write_text(
+        json.dumps({str(A): "a", str(B): "b", "slug:woheng-taizhou-production-base": "woheng"})
+    )
+    for key in ["a", "b", "woheng"]:
         pack = tmp_path / "packs" / key
         pack.mkdir(parents=True)
         (pack / "model.glb").write_bytes(key.encode())
@@ -61,8 +65,18 @@ def scene_client(tmp_path: Path):
         (pack / "scene.json").write_text(json.dumps({"sceneId": key, "revision": "1", "assets": ["model.glb"]}))
     store = SceneAssetStore(tmp_path)
 
+    class SceneSession(AsyncSession):
+        async def scalar(self, statement):
+            team_id = next(iter(statement.compile().params.values()))
+            return "woheng-taizhou-production-base" if team_id == D else None
+
+    session = SceneSession()
+
     class Controller(TenantSceneController):
-        dependencies = {"scene_store": Provide(lambda: store, sync_to_thread=False)}
+        dependencies = {
+            "scene_store": Provide(lambda: store, sync_to_thread=False),
+            "db_session": Provide(lambda: session, sync_to_thread=False),
+        }
 
     app = Litestar(route_handlers=[Controller], middleware=[TestIdentity])
     with TestClient(app) as client:
@@ -110,6 +124,16 @@ def test_admin_can_explicitly_select_an_assigned_team(scene_client):
     assert response.json()["sceneId"] == "b"
 
 
+def test_demo_slug_binding_uses_database_identity_and_keeps_asset_authorization(scene_client):
+    manifest = scene_client.get(f"/api/teams/{D}/scene/", headers={"x-test-identity": "d"})
+    assert manifest.status_code == 200
+    assert manifest.json()["sceneId"] == "woheng"
+    asset = scene_client.get(manifest.json()["assets"][0], headers={"x-test-identity": "d"})
+    assert asset.status_code == 200
+    assert asset.content == b"woheng"
+    assert scene_client.get(f"/api/teams/{D}/scene/", headers={"x-test-identity": "a"}).status_code == 403
+
+
 def test_file_symlink_cannot_escape_pack(tmp_path):
     pack = tmp_path / "packs" / "a"
     pack.mkdir(parents=True)
@@ -143,3 +167,26 @@ def test_warehouse_tenants_have_dedicated_scene_packs(team_id, expected):
     for asset_url in manifest["assets"]:
         asset_name = asset_url.rsplit("/", maxsplit=1)[-1].split("?", maxsplit=1)[0]
         assert store.asset(team_id, asset_name, manifest["revision"]).is_file()
+
+
+@pytest.mark.parametrize(
+    ("slug", "scene_id", "expected_origin", "expected_heading"),
+    [
+        ("woheng-taizhou-production-base", "woheng-taizhou", [119.92300272, 32.36004393], 0),
+        ("woheng-huzhou-production-base", "woheng-huzhou", [119.98303056, 30.91592199], -25),
+    ],
+)
+def test_woheng_demo_tenants_have_distinct_virtual_campus_packs(slug, scene_id, expected_origin, expected_heading):
+    store = SceneAssetStore(DEFAULT_ROOT)
+    manifest = store.manifest(D, slug)
+
+    assert manifest["sceneId"] == scene_id
+    assert manifest["engine"] == "cesium-campus"
+    assert manifest["georegistration"]["origin"] == expected_origin
+    assert manifest["georegistration"]["headingDegrees"] == expected_heading
+    assert manifest["georegistration"]["placement"]["kind"] == "fictional-demonstration"
+    assert manifest["georegistration"]["placement"]["parcelOwnership"] == "unverified"
+    assert len(manifest["world"]["buildings"]) >= 5
+    for asset_url in manifest["assets"]:
+        asset_name = asset_url.rsplit("/", maxsplit=1)[-1].split("?", maxsplit=1)[0]
+        assert store.asset(D, asset_name, manifest["revision"], slug).is_file()

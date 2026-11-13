@@ -1,0 +1,228 @@
+{
+  "sceneId": "woheng-huzhou",
+  "revision": "2026-11-13.3",
+  "engine": "cesium-campus",
+  "title": "沃衡汽车湖州生产基地",
+  "address": "浙江省湖州市南太湖新区 · 演示选址",
+  "attribution": "沃衡汽车虚构厂区演示模型；建筑布局与尺寸为演示设定；底图由 Esri World Imagery 提供",
+  "assets": [
+    "ground.glb",
+    "buildings.glb"
+  ],
+  "world": {
+    "origin": [
+      0,
+      0
+    ],
+    "originPixel": [
+      0,
+      0
+    ],
+    "metresPerPixel": 1,
+    "buildings": [
+      {
+        "id": "battery-tray-line",
+        "polygon": [
+          [
+            -91,
+            19
+          ],
+          [
+            -9,
+            19
+          ],
+          [
+            -9,
+            -34
+          ],
+          [
+            -91,
+            -34
+          ]
+        ],
+        "height": 12
+      },
+      {
+        "id": "electric-drive-line",
+        "polygon": [
+          [
+            9,
+            19
+          ],
+          [
+            88,
+            19
+          ],
+          [
+            88,
+            -34
+          ],
+          [
+            9,
+            -34
+          ]
+        ],
+        "height": 13
+      },
+      {
+        "id": "material-receiving",
+        "polygon": [
+          [
+            -91,
+            60
+          ],
+          [
+            -45,
+            60
+          ],
+          [
+            -45,
+            43
+          ],
+          [
+            -91,
+            43
+          ]
+        ],
+        "height": 9
+      },
+      {
+        "id": "quality-office",
+        "polygon": [
+          [
+            -31,
+            -45
+          ],
+          [
+            42,
+            -45
+          ],
+          [
+            42,
+            -60
+          ],
+          [
+            -31,
+            -60
+          ]
+        ],
+        "height": 9
+      },
+      {
+        "id": "power-station",
+        "polygon": [
+          [
+            43,
+            59
+          ],
+          [
+            88,
+            59
+          ],
+          [
+            88,
+            42
+          ],
+          [
+            43,
+            42
+          ]
+        ],
+        "height": 4.5
+      }
+    ],
+    "water": [],
+    "walkBounds": [
+      -111,
+      111,
+      -81,
+      81
+    ],
+    "orbitPosition": [
+      319,
+      185,
+      116
+    ],
+    "orbitTarget": [
+      0,
+      0,
+      0
+    ],
+    "entries": [
+      {
+        "id": "main-gate",
+        "label": "主入口",
+        "pixel": [
+          -96,
+          76
+        ],
+        "yaw": 0
+      },
+      {
+        "id": "production-road",
+        "label": "生产区通道",
+        "pixel": [
+          0,
+          34
+        ],
+        "yaw": 0
+      }
+    ],
+    "lights": [
+      [
+        -100,
+        65
+      ],
+      [
+        -50,
+        65
+      ],
+      [
+        10,
+        65
+      ],
+      [
+        65,
+        65
+      ],
+      [
+        -100,
+        -64
+      ],
+      [
+        30,
+        -64
+      ]
+    ]
+  },
+  "georegistration": {
+    "version": 2,
+    "crs": "EPSG:4326",
+    "origin": [
+      119.98303056,
+      30.91592199
+    ],
+    "headingDegrees": -25,
+    "scale": [
+      1,
+      1,
+      1
+    ],
+    "ellipsoidHeight": 0.2,
+    "heightStatus": "estimated",
+    "upAxis": "Y",
+    "forwardAxis": "X",
+    "terrain": "ellipsoid",
+    "imagery": {
+      "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      "credit": "Esri World Imagery",
+      "maximumLevel": 18
+    },
+    "placement": {
+      "kind": "fictional-demonstration",
+      "basis": "南太湖新区杨家埠片区，Esri World Imagery 2026-11-13 检视的开敞地",
+      "imageryDate": "unknown",
+      "parcelOwnership": "unverified"
+    }
+  }
+}

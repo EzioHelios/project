@@ -2,7 +2,7 @@ import "cesium/Build/Cesium/Widgets/widgets.css"
 import { Axis, Cartesian3, Color, DirectionalLight, EllipsoidTerrainProvider, Matrix4, Model, ShadowMode, UrlTemplateImageryProvider, Viewer } from "cesium"
 import { fetchSceneAsset } from "./api"
 import { blocksWalkAt } from "./collision"
-import { campusModelMatrix, campusOffsetToEnu, campusPointToFixed } from "./georegistration"
+import { campusCameraHeading, campusModelMatrix, campusOffsetToEnu, campusPointToFixed } from "./georegistration"
 import type { CampusRuntime, CampusViewState, ModelCampusManifest, PixelPoint } from "./types"
 
 /** Geographic renderer for the same tenant GLBs and controls used by the local viewer. */
@@ -98,7 +98,7 @@ export function createCesiumCampusRuntime(
   function updateWalker() {
     viewer.camera.setView({
       destination: campusPointToFixed(matrix, position[0], 1.9, position[1]),
-      orientation: { heading: -yaw, pitch, roll: 0 },
+      orientation: { heading: campusCameraHeading(registration, yaw), pitch, roll: 0 },
     })
     viewer.scene.requestRender()
   }

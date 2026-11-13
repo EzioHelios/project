@@ -20,6 +20,10 @@ export function campusOffsetToEnu(registration: CampusGeoregistration, east: num
   )
 }
 
+export function campusCameraHeading(registration: CampusGeoregistration, localYaw: number) {
+  return -localYaw - CesiumMath.toRadians(registration.headingDegrees)
+}
+
 /** Existing controls use glTF/Three coordinates: east, up, south. */
 export function campusPointToFixed(matrix: Matrix4, east: number, up: number, south: number) {
   return Matrix4.multiplyByPoint(matrix, new Cartesian3(east, -south, up), new Cartesian3())
