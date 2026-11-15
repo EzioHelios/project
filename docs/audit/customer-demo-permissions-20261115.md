@@ -42,3 +42,18 @@ app users provision-customer-demo --username woheng-demo --email customer.demo@w
 权限脚本参数为 `E2E_BASE_URL`、`E2E_CUSTOMER_USERNAME`、`E2E_CUSTOMER_PASSWORD`、`E2E_ACCESS_OUTPUT`。业务脚本使用现有 `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` 变量名，但本轮传入的是普通客户账号，验收明确要求 `isSuperuser=false`。
 
 本轮运行记录和截图保存于 `.storage/customer-access-20261115/`，不提交账户秘密或运行时数据。正式发布前备份华为 `/root/warehouse` 的数据库及配置，通过 `scripts/build_push_multiarch.sh` 构建、Compose 拉取、迁移和服务更新发布。发布后再次执行两个基地的权限及录入、核算验收，并比对其他租户活动数据及既有账号安全状态。
+
+## 2026-11-15 验收结果
+
+- 后端权限及租户集成测试 12 项通过；前端 28 个测试文件、120 项测试通过；TypeScript 类型检查及相关文件的 Ruff、Biome 检查通过。
+- 本地和线上均以客户账号完成 107 项浏览器权限检查：两个基地共 78 个授权页面、20 次受限接口请求、8 次受限页面访问，以及账号与租户范围检查。授权页面没有产生意外的接口权限错误。
+- 两个基地均完成能源数据新增、编辑、查询、CSV 预检与导入、重复导入、导出、删除验证。泰州另外完成组织碳分类填报及批量导入的 56 项检查，覆盖排放源、活动数据、归集、冷媒、运输和通勤表单。
+- 两个基地均使用客户账号完成 2026 年 10 月组织碳核算：泰州 327124.80 kgCO₂e，湖州 256348.76 kgCO₂e，各包含 8 条既有演示活动数据。结果用于验证演示流程，不代表真实企业排放。
+- 两个基地均从核算结果新建报告草稿并成功导出 Word，检查了下载文件及报告主体。验证后删除本轮创建的报告草稿。此次未修补历史报告缺失的正文快照，也不将新草稿导出成功表述为所有历史报告均可导出。
+- 内置浏览器实际登录线上账号，确认首页为七项能源功能、五项碳管理功能，租户列表只有泰州和湖州，切换成功；能源查询显示数据，直接访问用户管理被转至“无权访问”。
+
+线上运行镜像为 `registry.xzzandzyc.store:5000/project/warehouse-carbon:22aea4d5`，数据库版本为 `f151115b002`。应用及三个后台工作进程已更新，健康检查通过。发布前完成全租户数据库备份。
+
+发布后比对确认：原有 6 个账号的密码等安全字段、14 条租户成员关系均未改变；安方、祥泰等真实租户的组织碳活动数据内容与核算运行数量未改变。本轮仅新增 1 个客户账号和对应的 2 条沃衡租户成员关系。
+
+详细结果位于 `.storage/customer-access-20261115/online/`；权限结果为 `taizhou/access/acceptance.json`，报告下载结果为 `exports/acceptance.json`，发布前后数据比对为 `.storage/customer-access-20261115/release-acceptance.json`。密码单独交付，不写入验收文档或 Git。

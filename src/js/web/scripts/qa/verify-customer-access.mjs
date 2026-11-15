@@ -61,7 +61,9 @@ try {
     for (const route of routes) assert.ok(homeLinks.includes(route), `Home missing ${route}`)
     const links = await page.locator("a[href]").evaluateAll((nodes) => nodes.map((n) => n.getAttribute("href")))
     assert.ok(!links.some((link) => /^\/(admin|auth|microgrid|bigscreen|mobile|tasks)(\/|$)/.test(link)), "Excluded links present")
-    await page.screenshot({ path: path.join(out, `${team.slug}-home.png`) })
+    await page.evaluate(() => document.fonts.ready)
+    await expect(page.locator("main section").first()).toHaveCSS("opacity", "1")
+    await page.screenshot({ path: path.join(out, `${team.slug}-home.png`), animations: "disabled" })
     for (const route of [...routes, "/profile", "/data/company", "/data/monitor-area", "/data/terminals", "/data/energy-consumption", "/data/energy-types", "/data/energy-unit-conversions", "/data/energy-benchmark", "/data/energy-budget", "/data/production-products", "/data/production-output", "/data/product-prices", "/data/product-resource-bindings", "/data/commute", "/data/inbound", "/data/outbound", "/data/material-handling", "/data/meter", "/carbon-mgmt/sources", "/carbon-mgmt/activities", "/carbon-mgmt/factors", "/carbon-mgmt/calculation-factors", "/carbon-mgmt/category/1.1", "/carbon-mgmt/category/2.1", "/carbon-mgmt/category/3.3", "/carbon/organization/reports", "/carbon/organization/boundary"]) {
       track = true
       currentRoute = route
