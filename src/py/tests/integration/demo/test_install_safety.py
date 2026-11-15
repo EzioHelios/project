@@ -136,3 +136,40 @@ async def test_full_install_refuses_partial_base_before_writes(session, monkeypa
         await package._install(DemoExecutionContext("woheng-showcase", "woheng", apply=True))
     dictionary.assert_not_awaited()
     assert await session.scalar(select(m.MonitorEquipment.name)) == "Keep"
+
+
+@pytest.mark.parametrize("initial_context", ["none", "other_tenant", "bypass"])
+async def test_install_guard_binds_postgres_context_before_each_tenant_read(session, monkeypatch, initial_context):
+    from sqlalchemy import text
+
+    from app.lib.tenancy import TENANT_BYPASS_SESSION_KEY
+
+    teams = [m.Team(slug=spec.slug, name=spec.name, is_active=True) for spec in TENANTS]
+    session.add_all(teams)
+    await session.commit()
+    expected_ids = [str(team.id) for team in teams]
+    if initial_context == "other_tenant":
+        session.info[TENANT_ID_SESSION_KEY] = teams[1].id
+    elif initial_context == "bypass":
+        session.info[TENANT_BYPASS_SESSION_KEY] = True
+    # Begin a transaction before the guard, as CLI/session setup can do.
+    await session.execute(text("SELECT 1"))
+    package = WohengShowcasePackage(session)
+    original_counts = package._tenant_counts
+    observed = []
+
+    async def checked_counts():
+        tenant_id, bypass = (
+            await session.execute(
+                text("SELECT current_setting('app.tenant_id', true), current_setting('app.tenant_bypass', true)")
+            )
+        ).one()
+        assert tenant_id == expected_ids[len(observed)]
+        assert tenant_id == str(session.info[TENANT_ID_SESSION_KEY])
+        assert bypass == "false"
+        observed.append(tenant_id)
+        return await original_counts()
+
+    monkeypatch.setattr(package, "_tenant_counts", checked_counts)
+    await package._assert_install_targets_safe()
+    assert observed == expected_ids

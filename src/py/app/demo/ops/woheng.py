@@ -757,7 +757,11 @@ class WohengShowcasePackage:
             if team is None:
                 continue
             validate_demo_team(team)
-            self._session.info[TENANT_ID_SESSION_KEY] = team.id
+            team_id = team.id
+            # Team lookup already began a transaction. PostgreSQL RLS settings
+            # are bound in after_begin, so changing session.info alone is too late.
+            await self._session.rollback()
+            self._session.info[TENANT_ID_SESSION_KEY] = team_id
             self._session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
             await require_demo_tenant(self._session)
             counts = await self._tenant_counts()
