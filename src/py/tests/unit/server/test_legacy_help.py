@@ -58,7 +58,8 @@ def help_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Tes
 def test_all_legacy_help_urls_serve_canonical_pages_anonymously(help_client: TestClient[Litestar]) -> None:
     """All generated aliases serve the same bytes as the bundle, with no old body or SPA shell."""
     pages = json.loads((PUBLIC_HELP / "site-map.json").read_text())["pages"]
-    assert len(pages) == 33
+    assert len(pages) == 34
+    assert all(page["target"].startswith("https://docs.nexlca.com/energy-carbon/manual") for page in pages)
     for page in pages:
         response = help_client.get(f"/help/woheng-showcase/{page['href']}")
         assert response.status_code == 200

@@ -1,11 +1,10 @@
 {
-  "title": "沃衡汽车能碳管理平台操作手册",
-  "shortTitle": "沃衡平台操作手册",
+  "title": "能碳管理平台操作手册",
+  "shortTitle": "平台操作手册",
   "targetRole": "能碳管理人员、能源运维人员、体系与核查支持人员",
   "verificationMode": "screenshot-plan-with-browser-evidence",
   "brand": {
-    "name": "沃衡汽车能碳管理平台",
-    "company": "沃衡汽车有限公司"
+    "name": "能碳管理平台"
   },
   "sourceEvidencePlan": "outputs/woheng-showcase-woheng-full-evidence/screenshot-plan.json",
   "excludedEvidenceIds": [
@@ -1658,11 +1657,12 @@
       ]
     }
   ],
-  "canonicalDocsBaseUrl": "https://docs.nexlca.com/energy-carbon/woheng",
+  "canonicalDocsBaseUrl": "https://docs.nexlca.com/energy-carbon/manual",
   "canonicalExtraPageIds": [
     "energy-to-carbon",
     "refrigerant-data",
-    "transport-commute-data"
+    "transport-commute-data",
+    "demo-woheng"
   ],
   "legacyPageRedirects": {
     "green-factory-score-items": "overview",

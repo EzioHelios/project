@@ -77,7 +77,7 @@ function renderRedirect(target) {
   <meta name="robots" content="noindex, follow" />
   <meta http-equiv="refresh" content="0; url=${escaped}" />
   <link rel="canonical" href="${escaped}" />
-  <title>沃衡操作手册</title>
+  <title>能碳管理平台操作手册</title>
   <script>window.location.replace(${JSON.stringify(target)});</script>
 </head>
 <body>

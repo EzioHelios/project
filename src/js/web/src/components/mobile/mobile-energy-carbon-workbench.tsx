@@ -795,7 +795,7 @@ function ProfileDetailPanel({
             <ActionButton icon={LockKeyhole} text="修改密码" onClick={() => undefined} />
           </>
         ) : null}
-        {panel === "help" ? <ProfileLink icon={FileText} title="平台操作手册" text="查看平台业务操作步骤" href="https://docs.nexlca.com/energy-carbon/woheng" /> : null}
+        {panel === "help" ? <ProfileLink icon={FileText} title="平台操作手册" text="查看平台业务操作步骤" href="https://docs.nexlca.com/energy-carbon/manual" /> : null}
       </Card>
       <button
         className="flex h-10 w-full items-center justify-center rounded-full border border-[#e2e7eb] bg-white text-[12px] font-semibold text-[#b3432f]"

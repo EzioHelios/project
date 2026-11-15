@@ -1,6 +1,6 @@
 # 操作手册与演示文档
 
-沃衡操作手册已迁至 `refine-lca/apps/docs/docs/energy-carbon/woheng/`，通过 `docs.nexlca.com/energy-carbon/woheng` 发布。此目录保留页面步骤元数据和本地截图验证脚本的输入；后续面向用户的文字以文档站为准。
+能碳管理平台操作手册已迁至 `refine-lca/apps/docs/docs/energy-carbon/manual/`，通过 `docs.nexlca.com/energy-carbon/manual` 发布。此目录保留页面步骤元数据和本地截图验证脚本的输入；后续面向用户的文字以文档站为准。
 
 ## 目录约定
 
@@ -16,7 +16,7 @@ cd src/js/web
 bun run docs:manual:woheng
 ```
 
-现有 `build-manual-site.mjs` 统一生成跳转页：30 个正式页面映射到 canonical docs；旧功能索引、演示脚本、截图索引明确跳转到总览。未知旧页面或无效映射会使生成失败，避免旧正文遗漏。可通过 `--canonicalRoot /绝对路径/refine-lca/apps/docs/docs/energy-carbon/woheng` 核对文档仓库中的实际页面集合。
+现有 `build-manual-site.mjs` 统一生成跳转页：31 个正式页面映射到 canonical docs；旧功能索引、演示脚本、截图索引明确跳转到总览。未知旧页面或无效映射会使生成失败，避免旧正文遗漏。可通过 `--canonicalRoot /绝对路径/refine-lca/apps/docs/docs/energy-carbon/manual` 核对文档仓库中的实际页面集合。
 
 正文、截图和下载样例仅在文档站维护。截图补拍后替换文档站 `static/img/energy-carbon/woheng/` 中对应文件，并更新 `manual-manifests/woheng-evidence-audit.json`。生成跳转页不读取或复制截图，现有 `public/help` 历史图片暂保留，不继续更新。截图验证记录保留在模块验证报告与文档站证据清单中，不写入手册正文。
 
@@ -41,3 +41,5 @@ E2E_TENANT_SLUG=woheng-huzhou-production-base node scripts/manual/verify-energy-
 查询阶段默认将两租户产物分别写入项目根目录的 `.storage/enterprise-entry-20261115/energy` 和 `energy-huzhou`。截图编号为 EV-WH-403、EV-WH-404，报告为各目录下的 `manual-verification/energy-data-maintenance-query.json`，不覆盖 CRUD 报告及其他截图。可用 `E2E_BASE_URL`、`E2E_ENERGY_MONTH`、`MANUAL_VERIFY_OUTPUT_DIR` 覆盖地址、月份和输出目录；更换月份时，目标库须有与案例配置相符的数据。截图使用 `zh-CN`、`Asia/Shanghai`，并检查沃衡品牌与页面自然发出的租户头。
 
 登录前会话探测返回的预期 401 单独记录在 `expectedAuthProbes`，随后成功登录属于正常验证流程；对应控制台记录标为 `expected-session-probe-401-before-login`。登录请求和登录后的接口若返回 401、403 或 5xx，仍会进入 `apiFailures` 并使验证失败。因此，`apiFailures` 为空表示没有未预期的接口失败，不表示整个运行期间从未出现 401。
+
+沃衡汽车保留为通用手册中的演示案例，截图和下载样例中的企业名称不代表平台适用范围。系统入口统一指向 `/energy-carbon/manual`；历史静态地址只负责跳转。

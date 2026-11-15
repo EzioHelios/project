@@ -1,203 +1,209 @@
 {
-  "title": "沃衡汽车能碳管理平台操作手册",
+  "title": "能碳管理平台操作手册",
   "mode": "canonical-redirect",
   "pages": [
     {
       "pageId": "overview",
       "href": "index.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng",
+      "target": "https://docs.nexlca.com/energy-carbon/manual",
       "kind": "canonical-page"
     },
     {
       "pageId": "access-and-tenant",
       "href": "pages/access-and-tenant.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/access-and-tenant",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/access-and-tenant",
       "kind": "canonical-page"
     },
     {
       "pageId": "energy-overview",
       "href": "pages/energy-overview.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-overview",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/energy-overview",
       "kind": "canonical-page"
     },
     {
       "pageId": "data-maintenance-mqtt",
       "href": "pages/data-maintenance-mqtt.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/data-maintenance-mqtt",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/data-maintenance-mqtt",
       "kind": "canonical-page"
     },
     {
       "pageId": "energy-master-data",
       "href": "pages/energy-master-data.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-master-data",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/energy-master-data",
       "kind": "canonical-page"
     },
     {
       "pageId": "energy-data-maintenance",
       "href": "pages/energy-data-maintenance.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-data-maintenance",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/energy-data-maintenance",
       "kind": "canonical-page"
     },
     {
       "pageId": "energy-consumption-query",
       "href": "pages/energy-consumption-query.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-consumption-query",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/energy-consumption-query",
       "kind": "canonical-page"
     },
     {
       "pageId": "energy-intensity",
       "href": "pages/energy-intensity.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-intensity",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/energy-intensity",
       "kind": "canonical-page"
     },
     {
       "pageId": "energy-use-analysis",
       "href": "pages/energy-use-analysis.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-use-analysis",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/energy-use-analysis",
       "kind": "canonical-page"
     },
     {
       "pageId": "energy-flow-analysis",
       "href": "pages/energy-flow-analysis.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-flow-analysis",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/energy-flow-analysis",
       "kind": "canonical-page"
     },
     {
       "pageId": "energy-benchmark-settings",
       "href": "pages/energy-benchmark-settings.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-benchmark-settings",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/energy-benchmark-settings",
       "kind": "canonical-page"
     },
     {
       "pageId": "energy-benchmark",
       "href": "pages/energy-benchmark.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-benchmark",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/energy-benchmark",
       "kind": "canonical-page"
     },
     {
       "pageId": "energy-balance",
       "href": "pages/energy-balance.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-balance",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/energy-balance",
       "kind": "canonical-page"
     },
     {
       "pageId": "energy-budget-settings",
       "href": "pages/energy-budget-settings.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-budget-settings",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/energy-budget-settings",
       "kind": "canonical-page"
     },
     {
       "pageId": "energy-budget",
       "href": "pages/energy-budget.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-budget",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/energy-budget",
       "kind": "canonical-page"
     },
     {
       "pageId": "bigscreen",
       "href": "pages/bigscreen.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/bigscreen",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/bigscreen",
       "kind": "canonical-page"
     },
     {
       "pageId": "activity-ledgers-import",
       "href": "pages/activity-ledgers-import.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/activity-ledgers-import",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/activity-ledgers-import",
       "kind": "canonical-page"
     },
     {
       "pageId": "organization-boundary-settings",
       "href": "pages/organization-boundary-settings.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/organization-boundary-settings",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/organization-boundary-settings",
       "kind": "canonical-page"
     },
     {
       "pageId": "ghg-maintenance",
       "href": "pages/ghg-maintenance.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/ghg-maintenance",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/ghg-maintenance",
       "kind": "canonical-page"
     },
     {
       "pageId": "factors-calculation",
       "href": "pages/factors-calculation.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/factors-calculation",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/factors-calculation",
       "kind": "canonical-page"
     },
     {
       "pageId": "organization-carbon-calculation",
       "href": "pages/organization-carbon-calculation.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/organization-carbon-calculation",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/organization-carbon-calculation",
       "kind": "canonical-page"
     },
     {
       "pageId": "inventory-report-management",
       "href": "pages/inventory-report-management.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/inventory-report-management",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/inventory-report-management",
       "kind": "canonical-page"
     },
     {
       "pageId": "organization-carbon-iso14064",
       "href": "pages/organization-carbon-iso14064.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/organization-carbon-iso14064",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/organization-carbon-iso14064",
       "kind": "canonical-page"
     },
     {
       "pageId": "monitoring-alerts",
       "href": "pages/monitoring-alerts.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/monitoring-alerts",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/monitoring-alerts",
       "kind": "canonical-page"
     },
     {
       "pageId": "verification-report-export",
       "href": "pages/verification-report-export.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/verification-report-export",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/verification-report-export",
       "kind": "canonical-page"
     },
     {
       "pageId": "reduction-carbon-asset",
       "href": "pages/reduction-carbon-asset.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/reduction-carbon-asset",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/reduction-carbon-asset",
       "kind": "canonical-page"
     },
     {
       "pageId": "product-supply-chain-carbon",
       "href": "pages/product-supply-chain-carbon.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/product-supply-chain-carbon",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/product-supply-chain-carbon",
       "kind": "canonical-page"
     },
     {
       "pageId": "energy-to-carbon",
       "href": "pages/energy-to-carbon.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-to-carbon",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/energy-to-carbon",
       "kind": "canonical-page"
     },
     {
       "pageId": "refrigerant-data",
       "href": "pages/refrigerant-data.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/refrigerant-data",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/refrigerant-data",
       "kind": "canonical-page"
     },
     {
       "pageId": "transport-commute-data",
       "href": "pages/transport-commute-data.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng/transport-commute-data",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/transport-commute-data",
+      "kind": "canonical-page"
+    },
+    {
+      "pageId": "demo-woheng",
+      "href": "pages/demo-woheng.html",
+      "target": "https://docs.nexlca.com/energy-carbon/manual/demo-woheng",
       "kind": "canonical-page"
     },
     {
       "pageId": "green-factory-score-items",
       "href": "pages/green-factory-score-items.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng",
+      "target": "https://docs.nexlca.com/energy-carbon/manual",
       "kind": "retired-page-alias"
     },
     {
       "pageId": "demo-script",
       "href": "pages/demo-script.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng",
+      "target": "https://docs.nexlca.com/energy-carbon/manual",
       "kind": "retired-page-alias"
     },
     {
       "pageId": "screenshot-index",
       "href": "pages/screenshot-index.html",
-      "target": "https://docs.nexlca.com/energy-carbon/woheng",
+      "target": "https://docs.nexlca.com/energy-carbon/manual",
       "kind": "retired-page-alias"
     }
   ]
