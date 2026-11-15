@@ -16,6 +16,7 @@ from app.domain.carbon.services._bigscreen import (
     BigscreenCarbonService,
     BigscreenIntroService,
     BigscreenMetaService,
+    is_showcase_tenant,
 )
 from app.domain.carbon.services._bigscreen_operations import BigscreenOperationsService
 
@@ -50,12 +51,12 @@ class BigscreenController(Controller):
         )
 
     @get("/meta")
-    async def get_meta(self, settings: AppSettings) -> Response[dict]:
+    async def get_meta(self, db_session: AsyncSession, settings: AppSettings) -> Response[dict]:
         payload = BigscreenMetaService(
             title=settings.DISPLAY_NAME,
             short_name=settings.SHORT_NAME,
             description=settings.DESCRIPTION,
-        ).build()
+        ).build(is_demo=await is_showcase_tenant(db_session))
         return Response(content={"code": 200, "msg": "获取成功", "data": payload.model_dump(mode="json")})
 
     @get("/intro")

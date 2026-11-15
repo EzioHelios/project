@@ -39,6 +39,7 @@ CUSTOMER_DEMO_PERMISSIONS = frozenset(
     for action in ("view", "manage")
 ) | frozenset(
     {
+        "bigscreen.view",
         "product_footprint.view",
         "product_footprint:write",
         "material_allocation.view",

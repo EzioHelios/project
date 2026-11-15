@@ -1,6 +1,7 @@
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
+from uuid import uuid4
 
 import pytest
 
@@ -49,7 +50,7 @@ def test_ledger_date_accepts_only_known_year_first_formats(raw, expected):
 
 async def test_missing_carbon_results_do_not_fabricate_scope_charts():
     session = AsyncMock()
-    session.info = {}
+    session.info = {"tenant_id": uuid4()}
     session.scalar.return_value = None
     payload = await BigscreenCarbonService(session).build()
     assert all(metric.value is None for metric in payload.hero_metrics)

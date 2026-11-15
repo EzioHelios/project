@@ -60,7 +60,7 @@ try {
     const homeLinks = await page.locator("main a[href]").evaluateAll((nodes) => nodes.map((n) => n.getAttribute("href")))
     for (const route of routes) assert.ok(homeLinks.includes(route), `Home missing ${route}`)
     const links = await page.locator("a[href]").evaluateAll((nodes) => nodes.map((n) => n.getAttribute("href")))
-    assert.ok(!links.some((link) => /^\/(admin|auth|microgrid|bigscreen|mobile|tasks)(\/|$)/.test(link)), "Excluded links present")
+    assert.ok(!links.some((link) => /^\/(admin|auth|microgrid|mobile|tasks)(\/|$)/.test(link)), "Excluded links present")
     await page.evaluate(() => document.fonts.ready)
     await expect(page.locator("main section").first()).toHaveCSS("opacity", "1")
     await page.screenshot({ path: path.join(out, `${team.slug}-home.png`), animations: "disabled" })
@@ -79,7 +79,7 @@ try {
     }
     for (const [method, endpoint] of [
       ["GET", "/api/admin/users"], ["GET", "/api/admin/teams"], ["GET", "/api/system/tasks"],
-      ["GET", "/api/microgrid/overview"], ["GET", "/api/vision/dashboard"], ["GET", "/api/bigscreen/overview"],
+      ["GET", "/api/microgrid/overview"], ["GET", "/api/vision/dashboard"],
       ["GET", "/api/energy-carbon/alerts"], ["GET", "/api/mobile/work-orders"], ["POST", "/api/teams"],
       ["POST", "/api/ghg-inventory/reports/permission-probe/1/publish"],
     ]) {

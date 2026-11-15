@@ -79,6 +79,7 @@ export type BigscreenComparisonItem = {
 }
 
 export type BigscreenMetaResponse = {
+  is_demo: boolean
   title: string
   short_name: string
   description: string

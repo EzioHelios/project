@@ -108,3 +108,30 @@ async def test_read_permission_does_not_authorize_writes(customer, client, sessi
     assert (await client.get("/api/energy/interval-facts", headers=customer[2])).status_code == 200
     assert (await client.post("/api/energy/interval-facts", headers=customer[2], json={})).status_code == 403
     assert (await client.post("/api/energy/imports/datasets", headers=customer[2], json={})).status_code == 403
+
+
+async def test_bigscreen_read_and_demo_notice_are_tenant_scoped(customer, client, session):
+    _, teams, headers = customer
+    session.add(
+        m.DemoManifest(
+            namespace="woheng",
+            package_key="woheng-showcase",
+            module_key="tenant",
+            profile="full",
+            object_type="team",
+            object_key=teams[0].slug,
+            object_id=str(teams[0].id),
+            team_id=teams[0].id,
+        )
+    )
+    await session.commit()
+    for index, team in enumerate(teams):
+        response = await client.get("/api/bigscreen/meta", headers={**headers, "X-Team-Id": str(team.id)})
+        assert response.status_code == 200, response.text
+        assert response.json()["data"]["is_demo"] is (index == 0)
+    assert "bigscreen.view" in CUSTOMER_DEMO_PERMISSIONS
+    assert "bigscreen.manage" not in CUSTOMER_DEMO_PERMISSIONS
+    assert "vision.view" not in CUSTOMER_DEMO_PERMISSIONS
+    response = await client.get("/api/bigscreen/meta", headers={**headers, "X-Team-Id": str(uuid4())})
+    assert response.status_code == 403
+    assert (await client.get("/api/vision/dashboard", headers=headers)).status_code == 403

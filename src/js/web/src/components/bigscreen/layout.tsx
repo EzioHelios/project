@@ -5,12 +5,14 @@ import { useEffect, useState } from "react"
 import "@/components/bigscreen/bigscreen.css"
 
 import { TenantCampusScene } from "@/components/bigscreen/campus/tenant-campus-scene"
+import { BigscreenDemoNotice } from "@/components/bigscreen/demo-notice"
 import { ScreenHeader } from "@/components/bigscreen/primitives/ScreenHeader"
 import { BigscreenSkinProvider } from "@/components/bigscreen/skins/context"
 import { getBigscreenSkinDefinition } from "@/components/bigscreen/skins/registry"
 import { BigscreenTenantSwitcher } from "@/components/bigscreen/tenant-switcher"
 import { useAuthStore } from "@/lib/auth"
 import { useBigscreenEnvironment, useBigscreenMeta } from "@/lib/bigscreen/hooks"
+import { canAccessPath } from "@/lib/permissions"
 
 const fallbackNav = [
   { label: "态势总览", path: "/bigscreen/overview" },
@@ -61,6 +63,8 @@ function useClock() {
 }
 
 export function BigscreenLayout() {
+  const access = useAuthStore((state) => state.access)
+  const userId = useAuthStore((state) => state.user?.id)
   const teamName = useAuthStore((state) => state.currentTeam?.name)
   const pathname = useLocation({ select: (location) => location.pathname })
   const { scale, tier } = useBigscreenViewport()
@@ -70,7 +74,7 @@ export function BigscreenLayout() {
   const environmentQuery = useBigscreenEnvironment(meta?.show_weather !== false)
   const environment = environmentQuery.data
   const skin = getBigscreenSkinDefinition()
-  const navItems = meta?.nav_items ?? fallbackNav
+  const navItems = (meta?.nav_items ?? fallbackNav).filter((item) => canAccessPath(access, item.path))
   const resolution = tier === "2160" ? "2160" : "1080"
   const displayCity = meta?.city ?? environment?.city ?? "--"
   const displayWeather = meta?.show_weather === false ? "--" : (environment?.weather ?? "--")
@@ -96,7 +100,12 @@ export function BigscreenLayout() {
                 shortName="能碳"
                 description=""
                 city={displayCity}
-                tenantSwitcher={<BigscreenTenantSwitcher />}
+                tenantSwitcher={
+                  <>
+                    {meta?.is_demo && userId && <BigscreenDemoNotice key={userId} userId={userId} />}
+                    <BigscreenTenantSwitcher />
+                  </>
+                }
                 weather={displayWeather}
                 now={now}
                 navItems={navItems}

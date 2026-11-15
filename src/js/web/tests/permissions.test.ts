@@ -9,6 +9,7 @@ const access: EffectiveAccess = {
     "product_footprint.view",
     "carbon.verification.view",
     "carbon.assets.view",
+    "bigscreen.view",
   ],
 }
 
@@ -23,6 +24,10 @@ describe("effective role navigation", () => {
       "/carbon/assets/overview",
     ])
       expect(canAccessPath(access, `${path}?year=2026`)).toBe(true)
+  })
+  it("opens standard bigscreens without opening video recognition", () => {
+    expect(canAccessPath(access, "/bigscreen/overview")).toBe(true)
+    expect(canAccessPath(access, "/bigscreen/vision")).toBe(false)
   })
   it("rejects excluded paths and unknown paths", () => {
     for (const path of [

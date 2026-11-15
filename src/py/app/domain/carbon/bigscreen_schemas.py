@@ -77,6 +77,7 @@ class BigscreenComparisonItem(BaseModel):
 
 
 class BigscreenMetaPayload(BaseModel):
+    is_demo: bool = False
     title: str
     short_name: str
     description: str

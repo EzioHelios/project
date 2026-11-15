@@ -2420,3 +2420,19 @@
     opacity: 0.54;
   }
 }
+
+.bigscreen-demo-notice-trigger {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border: 1px solid rgb(111 217 240 / 45%);
+  border-radius: 4px;
+  color: #c4eef5;
+  background: rgb(18 54 72 / 75%);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.bigscreen-demo-notice-trigger:focus-visible {
+  outline: 2px solid #c4eef5;
+  outline-offset: 3px;
+}

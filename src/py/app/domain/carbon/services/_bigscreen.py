@@ -13,7 +13,7 @@ from app.domain.ghg_inventory import models as ghg
 from app.domain.ghg_inventory.domain.catalog import CATEGORY_BY_CODE
 from app.domain.ghg_inventory.queries.analytics import GhgAnalyticsQueryService
 from app.domain.ghg_inventory.queries.result_slice import GhgAnalyticsFilter
-from app.lib.tenancy import TENANT_ID_SESSION_KEY
+from app.lib.tenancy import require_session_tenant_id
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,15 +22,29 @@ if TYPE_CHECKING:
 CARBON_ALERT_EVENT_TYPE = 4
 
 
+async def is_showcase_tenant(session: AsyncSession) -> bool:
+    """Identify a demo-owned tenant from the existing package manifest."""
+    team_id = require_session_tenant_id(session)
+    return bool(
+        team_id
+        and await session.scalar(
+            select(DemoManifest.id)
+            .where(DemoManifest.team_id == team_id, DemoManifest.package_key == "woheng-showcase")
+            .limit(1)
+        )
+    )
+
+
 @dataclass(slots=True)
 class BigscreenMetaService:
     title: str
     short_name: str
     description: str
 
-    def build(self) -> bs.BigscreenMetaPayload:
+    def build(self, *, is_demo: bool = False) -> bs.BigscreenMetaPayload:
         return bs.BigscreenMetaPayload(
             title=self.title,
+            is_demo=is_demo,
             short_name=self.short_name,
             description="",
             default_path="/bigscreen/overview",
@@ -105,15 +119,7 @@ class BigscreenCarbonService:
     session: AsyncSession
 
     async def build(self) -> bs.BigscreenCarbonPayload:
-        team_id = self.session.info.get(TENANT_ID_SESSION_KEY)
-        showcase_team = bool(
-            team_id
-            and await self.session.scalar(
-                select(DemoManifest.id)
-                .where(DemoManifest.team_id == team_id, DemoManifest.package_key == "woheng-showcase")
-                .limit(1)
-            )
-        )
+        showcase_team = await is_showcase_tenant(self.session)
         sample_runs = (
             select(ghg.GhgCalculationResult.run_id)
             .join(ghg.GhgActivityRecord, ghg.GhgActivityRecord.id == ghg.GhgCalculationResult.activity_id)
