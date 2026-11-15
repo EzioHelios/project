@@ -4,7 +4,7 @@ import { fetchSceneManifest } from "@/lib/bigscreen/campus/api"
 const config = () => ({
   engine: "cesium-campus", teamId: "team-a", assets: ["/api/teams/team-a/scene/assets/model.glb"], world: { entries: [{ id: "gate" }] },
   georegistration: {
-    version: 1, crs: "EPSG:4326", origin: [120, 32], scale: [1, 1, 1], ellipsoidHeight: 0.2,
+    version: 2, headingDegrees: 0, crs: "EPSG:4326", origin: [120, 32], scale: [1, 1, 1], ellipsoidHeight: 0.2,
     terrain: "ellipsoid", upAxis: "Y", forwardAxis: "X",
     imagery: { url: "https://example.com/{z}/{x}/{y}", maximumLevel: 18 },
   },
