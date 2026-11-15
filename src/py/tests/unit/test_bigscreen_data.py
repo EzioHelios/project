@@ -11,10 +11,11 @@ from app.domain.carbon.services._bigscreen_operations import descendant_codes, r
 pytestmark = [pytest.mark.anyio, pytest.mark.unit]
 
 
-async def test_warehouse_profile_omits_unknown_dimensions_and_has_no_invented_photos():
+@pytest.mark.parametrize("name", ["安方中心库", None])
+async def test_warehouse_profile_omits_unknown_dimensions_and_has_no_invented_photos(name):
     session = AsyncMock()
     session.scalar.return_value = SimpleNamespace(
-        name="安方中心库",
+        name=name,
         belong_unit="",
         industry=None,
         location=None,
@@ -26,7 +27,8 @@ async def test_warehouse_profile_omits_unknown_dimensions_and_has_no_invented_ph
     )
     session.scalars.return_value = Mock(all=Mock(return_value=[]))
     payload = await BigscreenIntroService(session, BigscreenMetaService("平台", "能碳", "")).build()
-    assert [(item.label, item.value) for item in payload.company_facts] == [("企业名称", "安方中心库")]
+    assert payload.hero_title == (name or "仓库档案")
+    assert [(item.label, item.value) for item in payload.company_facts] == ([("企业名称", name)] if name else [])
     assert payload.company_gallery == []
 
 
@@ -47,6 +49,7 @@ def test_ledger_date_accepts_only_known_year_first_formats(raw, expected):
 
 async def test_missing_carbon_results_do_not_fabricate_scope_charts():
     session = AsyncMock()
+    session.info = {}
     session.scalar.return_value = None
     payload = await BigscreenCarbonService(session).build()
     assert all(metric.value is None for metric in payload.hero_metrics)

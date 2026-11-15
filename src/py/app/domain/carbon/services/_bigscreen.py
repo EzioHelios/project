@@ -6,12 +6,14 @@ from typing import TYPE_CHECKING
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
+from app.db.models import DemoManifest
 from app.domain.carbon import bigscreen_schemas as bs
 from app.domain.carbon import models as m
 from app.domain.ghg_inventory import models as ghg
 from app.domain.ghg_inventory.domain.catalog import CATEGORY_BY_CODE
 from app.domain.ghg_inventory.queries.analytics import GhgAnalyticsQueryService
 from app.domain.ghg_inventory.queries.result_slice import GhgAnalyticsFilter
+from app.lib.tenancy import TENANT_ID_SESSION_KEY
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -80,7 +82,7 @@ class BigscreenIntroService:
             ("统一信用代码", "unify_code"),
         ]
         return bs.BigscreenIntroPayload(
-            hero_title=enterprise.name if enterprise else "仓库档案",
+            hero_title=(enterprise.name or "仓库档案") if enterprise else "仓库档案",
             company_gallery=photos,
             profile=(enterprise.other_info or {}).get("public_profile") if enterprise else None,
             company_facts=[
@@ -103,6 +105,15 @@ class BigscreenCarbonService:
     session: AsyncSession
 
     async def build(self) -> bs.BigscreenCarbonPayload:
+        team_id = self.session.info.get(TENANT_ID_SESSION_KEY)
+        showcase_team = bool(
+            team_id
+            and await self.session.scalar(
+                select(DemoManifest.id)
+                .where(DemoManifest.team_id == team_id, DemoManifest.package_key == "woheng-showcase")
+                .limit(1)
+            )
+        )
         sample_runs = (
             select(ghg.GhgCalculationResult.run_id)
             .join(ghg.GhgActivityRecord, ghg.GhgActivityRecord.id == ghg.GhgCalculationResult.activity_id)
@@ -114,7 +125,7 @@ class BigscreenCarbonService:
             .where(
                 ghg.GhgInventoryReport.status == "published",
                 ghg.GhgCalculationRun.status == "completed",
-                ghg.GhgCalculationRun.id.not_in(sample_runs),
+                *([] if showcase_team else [ghg.GhgCalculationRun.id.not_in(sample_runs)]),
             )
             .order_by(ghg.GhgInventoryReport.published_at.desc().nullslast(), ghg.GhgInventoryReport.id.desc())
             .limit(1)
@@ -122,7 +133,10 @@ class BigscreenCarbonService:
         if run is None:
             run = await self.session.scalar(
                 select(ghg.GhgCalculationRun)
-                .where(ghg.GhgCalculationRun.status == "completed", ghg.GhgCalculationRun.id.not_in(sample_runs))
+                .where(
+                    ghg.GhgCalculationRun.status == "completed",
+                    *([] if showcase_team else [ghg.GhgCalculationRun.id.not_in(sample_runs)]),
+                )
                 .order_by(ghg.GhgCalculationRun.completed_at.desc().nullslast(), ghg.GhgCalculationRun.id.desc())
                 .limit(1)
             )
@@ -143,7 +157,7 @@ class BigscreenCarbonService:
             ).all()
             scopes = [
                 bs.BigscreenDistributionItem(
-                    name={"scope1": "范围一", "scope2": "范围二", "scope3": "范围三"}.get(scope, scope),
+                    name={"scope1": "范围一", "scope2": "范围二", "scope3": "范围三"}.get(scope, scope or "未分类"),
                     value=float(value),
                 )
                 for scope, value in rows
