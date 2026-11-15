@@ -25,9 +25,24 @@ from app.lib.tenancy import require_session_tenant_id
 
 
 def _energy_input_fingerprint(snapshot: dict[str, Any]) -> str:
-    """Ignore retired projection revision metadata, retaining all substantive input values."""
+    """Compare numeric inputs by value across in-memory and database Decimal scales."""
+
+    def numeric_fields(row: dict[str, Any], fields: tuple[str, ...]) -> dict[str, Any]:
+        return {
+            key: Decimal(str(value)) if key in fields and value is not None else value for key, value in row.items()
+        }
+
     energy = {key: value for key, value in snapshot.get("energy", {}).items() if key != "revision"}
-    return fingerprint({**snapshot, "energy": energy})
+    # Snapshots retain their original representation for auditing. Only the
+    # fingerprint canonicalizes quantities; IDs, sources and intervals stay exact.
+    return fingerprint(
+        {
+            **snapshot,
+            "energy": numeric_fields(energy, ("amount",)),
+            "factor": numeric_fields(snapshot.get("factor", {}), ("value",)),
+            "operations": [numeric_fields(row, ("quantity", "seconds")) for row in snapshot.get("operations", [])],
+        }
+    )
 
 
 class MaterialHandlingOperationUseCase:
