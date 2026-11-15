@@ -171,6 +171,7 @@ async function ensureAuthenticated() {
   }
   if (!profile.ok || !profile.data?.id) throw new Error(`登录态验证失败：/api/me 返回 ${profile.status}`)
   activeUser = profile.data
+  assert.equal(activeUser.isSuperuser, false, "最终验收必须使用非 superuser 账号")
   authPhase = "authenticated"
   checks.push({ name: "authentication", status: "passed", isSuperuser: activeUser.isSuperuser, expectedProbe401Count: expectedAuthProbes.length })
 }
