@@ -16,6 +16,7 @@ from litestar.openapi.plugins import ScalarRenderPlugin
 from litestar.params import Body
 from litestar.plugins import CLIPluginProtocol, InitPluginProtocol
 from litestar.security.jwt import OAuth2Login, Token
+from litestar.static_files import create_static_files_router
 from litestar_email import EmailService
 
 from app import config
@@ -141,6 +142,17 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         app_config = auth.on_app_init(app_config)
         app_config.cors_config = config.cors
         app_config.after_request = add_security_headers
+        # Production bundles live under /static/web; dev Vite already serves public/help.
+        if not settings.vite.DEV_MODE:
+            app_config.route_handlers.append(
+                create_static_files_router(
+                    path="/help",
+                    directories=[settings.vite.BUNDLE_DIR / "help"],
+                    name="legacy-help",
+                    html_mode=True,
+                    opt={"exclude_from_auth": True},
+                )
+            )
 
         app_config.plugins.extend(
             [
