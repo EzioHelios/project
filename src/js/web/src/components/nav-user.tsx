@@ -18,6 +18,7 @@ import {
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
 import { useAuthStore } from "@/lib/auth"
 import type { Team } from "@/lib/generated/api"
+import { hasPermission } from "@/lib/permissions"
 
 interface NavUserProps {
   teams: Team[]
@@ -43,7 +44,7 @@ function MenuActionRow({ title }: { title: string }) {
 
 export function NavUser({ teams, currentTeam, onTeamSelect }: NavUserProps) {
   const navigate = useNavigate()
-  const { logout, user } = useAuthStore()
+  const { logout, user, access } = useAuthStore()
   const { isMobile } = useSidebar()
 
   const onLogout = async () => {
@@ -125,7 +126,7 @@ export function NavUser({ teams, currentTeam, onTeamSelect }: NavUserProps) {
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSeparator />
-            {activeTeam && (
+            {activeTeam && hasPermission(access, "admin.team.manage") && (
               <DropdownMenuItem className="h-auto cursor-pointer items-start gap-3 px-2 py-2" onClick={() => navigate({ to: "/teams/$teamId", params: { teamId: activeTeam.id } })}>
                 <Building2 className="mt-0.5 size-4" />
                 <MenuActionRow title="租户资料" />
@@ -136,10 +137,12 @@ export function NavUser({ teams, currentTeam, onTeamSelect }: NavUserProps) {
               <MenuActionRow title="个人资料" />
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate({ to: "/teams/new" })}>
-              <Plus />
-              新建租户
-            </DropdownMenuItem>
+            {hasPermission(access, "admin.team.manage") && (
+              <DropdownMenuItem className="cursor-pointer" onClick={() => navigate({ to: "/teams/new" })}>
+                <Plus />
+                新建租户
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem className="cursor-default focus:bg-transparent">
               <ShieldCheck />
               MFA

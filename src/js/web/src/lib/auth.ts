@@ -4,6 +4,7 @@ import { persist } from "zustand/middleware"
 import { getApiBaseUrl } from "@/lib/api-base-url"
 import type { Team, User } from "@/lib/generated/api"
 import { accountLogout, accountProfile } from "@/lib/generated/api"
+import type { EffectiveAccess } from "@/lib/permissions"
 
 export interface HumanVerificationSubmission {
   payload: string
@@ -15,6 +16,7 @@ interface LoginResult {
 }
 
 interface AuthState {
+  access: EffectiveAccess | null
   user: User | null
   currentTeam: Team | null
   teams: Team[]
@@ -33,6 +35,15 @@ export class HumanVerificationRequiredError extends Error {
 }
 
 const apiUrl = getApiBaseUrl()
+
+async function loadAccess(): Promise<EffectiveAccess> {
+  const response = await fetch(`${apiUrl}/api/me/permissions`, { credentials: "include" })
+  if (!response.ok) throw new Error("无法读取当前账号权限")
+  const data = await response.json()
+  if (typeof data.isSuperuser !== "boolean" || !Array.isArray(data.permissions) || data.permissions.some((value: unknown) => typeof value !== "string"))
+    throw new Error("权限响应无效")
+  return data
+}
 
 function isHumanVerificationRequired(payload: { detail?: string; title?: string } | null): boolean {
   return payload?.detail === "human_verification_required" || payload?.title === "human_verification_required"
@@ -56,6 +67,7 @@ async function postLogin(body: { username: string; password: string; humanVerifi
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
+      access: null,
       user: null,
       currentTeam: null,
       teams: [],
@@ -80,7 +92,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           if (payload?.mfaRequired) {
-            set({ user: null, isAuthenticated: false })
+            set({ access: null, user: null, isAuthenticated: false })
             return { mfaRequired: true }
           }
 
@@ -88,14 +100,14 @@ export const useAuthStore = create<AuthState>()(
           try {
             const { data: user } = await accountProfile({ throwOnError: true })
             if (user) {
-              set({ user })
+              set({ user, access: await loadAccess() })
             }
           } catch {
             // Session cookies are authoritative; profile fetch can reconcile later.
           }
           return { mfaRequired: false }
         } catch (error) {
-          set({ user: null, currentTeam: null, teams: [], isAuthenticated: false })
+          set({ access: null, user: null, currentTeam: null, teams: [], isAuthenticated: false })
           if (!(error instanceof HumanVerificationRequiredError)) {
             toast.error("An error occurred", {
               description: error instanceof Error ? error.message : "Unknown error",
@@ -113,13 +125,13 @@ export const useAuthStore = create<AuthState>()(
           try {
             const { data: user } = await accountProfile({ throwOnError: true })
             if (user) {
-              set({ user })
+              set({ user, access: await loadAccess() })
             }
           } catch {
             // Session cookies are authoritative; profile fetch can reconcile later.
           }
         } catch (error) {
-          set({ user: null, currentTeam: null, teams: [], isAuthenticated: false })
+          set({ access: null, user: null, currentTeam: null, teams: [], isAuthenticated: false })
           toast.error("MFA verification failed", {
             description: error instanceof Error ? error.message : "Unable to complete login",
           })
@@ -131,7 +143,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true })
         try {
           await accountLogout()
-          set({ user: null, currentTeam: null, teams: [], isAuthenticated: false })
+          set({ access: null, user: null, currentTeam: null, teams: [], isAuthenticated: false })
         } finally {
           set({ isLoading: false })
         }
@@ -143,9 +155,9 @@ export const useAuthStore = create<AuthState>()(
           if (!user) {
             throw new Error("Profile response did not include a user")
           }
-          set({ user, isAuthenticated: true })
+          set({ user, access: await loadAccess(), isAuthenticated: true })
         } catch {
-          set({ user: null, currentTeam: null, teams: [], isAuthenticated: false })
+          set({ access: null, user: null, currentTeam: null, teams: [], isAuthenticated: false })
         } finally {
           set({ isLoading: false })
         }

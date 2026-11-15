@@ -3,7 +3,6 @@ import { Link, useNavigate } from "@tanstack/react-router"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
-
 import { PermissionCenterNav } from "@/components/admin/permission-center-nav"
 import { AdminDataTable, AdminPageHeader, AdminPanel, AdminTableStateRow, AdminTableToolbar } from "@/components/admin-ui"
 import { Badge } from "@/components/ui/badge"
@@ -17,6 +16,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { CameraConfiguration } from "@/components/vision/camera-configuration"
+import { useAuthStore } from "@/lib/auth"
 
 type ApiResponse<T> = { code: number; msg?: string; data: T }
 export type PageResult<T> = { items: T[]; total: number; limit: number; offset: number }
@@ -329,7 +329,9 @@ export function CrudDataPage({
   topContent,
   topActions,
   extraParams,
+  readOnly = false,
 }: {
+  readOnly?: boolean
   title: string
   endpoint: string
   queryKey: string[]
@@ -455,9 +457,11 @@ export function CrudDataPage({
                     查询
                   </Button>
                   <Dialog open={open} onOpenChange={setOpen}>
-                    <DialogTrigger asChild>
-                      <Button onClick={startCreate}>新增</Button>
-                    </DialogTrigger>
+                    {!readOnly && (
+                      <DialogTrigger asChild>
+                        <Button onClick={startCreate}>新增</Button>
+                      </DialogTrigger>
+                    )}
                     <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
                       <DialogHeader>
                         <DialogTitle>
@@ -531,12 +535,17 @@ export function CrudDataPage({
                             详情
                           </Button>
                           {rowActions?.(row)}
-                          <Button variant="outline" size="sm" onClick={() => startEdit(row)}>
-                            编辑
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => row.id && deleteMut.mutate(row.id)} disabled={deleteMut.isPending}>
-                            删除
-                          </Button>
+                          {!readOnly && (
+                            <>
+                              {" "}
+                              <Button variant="outline" size="sm" onClick={() => startEdit(row)}>
+                                编辑
+                              </Button>
+                              <Button variant="destructive" size="sm" onClick={() => row.id && deleteMut.mutate(row.id)} disabled={deleteMut.isPending}>
+                                删除
+                              </Button>
+                            </>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -602,9 +611,11 @@ function optionLabel(options: Option[], value: unknown) {
 }
 
 export function EnergyTypesPage() {
+  const readOnly = !useAuthStore((state) => state.access?.isSuperuser)
   return (
     <CrudDataPage
       title="能源种类"
+      readOnly={readOnly}
       endpoint="/api/energy/types"
       queryKey={["energy", "types", "manage"]}
       extraParams={{ include_disabled: true }}
@@ -638,6 +649,7 @@ export function EnergyTypesPage() {
 }
 
 export function EnergyUnitConversionsPage() {
+  const readOnly = !useAuthStore((state) => state.access?.isSuperuser)
   const energyTypesQuery = useQuery({
     queryKey: ["energy", "types", "conversion-options"],
     queryFn: async () => (await request<{ items: Row[] }>("/api/energy/types?include_disabled=true&limit=500")).data,
@@ -653,6 +665,7 @@ export function EnergyUnitConversionsPage() {
   return (
     <CrudDataPage
       title="单位换算"
+      readOnly={readOnly}
       endpoint="/api/energy/unit-conversions"
       queryKey={["energy", "unit-conversions", "manage"]}
       extraParams={{ include_disabled: true }}

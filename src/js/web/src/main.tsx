@@ -108,6 +108,7 @@ let refreshPromise: Promise<void> | null = null
 
 const clearClientAuthState = () => {
   useAuthStore.setState({
+    access: null,
     user: null,
     currentTeam: null,
     teams: [],

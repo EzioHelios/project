@@ -12,10 +12,11 @@ import { usePublicConfig } from "@/hooks/use-public-config"
 import { useAuthStore } from "@/lib/auth"
 import { listTeams, type Team } from "@/lib/generated/api"
 import { categoryRoute, GHG_CATEGORY_GROUPS } from "@/lib/ghg-categories"
+import { filterNavigation } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 
 export function AppSidebar({ className, ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { teams, currentTeam, setTeams, setCurrentTeam, isAuthenticated } = useAuthStore()
+  const { access, teams, currentTeam, setTeams, setCurrentTeam, isAuthenticated } = useAuthStore()
   const queryClient = useQueryClient()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const { config } = usePublicConfig()
@@ -62,7 +63,8 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
     const isEnergyBudgetRoute = pathname === "/energy/budget" || pathname.startsWith("/data/energy-budget")
     const isCarbonInventoryRoute = pathname.startsWith("/carbon-mgmt") && !isCarbonActivityLedgerRoute
     const isEnergyOperationsRoute =
-      (pathname.startsWith("/energy") && !isEnergyBudgetRoute) ||
+      pathname.startsWith("/energy") ||
+      isEnergyBudgetRoute ||
       pathname.startsWith("/data/energy-consumption") ||
       pathname.startsWith("/data/energy-types") ||
       pathname.startsWith("/data/energy-unit-conversions") ||
@@ -111,6 +113,8 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
           { title: "对标配置", to: "/data/energy-benchmark" },
           { title: "能流分析", to: "/energy/flow" },
           { title: "能效平衡", to: "/energy/balance" },
+          { title: "能碳预算", to: "/energy/budget" },
+          { title: "预算维护", to: "/data/energy-budget" },
         ],
       },
       {
@@ -177,11 +181,9 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
         title: "气候与减碳",
         to: "/carbon/climate",
         icon: Leaf,
-        isActive: isClimateReductionRoute || isEnergyBudgetRoute,
+        isActive: isClimateReductionRoute,
         items: [
           { title: "气候目标与披露", to: "/carbon/climate" },
-          { title: "能碳预算", to: "/energy/budget" },
-          { title: "预算维护", to: "/data/energy-budget" },
           { title: "减排概览", to: "/carbon/reduction/overview" },
           { title: "减排项目库", to: "/carbon/reduction/projects" },
           { title: "方法学与CCER", to: "/carbon/reduction/methodologies" },
@@ -274,8 +276,8 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
       },
     ]
 
-    return items
-  }, [pathname])
+    return filterNavigation(items, access)
+  }, [pathname, access])
 
   const teamOptions = teamsData.length > 0 ? teamsData : teams
   const handleTeamSelect = useCallback(

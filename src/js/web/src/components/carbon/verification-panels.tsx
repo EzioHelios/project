@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { CheckCircle2, FileText, PackageCheck, ShieldCheck, TriangleAlert } from "lucide-react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-
 import { AdminDataTable, AdminPanel, AdminTableStateRow, MetricStrip, MetricTile } from "@/components/admin-ui"
 import type { ApiEnvelope } from "@/components/carbon/analytics-panels"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
@@ -10,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useGhgInventoryReports } from "@/lib/api/hooks/ghg-inventory"
+import { useAuthStore } from "@/lib/auth"
 import {
   carbonVerificationCreateExport,
   carbonVerificationCreateFinding,
@@ -34,6 +34,7 @@ import {
   carbonVerificationUpdateTemplate,
   carbonVerificationUploadEvidence,
 } from "@/lib/generated/api"
+import { hasPermission } from "@/lib/permissions"
 
 type VerificationSummary = {
   project: {
@@ -567,6 +568,7 @@ function VerificationProjectPlanEditor({ project, onSave, disabled }: { project:
 }
 
 export function VerificationEvidencePanel({ projectId }: { projectId?: number }) {
+  const access = useAuthStore((state) => state.access)
   const queryClient = useQueryClient()
   const evidenceQuery = useQuery<ApiEnvelope<EvidenceManifest>>({
     queryKey: ["carbon-verification", "evidence", projectId],
@@ -654,7 +656,7 @@ export function VerificationEvidencePanel({ projectId }: { projectId?: number })
                       <Button variant="outline" size="sm" onClick={() => void downloadEvidence(item.evidence_code)}>
                         下载
                       </Button>
-                      {item.material_status !== "ready" ? (
+                      {hasPermission(access, "carbon.verification.review") && item.material_status !== "ready" ? (
                         <Button variant="outline" size="sm" onClick={() => reviewEvidence.mutate({ evidenceCode: item.evidence_code, decision: "approved" })}>
                           通过
                         </Button>
@@ -1356,6 +1358,8 @@ function FindingStatusBadge({ status }: { status?: string }) {
 }
 
 function FindingActions({ finding, onUpdate, disabled }: { finding: VerificationFinding; onUpdate: (id: number, patch: Record<string, unknown>) => void; disabled?: boolean }) {
+  const access = useAuthStore((state) => state.access)
+  if (!hasPermission(access, "carbon.verification.review")) return null
   if (finding.status === "closed") return <span className="text-muted-foreground">-</span>
   if (finding.status === "resolved") {
     return (
@@ -1391,6 +1395,7 @@ function ProjectActions({
   onExport: (project: VerificationProject) => void
   disabled?: boolean
 }) {
+  const access = useAuthStore((state) => state.access)
   return (
     <div className="flex flex-wrap gap-2">
       {project.status === "draft" ? (
@@ -1408,7 +1413,7 @@ function ProjectActions({
           退回
         </Button>
       ) : null}
-      {project.status === "in_progress" || project.status === "review" ? (
+      {hasPermission(access, "carbon.verification.review") && (project.status === "in_progress" || project.status === "review") ? (
         <Button
           variant="outline"
           size="sm"

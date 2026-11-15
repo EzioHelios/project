@@ -1,13 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowRight, BarChart3, ClipboardCheck, Factory, Gauge, GitBranch, Landmark, LineChart, PackageCheck, ShieldCheck, SlidersHorizontal, TrendingUp, Zap } from "lucide-react"
-import { useState } from "react"
 
-import { AdminPageHeader, ChartPanel } from "@/components/admin-ui"
+import { AdminPageHeader } from "@/components/admin-ui"
 import { Button } from "@/components/ui/button"
 import { PageContainer, PageSection } from "@/components/ui/page-layout"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { createComboTrendChartOption, createDistributionChartOption, useAdminChartTheme } from "@/lib/admin-chart-theme"
-import { AdminDomainScope, type DesignDomain } from "@/lib/design-domain"
+import { useAuthStore } from "@/lib/auth"
+import type { DesignDomain } from "@/lib/design-domain"
+import { canAccessPath } from "@/lib/permissions"
 
 export const Route = createFileRoute("/_app/home")({
   component: HomePage,
@@ -103,92 +102,26 @@ const carbonFunctions = [
   },
 ] as const
 
-const trendPoints = [
-  { period: "01月", energy: 10820, carbon: 5260 },
-  { period: "02月", energy: 11260, carbon: 5410 },
-  { period: "03月", energy: 11940, carbon: 5820 },
-  { period: "04月", energy: 11780, carbon: 5690 },
-  { period: "05月", energy: 12460, carbon: 6110 },
-  { period: "06月", energy: 12840, carbon: 6420 },
-] as const
-
-const distributionData = {
-  energy: [
-    { name: "压铸车间 / 电力", value: 36 },
-    { name: "热处理区 / 天然气", value: 24 },
-    { name: "机加工区 / 电力", value: 21 },
-    { name: "公辅系统 / 蒸汽", value: 19 },
-  ],
-  carbon: [
-    { name: "压铸车间 / Scope 2", value: 34 },
-    { name: "热处理区 / Scope 1", value: 27 },
-    { name: "物流仓储 / Scope 3", value: 22 },
-    { name: "公辅系统 / Scope 2", value: 17 },
-  ],
-}
-
 function HomePage() {
-  const [distributionMode, setDistributionMode] = useState<"energy" | "carbon">("energy")
-  const neutralChartTheme = useAdminChartTheme("neutral")
-  const energyChartTheme = useAdminChartTheme("energy")
-  const carbonChartTheme = useAdminChartTheme("carbon")
-  const trendOption = createComboTrendChartOption(neutralChartTheme, trendPoints, {
-    bars: [{ key: "energy", label: "综合能耗", colorKey: "energy" }],
-    lines: [{ key: "carbon", label: "碳排放", colorKey: "carbon", yAxisIndex: 1 }],
-    leftAxisName: "MWh",
-    rightAxisName: "tCO2e",
-  })
-  const distributionOption = createDistributionChartOption(distributionMode === "energy" ? energyChartTheme : carbonChartTheme, distributionData[distributionMode], { unit: "%" })
-
+  const access = useAuthStore((state) => state.access)
+  const energy = [...energyFunctions, carbonFunctions[5]].filter((item) => canAccessPath(access, item.to))
+  const carbon = carbonFunctions.slice(0, 5).filter((item) => canAccessPath(access, item.to))
   return (
     <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
       <AdminPageHeader
         title="工作台"
         actions={
-          <div className="flex flex-wrap gap-2">
+          canAccessPath(access, "/bigscreen/overview") ? (
             <Button asChild size="sm">
-              <Link to="/bigscreen/overview">
-                态势大屏
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
+              <Link to="/bigscreen/overview">态势大屏</Link>
             </Button>
-          </div>
+          ) : undefined
         }
       />
-
       <PageSection delay={0.05}>
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-          <div className="space-y-3">
-            <AdminDomainScope domain="energy">
-              <FunctionGroup title="能源运营" count="6 项" items={energyFunctions} domain="energy" />
-            </AdminDomainScope>
-            <AdminDomainScope domain="carbon">
-              <FunctionGroup title="碳排放管理" count="6 项" items={carbonFunctions} domain="carbon" />
-            </AdminDomainScope>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
-            <ChartPanel title="能耗与碳排趋势" option={trendOption} height={220} />
-            <AdminDomainScope domain={distributionMode}>
-              <ChartPanel
-                title="分区能碳构成"
-                option={distributionOption}
-                height={220}
-                actions={
-                  <Tabs value={distributionMode} onValueChange={(value) => setDistributionMode(value as "energy" | "carbon")} className="gap-0">
-                    <TabsList className="h-8">
-                      <TabsTrigger value="energy" className="px-2 text-xs">
-                        能耗
-                      </TabsTrigger>
-                      <TabsTrigger value="carbon" className="px-2 text-xs">
-                        碳排
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                }
-              />
-            </AdminDomainScope>
-          </div>
+        <div className="space-y-6">
+          {energy.length > 0 && <FunctionGroup title="能源运营" count={`${energy.length} 项`} items={energy} domain="energy" />}
+          {carbon.length > 0 && <FunctionGroup title="碳排放管理" count={`${carbon.length} 项`} items={carbon} domain="carbon" />}
         </div>
       </PageSection>
     </PageContainer>

@@ -70,8 +70,10 @@ describe("auth login", () => {
       isLoading: false,
     })
 
+    global.fetch = vi.fn(async () => new Response(JSON.stringify({ permissions: ["energy.consumption.view"], isSuperuser: false }), { status: 200 })) as typeof fetch
     await useAuthStore.getState().checkAuth()
 
+    expect(useAuthStore.getState().access?.permissions).toEqual(["energy.consumption.view"])
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
     expect(useAuthStore.getState().user?.email).toBe("root@example.com")
   })

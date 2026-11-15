@@ -18,6 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuthStore } from "@/lib/auth"
+import { hasPermission } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 
 type Id = number
@@ -909,6 +910,8 @@ export function MonitorAreaWorkbenchPage() {
 function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: DeviceDetailTab }) {
   const qc = useQueryClient()
   const currentUser = useAuthStore((state) => state.user)
+  const access = useAuthStore((state) => state.access)
+  const canViewIngestion = hasPermission(access, "iot.view")
   const [expandedAreaIds, setExpandedAreaIds] = useState<Set<number>>(new Set())
   const [expandedTypeIds, setExpandedTypeIds] = useState<Set<number>>(new Set())
   const [selectedAreaFilter, setSelectedAreaFilter] = useState<number | null>(null)
@@ -979,22 +982,27 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
   const mqttSourcesQuery = useQuery<PageResult<MqttSourceRow>>({
     queryKey: ["iot-ingestion", "mqtt-sources"],
     queryFn: async () => requestPage<MqttSourceRow>("/api/iot-ingestion/mqtt-sources", { limit: 100, offset: 0 }),
+    enabled: canViewIngestion,
   })
   const mqttSubscriptionsQuery = useQuery<PageResult<MqttSubscriptionRow>>({
     queryKey: ["iot-ingestion", "mqtt-subscriptions"],
     queryFn: async () => requestPage<MqttSubscriptionRow>("/api/iot-ingestion/mqtt-subscriptions", { limit: 100, offset: 0 }),
+    enabled: canViewIngestion,
   })
   const mqttBindingsQuery = useQuery<PageResult<MqttBindingRow>>({
     queryKey: ["iot-ingestion", "mqtt-bindings"],
     queryFn: async () => requestPage<MqttBindingRow>("/api/iot-ingestion/mqtt-device-bindings", { limit: 200, offset: 0 }),
+    enabled: canViewIngestion,
   })
   const mqttMappingsQuery = useQuery<PageResult<MqttMappingRow>>({
     queryKey: ["iot-ingestion", "mqtt-mappings"],
     queryFn: async () => requestPage<MqttMappingRow>("/api/iot-ingestion/mqtt-point-mappings", { limit: 200, offset: 0 }),
+    enabled: canViewIngestion,
   })
   const mqttMessagesQuery = useQuery<PageResult<MqttMessageRow>>({
     queryKey: ["iot-ingestion", "mqtt-messages"],
     queryFn: async () => requestPage<MqttMessageRow>("/api/iot-ingestion/mqtt-messages", { limit: 100, offset: 0 }),
+    enabled: canViewIngestion,
   })
 
   const currentArea = useMemo(() => flatAreas.find((item) => item.id === selectedAreaFilter) ?? null, [flatAreas, selectedAreaFilter])
@@ -1585,12 +1593,16 @@ function DeviceWorkbench({ title, initialTab }: { title: string; initialTab: Dev
             }
           >
             {detailQuery.data?.device ? (
-              <Tabs value={detailTab} onValueChange={(value) => setDetailTab(value as typeof detailTab)} className="space-y-4">
-                <TabsList className="grid w-full grid-cols-5">
+              <Tabs
+                value={detailTab === "ingestion" && !canViewIngestion ? "devices" : detailTab}
+                onValueChange={(value) => setDetailTab(value as typeof detailTab)}
+                className="space-y-4"
+              >
+                <TabsList className={`grid w-full ${canViewIngestion ? "grid-cols-5" : "grid-cols-4"}`}>
                   <TabsTrigger value="devices">基础</TabsTrigger>
                   <TabsTrigger value="types">结构</TabsTrigger>
                   <TabsTrigger value="points">测点</TabsTrigger>
-                  <TabsTrigger value="ingestion">接入</TabsTrigger>
+                  {canViewIngestion && <TabsTrigger value="ingestion">接入</TabsTrigger>}
                   <TabsTrigger value="quality">质量</TabsTrigger>
                 </TabsList>
 

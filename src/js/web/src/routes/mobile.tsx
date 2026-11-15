@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { ensureAuthStoreHydrated, useAuthStore } from "@/lib/auth"
+import { canAccessPath } from "@/lib/permissions"
 
 export const Route = createFileRoute("/mobile")({
   component: MobileRoot,
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/mobile")({
     if (!useAuthStore.getState().isAuthenticated) {
       throw redirect({ to: "/login", search: redirectSearch })
     }
+    if (!canAccessPath(useAuthStore.getState().access, location.pathname)) throw redirect({ to: "/forbidden" })
     if (location.pathname === "/mobile") {
       throw redirect({ to: "/mobile/energy" })
     }

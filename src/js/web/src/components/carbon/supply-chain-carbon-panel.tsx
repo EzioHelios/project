@@ -3,7 +3,6 @@ import { BarChart3, Building2, CheckCircle2, ClipboardList, FileCheck2, Plus, Se
 import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-
 import { AdminDataTable, AdminPageScaffold, AdminPanel, AdminTableStateRow, AdminTabsList, MetricStrip, MetricTile } from "@/components/admin-ui"
 import { type ApiEnvelope, fetchCarbonApi } from "@/components/carbon/analytics-panels"
 import { CarbonStatusBadge } from "@/components/carbon/status-badge"
@@ -16,6 +15,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
+import { useAuthStore } from "@/lib/auth"
+import { hasPermission } from "@/lib/permissions"
 
 type SupplyChainSummary = {
   supplier_count: number
@@ -276,6 +277,7 @@ const riskLabels: Record<string, string> = {
 }
 
 export function SupplyChainCarbonPanel({ header }: { header?: ReactNode }) {
+  const access = useAuthStore((state) => state.access)
   const qc = useQueryClient()
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null)
   const [supplierOpen, setSupplierOpen] = useState(false)
@@ -784,6 +786,7 @@ export function SupplyChainCarbonPanel({ header }: { header?: ReactNode }) {
                 <Button
                   size="sm"
                   disabled={!activeTaskId || activeTask?.status !== "submitted"}
+                  hidden={!hasPermission(access, "carbon.record.approve")}
                   onClick={() => decideTask.mutate({ taskId: activeTaskId ?? 0, action: "approve" })}
                 >
                   <CheckCircle2 className="size-4" />
@@ -793,6 +796,7 @@ export function SupplyChainCarbonPanel({ header }: { header?: ReactNode }) {
                   size="sm"
                   variant="outline"
                   disabled={!activeTaskId || activeTask?.status !== "submitted"}
+                  hidden={!hasPermission(access, "carbon.record.reject")}
                   onClick={() => {
                     const reason = window.prompt("驳回原因", "资料不完整")
                     if (reason) decideTask.mutate({ taskId: activeTaskId ?? 0, action: "reject", reason })

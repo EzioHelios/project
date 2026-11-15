@@ -1,7 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router"
 import { CheckCircle2, Download, Eye, FileText, Pencil, Plus, RefreshCw, Send, Trash2, Undo2 } from "lucide-react"
 import { useEffect, useState } from "react"
-
 import { AdminDataTable, AdminFilterBar, AdminPageScaffold, AdminPanel, AdminTableStateRow, MetricStrip, MetricTile, StatusBadge } from "@/components/admin-ui"
 import { CarbonFormField } from "@/components/carbon/ghg-maintenance"
 import { Button } from "@/components/ui/button"
@@ -20,6 +19,8 @@ import {
   useGhgInventoryReportActions,
   useGhgInventoryReports,
 } from "@/lib/api/hooks/ghg-inventory"
+import { useAuthStore } from "@/lib/auth"
+import { hasPermission } from "@/lib/permissions"
 
 type CalculationRun = GhgCalculationRunList["items"][number]
 
@@ -483,6 +484,7 @@ function ReportExportButtons({ report }: { report: GhgInventoryReport }) {
 }
 
 function ReportActionButtons({ report }: { report: GhgInventoryReport }) {
+  const access = useAuthStore((state) => state.access)
   const actions = useGhgInventoryReportActions()
   const busy =
     actions.submit.isPending || actions.resubmit.isPending || actions.approve.isPending || actions.reject.isPending || actions.publish.isPending || actions.remove.isPending
@@ -511,7 +513,7 @@ function ReportActionButtons({ report }: { report: GhgInventoryReport }) {
           重新提交
         </Button>
       ) : null}
-      {report.status === "submitted" ? (
+      {report.status === "submitted" && hasPermission(access, "carbon.inventory.report.review") ? (
         <>
           <Button variant="ghost" size="sm" disabled={busy} onClick={() => run("approve")}>
             <CheckCircle2 className="h-4 w-4" />
@@ -523,7 +525,7 @@ function ReportActionButtons({ report }: { report: GhgInventoryReport }) {
           </Button>
         </>
       ) : null}
-      {report.status === "approved" ? (
+      {report.status === "approved" && hasPermission(access, "carbon.inventory.report.publish") ? (
         <Button variant="ghost" size="sm" disabled={busy} onClick={() => run("publish")}>
           <CheckCircle2 className="h-4 w-4" />
           发布

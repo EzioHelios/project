@@ -5,6 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider } from "@/components/ui/sidebar"
 
+
+const authState = vi.hoisted(() => ({ access: { isSuperuser: true, permissions: [] as string[] }, teams: [], currentTeam: null, setCurrentTeam: () => {} }))
+vi.mock("@/lib/auth", () => ({ useAuthStore: (selector?: (state: typeof authState) => unknown) => selector ? selector(authState) : authState }))
+
 const routeState = vi.hoisted(() => ({
   pathname: "/carbon/organization/overview",
 }))
@@ -55,6 +59,7 @@ function renderSidebar() {
 
 describe("AppSidebar", () => {
   beforeEach(() => {
+    authState.access = { isSuperuser: true, permissions: [] }
     routeState.pathname = "/carbon/organization/overview"
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
       matches: false,
@@ -66,6 +71,15 @@ describe("AppSidebar", () => {
       removeListener: vi.fn(),
       dispatchEvent: vi.fn(),
     }))
+  })
+
+  it("hides administration and extensions for the customer role", () => {
+    authState.access = { isSuperuser: false, permissions: ["carbon.inventory.view", "energy.budget.view"] }
+    renderSidebar()
+    expect(screen.queryByRole("button", { name: "系统管理" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "微电网运营" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "气候与减碳" })).not.toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "组织碳总览" })).toBeVisible()
   })
 
   it("shows the primary organization carbon entries", () => {
@@ -119,13 +133,13 @@ describe("AppSidebar", () => {
     expect(screen.queryByRole("link", { name: "组织碳总览" })).not.toBeInTheDocument()
   })
 
-  it("groups climate governance, budgets, and reduction work", () => {
+  it("groups climate governance and reduction work", () => {
     routeState.pathname = "/carbon/climate"
     renderSidebar()
 
     expect(screen.getByRole("button", { name: "气候与减碳" })).toHaveAttribute("data-context-active", "true")
     expect(screen.getByRole("link", { name: "气候目标与披露" })).toHaveAttribute("href", "/carbon/climate")
-    expect(screen.getByRole("link", { name: "能碳预算" })).toHaveAttribute("href", "/energy/budget")
+    expect(screen.queryByRole("link", { name: "能碳预算" })).not.toBeInTheDocument()
     expect(screen.getByRole("link", { name: "减排项目库" })).toHaveAttribute("href", "/carbon/reduction/projects")
   })
 })

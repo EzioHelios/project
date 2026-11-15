@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { AppLayout } from "@/layouts/app-layout"
 import { ensureAuthStoreHydrated, useAuthStore } from "@/lib/auth"
+import { canAccessPath } from "@/lib/permissions"
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
@@ -18,15 +19,17 @@ export const Route = createFileRoute("/_app")({
       // If checkAuth fails, clear state and redirect
       useAuthStore.setState({
         isAuthenticated: false,
+        access: null,
         user: null,
         currentTeam: null,
       })
       throw redirect({ to: "/login", search: redirectSearch })
     }
 
-    const { isAuthenticated } = useAuthStore.getState()
+    const { isAuthenticated, access } = useAuthStore.getState()
     if (!isAuthenticated) {
       throw redirect({ to: "/login", search: redirectSearch })
     }
+    if (!canAccessPath(access, location.pathname)) throw redirect({ to: "/forbidden" })
   },
 })
