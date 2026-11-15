@@ -10,6 +10,8 @@ from sqlalchemy import func, select
 
 from app.db import models as m
 from app.db.models import Team
+from app.domain.ghg_inventory.domain.activity_fields import CATEGORY_ACTIVITY_FIELDS
+from app.domain.ghg_inventory.domain.catalog import CATEGORY_BY_CODE
 from app.lib.tenancy import TENANT_BYPASS_SESSION_KEY
 
 if TYPE_CHECKING:
@@ -284,7 +286,8 @@ async def ensure_standard_energy_types(session: AsyncSession, *, apply: bool) ->
     type_codes = [item.code for item in STANDARD_ENERGY_TYPES]
     conversion_keys = [(item.energy_type_code, item.from_unit, item.to_unit) for item in STANDARD_UNIT_CONVERSIONS]
     existing_types = {
-        item.code: item for item in (await session.scalars(select(m.EnergyType).where(m.EnergyType.code.in_(type_codes)))).all()
+        item.code: item
+        for item in (await session.scalars(select(m.EnergyType).where(m.EnergyType.code.in_(type_codes)))).all()
     }
     existing_conversions = {
         (item.energy_type_code, item.from_unit, item.to_unit): item
@@ -345,7 +348,9 @@ async def ensure_standard_energy_types(session: AsyncSession, *, apply: bool) ->
     )
 
 
-async def diagnose_energy_type_data(session: AsyncSession, *, team_slug: str | None = None) -> EnergyTypeDiagnosticResult:
+async def diagnose_energy_type_data(
+    session: AsyncSession, *, team_slug: str | None = None
+) -> EnergyTypeDiagnosticResult:
     """Report tenant rows that do not use standard energy type codes."""
     previous_bypass = session.info.get(TENANT_BYPASS_SESSION_KEY)
     session.info[TENANT_BYPASS_SESSION_KEY] = True
@@ -373,7 +378,9 @@ async def diagnose_energy_type_data(session: AsyncSession, *, team_slug: str | N
             session.info[TENANT_BYPASS_SESSION_KEY] = previous_bypass
 
 
-async def repair_energy_type_data(session: AsyncSession, *, team_slug: str | None = None, apply: bool) -> EnergyTypeRepairResult:
+async def repair_energy_type_data(
+    session: AsyncSession, *, team_slug: str | None = None, apply: bool
+) -> EnergyTypeRepairResult:
     """Normalize existing tenant data to the standard energy type dictionary."""
     initialized = await ensure_standard_energy_types(session, apply=apply)
     if not apply:
@@ -565,20 +572,34 @@ async def _collect_ghg_activity_issues(
     )
     if team_id is not None:
         statement = statement.where(m.GhgActivityRecord.team_id == team_id)
-    grouped: dict[tuple[UUID, str], int] = {}
+    grouped: dict[tuple[UUID, str, str, str], int] = {}
     for activity in (await session.scalars(statement)).all():
-        observed_code = _ghg_activity_energy_candidate(activity)
-        grouped[(activity.team_id, observed_code)] = grouped.get((activity.team_id, observed_code), 0) + 1
-    for (row_team_id, observed_code), row_count in grouped.items():
+        field_name, observed_code = _ghg_activity_energy_field(activity)
+        key = (activity.team_id, activity.iso_category_code, field_name, observed_code)
+        grouped[key] = grouped.get(key, 0) + 1
+    for (row_team_id, category_code, field_name, observed_code), row_count in grouped.items():
+        field_codes = known_codes
+        category = CATEGORY_BY_CODE.get(category_code)
+        if field_name == "source_payload.energy_type" and category is not None:
+            field = next(
+                (
+                    item
+                    for item in CATEGORY_ACTIVITY_FIELDS.get(category.package_code, ())
+                    if item.code == "energy_type"
+                ),
+                None,
+            )
+            if field is not None and field.choices:
+                field_codes = set(field.choices)
         _append_issue(
             issues,
             teams,
             row_team_id,
             "ghg_activity_record",
-            "source_payload.energy_type_code",
+            field_name,
             observed_code,
             row_count,
-            known_codes,
+            field_codes,
         )
 
 
@@ -687,3 +708,15 @@ def _ghg_activity_energy_candidate(activity: m.GhgActivityRecord) -> str:
     if activity.iso_category_code == "1.4" or payload.get("refrigerant_type"):
         return "refrigerant"
     return str(activity.activity_code or "")
+
+
+def _ghg_activity_energy_field(activity: m.GhgActivityRecord) -> tuple[str, str]:
+    """Keep the source field so GHG enums are not diagnosed as registry aliases."""
+    payload = dict(activity.source_payload or {})
+    for key in ("energy_type_code", "fuel_type", "energy_type", "fuel_or_material"):
+        value = payload.get(key)
+        if value or (key == "energy_type_code" and key in payload):
+            return f"source_payload.{key}", str(value or "")
+    if activity.iso_category_code == "1.4" or payload.get("refrigerant_type"):
+        return "iso_category_code", "refrigerant"
+    return "activity_code", str(activity.activity_code or "")

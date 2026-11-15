@@ -3,13 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+from hashlib import sha256
 from typing import TYPE_CHECKING, Any
 
-from litestar.exceptions import PermissionDeniedException
-from sqlalchemy import text
+from litestar.exceptions import ClientException, PermissionDeniedException
+from sqlalchemy import select, text
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.domain.energy.usecases.energy_types import canonicalize_energy_type_code
+from app.db import models as m
+from app.domain.energy.usecases.interval_facts import _normalize_energy_interval_fact_data
 from app.lib.tenancy import TENANT_ID_SESSION_KEY
 
 if TYPE_CHECKING:
@@ -33,6 +36,9 @@ class EnergyDatasetImportResult:
     received_count: int
     imported_count: int = 0
     skipped_count: int = 0
+    preview: bool = False
+    records: list[dict[str, Any]] = field(default_factory=list[dict[str, Any]])
+    imported_ids: list[int] = field(default_factory=list[int])
     errors: list[dict[str, Any]] = field(default_factory=list[dict[str, Any]])
 
 
@@ -48,6 +54,7 @@ class EnergyDatasetImportUseCase:
         dataset: str,
         rows: list[dict[str, Any]],
         source_name: str | None = None,
+        preview: bool = False,
     ) -> EnergyDatasetImportResult:
         team_id = self._session.info.get(TENANT_ID_SESSION_KEY)
         if team_id is None:
@@ -55,6 +62,10 @@ class EnergyDatasetImportUseCase:
             raise PermissionDeniedException(detail=msg)
 
         normalized_dataset = dataset.strip()
+        if normalized_dataset == "energy_interval_facts":
+            return await self._import_energy_rows(rows=rows, source_name=source_name, preview=preview)
+        if preview:
+            raise ClientException(detail="该数据类型暂不支持预检", status_code=400)
         result = EnergyDatasetImportResult(dataset=normalized_dataset, received_count=len(rows))
         if len(rows) > MAX_IMPORT_ROWS:
             result.errors.append({"row_number": 0, "message": "单次导入最多支持 1000 行。"})
@@ -64,10 +75,10 @@ class EnergyDatasetImportUseCase:
             try:
                 row = {str(key).strip(): value for key, value in raw_row.items()}
                 async with self._session.begin_nested():
-                    if normalized_dataset == "energy_interval_facts":
-                        await self._upsert_energy_interval_fact(team_id=str(team_id), row=row, source_name=source_name)
-                    elif normalized_dataset == "production_output_facts":
-                        await self._upsert_production_output_fact(team_id=str(team_id), row=row, source_name=source_name)
+                    if normalized_dataset == "production_output_facts":
+                        await self._upsert_production_output_fact(
+                            team_id=str(team_id), row=row, source_name=source_name
+                        )
                     else:
                         result.errors.append({"row_number": index, "message": f"不支持的数据集: {normalized_dataset}"})
                         break
@@ -85,73 +96,107 @@ class EnergyDatasetImportUseCase:
             await self._session.rollback()
         return result
 
-    async def _upsert_energy_interval_fact(self, *, team_id: str, row: dict[str, Any], source_name: str | None) -> None:
-        source_record_id = _required_text(row, "source_record_id")
-        period_start = _datetime(row.get("period_start"))
-        period_end = _datetime(row.get("period_end")) if row.get("period_end") else period_start
-        await self._session.execute(
-            text(
-                """
-                insert into dataapp_energyintervalfact (
-                    team_id, source_system, source_record_id, energy_type_code, equipment_code, equipment_name,
-                    area_id, area_name, use_system_code, use_system_name, granularity, period_start, period_end,
-                    amount, unit, cost_cny, tariff_segment_type, reading_count, data_quality, revision_no, is_current,
-                    remark, created_at, updated_at
+    async def _import_energy_rows(
+        self,
+        *,
+        rows: list[dict[str, Any]],
+        source_name: str | None,
+        preview: bool,
+    ) -> EnergyDatasetImportResult:
+        result = EnergyDatasetImportResult(dataset="energy_interval_facts", received_count=len(rows), preview=preview)
+        if not rows or len(rows) > MAX_IMPORT_ROWS:
+            result.skipped_count = len(rows)
+            result.errors.append({"row_number": 0, "message": "请选择包含 1 至 1000 行数据的文件。"})
+            return result
+        team_id = self._session.info[TENANT_ID_SESSION_KEY]
+        seen: set[tuple[str, str]] = set()
+        for index, raw_row in enumerate(rows, start=2):
+            payload: dict[str, Any] = {}
+            try:
+                data = {str(key).strip(): value for key, value in raw_row.items()}
+                data["source_system"] = _text(data.get("source_system")) or IMPORT_SOURCE_SYSTEM
+                data["data_quality"] = _data_quality(data.get("data_quality") or "imported")
+                payload = await _normalize_energy_interval_fact_data(self._session, data)
+                if not _text(data.get("source_record_id")):
+                    identity = "|".join(
+                        str(payload.get(key) or "")
+                        for key in (
+                            "energy_type_code",
+                            "area_id",
+                            "equipment_id",
+                            "period_start",
+                            "period_end",
+                            "granularity",
+                            "tariff_segment_type",
+                        )
+                    )
+                    payload["source_record_id"] = "CSV-" + sha256(identity.encode()).hexdigest()[:32]
+                key = (payload["source_system"], payload["source_record_id"])
+                exists = await self._session.scalar(
+                    select(m.EnergyIntervalFact.id).where(
+                        m.EnergyIntervalFact.team_id == team_id,
+                        m.EnergyIntervalFact.source_system == key[0],
+                        m.EnergyIntervalFact.source_record_id == key[1],
+                    )
                 )
-                values (
-                    :team_id, :source_system, :source_record_id, :energy_type_code, :equipment_code, :equipment_name,
-                    :area_id, :area_name, :use_system_code, :use_system_name, :granularity, :period_start, :period_end,
-                    :amount, :unit, :cost_cny, :tariff_segment_type, :reading_count, :data_quality, 1, true,
-                    :remark, now(), now()
+                if key in seen or exists is not None:
+                    msg = "记录重复。未覆盖已有数据。请在列表中编辑已有记录。"
+                    raise EnergyImportValidationError(msg)
+                seen.add(key)
+                record_id = None
+                if not preview:
+                    async with self._session.begin_nested():
+                        saved = await self._session.scalar(
+                            insert(m.EnergyIntervalFact)
+                            .values(
+                                team_id=team_id,
+                                revision_no=1,
+                                is_current=True,
+                                source_snapshot={"source_name": source_name} if source_name else None,
+                                **payload,
+                            )
+                            .on_conflict_do_nothing(constraint="uq_energy_interval_team_source_record")
+                            .returning(m.EnergyIntervalFact)
+                        )
+                        if saved is None:
+                            msg = "记录已由其他操作保存。未覆盖。请刷新后查看。"
+                            raise EnergyImportValidationError(msg)
+                        record_id = saved.id
+                        payload = {key: getattr(saved, key) for key in payload}
+                    result.imported_ids.append(record_id)
+                    result.imported_count += 1
+                result.records.append(
+                    {
+                        **_preview_payload(payload),
+                        "id": record_id,
+                        "row_number": index,
+                        "source_name": source_name,
+                        "status": "ready" if preview else "imported",
+                    }
                 )
-                on conflict on constraint uq_energy_interval_team_source_record do update set
-                    energy_type_code = excluded.energy_type_code,
-                    equipment_code = excluded.equipment_code,
-                    equipment_name = excluded.equipment_name,
-                    area_id = excluded.area_id,
-                    area_name = excluded.area_name,
-                    use_system_code = excluded.use_system_code,
-                    use_system_name = excluded.use_system_name,
-                    granularity = excluded.granularity,
-                    period_start = excluded.period_start,
-                    period_end = excluded.period_end,
-                    amount = excluded.amount,
-                    unit = excluded.unit,
-                    cost_cny = excluded.cost_cny,
-                    tariff_segment_type = excluded.tariff_segment_type,
-                    reading_count = excluded.reading_count,
-                    data_quality = excluded.data_quality,
-                    is_current = true,
-                    remark = excluded.remark,
-                    updated_at = now()
-                """
-            ),
-            {
-                "team_id": team_id,
-                "source_system": _text(row.get("source_system")) or IMPORT_SOURCE_SYSTEM,
-                "source_record_id": source_record_id,
-                "energy_type_code": canonicalize_energy_type_code(_text(row.get("energy_type_code")))
-                or "purchased_electricity",
-                "equipment_code": _nullable_text(row.get("equipment_code")),
-                "equipment_name": _nullable_text(row.get("equipment_name")),
-                "area_id": _nullable_text(row.get("area_id")),
-                "area_name": _nullable_text(row.get("area_name")),
-                "use_system_code": _nullable_text(row.get("use_system_code")),
-                "use_system_name": _nullable_text(row.get("use_system_name")),
-                "granularity": _text(row.get("granularity")) or "month",
-                "period_start": period_start,
-                "period_end": period_end,
-                "amount": _required_decimal(row, "amount"),
-                "unit": _text(row.get("unit")) or "kWh",
-                "cost_cny": _decimal(row.get("cost_cny")),
-                "tariff_segment_type": _nullable_text(row.get("tariff_segment_type")),
-                "reading_count": _int(row.get("reading_count")),
-                "data_quality": _data_quality(row.get("data_quality")),
-                "remark": _remark(row.get("remark"), source_name, source_record_id),
-            },
-        )
+            except (ClientException, TypeError, ValueError, InvalidOperation, SQLAlchemyError) as exc:
+                result.skipped_count += 1
+                message = (
+                    exc.detail
+                    if isinstance(exc, ClientException)
+                    else "数据写入失败。请检查字段后重试。"
+                    if isinstance(exc, SQLAlchemyError)
+                    else str(exc)
+                )
+                result.errors.append({"row_number": index, "message": message})
+                result.records.append(
+                    {**_preview_payload(payload or raw_row), "row_number": index, "status": "error", "message": message}
+                )
+        if not preview:
+            if result.imported_count:
+                await self._session.commit()
+            else:
+                await self._session.rollback()
+        return result
 
-    async def _upsert_production_output_fact(self, *, team_id: str, row: dict[str, Any], source_name: str | None) -> None:
+    async def _upsert_production_output_fact(
+        self, *, team_id: str, row: dict[str, Any], source_name: str | None
+    ) -> None:
         product_code = _required_text(row, "product_code")
         product_name = _nullable_text(row.get("product_name")) or product_code
         await self._session.execute(
@@ -259,6 +304,7 @@ class EnergyDatasetImportUseCase:
             },
         )
 
+
 def _text(value: Any) -> str:
     return str(value).strip() if value is not None else ""
 
@@ -346,3 +392,14 @@ def _db_error_message(exc: SQLAlchemyError) -> str:
     original = getattr(exc, "orig", None)
     message = str(original or exc).replace("\n", " ")
     return message[:300]
+
+
+def _preview_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: value.isoformat()
+        if isinstance(value, (datetime, date))
+        else float(value)
+        if isinstance(value, Decimal)
+        else value
+        for key, value in payload.items()
+    }

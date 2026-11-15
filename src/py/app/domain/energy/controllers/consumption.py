@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import datetime
-from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING
 
 from litestar import Controller, delete, get, patch, post
@@ -13,13 +11,13 @@ from litestar.response import Response
 from sqlalchemy import func, select, text
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_superuser
+from app.domain.accounts.guards import requires_permission
 from app.domain.energy.queries.consumption import (
     ENERGY_CONSUMPTION_EXPORT_HEADERS,
     EnergyConsumptionQuery,
     EnergyConsumptionQueryService,
 )
-from app.domain.energy.usecases.energy_types import canonicalize_energy_type_code
+from app.domain.energy.usecases.interval_facts import _normalize_energy_interval_fact_data, _parse_datetime
 from app.lib.tenancy import require_session_tenant_id
 
 if TYPE_CHECKING:
@@ -61,8 +59,6 @@ ENERGY_INTERVAL_FACT_EXPORT_HEADERS = [
     "data_quality",
     "remark",
 ]
-YEAR_MONTH_LENGTH = 7
-DATE_LENGTH = 10
 
 
 class EnergyConsumptionController(Controller):
@@ -81,6 +77,9 @@ class EnergyConsumptionController(Controller):
         data_quality: str | None = None,
         source_system: str | None = None,
         tariff_segment_type: str | None = None,
+        ids: str | None = None,
+        area_id: str | None = None,
+        equipment_id: int | None = None,
         limit: int = 20,
         offset: int = 0,
         sort_field: str = "period_start",
@@ -88,6 +87,16 @@ class EnergyConsumptionController(Controller):
     ) -> Response[dict]:
         team_id = require_session_tenant_id(db_session)
         conditions = [m.EnergyIntervalFact.team_id == team_id, m.EnergyIntervalFact.is_current.is_(True)]
+        if ids is not None:
+            try:
+                record_ids = [int(value) for value in ids.split(",") if value.strip()]
+            except ValueError as exc:
+                raise ClientException(detail="记录范围无效", status_code=400) from exc
+            conditions.append(m.EnergyIntervalFact.id.in_(record_ids))
+        if area_id:
+            conditions.append(m.EnergyIntervalFact.area_id == area_id)
+        if equipment_id is not None:
+            conditions.append(m.EnergyIntervalFact.equipment_id == equipment_id)
         if period_start:
             conditions.append(
                 m.EnergyIntervalFact.period_end >= _parse_datetime(period_start, field_name="period_start")
@@ -109,6 +118,9 @@ class EnergyConsumptionController(Controller):
             pattern = f"%{query_text}%"
             conditions.append(
                 m.EnergyIntervalFact.energy_type_code.ilike(pattern)
+                | m.EnergyIntervalFact.energy_type_code.in_(
+                    select(m.EnergyType.code).where(m.EnergyType.name.ilike(pattern))
+                )
                 | m.EnergyIntervalFact.equipment_code.ilike(pattern)
                 | m.EnergyIntervalFact.equipment_name.ilike(pattern)
                 | m.EnergyIntervalFact.area_name.ilike(pattern)
@@ -137,9 +149,32 @@ class EnergyConsumptionController(Controller):
                 )
             ).all()
         )
+        totals = (
+            await db_session.execute(
+                select(
+                    m.EnergyIntervalFact.energy_type_code,
+                    m.EnergyIntervalFact.unit,
+                    func.sum(m.EnergyIntervalFact.amount).label("amount"),
+                    func.sum(m.EnergyIntervalFact.cost_cny).label("cost_cny"),
+                    func.count().label("record_count"),
+                )
+                .where(*conditions)
+                .group_by(m.EnergyIntervalFact.energy_type_code, m.EnergyIntervalFact.unit)
+            )
+        ).all()
         return Response(
             content={
                 "items": [_energy_interval_fact_payload(row) for row in rows],
+                "totals": [
+                    {
+                        "energy_type_code": item.energy_type_code,
+                        "unit": item.unit,
+                        "amount": float(item.amount),
+                        "cost_cny": float(item.cost_cny) if item.cost_cny is not None else None,
+                        "count": item.record_count,
+                    }
+                    for item in totals
+                ],
                 "total": total,
                 "limit": limit_clamped,
                 "offset": offset_clamped,
@@ -368,7 +403,7 @@ class EnergyConsumptionController(Controller):
             headers={"content-disposition": 'attachment; filename="energy_interval_facts.csv"'},
         )
 
-    @post("/api/energy/interval-facts", guards=[requires_superuser])
+    @post("/api/energy/interval-facts", guards=[requires_permission("carbon.config.manage")])
     async def create_energy_interval_fact(
         self,
         db_session: AsyncSession,
@@ -391,7 +426,7 @@ class EnergyConsumptionController(Controller):
         await db_session.refresh(obj)
         return Response(content={"code": 200, "msg": "创建成功", "data": _energy_interval_fact_payload(obj)})
 
-    @patch("/api/energy/interval-facts/{record_id:int}", guards=[requires_superuser])
+    @patch("/api/energy/interval-facts/{record_id:int}", guards=[requires_permission("carbon.config.manage")])
     async def update_energy_interval_fact(
         self,
         db_session: AsyncSession,
@@ -419,7 +454,7 @@ class EnergyConsumptionController(Controller):
         await db_session.refresh(obj)
         return Response(content={"code": 200, "msg": "更新成功", "data": _energy_interval_fact_payload(obj)})
 
-    @delete("/api/energy/interval-facts/{record_id:int}", guards=[requires_superuser], status_code=200)
+    @delete("/api/energy/interval-facts/{record_id:int}", guards=[requires_permission("carbon.config.manage")], status_code=200)
     async def delete_energy_interval_fact(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
         team_id = require_session_tenant_id(db_session)
         obj = await db_session.get(m.EnergyIntervalFact, record_id)
@@ -560,9 +595,11 @@ def _interval_fact_period_params(
 
 
 def _energy_interval_fact_payload(row: m.EnergyIntervalFact) -> dict:
+    snapshot = row.source_snapshot if isinstance(row.source_snapshot, dict) else {}
     return {
         "id": row.id,
         "source_system": row.source_system,
+        "source_name": snapshot.get("source_name") or snapshot.get("sourceName"),
         "source_record_id": row.source_record_id,
         "energy_type_code": row.energy_type_code,
         "equipment_id": row.equipment_id,
@@ -585,121 +622,3 @@ def _energy_interval_fact_payload(row: m.EnergyIntervalFact) -> dict:
         "is_current": row.is_current,
         "remark": row.remark,
     }
-
-
-async def _normalize_energy_interval_fact_data(db_session: AsyncSession, data: dict) -> dict:
-    source_system = _text(data.get("source_system")) or "manual_entry"
-    source_record_id = _required_text(data, "source_record_id")
-    energy_type_code = canonicalize_energy_type_code(_required_text(data, "energy_type_code"))
-    if not energy_type_code:
-        raise ClientException(detail="能源种类不能为空", status_code=400)
-    period_start = _parse_datetime(data.get("period_start"), field_name="period_start")
-    period_end = _parse_datetime(data.get("period_end") or data.get("period_start"), field_name="period_end")
-    if period_end < period_start:
-        raise ClientException(detail="结束时间不能早于开始时间", status_code=400)
-    equipment_id = _int_or_none(data.get("equipment_id"))
-    area_id = _nullable_text(data.get("area_id"))
-    equipment_code = _nullable_text(data.get("equipment_code"))
-    equipment_name = _nullable_text(data.get("equipment_name"))
-    area_name = _nullable_text(data.get("area_name"))
-    if equipment_id is not None:
-        equipment = await db_session.get(m.MonitorEquipment, equipment_id)
-        if equipment is None:
-            raise ClientException(detail="选择的设备不存在", status_code=400)
-        equipment_code = equipment.code
-        equipment_name = equipment.name
-        if not area_id and equipment.sector_id is not None:
-            area_id = str(equipment.sector_id)
-    if area_id and area_id.isdigit():
-        area = await db_session.get(m.MonitorSector, int(area_id))
-        if area is None:
-            raise ClientException(detail="选择的区域不存在", status_code=400)
-        area_name = area.name
-
-    return {
-        "source_system": source_system,
-        "source_record_id": source_record_id,
-        "energy_type_code": energy_type_code,
-        "equipment_id": equipment_id,
-        "equipment_code": equipment_code,
-        "equipment_name": equipment_name,
-        "area_id": area_id,
-        "area_name": area_name,
-        "use_system_code": _nullable_text(data.get("use_system_code")),
-        "use_system_name": _nullable_text(data.get("use_system_name")),
-        "granularity": _text(data.get("granularity")) or "month",
-        "period_start": period_start,
-        "period_end": period_end,
-        "amount": _required_decimal(data, "amount"),
-        "unit": _text(data.get("unit")) or "kWh",
-        "cost_cny": _decimal_or_none(data.get("cost_cny")),
-        "tariff_segment_type": _nullable_text(data.get("tariff_segment_type")),
-        "reading_count": _int_or_none(data.get("reading_count")),
-        "data_quality": _data_quality(data.get("data_quality")),
-        "remark": _nullable_text(data.get("remark")),
-    }
-
-
-def _parse_datetime(value: object, *, field_name: str) -> datetime:
-    text_value = _text(value)
-    if not text_value:
-        raise ClientException(detail=f"缺少时间字段 {field_name}", status_code=400)
-    if len(text_value) == YEAR_MONTH_LENGTH:
-        text_value = f"{text_value}-01T00:00:00"
-    elif len(text_value) == DATE_LENGTH:
-        text_value = f"{text_value}T00:00:00"
-    try:
-        return datetime.fromisoformat(text_value.replace(" ", "T"))
-    except ValueError as exc:
-        raise ClientException(detail=f"时间字段格式不正确: {field_name}", status_code=400) from exc
-
-
-def _required_text(data: dict, field_name: str) -> str:
-    value = _text(data.get(field_name))
-    if not value:
-        raise ClientException(detail=f"缺少必填字段 {field_name}", status_code=400)
-    return value
-
-
-def _text(value: object) -> str:
-    return str(value).strip() if value is not None else ""
-
-
-def _nullable_text(value: object) -> str | None:
-    text_value = _text(value)
-    return text_value or None
-
-
-def _decimal_or_none(value: object) -> Decimal | None:
-    text_value = _text(value)
-    if not text_value:
-        return None
-    try:
-        return Decimal(text_value.replace(",", ""))
-    except InvalidOperation as exc:
-        raise ClientException(detail="数值字段格式不正确", status_code=400) from exc
-
-
-def _required_decimal(data: dict, field_name: str) -> Decimal:
-    value = _decimal_or_none(data.get(field_name))
-    if value is None:
-        raise ClientException(detail=f"缺少必填数值 {field_name}", status_code=400)
-    return value
-
-
-def _int_or_none(value: object) -> int | None:
-    text_value = _text(value)
-    if not text_value:
-        return None
-    try:
-        return int(text_value)
-    except ValueError as exc:
-        raise ClientException(detail="整数字段格式不正确", status_code=400) from exc
-
-
-def _data_quality(value: object) -> str:
-    text_value = _text(value) or "measured"
-    allowed = {"measured", "manual", "imported", "estimated"}
-    if text_value not in allowed:
-        raise ClientException(detail="数据质量必须为 measured/manual/imported/estimated", status_code=400)
-    return text_value

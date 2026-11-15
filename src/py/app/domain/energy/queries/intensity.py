@@ -8,7 +8,11 @@ from sqlalchemy import select, text
 
 from app.db import models as m
 from app.domain.energy.queries.common import jsonable_mapping, positive_float, ratio_or_none
-from app.domain.energy.queries.consumption import EnergyConsumptionQuery, build_energy_fact_filters
+from app.domain.energy.queries.consumption import (
+    EnergyConsumptionQuery,
+    build_energy_fact_filters,
+    energy_fact_source_sql,
+)
 from app.domain.production_denominator.policies import normalize_price_type
 from app.domain.production_denominator.queries import (
     ProductionDenominatorQueryService,
@@ -67,7 +71,7 @@ class EnergyIntensityQueryService:
                 coalesce(sum(tce_amount), 0) as total_tce,
                 coalesce(sum(standard_amount), 0) as total_kgce,
                 coalesce(sum(co2e_amount), 0) as total_co2e
-            from energy_consumption_fact_v
+            from {energy_fact_source_sql()}
             {where_sql}
             group by energy_type_code, energy_type_name
             order by sum(tce_amount) desc nulls last, sum(original_amount) desc nulls last
@@ -83,7 +87,7 @@ class EnergyIntensityQueryService:
                 coalesce(sum(tce_amount), 0) as total_tce,
                 coalesce(sum(standard_amount), 0) as total_kgce,
                 coalesce(sum(co2e_amount), 0) as total_co2e
-            from energy_consumption_fact_v
+            from {energy_fact_source_sql()}
             {where_sql}
             group by scope
             order by scope
@@ -101,7 +105,7 @@ class EnergyIntensityQueryService:
                 coalesce(sum(standard_amount), 0) as total_kgce,
                 coalesce(sum(co2e_amount), 0) as total_co2e,
                 coalesce(sum(case when energy_type_code = 'purchased_electricity' then original_amount else 0 end), 0) as electricity_kwh
-            from energy_consumption_fact_v
+            from {energy_fact_source_sql()}
             {where_sql}
             group by coalesce(area_id, ''), coalesce(area_name, '未分区')
             order by sum(tce_amount) desc nulls last, sum(original_amount) desc nulls last
@@ -120,7 +124,7 @@ class EnergyIntensityQueryService:
                 coalesce(sum(standard_amount), 0) as total_kgce,
                 coalesce(sum(co2e_amount), 0) as total_co2e,
                 coalesce(sum(case when energy_type_code = 'purchased_electricity' then original_amount else 0 end), 0) as electricity_kwh
-            from energy_consumption_fact_v
+            from {energy_fact_source_sql()}
             {where_sql}
             group by coalesce(facility_or_device_name, '未命名'), coalesce(area_name, '未分区')
             order by sum(tce_amount) desc nulls last, sum(original_amount) desc nulls last
@@ -163,7 +167,7 @@ class EnergyIntensityQueryService:
                 coalesce(sum(standard_amount), 0) as total_kgce,
                 coalesce(sum(co2e_amount), 0) as total_co2e,
                 coalesce(sum(case when energy_type_code = 'purchased_electricity' then original_amount else 0 end), 0) as electricity_kwh
-            from energy_consumption_fact_v
+            from {energy_fact_source_sql()}
             {where_sql}
             group by date_trunc(:date_part, period_start)
             order by period desc
@@ -226,7 +230,7 @@ class EnergyIntensityQueryService:
                 {
                     "key": "total_tce",
                     "label": "综合能耗",
-                    "source_view": "energy_consumption_fact_v",
+                    "source_table": "dataapp_energyintervalfact",
                     "source_field": "tce_amount",
                     "unit": "tce",
                     "standard": "GB/T 2589-2020",
@@ -234,7 +238,7 @@ class EnergyIntensityQueryService:
                 {
                     "key": "electricity_kwh",
                     "label": "外购电力专项消费量",
-                    "source_view": "energy_consumption_fact_v",
+                    "source_table": "dataapp_energyintervalfact",
                     "source_field": "original_amount",
                     "filter": "energy_type_code = purchased_electricity",
                     "unit": "kWh",
@@ -244,7 +248,7 @@ class EnergyIntensityQueryService:
             "missing_items": [f"{item['key']}_missing" for item in denominator_sources if item["missing"]],
             "assumptions": [
                 "P0 只计算面积强度, 不计算单位产值或单位产品产量强度。",
-                "综合能耗来自 energy_consumption_fact_v.tce_amount, 折标口径按能源品种字典和 GB/T 2589-2020 管理。",
+                "综合能耗来自当前能源事实的折标结果, 折标口径按能源品种字典和 GB/T 2589-2020 管理。",
                 "月度趋势按 period_start 所在月份归属, 跨月消费首版不拆分。",
                 "默认状态为 all; 正式报表可手动切换 approved。",
             ],
@@ -258,7 +262,7 @@ class EnergyIntensityQueryService:
             bool(query.product_code and query.product_code != "all") or len(product_rows) == 1
         )
         total_kgce = float(energy_totals.get("total_kgce") or 0)
-        rows = []
+        rows: list[dict[str, object]] = []
         for row in product_rows:
             standard_qty = float(row.get("total_standard_qty") or 0)
             row_kgce = total_kgce if can_calculate_unit_intensity else None
@@ -301,7 +305,7 @@ class EnergyIntensityQueryService:
         output_value = sum(selected_output_value(row, selected_price_type) for row in product_rows)
         output_value_10k = output_value / 10000 if output_value else 0
         can_calculate_product_row = bool(query.product_code and query.product_code != "all") or len(product_rows) == 1
-        rows = []
+        rows: list[dict[str, object]] = []
         for row in product_rows:
             row_output_value = selected_output_value(row, selected_price_type)
             row_output_value_10k = row_output_value / 10000 if row_output_value else 0
@@ -340,7 +344,7 @@ class EnergyIntensityQueryService:
     async def product_trend(self, query: EnergyIntensityQuery) -> dict[str, Any]:
         energy_by_period = await _energy_by_period(self._session, query)
         production_rows = await ProductionDenominatorQueryService(self._session).period_rows(_production_query(query))
-        series = []
+        series: list[dict[str, object]] = []
         for row in production_rows:
             energy = energy_by_period.get(row["period"], {"total_kgce": 0, "total_tce": 0})
             can_calculate = (
@@ -367,7 +371,7 @@ class EnergyIntensityQueryService:
             "standard_price": "output_value_standard_price",
             "base_period_price": "output_value_base_price",
         }[selected_price_type]
-        series = []
+        series: list[dict[str, object]] = []
         for row in production_rows:
             energy = energy_by_period.get(row["period"], {"total_kgce": 0, "total_tce": 0})
             total_kgce = float(energy.get("total_kgce") or 0)
@@ -423,7 +427,7 @@ async def _energy_kgce_totals(session: AsyncSession, query: EnergyIntensityQuery
                     coalesce(sum(standard_amount), 0) as total_kgce,
                     coalesce(sum(co2e_amount), 0) as total_co2e,
                     coalesce(sum(case when energy_type_code = 'purchased_electricity' then original_amount else 0 end), 0) as electricity_kwh
-                from energy_consumption_fact_v
+                from {energy_fact_source_sql()}
                 {where_sql}
                 """
                 ),
@@ -448,7 +452,7 @@ async def _energy_by_period(session: AsyncSession, query: EnergyIntensityQuery) 
             to_char(date_trunc(:date_part, period_start), :period_format) as period,
             coalesce(sum(standard_amount), 0) as total_kgce,
             coalesce(sum(tce_amount), 0) as total_tce
-        from energy_consumption_fact_v
+        from {energy_fact_source_sql()}
         {where_sql}
         group by date_trunc(:date_part, period_start)
         """,

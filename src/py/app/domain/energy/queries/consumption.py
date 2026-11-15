@@ -97,7 +97,7 @@ class EnergyConsumptionQueryService:
         total = int(
             (
                 await self._session.execute(
-                    text(f"select count(*) from {_energy_fact_source_sql()} {where_sql}"), params
+                    text(f"select count(*) from {energy_fact_source_sql()} {where_sql}"), params
                 )
             ).scalar_one()
             or 0
@@ -109,7 +109,7 @@ class EnergyConsumptionQueryService:
                         f"""
                     select
                         {", ".join(ENERGY_CONSUMPTION_EXPORT_HEADERS)}
-                    from {_energy_fact_source_sql()}
+                    from {energy_fact_source_sql()}
                     {where_sql}
                     order by {order_field} {order_direction}, source_record_id desc
                     limit :limit offset :offset
@@ -161,7 +161,7 @@ class EnergyConsumptionQueryService:
                         max(standard_unit) as standard_unit,
                         sum(tce_amount) as tce_amount,
                         sum(co2e_amount) as co2e_amount
-                    from {_energy_fact_source_sql()}
+                    from {energy_fact_source_sql()}
                     {where_sql}
                     group by {", ".join(group_parts)}
                     order by sum(tce_amount) desc nulls last, sum(original_amount) desc nulls last
@@ -203,7 +203,7 @@ class EnergyConsumptionQueryService:
                                 sum(standard_amount) as standard_amount,
                                 sum(tce_amount) as tce_amount,
                                 sum(co2e_amount) as co2e_amount
-                            from {_energy_fact_source_sql()}
+                            from {energy_fact_source_sql()}
                             {where_sql}
                             """
                         ),
@@ -234,7 +234,7 @@ class EnergyConsumptionQueryService:
                         f"""
                     select
                         {", ".join(ENERGY_CONSUMPTION_EXPORT_HEADERS)}
-                    from {_energy_fact_source_sql()}
+                    from {energy_fact_source_sql()}
                     {where_sql}
                     order by period_start desc, source_record_id desc
                     limit 5000
@@ -298,7 +298,7 @@ def build_energy_fact_filters(query: EnergyConsumptionQuery, *, team_id: UUID | 
     return (f"where {' and '.join(conditions)}" if conditions else ""), params
 
 
-def _energy_fact_source_sql() -> str:
+def energy_fact_source_sql() -> str:
     """Return the canonical energy fact projection used by energy-operation query pages."""
     return """
         (
