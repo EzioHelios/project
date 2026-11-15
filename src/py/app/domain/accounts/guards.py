@@ -149,6 +149,29 @@ def requires_any_permission(
     return requires_permission(*permission_codes)
 
 
+def requires_resource_access(
+    view: str, maintain: str,
+) -> Callable[[ASGIConnection[Any, m.User, Token, Any], BaseRouteHandler], None]:
+    """Authorize a resource's reads and mutations through the existing RBAC grants."""
+
+    def _guard(connection: ASGIConnection[Any, m.User, Token, Any], handler: BaseRouteHandler) -> None:
+        permission = view if connection.scope.get("method") in {"GET", "HEAD", "OPTIONS"} else maintain
+        requires_active_user(connection, handler)
+        requires_permission(permission)(connection, handler)
+
+    return _guard
+
+
+def effective_permissions(user: m.User) -> dict[str, Any]:
+    """Return current database grants; clients must not infer privileges from role names."""
+    return {
+        "permissions": sorted(_user_permission_codes(user)),
+        "isSuperuser": user.is_superuser or any(
+            role.role_name == constants.SUPERUSER_ACCESS_ROLE for role in user.roles
+        ),
+    }
+
+
 async def current_user_from_token(token: Token, _connection: ASGIConnection[Any, Any, Any, Any]) -> m.User | None:
     """Lookup current user from local JWT token.
 

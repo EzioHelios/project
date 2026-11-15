@@ -10,6 +10,7 @@ from litestar.exceptions import NotFoundException, ValidationException
 from litestar.response import File, Response
 from sqlalchemy import select
 
+from app.domain.accounts.guards import requires_resource_access
 from app.domain.carbon.models import MonitorSectorPhoto
 from app.domain.carbon.services._bigscreen import (
     BigscreenCarbonService,
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
 
 
 class BigscreenController(Controller):
+    guards = [requires_resource_access("bigscreen.view", "bigscreen.manage")]
     path = "/api/bigscreen"
     tags = ["Bigscreen"]
 

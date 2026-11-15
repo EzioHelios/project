@@ -13,6 +13,7 @@ from litestar.response import Response
 from sqlalchemy import func, select
 
 from app.db import models as m
+from app.domain.accounts.guards import requires_resource_access
 from app.domain.energy.controllers._utils import model_to_dict, ok_data
 from app.domain.energy.policy_benchmark_sync import available_policy_sources, sync_policy_benchmark_library
 from app.domain.energy.queries.benchmark import (
@@ -81,6 +82,7 @@ BENCHMARK_BODY = Body()
 
 
 class EnergyBenchmarkController(Controller):
+    guards = [requires_resource_access("energy.benchmark.view", "energy.benchmark.manage")]
     tags = ["Energy"]
 
     @get("/api/energy/benchmark/profiles")

@@ -848,3 +848,24 @@ def complete_ghg_tenant_data_command(team_slug: str) -> None:
 
     console.rule("Complete GHG tenant data.")
     anyio.run(_complete)
+
+
+@user_management_group.command(name="provision-customer-demo", help="Provision the restricted Woheng customer demonstration account.")
+@click.option("--username", required=True)
+@click.option("--email", required=True)
+@click.option("--apply", is_flag=True, help="Apply the plan; existing passwords are never reset.")
+def provision_customer_demo(username: str, email: str, apply: bool) -> None:
+    """Create the limited role and two member bindings; secrets stay in the environment."""
+    import os
+
+    from app.demo.ops.customer_access import provision_customer_access
+
+    async def run() -> None:
+        async with alchemy.get_session() as session:
+            result = await provision_customer_access(
+                session, username=username, email=email,
+                password=os.environ.get("CUSTOMER_DEMO_PASSWORD"), apply=apply,
+            )
+            get_console().print(result)
+
+    anyio.run(run)

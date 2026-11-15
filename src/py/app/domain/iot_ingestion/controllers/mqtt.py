@@ -13,7 +13,7 @@ from litestar.response import Response
 from sqlalchemy import func, select
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_authenticated_user, requires_superuser
+from app.domain.accounts.guards import requires_authenticated_user, requires_resource_access, requires_superuser
 from app.domain.energy.controllers._utils import model_to_dict, ok_data
 from app.domain.iot_ingestion.usecases import MqttIngestionUseCase
 
@@ -69,6 +69,7 @@ MAPPING_FIELDS = {
 
 class MqttIngestionConfigurationController(Controller):
     """Manage MQTT source contracts without persisting broker secrets in application data."""
+    guards = [requires_resource_access("iot.view", "iot.manage")]
 
     tags = ["MQTT Ingestion"]
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from litestar import Controller, get, patch, post
+from litestar import Controller, Request, get, patch, post
 from litestar.datastructures import UploadFile  # noqa: TC002
 from litestar.di import Provide
 from litestar.enums import RequestEncodingType
@@ -182,9 +182,12 @@ class CarbonVerificationController(Controller):
     )
     async def create_verification_project(
         self,
+        request: Request,
         db_session: AsyncSession,
         data: JsonObject = EXPORT_BODY,
     ) -> Response[JsonObject]:
+        if data.get("conclusion_status") in {"reviewed", "approved"} or data.get("status") == "completed":
+            requires_permission("carbon.verification.review")(request, request.route_handler)
         try:
             project = await CarbonVerificationProjectUseCase(db_session).create_project(data)
             payload = await CarbonVerificationProjectQueryService(db_session).get_project(project.id)
@@ -199,10 +202,13 @@ class CarbonVerificationController(Controller):
     )
     async def update_verification_project(
         self,
+        request: Request,
         db_session: AsyncSession,
         project_id: int,
         data: JsonObject = EXPORT_BODY,
     ) -> Response[JsonObject]:
+        if data.get("conclusion_status") in {"reviewed", "approved"} or data.get("status") == "completed":
+            requires_permission("carbon.verification.review")(request, request.route_handler)
         try:
             project = await CarbonVerificationProjectUseCase(db_session).update_project(project_id, data)
             payload = await CarbonVerificationProjectQueryService(db_session).get_project(project.id)

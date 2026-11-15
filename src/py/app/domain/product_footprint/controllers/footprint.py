@@ -6,7 +6,7 @@ from litestar import Controller, delete, get, patch, post
 from litestar.params import Body
 from litestar.response import File, Response
 
-from app.domain.accounts.guards import requires_permission
+from app.domain.accounts.guards import requires_permission, requires_resource_access
 from app.domain.energy.controllers._utils import model_to_dict, ok_data
 from app.domain.material_allocation.schemas import MaterialResultImport  # noqa: TC001
 from app.domain.product_footprint.queries.footprint import (
@@ -25,6 +25,7 @@ FOOTPRINT_BODY = Body()
 
 
 class ProductFootprintController(Controller):
+    guards = [requires_resource_access("product_footprint.view", "product_footprint:write")]
     tags = ["Product Footprint"]
 
     @post("/api/carbon/product-footprint/studies/{study_id:int}/material-results", guards=[requires_permission("product_footprint:write")])

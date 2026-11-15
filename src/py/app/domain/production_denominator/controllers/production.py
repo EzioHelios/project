@@ -7,7 +7,7 @@ from litestar.params import Body
 from litestar.response import Response
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_superuser
+from app.domain.accounts.guards import requires_permission, requires_resource_access
 from app.domain.admin.deps import provide_audit_log_service
 from app.domain.admin.services import AuditLogService  # noqa: TC001
 from app.domain.carbon import services  # noqa: TC001
@@ -43,6 +43,7 @@ ADMIN_BODY = Body()
 
 
 class ProductionDenominatorController(Controller):
+    guards = [requires_resource_access("production.view", "production.manage")]
     tags = ["Production Denominator"]
     dependencies = {
         "production_product_service": provide_production_product_service,
@@ -87,7 +88,7 @@ class ProductionDenominatorController(Controller):
         )
         return Response(content=page)
 
-    @post("/api/production/products", guards=[requires_superuser])
+    @post("/api/production/products", guards=[requires_permission("production.manage")])
     async def create_production_product(
         self,
         request: Request[Any, Any, Any],
@@ -110,7 +111,7 @@ class ProductionDenominatorController(Controller):
         )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/production/products/{record_id:int}", guards=[requires_superuser])
+    @patch("/api/production/products/{record_id:int}", guards=[requires_permission("production.manage")])
     async def update_production_product(
         self,
         request: Request[Any, Any, Any],
@@ -144,7 +145,7 @@ class ProductionDenominatorController(Controller):
         )
         return Response(content={"code": 200, "msg": "更新成功", "data": model_to_dict(fresh)})
 
-    @delete("/api/production/products/{record_id:int}", guards=[requires_superuser], status_code=200)
+    @delete("/api/production/products/{record_id:int}", guards=[requires_permission("production.manage")], status_code=200)
     async def delete_production_product(
         self,
         request: Request[Any, Any, Any],
@@ -198,7 +199,7 @@ class ProductionDenominatorController(Controller):
         )
         return Response(content=page)
 
-    @post("/api/production/product-prices", guards=[requires_superuser])
+    @post("/api/production/product-prices", guards=[requires_permission("production.manage")])
     async def create_product_price(
         self,
         request: Request[Any, Any, Any],
@@ -222,7 +223,7 @@ class ProductionDenominatorController(Controller):
         )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/production/product-prices/{record_id:int}", guards=[requires_superuser])
+    @patch("/api/production/product-prices/{record_id:int}", guards=[requires_permission("production.manage")])
     async def update_product_price(
         self,
         request: Request[Any, Any, Any],
@@ -260,7 +261,7 @@ class ProductionDenominatorController(Controller):
         )
         return Response(content={"code": 200, "msg": "更新成功", "data": model_to_dict(fresh)})
 
-    @delete("/api/production/product-prices/{record_id:int}", guards=[requires_superuser], status_code=200)
+    @delete("/api/production/product-prices/{record_id:int}", guards=[requires_permission("production.manage")], status_code=200)
     async def delete_product_price(
         self,
         request: Request[Any, Any, Any],
@@ -339,7 +340,7 @@ class ProductionDenominatorController(Controller):
         )
         return Response(content=page)
 
-    @post("/api/production/output-facts", guards=[requires_superuser])
+    @post("/api/production/output-facts", guards=[requires_permission("production.manage")])
     async def create_production_output_fact(
         self,
         request: Request[Any, Any, Any],
@@ -363,7 +364,7 @@ class ProductionDenominatorController(Controller):
         )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/production/output-facts/{record_id:int}", guards=[requires_superuser])
+    @patch("/api/production/output-facts/{record_id:int}", guards=[requires_permission("production.manage")])
     async def update_production_output_fact(
         self,
         request: Request[Any, Any, Any],
@@ -402,7 +403,7 @@ class ProductionDenominatorController(Controller):
         )
         return Response(content={"code": 200, "msg": "更新成功", "data": model_to_dict(fresh)})
 
-    @delete("/api/production/output-facts/{record_id:int}", guards=[requires_superuser], status_code=200)
+    @delete("/api/production/output-facts/{record_id:int}", guards=[requires_permission("production.manage")], status_code=200)
     async def delete_production_output_fact(
         self,
         request: Request[Any, Any, Any],
@@ -466,7 +467,7 @@ class ProductionDenominatorController(Controller):
         )
         return Response(content=page)
 
-    @post("/api/production/resource-bindings", guards=[requires_superuser])
+    @post("/api/production/resource-bindings", guards=[requires_permission("production.manage")])
     async def create_production_resource_binding(
         self,
         request: Request[Any, Any, Any],
@@ -489,7 +490,7 @@ class ProductionDenominatorController(Controller):
         )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/production/resource-bindings/{record_id:int}", guards=[requires_superuser])
+    @patch("/api/production/resource-bindings/{record_id:int}", guards=[requires_permission("production.manage")])
     async def update_production_resource_binding(
         self,
         request: Request[Any, Any, Any],
@@ -521,7 +522,7 @@ class ProductionDenominatorController(Controller):
         )
         return Response(content={"code": 200, "msg": "更新成功", "data": model_to_dict(fresh)})
 
-    @delete("/api/production/resource-bindings/{record_id:int}", guards=[requires_superuser], status_code=200)
+    @delete("/api/production/resource-bindings/{record_id:int}", guards=[requires_permission("production.manage")], status_code=200)
     async def delete_production_resource_binding(
         self,
         request: Request[Any, Any, Any],

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from litestar import Controller, get
 from litestar.response import Response
 
+from app.domain.accounts.guards import requires_resource_access
 from app.domain.energy.controllers._utils import ok_data
 from app.domain.energy.queries.source_readiness import EnergySourceReadinessQueryService
 
@@ -13,6 +14,7 @@ if TYPE_CHECKING:
 
 
 class EnergySourceReadinessController(Controller):
+    guards = [requires_resource_access("energy.consumption.view", "energy.consumption.manage")]
     tags = ["Energy"]
 
     @get("/api/energy/source-readiness")

@@ -6,6 +6,7 @@ from litestar import Controller, get
 from litestar.params import Parameter
 from litestar.response import Response
 
+from app.domain.accounts.guards import requires_resource_access
 from app.domain.energy.controllers._utils import ok_data
 from app.domain.energy.queries.intensity import EnergyIntensityQuery, EnergyIntensityQueryService
 
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
 
 
 class EnergyIntensityController(Controller):
+    guards = [requires_resource_access("energy.intensity.view", "energy.intensity.manage")]
     tags = ["Energy"]
 
     @get("/api/energy/intensity/summary")

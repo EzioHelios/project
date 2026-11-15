@@ -14,6 +14,7 @@ from app.db import models as m
 from app.db.models import Team, TeamMember, TeamRoles, User
 from app.demo.ops.contracts import DemoAction, DemoExecutionContext, DemoPlanStep, DemoRunResult, DemoStepStatus
 from app.demo.showcase import ShowcaseDemoBuilder
+from app.domain.accounts.business_permissions import BUSINESS_PERMISSION_SPECS
 from app.domain.carbon.energy_analysis_importer import (
     _rebuild_energy_interval_facts,
     seed_energy_analysis_data,
@@ -65,6 +66,10 @@ WOHENG_DEMO_PERMISSION_SPECS: tuple[tuple[str, str, str, str], ...] = (
     ("microgrid.forecast.run", "执行微电网预测", "发起微电网负荷与新能源出力预测", "microgrid"),
     ("microgrid.optimize.run", "执行微电网优化", "发起微电网优化调度计算", "microgrid"),
     ("microgrid.dispatch.simulate", "模拟微电网调度", "生成并查看微电网调度下发和回执", "microgrid"),
+)
+WOHENG_DEMO_PERMISSION_SPECS += tuple(
+    (code, name, name, module) for code, name, module in BUSINESS_PERMISSION_SPECS
+    if not code.startswith("system.") and code != "energy.dictionary.manage"
 )
 MIN_EQUIPMENT_COUNT = 19
 MIN_ACTIVITY_COUNT = 400

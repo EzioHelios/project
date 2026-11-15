@@ -10,7 +10,7 @@ from litestar.response import Response
 from sqlalchemy import and_, func, or_, select
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_authenticated_user
+from app.domain.accounts.guards import requires_authenticated_user, requires_resource_access
 from app.domain.energy.controllers._utils import ok_data
 
 if TYPE_CHECKING:
@@ -26,6 +26,7 @@ MAX_SERIES_LIMIT = 1000
 
 class IotPointMonitoringController(Controller):
     """Expose tenant-scoped monitoring read models for mapped device points."""
+    guards = [requires_resource_access("iot.view", "iot.manage")]
 
     tags = ["IoT Monitoring"]
 

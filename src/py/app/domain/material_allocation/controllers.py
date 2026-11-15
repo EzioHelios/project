@@ -6,7 +6,11 @@ from litestar import Controller, Request, delete, get, patch, post
 from litestar.response import Response
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: TC002
 
-from app.domain.accounts.guards import has_permission, requires_active_user, requires_permission
+from app.domain.accounts.guards import (
+    has_permission,
+    requires_permission,
+    requires_resource_access,
+)
 from app.domain.energy.controllers._utils import model_to_dict, ok_data
 from app.domain.material_allocation.queries import MaterialAllocationQueryService
 from app.domain.material_allocation.schemas import HourCalculation, OperationCreate, OperationUpdate  # noqa: TC001
@@ -19,7 +23,7 @@ from app.domain.material_allocation.usecases import (
 
 class MaterialAllocationController(Controller):
     tags = ["Material Allocation"]
-    guards = [requires_active_user]
+    guards = [requires_resource_access("material_allocation.view", "material_operations:write")]
 
     @get("/api/material-allocation/options")
     async def options(self, db_session: AsyncSession, request: Request) -> Response[dict]:

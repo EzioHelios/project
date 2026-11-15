@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: TC002 - Litestar resolves route annotations at registration.
 
 from app.db.models import Team
-from app.domain.accounts.guards import requires_authenticated_user
+from app.domain.accounts.guards import requires_resource_access
 from app.domain.spatial_scenes.store import SceneAssetStore, provide_scene_store
 from app.lib.tenancy import resolve_tenant_context
 
@@ -32,7 +32,7 @@ class TenantSceneController(Controller):
 
     path = "/api/teams/{team_id:uuid}/scene"
     tags = ["Spatial Scenes"]
-    guards = [requires_authenticated_user]
+    guards = [requires_resource_access("bigscreen.view", "bigscreen.manage")]
     dependencies = {"scene_store": Provide(provide_scene_store, sync_to_thread=False)}
 
     @get("/")

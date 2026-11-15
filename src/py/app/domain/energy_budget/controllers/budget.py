@@ -8,6 +8,7 @@ from litestar.response import Response
 from sqlalchemy import func, select
 
 from app.db import models as m
+from app.domain.accounts.guards import requires_resource_access
 from app.domain.energy.controllers._utils import model_to_dict, ok_data
 from app.domain.energy_budget.queries.budget import EnergyBudgetQuery, EnergyBudgetQueryService
 from app.domain.energy_budget.usecases.budget import EnergyBudgetUseCase
@@ -20,6 +21,7 @@ BUDGET_BODY = Body()
 
 
 class EnergyBudgetController(Controller):
+    guards = [requires_resource_access("energy.budget.view", "energy.budget.manage")]
     tags = ["Energy"]
 
     @get("/api/energy/budget/plans")

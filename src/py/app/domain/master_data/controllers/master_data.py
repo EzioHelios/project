@@ -11,7 +11,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import selectinload
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_permission, requires_superuser
+from app.domain.accounts.guards import requires_permission, requires_resource_access, requires_superuser
 from app.domain.admin.deps import provide_audit_log_service
 from app.domain.admin.services import AuditLogService  # noqa: TC001
 from app.domain.carbon import services  # noqa: TC001
@@ -67,6 +67,7 @@ def _camera_payload(data: dict[str, Any]) -> dict[str, Any]:
 
 
 class MasterDataController(Controller):
+    guards = [requires_resource_access("master_data.view", "master_data.manage")]
     tags = ["Master Data"]
     dependencies = {
         "area_service": provide_area_service,
@@ -86,7 +87,7 @@ class MasterDataController(Controller):
 
     @patch(
         "/api/master-data/enterprise-profile/{enterprise_id:int}",
-        guards=[requires_permission("carbon.inventory.report.manage")],
+        guards=[requires_permission("master_data.manage")],
     )
     async def edit_enterprise_profile(
         self,
@@ -100,7 +101,7 @@ class MasterDataController(Controller):
             raise ClientException(detail=str(exc)) from exc
         return Response(content={"code": 200, "msg": "保存成功", "data": model_to_dict(row)})
 
-    @get("/api/master-data/import-workbooks/template", guards=[requires_superuser])
+    @get("/api/master-data/import-workbooks/template", guards=[requires_permission("master_data.manage")])
     async def download_master_data_import_template(self) -> Response[bytes]:
         from app.domain.master_data.import_workbook import build_master_data_template_bytes
 
@@ -110,7 +111,7 @@ class MasterDataController(Controller):
             headers={"Content-Disposition": 'attachment; filename="energy-metering-master-data-template.xlsx"'},
         )
 
-    @post("/api/master-data/import-workbooks/preview", guards=[requires_superuser], status_code=200)
+    @post("/api/master-data/import-workbooks/preview", guards=[requires_permission("master_data.manage")], status_code=200)
     async def preview_master_data_import_workbook(
         self,
         db_session: AsyncSession,
@@ -127,7 +128,7 @@ class MasterDataController(Controller):
             raise ClientException(detail=str(exc), status_code=400) from exc
         return Response(content={"code": 200, "msg": "预览成功", "data": preview})
 
-    @post("/api/master-data/import-workbooks/import", guards=[requires_superuser])
+    @post("/api/master-data/import-workbooks/import", guards=[requires_permission("master_data.manage")])
     async def import_master_data_import_workbook(
         self,
         db_session: AsyncSession,
@@ -366,7 +367,7 @@ class MasterDataController(Controller):
             }
         )
 
-    @post("/api/master-data/areas", guards=[requires_superuser])
+    @post("/api/master-data/areas", guards=[requires_permission("master_data.manage")])
     async def create_master_data_area(
         self,
         request: Request[Any, Any, Any],
@@ -396,7 +397,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "创建成功", "data": _serialize_area(obj)})
 
-    @patch("/api/master-data/areas/{area_id:int}", guards=[requires_superuser])
+    @patch("/api/master-data/areas/{area_id:int}", guards=[requires_permission("master_data.manage")])
     async def update_master_data_area(
         self,
         request: Request[Any, Any, Any],
@@ -437,7 +438,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "更新成功", "data": _serialize_area(obj)})
 
-    @delete("/api/master-data/areas/{area_id:int}", guards=[requires_superuser], status_code=200)
+    @delete("/api/master-data/areas/{area_id:int}", guards=[requires_permission("master_data.manage")], status_code=200)
     async def delete_master_data_area(
         self,
         request: Request[Any, Any, Any],
@@ -687,7 +688,7 @@ class MasterDataController(Controller):
             }
         )
 
-    @post("/api/master-data/devices", guards=[requires_superuser])
+    @post("/api/master-data/devices", guards=[requires_permission("master_data.manage")])
     async def create_master_data_device(
         self,
         request: Request[Any, Any, Any],
@@ -719,7 +720,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "创建成功", "data": _serialize_device(obj)})
 
-    @patch("/api/master-data/devices/{device_id:int}", guards=[requires_superuser])
+    @patch("/api/master-data/devices/{device_id:int}", guards=[requires_permission("master_data.manage")])
     async def update_master_data_device(
         self,
         request: Request[Any, Any, Any],
@@ -758,7 +759,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "更新成功", "data": _serialize_device(obj)})
 
-    @delete("/api/master-data/devices/{device_id:int}", guards=[requires_superuser], status_code=200)
+    @delete("/api/master-data/devices/{device_id:int}", guards=[requires_permission("master_data.manage")], status_code=200)
     async def delete_master_data_device(
         self,
         request: Request[Any, Any, Any],
@@ -843,7 +844,7 @@ class MasterDataController(Controller):
             )
         return Response(content=page)
 
-    @post("/api/master-data/device-points", guards=[requires_superuser])
+    @post("/api/master-data/device-points", guards=[requires_permission("master_data.manage")])
     async def create_master_data_device_point(
         self,
         request: Request[Any, Any, Any],
@@ -879,7 +880,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/master-data/device-points/{record_id:int}", guards=[requires_superuser])
+    @patch("/api/master-data/device-points/{record_id:int}", guards=[requires_permission("master_data.manage")])
     async def update_master_data_device_point(
         self,
         request: Request[Any, Any, Any],
@@ -919,7 +920,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "更新成功", "data": model_to_dict(obj)})
 
-    @delete("/api/master-data/device-points/{record_id:int}", guards=[requires_superuser], status_code=200)
+    @delete("/api/master-data/device-points/{record_id:int}", guards=[requires_permission("master_data.manage")], status_code=200)
     async def delete_master_data_device_point(
         self,
         request: Request[Any, Any, Any],
@@ -1000,7 +1001,7 @@ class MasterDataController(Controller):
                 row["equipment_count"] = equipment_counts.get(sector_id, 0)
         return Response(content=page)
 
-    @post("/api/data/monitor-sectors", guards=[requires_superuser])
+    @post("/api/data/monitor-sectors", guards=[requires_permission("master_data.manage")])
     async def create_monitor_sector(
         self,
         request: Request[Any, Any, Any],
@@ -1030,7 +1031,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/data/monitor-sectors/{record_id:int}", guards=[requires_superuser])
+    @patch("/api/data/monitor-sectors/{record_id:int}", guards=[requires_permission("master_data.manage")])
     async def update_monitor_sector(
         self,
         request: Request[Any, Any, Any],
@@ -1070,7 +1071,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "更新成功"})
 
-    @delete("/api/data/monitor-sectors/{record_id:int}", guards=[requires_superuser], status_code=200)
+    @delete("/api/data/monitor-sectors/{record_id:int}", guards=[requires_permission("master_data.manage")], status_code=200)
     async def delete_monitor_sector(
         self,
         request: Request[Any, Any, Any],
@@ -1118,7 +1119,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @post("/api/data/monitor-sector-photos", guards=[requires_superuser])
+    @post("/api/data/monitor-sector-photos", guards=[requires_permission("master_data.manage")])
     async def create_monitor_sector_photo(
         self,
         request: Request[Any, Any, Any],
@@ -1140,7 +1141,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @delete("/api/data/monitor-sector-photos/{record_id:int}", guards=[requires_superuser], status_code=200)
+    @delete("/api/data/monitor-sector-photos/{record_id:int}", guards=[requires_permission("master_data.manage")], status_code=200)
     async def delete_monitor_sector_photo(
         self,
         request: Request[Any, Any, Any],
@@ -1341,7 +1342,7 @@ class MasterDataController(Controller):
                 row["external_device_id"] = row["code"]
         return Response(content=page)
 
-    @post("/api/data/monitor-equipments", guards=[requires_superuser])
+    @post("/api/data/monitor-equipments", guards=[requires_permission("master_data.manage")])
     async def create_monitor_equipment(
         self,
         request: Request[Any, Any, Any],
@@ -1369,7 +1370,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/data/monitor-equipments/{record_id:int}", guards=[requires_superuser])
+    @patch("/api/data/monitor-equipments/{record_id:int}", guards=[requires_permission("master_data.manage")])
     async def update_monitor_equipment(
         self,
         request: Request[Any, Any, Any],
@@ -1403,7 +1404,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "更新成功"})
 
-    @delete("/api/data/monitor-equipments/{record_id:int}", guards=[requires_superuser], status_code=200)
+    @delete("/api/data/monitor-equipments/{record_id:int}", guards=[requires_permission("master_data.manage")], status_code=200)
     async def delete_monitor_equipment(
         self,
         request: Request[Any, Any, Any],
@@ -1480,7 +1481,7 @@ class MasterDataController(Controller):
                 row.update(device_map.get(row.get("device_id"), {}))
         return Response(content=page)
 
-    @post("/api/data/device-points", guards=[requires_superuser])
+    @post("/api/data/device-points", guards=[requires_permission("master_data.manage")])
     async def create_device_point(
         self,
         request: Request[Any, Any, Any],
@@ -1514,7 +1515,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/data/device-points/{record_id:int}", guards=[requires_superuser])
+    @patch("/api/data/device-points/{record_id:int}", guards=[requires_permission("master_data.manage")])
     async def update_device_point(
         self,
         request: Request[Any, Any, Any],
@@ -1558,7 +1559,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "更新成功"})
 
-    @delete("/api/data/device-points/{record_id:int}", guards=[requires_superuser], status_code=200)
+    @delete("/api/data/device-points/{record_id:int}", guards=[requires_permission("master_data.manage")], status_code=200)
     async def delete_device_point(
         self,
         request: Request[Any, Any, Any],
@@ -1583,7 +1584,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @get("/api/data/video-monitors")
+    @get("/api/data/video-monitors", guards=[requires_permission("vision.view")])
     async def list_video_monitors(
         self,
         video_monitor_service: services.VideoMonitorService,
@@ -1612,7 +1613,7 @@ class MasterDataController(Controller):
         )
         return Response(content=page)
 
-    @post("/api/data/video-monitors", guards=[requires_superuser])
+    @post("/api/data/video-monitors", guards=[requires_permission("vision.manage")])
     async def create_video_monitor(
         self,
         request: Request[Any, Any, Any],
@@ -1635,7 +1636,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/data/video-monitors/{record_id:int}", guards=[requires_superuser])
+    @patch("/api/data/video-monitors/{record_id:int}", guards=[requires_permission("vision.manage")])
     async def update_video_monitor(
         self,
         request: Request[Any, Any, Any],
@@ -1661,7 +1662,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "更新成功"})
 
-    @delete("/api/data/video-monitors/{record_id:int}", guards=[requires_superuser], status_code=200)
+    @delete("/api/data/video-monitors/{record_id:int}", guards=[requires_permission("vision.manage")], status_code=200)
     async def delete_video_monitor(
         self,
         request: Request[Any, Any, Any],
@@ -1690,7 +1691,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @get("/api/data/warning-rules")
+    @get("/api/data/warning-rules", guards=[requires_permission("monitor.view")])
     async def list_warning_rules(
         self,
         warning_rule_service: services.WarningRuleService,
@@ -1722,7 +1723,7 @@ class MasterDataController(Controller):
         )
         return Response(content=page)
 
-    @post("/api/data/warning-rules", guards=[requires_superuser])
+    @post("/api/data/warning-rules", guards=[requires_permission("monitor.manage")])
     async def create_warning_rule(
         self,
         request: Request[Any, Any, Any],
@@ -1746,7 +1747,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/data/warning-rules/{record_id:int}", guards=[requires_superuser])
+    @patch("/api/data/warning-rules/{record_id:int}", guards=[requires_permission("monitor.manage")])
     async def update_warning_rule(
         self,
         request: Request[Any, Any, Any],
@@ -1773,7 +1774,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "更新成功"})
 
-    @delete("/api/data/warning-rules/{record_id:int}", guards=[requires_superuser], status_code=200)
+    @delete("/api/data/warning-rules/{record_id:int}", guards=[requires_permission("monitor.manage")], status_code=200)
     async def delete_warning_rule(
         self,
         request: Request[Any, Any, Any],
@@ -1798,7 +1799,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @get("/api/data/api-result-key-mappings")
+    @get("/api/data/api-result-key-mappings", guards=[requires_permission("iot.view")])
     async def list_api_result_key_mappings(
         self,
         api_result_key_mapping_service: services.ApiResultKeyMappingService,
@@ -1822,7 +1823,7 @@ class MasterDataController(Controller):
         )
         return Response(content=page)
 
-    @post("/api/data/api-result-key-mappings", guards=[requires_superuser])
+    @post("/api/data/api-result-key-mappings", guards=[requires_permission("iot.manage")])
     async def create_api_result_key_mapping(
         self,
         request: Request[Any, Any, Any],
@@ -1845,7 +1846,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "创建成功", "data": model_to_dict(obj)})
 
-    @patch("/api/data/api-result-key-mappings/{record_id:int}", guards=[requires_superuser])
+    @patch("/api/data/api-result-key-mappings/{record_id:int}", guards=[requires_permission("iot.manage")])
     async def update_api_result_key_mapping(
         self,
         request: Request[Any, Any, Any],
@@ -1871,7 +1872,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "更新成功"})
 
-    @delete("/api/data/api-result-key-mappings/{record_id:int}", guards=[requires_superuser], status_code=200)
+    @delete("/api/data/api-result-key-mappings/{record_id:int}", guards=[requires_permission("iot.manage")], status_code=200)
     async def delete_api_result_key_mapping(
         self,
         request: Request[Any, Any, Any],
@@ -1896,7 +1897,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "已删除"})
 
-    @get("/api/data/energy-storage")
+    @get("/api/data/energy-storage", guards=[requires_permission("microgrid.view")])
     async def get_energy_storage_setting(self, db_session: AsyncSession) -> Response[dict]:
         obj = (
             (await db_session.execute(select(m.EnergyStorageValue).order_by(m.EnergyStorageValue.id.desc()).limit(1)))
@@ -1905,7 +1906,7 @@ class MasterDataController(Controller):
         )
         return Response(content={"code": 200, "msg": "获取成功", "data": model_to_dict(obj) if obj else None})
 
-    @post("/api/data/energy-storage", guards=[requires_superuser])
+    @post("/api/data/energy-storage", guards=[requires_permission("microgrid.configure")])
     async def save_energy_storage_setting(
         self,
         request: Request[Any, Any, Any],

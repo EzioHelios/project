@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.anyio, pytest.mark.integration]
 
 
-async def test_energy_entry_permission_and_team_isolation(
+async def test_energy_entry_permission_and_team_isolation(  # noqa: PLR0915
     client: AsyncClient,
     user_token_headers: dict[str, str],
     session: AsyncSession,
@@ -37,10 +37,12 @@ async def test_energy_entry_permission_and_team_isolation(
     response = await client.post("/api/energy/interval-facts", headers=headers, json=payload)
     assert response.status_code == 403
     role = (await session.scalars(select(m.Role).where(m.Role.name == "Application Access"))).one()
-    permission = m.Permission(code="carbon.config.manage", name="Maintain energy business data", module="carbon")
+    permission = m.Permission(code="energy.consumption.manage", name="Maintain energy business data", module="carbon")
     session.add(permission)
+    read_permission = m.Permission(code="energy.consumption.view", name="Read energy data", module="energy")
+    session.add(read_permission)
     await session.flush()
-    session.add(m.RolePermission(role_id=role.id, permission_id=permission.id))
+    session.add_all([m.RolePermission(role_id=role.id, permission_id=p.id) for p in (permission, read_permission)])
     user_id = UUID("5ef29f3c-3560-4d15-ba6b-a2e5c721e4d2")
     if (
         await session.scalar(select(m.UserRole.id).where(m.UserRole.user_id == user_id, m.UserRole.role_id == role.id))

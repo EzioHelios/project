@@ -10,6 +10,7 @@ from litestar.response import Response
 from sqlalchemy import case, func, select
 
 from app.db import models as m
+from app.domain.accounts.guards import requires_resource_access
 from app.domain.energy.controllers._utils import model_to_dict, ok_data
 from app.domain.energy.queries.balance import EnergyBalanceQuery, EnergyBalanceQueryService
 from app.lib.tenancy import require_session_tenant_id
@@ -53,6 +54,7 @@ MEMBER_FIELDS = {
 
 
 class EnergyBalanceController(Controller):
+    guards = [requires_resource_access("energy.balance.view", "energy.balance.manage")]
     tags = ["Energy"]
 
     @get("/api/energy/balance/boundaries")

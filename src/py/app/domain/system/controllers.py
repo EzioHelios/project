@@ -11,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import get_saq_config
+from app.domain.accounts.guards import requires_permission
 from app.domain.system import schemas as s
 
 if TYPE_CHECKING:
@@ -122,8 +123,7 @@ class SystemController(Controller):
         name="system:tasks",
         path="/api/system/tasks",
         summary="Get configured background tasks",
-        exclude_from_auth=True,
-        security=[],
+        guards=[requires_permission("system.tasks.view")],
     )
     async def get_system_tasks(self) -> dict:
         """Return SAQ task and cron configuration for read-only admin pages."""

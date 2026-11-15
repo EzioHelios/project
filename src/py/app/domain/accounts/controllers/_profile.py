@@ -9,6 +9,7 @@ from litestar import Controller, delete, get, patch
 from litestar.di import Provide
 
 from app.domain.accounts.deps import provide_users_service
+from app.domain.accounts.guards import effective_permissions
 from app.domain.accounts.schemas import PasswordUpdate, ProfileUpdate, User
 from app.lib.schema import Message
 
@@ -26,6 +27,11 @@ class ProfileController(Controller):
     dependencies = {
         "users_service": Provide(provide_users_service),
     }
+
+    @get(path="/api/me/permissions", operation_id="AccountEffectivePermissions")
+    async def get_permissions(self, current_user: m.User) -> dict:
+        """Return permissions for the signed-in user only."""
+        return effective_permissions(current_user)
 
     @get(
         operation_id="AccountProfile",

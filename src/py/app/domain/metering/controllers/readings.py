@@ -9,7 +9,7 @@ from litestar.response import Response
 from sqlalchemy import String, and_, func, or_, select, text
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_authenticated_user
+from app.domain.accounts.guards import requires_authenticated_user, requires_resource_access
 from app.domain.energy.controllers._utils import ok_data
 from app.domain.production_denominator.controllers._utils import paged_payload
 from app.lib.tenancy import require_session_tenant_id
@@ -25,6 +25,7 @@ MAX_SERIES_LIMIT = 1000
 
 
 class MeteringReadingController(Controller):
+    guards = [requires_resource_access("energy.consumption.view", "energy.consumption.manage")]
     tags = ["Metering"]
 
     @get("/api/metering/readings", guards=[requires_authenticated_user])

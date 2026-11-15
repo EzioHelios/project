@@ -10,7 +10,7 @@ from litestar.response import Response
 from sqlalchemy import func, or_, select, text
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_superuser
+from app.domain.accounts.guards import requires_resource_access, requires_superuser
 from app.domain.carbon.deps import provide_energy_type_service
 from app.domain.energy.controllers._utils import model_to_dict
 
@@ -43,6 +43,7 @@ UNIT_CONVERSION_SORT_FIELDS = {
 
 
 class EnergyDictionaryController(Controller):
+    guards = [requires_resource_access("energy.consumption.view", "energy.dictionary.manage")]
     tags = ["Energy"]
     dependencies = {"energy_type_service": provide_energy_type_service}
 

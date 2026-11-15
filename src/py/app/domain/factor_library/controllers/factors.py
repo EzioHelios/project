@@ -10,6 +10,7 @@ from litestar.response import Response
 from sqlalchemy import func, or_, select
 
 from app.db import models as m
+from app.domain.accounts.guards import requires_resource_access
 from app.domain.carbon.controllers import _augment_raw_factor_record_dict, model_to_dict
 from app.domain.factor_library.schemas import (
     ActivityFactorCandidateListResponse,
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
 
 
 class FactorLibraryController(Controller):
+    guards = [requires_resource_access("factor_library.view", "factor_library.manage")]
     tags = ["Factor Library"]
 
     @get("/api/carbon/emission-factors")

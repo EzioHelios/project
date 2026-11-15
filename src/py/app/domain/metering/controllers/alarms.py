@@ -7,7 +7,7 @@ from litestar.params import Body
 from litestar.response import Response
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_superuser
+from app.domain.accounts.guards import requires_resource_access, requires_superuser
 from app.domain.admin.deps import provide_audit_log_service
 from app.domain.admin.services import AuditLogService  # noqa: TC001
 from app.domain.carbon import services  # noqa: TC001
@@ -31,6 +31,7 @@ ADMIN_OPTIONAL_BODY = Body(default={})
 
 
 class MeteringAlarmController(Controller):
+    guards = [requires_resource_access("monitor.view", "carbon.alarm.handle")]
     tags = ["Metering"]
     dependencies = {
         "alarm_event_service": provide_alarm_event_service,

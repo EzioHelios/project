@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_superuser
+from app.domain.accounts.guards import requires_permission, requires_resource_access, requires_superuser
 from app.domain.admin.deps import provide_audit_log_service
 from app.domain.admin.services import AuditLogService
 from app.domain.carbon import services
@@ -1113,6 +1113,7 @@ async def _list_rows(
 class CarbonCRUDController(Controller):
     """Operational finance and employee-commute master data."""
 
+    guards = [requires_resource_access("production.view", "production.manage")]
     tags = ["Operational Data"]
     signature_types = [Response]
     dependencies = {
@@ -1237,7 +1238,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content=page)
 
-    @post("/api/data/employee-commute", guards=[requires_superuser])
+    @post("/api/data/employee-commute", guards=[requires_permission("production.manage")])
     async def create_employee_commute(
         self,
         request: Request[Any, Any, Any],
@@ -1268,7 +1269,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content={"code": 200, "data": model_to_dict(obj), "msg": "创建成功"})
 
-    @patch("/api/data/employee-commute/{record_id:int}", guards=[requires_superuser])
+    @patch("/api/data/employee-commute/{record_id:int}", guards=[requires_permission("production.manage")])
     async def update_employee_commute(
         self,
         request: Request[Any, Any, Any],
@@ -1302,7 +1303,7 @@ class CarbonCRUDController(Controller):
         )
         return Response(content={"code": 200, "msg": "更新成功"})
 
-    @delete("/api/data/employee-commute/{record_id:int}", guards=[requires_superuser], status_code=200)
+    @delete("/api/data/employee-commute/{record_id:int}", guards=[requires_permission("production.manage")], status_code=200)
     async def delete_employee_commute(
         self,
         request: Request[Any, Any, Any],

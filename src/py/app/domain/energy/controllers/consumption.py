@@ -11,7 +11,7 @@ from litestar.response import Response
 from sqlalchemy import func, select, text
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_permission
+from app.domain.accounts.guards import requires_permission, requires_resource_access
 from app.domain.energy.queries.consumption import (
     ENERGY_CONSUMPTION_EXPORT_HEADERS,
     EnergyConsumptionQuery,
@@ -62,6 +62,7 @@ ENERGY_INTERVAL_FACT_EXPORT_HEADERS = [
 
 
 class EnergyConsumptionController(Controller):
+    guards = [requires_resource_access("energy.consumption.view", "energy.consumption.manage")]
     tags = ["Energy"]
 
     @get("/api/energy/interval-facts")
@@ -403,7 +404,7 @@ class EnergyConsumptionController(Controller):
             headers={"content-disposition": 'attachment; filename="energy_interval_facts.csv"'},
         )
 
-    @post("/api/energy/interval-facts", guards=[requires_permission("carbon.config.manage")])
+    @post("/api/energy/interval-facts", guards=[requires_permission("energy.consumption.manage")])
     async def create_energy_interval_fact(
         self,
         db_session: AsyncSession,
@@ -426,7 +427,7 @@ class EnergyConsumptionController(Controller):
         await db_session.refresh(obj)
         return Response(content={"code": 200, "msg": "创建成功", "data": _energy_interval_fact_payload(obj)})
 
-    @patch("/api/energy/interval-facts/{record_id:int}", guards=[requires_permission("carbon.config.manage")])
+    @patch("/api/energy/interval-facts/{record_id:int}", guards=[requires_permission("energy.consumption.manage")])
     async def update_energy_interval_fact(
         self,
         db_session: AsyncSession,
@@ -454,7 +455,7 @@ class EnergyConsumptionController(Controller):
         await db_session.refresh(obj)
         return Response(content={"code": 200, "msg": "更新成功", "data": _energy_interval_fact_payload(obj)})
 
-    @delete("/api/energy/interval-facts/{record_id:int}", guards=[requires_permission("carbon.config.manage")], status_code=200)
+    @delete("/api/energy/interval-facts/{record_id:int}", guards=[requires_permission("energy.consumption.manage")], status_code=200)
     async def delete_energy_interval_fact(self, db_session: AsyncSession, record_id: int) -> Response[dict]:
         team_id = require_session_tenant_id(db_session)
         obj = await db_session.get(m.EnergyIntervalFact, record_id)

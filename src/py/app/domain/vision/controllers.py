@@ -8,7 +8,7 @@ from litestar import Controller, get, post, put
 from litestar.exceptions import NotFoundException
 from litestar.response import Response
 
-from app.domain.accounts.guards import requires_active_user, requires_superuser
+from app.domain.accounts.guards import requires_resource_access, requires_superuser
 from app.domain.vision.playback import read_asset
 from app.domain.vision.schemas import CameraRecognitionConfig, RecognitionEvent, RecognitionHeartbeat
 from app.domain.vision.services import VisionService, observation_data
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 class VisionController(Controller):
     path = "/api/vision"
     tags = ["Vision Operations"]
-    guards = [requires_active_user]
+    guards = [requires_resource_access("vision.view", "vision.manage")]
 
     @get("/dashboard")
     async def dashboard(self, db_session: AsyncSession, camera_id: int | None = None) -> dict:

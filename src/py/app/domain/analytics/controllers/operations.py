@@ -20,7 +20,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.orm import selectinload
 
 from app.db import models as m
-from app.domain.accounts.guards import requires_authenticated_user
+from app.domain.accounts.guards import requires_authenticated_user, requires_resource_access
 from app.domain.energy.controllers._utils import model_to_dict
 
 if TYPE_CHECKING:
@@ -33,6 +33,7 @@ MOBILE_BODY = Body(default={})
 
 class EnergyOperationsCompatibilityController(Controller):
     """Serve monitoring and alarm pages without depending on carbon facts."""
+    guards = [requires_resource_access("monitor.view", "monitor.manage")]
 
     tags = ["Energy Operations"]
 

@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.db import models as m
+from app.domain.accounts.guards import requires_permission
 from app.domain.teams.guards import requires_team_admin, requires_team_membership, requires_team_ownership
 from app.domain.teams.schemas import Team, TeamCreate, TeamUpdate
 from app.domain.teams.services import TeamService
@@ -69,7 +70,7 @@ class TeamController(Controller):
             results, total = await teams_service.list_and_count(*filters)
         return teams_service.to_schema(results, total, filters, schema_type=Team)
 
-    @post(operation_id="CreateTeam", path="/api/teams")
+    @post(operation_id="CreateTeam", path="/api/teams", guards=[requires_permission("admin.team.manage")])
     async def create_team(self, teams_service: TeamService, current_user: m.User, data: TeamCreate) -> Team:
         """Create a new team.
 
