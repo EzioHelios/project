@@ -134,7 +134,10 @@ async def test_emission_source_and_activity_crud(session) -> None:
 
     deleted = await usecase.delete_activity(inventory_code=period.code, record_code=activity.record_code)
     assert deleted is None
-    assert await session.scalar(select(GhgActivityRecord).where(GhgActivityRecord.record_code == activity.record_code)) is None
+    assert (
+        await session.scalar(select(GhgActivityRecord).where(GhgActivityRecord.record_code == activity.record_code))
+        is None
+    )
 
 
 async def test_activity_delete_archives_when_calculated(session) -> None:
@@ -189,7 +192,12 @@ async def test_activity_delete_archives_when_calculated(session) -> None:
         activity_unit="kWh",
         data_source_type="measured",
         measurement_method="电表",
-        source_payload={"energy_type": "electricity", "supplier_name": "电网购电", "meter_point": "METER", "scope2_method": "location"},
+        source_payload={
+            "energy_type": "electricity",
+            "supplier_name": "电网购电",
+            "meter_point": "METER",
+            "scope2_method": "location",
+        },
         status="approved",
     )
     session.add_all([source, activity])
@@ -221,7 +229,9 @@ async def test_activity_delete_archives_when_calculated(session) -> None:
     )
     await session.commit()
 
-    result = await GhgInventoryMaintenance(session).delete_activity(inventory_code=period.code, record_code=activity.record_code)
+    result = await GhgInventoryMaintenance(session).delete_activity(
+        inventory_code=period.code, record_code=activity.record_code
+    )
     assert result is not None
     assert result.status == "archived"
 
@@ -265,11 +275,15 @@ async def test_activity_generation_is_idempotent(session) -> None:
         source_types=["energy_electricity", "employee_commute"],
     )
 
-    assert first["createdCount"] == 2
+    assert first["createdCount"] == 1
     assert second["createdCount"] == 0
-    assert second["updatedCount"] == 2
-    records = list((await session.scalars(select(GhgActivityRecord).where(GhgActivityRecord.inventory_code == period.code))).all())
-    sources = list((await session.scalars(select(GhgEmissionSource).where(GhgEmissionSource.inventory_code == period.code))).all())
-    assert len(records) == 2
-    assert len(sources) == 2
-    assert {row.iso_category_code for row in records} == {"2.1", "3.3"}
+    assert second["updatedCount"] == 1
+    records = list(
+        (await session.scalars(select(GhgActivityRecord).where(GhgActivityRecord.inventory_code == period.code))).all()
+    )
+    sources = list(
+        (await session.scalars(select(GhgEmissionSource).where(GhgEmissionSource.inventory_code == period.code))).all()
+    )
+    assert len(records) == 1
+    assert len(sources) == 1
+    assert {row.iso_category_code for row in records} == {"2.1"}

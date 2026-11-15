@@ -11,7 +11,7 @@ from uuid import uuid4
 from sqlalchemy import select
 
 from app.domain.carbon import models as carbon_models
-from app.domain.ghg_inventory.infrastructure.workbook import TEMPLATE_VERSION, decode_and_preview
+from app.domain.ghg_inventory.infrastructure.workbook import TEMPLATE_VERSION, WorkbookIssue, decode_and_preview
 from app.domain.ghg_inventory.models import (
     GhgActivityRecord,
     GhgEvidenceFile,
@@ -36,7 +36,31 @@ class PreviewCategoryWorkbook:
 
     async def execute(self, data: dict[str, Any]) -> GhgImportBatch:
         require_session_tenant_id(self.session)
-        preview, file_hash = decode_and_preview(str(data["workbook_base64"]), data)
+        context = await workbook_context(self.session, data)
+        preview, file_hash = decode_and_preview(str(data["workbook_base64"]), context)
+        existing = set(
+            (
+                await self.session.scalars(
+                    select(GhgActivityRecord.record_code).where(
+                        GhgActivityRecord.inventory_code == data["inventory_code"],
+                        GhgActivityRecord.record_code.in_([str(row["record_code"]) for row in preview.activities]),
+                    )
+                )
+            ).all()
+        )
+        for row in preview.activities:
+            if row["record_code"] in existing:
+                preview.issues.append(
+                    WorkbookIssue(
+                        "error",
+                        "03_活动数据",
+                        int(row["_row_number"]),
+                        "record_code",
+                        "RECORD_ALREADY_EXISTS",
+                        "记录已存在，请在活动列表编辑",
+                        str(row["record_code"]),
+                    )
+                )
         preview_payload = preview.payload()
         metrics = preview_payload["metrics"]
         batch = GhgImportBatch(
@@ -96,7 +120,9 @@ class CommitCategoryWorkbook:
         warning_acknowledgement: str | None = None,
     ) -> GhgImportBatch:
         tenant_id = require_session_tenant_id(self.session)
-        batch = await self.session.scalar(select(GhgImportBatch).where(GhgImportBatch.batch_code == batch_code))
+        batch = await self.session.scalar(
+            select(GhgImportBatch).where(GhgImportBatch.batch_code == batch_code).with_for_update()
+        )
         if batch is None:
             msg = "导入批次不存在"
             raise ValueError(msg)
@@ -315,11 +341,13 @@ class CommitCategoryWorkbook:
                     or str(row.get("parameter_set_code") or "") in warning_parameter_sets
                     else "pass"
                 ),
-                parameter_set_code=str(row["parameter_set_code"]),
+                parameter_set_code=_text(row.get("parameter_set_code")),
                 source_payload=payload,
                 remarks=_text(row.get("remarks")),
                 status="approved",
                 source_system="xlsx_import",
+                source_record_type="ghg_import_batch",
+                source_record_id=batch.id,
             )
             self.session.add(activity)
             activity_by_code[activity.record_code] = activity
@@ -388,7 +416,10 @@ class CommitCategoryWorkbook:
                 }
             )
         allocation_use_case = ReplaceActivityAllocations(self.session)
-        for record_code in activity_by_code:
+        for record_code, activity in activity_by_code.items():
+            if not allocations_by_record.get(record_code):
+                await allocation_use_case.ensure_source(activity)
+                continue
             await allocation_use_case.execute(
                 inventory_code=batch.inventory_code,
                 record_code=record_code,
@@ -460,3 +491,32 @@ def _decimal(value: Any) -> Decimal | None:
 
 def _int(value: Any) -> int | None:
     return None if value in (None, "") else int(value)
+
+
+async def workbook_context(session: AsyncSession, data: dict[str, Any]) -> dict[str, Any]:
+    """Resolve names and reporting dates only from tenant-visible master data."""
+    require_session_tenant_id(session)
+    context = dict(data)
+    organization = await session.scalar(
+        select(carbon_models.ReportingOrganization).where(
+            carbon_models.ReportingOrganization.code == data["organization_code"],
+        )
+    )
+    if organization is None:
+        msg = "报告主体不存在或不属于当前租户"
+        raise ValueError(msg)
+    context["organization_name"] = organization.name
+    if data.get("reporting_period_id") is not None:
+        period = await session.get(carbon_models.ReportingPeriod, data["reporting_period_id"])
+        if period is None or period.reporting_org_id != organization.id:
+            msg = "报告期不存在或不属于所选报告主体"
+            raise ValueError(msg)
+        context.update(period_start=period.period_start.isoformat(), period_end=period.period_end.isoformat())
+    areas = list((await session.scalars(select(carbon_models.MonitorSector))).all())
+    equipment = list((await session.scalars(select(carbon_models.MonitorEquipment))).all())
+    context["areas"] = [{"id": row.id, "code": row.code, "name": row.name or row.code} for row in areas]
+    context["equipment"] = [
+        {"id": row.id, "code": row.code, "name": row.name or row.code, "area_id": row.sector_id} for row in equipment
+    ]
+    context["facility_name"] = next((row.name for row in areas if row.code == data["facility_code"]), None)
+    return context

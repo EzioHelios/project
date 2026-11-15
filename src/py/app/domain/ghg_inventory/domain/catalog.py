@@ -62,7 +62,7 @@ CATEGORIES: tuple[CategoryDefinition, ...] = (
         None,
         "fugitive",
         "own",
-        ("F05_INVENTORY", "F02_EF"),
+        ("F02_EF", "F05_INVENTORY"),
         "fugitive_emissions",
     ),
     CategoryDefinition(

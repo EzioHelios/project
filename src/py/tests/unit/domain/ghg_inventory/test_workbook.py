@@ -1,3 +1,4 @@
+# ruff: noqa: RUF001 - Test Chinese names, including commas.
 # mypy: disable-error-code=import-untyped
 
 import base64
@@ -5,6 +6,7 @@ from io import BytesIO
 
 import pytest
 from openpyxl import load_workbook
+from openpyxl.utils.cell import range_boundaries
 
 from app.domain.ghg_inventory.domain.catalog import CATEGORIES
 from app.domain.ghg_inventory.infrastructure.workbook import build_template_bytes, decode_and_preview
@@ -160,13 +162,13 @@ def _valid_purchased_electricity_workbook() -> tuple[str, dict[str, str]]:
 def test_template_has_stable_codes_and_bounded_visible_sheets(category_code: str, method_code: str) -> None:
     context = _context(method_code=method_code, category_code=category_code)
     workbook = load_workbook(BytesIO(build_template_bytes(context)))
-    metadata = dict(workbook["_metadata"].values)
+    metadata = {str(row[0]): row[1] for row in workbook["_metadata"].values}
     assert metadata["iso_category_code"] == category_code
     assert metadata["method_code"] == method_code
     assert workbook["_metadata"].sheet_state == "veryHidden"
     assert workbook["03_活动数据"].row_dimensions[2].hidden is True
     assert workbook["03_活动数据"].freeze_panes == "A3"
-    assert sum(sheet.sheet_state == "visible" for sheet in workbook.worksheets) == 8
+    assert sum(sheet.sheet_state == "visible" for sheet in workbook.worksheets) == 1
 
 
 def test_valid_workbook_passes_precheck() -> None:
@@ -313,3 +315,100 @@ def test_evidence_links_validate_source_and_boundary_references() -> None:
     issue_codes = {issue.issue_code for issue in preview.issues}
     assert "SOURCE_NOT_FOUND" in issue_codes
     assert "BOUNDARY_NOT_FOUND" in issue_codes
+
+
+def test_long_chinese_object_choices_use_hidden_named_ranges() -> None:
+    equipment = [{"name": f"压铸车间，第{index}号大型天然气保温炉及配套燃烧设备"} for index in range(60)]
+    context = {**_context(), "equipment": equipment, "areas": [{"name": "常州工厂，压铸区域"}]}
+    workbook = load_workbook(BytesIO(build_template_bytes(context)))
+    sheet = workbook["03_活动数据"]
+    assert workbook["_choices"].sheet_state == "hidden"
+    values = []
+    for validation in sheet.data_validations.dataValidation:
+        assert validation.formula1.startswith("=ghg_choices_")
+        defined = workbook.defined_names[validation.formula1[1:]]
+        for sheet_name, cell_range in defined.destinations:
+            min_col, min_row, max_col, max_row = range_boundaries(cell_range)
+            values.extend(
+                cell.value
+                for row in workbook[sheet_name].iter_rows(
+                    min_col=min_col, min_row=min_row, max_col=max_col, max_row=max_row
+                )
+                for cell in row
+            )
+    assert equipment[-1]["name"] in values
+    assert "常州工厂，压铸区域" in values
+    assert "电力" in values
+    assert "地点法" in values
+    assert "electricity" not in values
+
+
+def test_old_template_version_is_rejected() -> None:
+    encoded, context = _valid_purchased_electricity_workbook()
+    workbook = load_workbook(BytesIO(base64.b64decode(encoded)))
+    workbook["_metadata"]["B1"] = "GHG-INV-2026.2"
+    stream = BytesIO()
+    workbook.save(stream)
+    preview, _ = decode_and_preview(base64.b64encode(stream.getvalue()).decode(), context)
+    assert "TEMPLATE_CONTEXT_MISMATCH" in {issue.issue_code for issue in preview.issues}
+
+
+def test_simple_entry_defaults_dates_and_codes_without_parameters_or_evidence() -> None:
+    context = {
+        **_context(method_code="F05_INVENTORY", category_code="1.4"),
+        "period_start": "2026-01-01",
+        "period_end": "2026-01-31",
+    }
+    workbook = load_workbook(BytesIO(build_template_bytes(context)))
+    _append_by_code(
+        workbook,
+        "03_活动数据",
+        {
+            "source_name": "办公楼空调维修",
+            "facility_or_device": "办公楼空调",
+            "gas_code": "R32",
+            "activity_amount": 0,
+            "activity_unit": "kg",
+        },
+    )
+    stream = BytesIO()
+    workbook.save(stream)
+    encoded = base64.b64encode(stream.getvalue()).decode()
+    preview, _ = decode_and_preview(encoded, context)
+    assert preview.payload()["metrics"]["errorCount"] == 0
+    assert preview.payload()["metrics"]["warningCount"] == 0
+    assert preview.activities[0]["period_start"] == "2026-01-01"
+    assert preview.activities[0]["activity_amount"] == 0
+    assert preview.activities[0]["record_code"].startswith("ACT-")
+    repeated, _ = decode_and_preview(encoded, context)
+    assert repeated.activities[0]["record_code"] == preview.activities[0]["record_code"]
+
+
+@pytest.mark.parametrize(("category", "direction"), [("3.1", "上游运输"), ("3.3", "员工通勤")])
+def test_transport_and_commute_entry_accept_real_period_and_business_fields(category, direction) -> None:
+    definition = next(item for item in CATEGORIES if item.code == category)
+    context = {
+        **_context(method_code=definition.default_methods[0], category_code=category),
+        "period_start": "2026-01-01",
+        "period_end": "2026-01-31",
+    }
+    workbook = load_workbook(BytesIO(build_template_bytes(context)))
+    _append_by_code(
+        workbook,
+        "03_活动数据",
+        {
+            "source_name": "实际经营里程",
+            "transport_direction": direction,
+            "transport_mode": "公路",
+            "distance_km": 100,
+            "activity_amount": 100,
+            "activity_unit": "km",
+        },
+    )
+    stream = BytesIO()
+    workbook.save(stream)
+    preview, _ = decode_and_preview(base64.b64encode(stream.getvalue()).decode(), context)
+    assert preview.payload()["metrics"]["errorCount"] == 0
+    assert preview.activities[0]["transport_direction"] in {"upstream", "commute"}
+    assert preview.activities[0]["period_start"] == "2026-01-01"
+    assert not preview.parameters

@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
+from advanced_alchemy.utils.text import camelize
 from sqlalchemy import func, select
 
-from app.domain.carbon.models import MonitorSector
+from app.domain.carbon.models import MonitorSector, ReportingOrganization
 from app.domain.ghg_inventory.domain.activity_fields import CATEGORY_ACTIVITY_FIELDS
 from app.domain.ghg_inventory.domain.catalog import CATEGORY_BY_CODE
 from app.domain.ghg_inventory.models import (
@@ -42,6 +43,8 @@ class GhgInventoryQueryService:
         quality_status: str | None,
         limit: int,
         offset: int,
+        batch_code: str | None = None,
+        status: str | None = None,
     ) -> dict[str, Any]:
         filters: list[ColumnElement[bool]] = []
         if inventory_code:
@@ -50,6 +53,19 @@ class GhgInventoryQueryService:
             filters.append(GhgActivityRecord.iso_category_code == category_code)
         if quality_status:
             filters.append(GhgActivityRecord.quality_status == quality_status)
+        if status == "available":
+            filters.append(GhgActivityRecord.status != "archived")
+        elif status:
+            filters.append(GhgActivityRecord.status == status)
+        if batch_code:
+            filters.extend(
+                [
+                    GhgActivityRecord.source_record_type == "ghg_import_batch",
+                    GhgActivityRecord.source_record_id.in_(
+                        select(GhgImportBatch.id).where(GhgImportBatch.batch_code == batch_code)
+                    ),
+                ]
+            )
         total = await self.session.scalar(select(func.count()).select_from(GhgActivityRecord).where(*filters)) or 0
         rows = list(
             (
@@ -77,13 +93,9 @@ class GhgInventoryQueryService:
         allocations_by_activity: dict[int, list[GhgActivityAllocation]] = {}
         for allocation in allocation_rows:
             allocations_by_activity.setdefault(allocation.activity_id, []).append(allocation)
-        return {
-            "items": [
-                self.activity_payload(row, allocations_by_activity.get(row.id, []))
-                for row in rows
-            ],
-            "total": int(total),
-        }
+        items = [self.activity_payload(row, allocations_by_activity.get(row.id, [])) for row in rows]
+        await self._add_names(items, rows)
+        return {"items": items, "total": int(total)}
 
     async def activity(self, *, inventory_code: str, record_code: str) -> dict[str, Any]:
         row = await self.session.scalar(
@@ -102,7 +114,96 @@ class GhgInventoryQueryService:
                 )
             ).all()
         )
-        return self.activity_payload(row, allocations)
+        payload = self.activity_payload(row, allocations)
+        await self._add_names([payload], [row])
+        return payload
+
+    async def _add_names(self, items: list[dict[str, Any]], rows: list[GhgActivityRecord]) -> None:
+        if not rows:
+            return
+        organizations = {
+            row.code: row.name
+            for row in (
+                await self.session.scalars(
+                    select(ReportingOrganization).where(
+                        ReportingOrganization.code.in_({row.organization_code for row in rows})
+                    )
+                )
+            ).all()
+        }
+        facilities = {
+            row.code: row.name
+            for row in (
+                await self.session.scalars(
+                    select(MonitorSector).where(MonitorSector.code.in_({row.facility_code for row in rows}))
+                )
+            ).all()
+        }
+        sources = {
+            (row.inventory_code, row.source_code): row.source_name
+            for row in (
+                await self.session.scalars(
+                    select(GhgEmissionSource).where(
+                        GhgEmissionSource.source_code.in_({row.source_code for row in rows})
+                    )
+                )
+            ).all()
+        }
+        batch_ids = {row.source_record_id for row in rows if row.source_record_type == "ghg_import_batch"}
+        batches = (
+            {
+                row.id: row.batch_code
+                for row in (
+                    await self.session.scalars(select(GhgImportBatch).where(GhgImportBatch.id.in_(batch_ids)))
+                ).all()
+            }
+            if batch_ids
+            else {}
+        )
+        for item, row in zip(items, rows, strict=True):
+            details = row.source_payload or {}
+            item.update(
+                {
+                    "organizationName": organizations.get(row.organization_code) or details.get("organization_name"),
+                    "facilityName": facilities.get(row.facility_code) or details.get("facility_name"),
+                    "sourceName": sources.get((row.inventory_code, row.source_code))
+                    or details.get("source_definition", {}).get("source_name"),
+                    "batchCode": batches.get(row.source_record_id)
+                    if row.source_record_type == "ghg_import_batch" and row.source_record_id is not None
+                    else None,
+                }
+            )
+
+    async def import_result_payload(self, batch: GhgImportBatch) -> dict[str, Any]:
+        payload = self.import_batch_payload(batch)
+        records: list[dict[str, Any]] = []
+        if batch.status == "committed":
+            records = (
+                await self.activities(
+                    inventory_code=batch.inventory_code,
+                    category_code=None,
+                    quality_status=None,
+                    batch_code=batch.batch_code,
+                    limit=max(batch.row_count, 1),
+                    offset=0,
+                )
+            )["items"]
+        payload.update(
+            {
+                "committedCount": len(records),
+                "committedRows": records,
+                "summary": activity_summary(records)
+                if batch.status == "committed"
+                else activity_summary(
+                    [
+                        {"activityAmount": row.get("activity_amount"), "activityUnit": row.get("activity_unit")}
+                        for row in (batch.preview_snapshot or {}).get("activities", [])
+                    ]
+                ),
+                "activityFilters": {"inventoryCode": batch.inventory_code, "batchCode": batch.batch_code},
+            }
+        )
+        return payload
 
     def activity_payload(self, row: GhgActivityRecord, allocations: list[GhgActivityAllocation]) -> dict[str, Any]:
         return {
@@ -119,7 +220,7 @@ class GhgInventoryQueryService:
             "isoCategoryCode": row.iso_category_code,
             "ghgScope": row.ghg_scope,
             "scope3Category": row.scope3_category,
-            "activityAmount": str(row.activity_amount),
+            "activityAmount": format(row.activity_amount, "f"),
             "activityUnit": row.activity_unit,
             "dataSourceType": row.data_source_type,
             "measurementMethod": row.measurement_method,
@@ -180,7 +281,10 @@ class GhgInventoryQueryService:
             ).all()
         )
         counts = await self._activity_counts_for_sources(rows)
-        return {"items": [self.source_payload(row, counts.get(row.source_code, 0)) for row in rows], "total": int(total)}
+        return {
+            "items": [self.source_payload(row, counts.get(row.source_code, 0)) for row in rows],
+            "total": int(total),
+        }
 
     async def emission_source(self, *, inventory_code: str, source_code: str) -> dict[str, Any]:
         row = await self.session.scalar(
@@ -193,7 +297,9 @@ class GhgInventoryQueryService:
             msg = "排放源不存在"
             raise ValueError(msg)
         count = await self.session.scalar(
-            select(func.count()).select_from(GhgActivityRecord).where(
+            select(func.count())
+            .select_from(GhgActivityRecord)
+            .where(
                 GhgActivityRecord.inventory_code == inventory_code,
                 GhgActivityRecord.source_code == source_code,
             )
@@ -362,7 +468,7 @@ class GhgInventoryQueryService:
                 )
             ).scalars()
         )
-        return [self.import_batch_payload(row) for row in rows]
+        return [await self.import_result_payload(row) for row in rows]
 
     @staticmethod
     def import_batch_payload(batch: GhgImportBatch) -> dict[str, Any]:
@@ -382,7 +488,15 @@ class GhgInventoryQueryService:
             "warningCount": batch.warning_count,
             "errorCount": batch.error_count,
             "missingEvidenceCount": batch.missing_evidence_count,
-            "preview": batch.preview_snapshot,
+            "preview": {
+                key: [
+                    {(camelize(field) if not field.startswith("_") else field): value for field, value in row.items()}
+                    for row in cast("list[dict[str, Any]]", values)
+                ]
+                if isinstance(values, list) and key != "issues"
+                else values
+                for key, values in (batch.preview_snapshot or {}).items()
+            },
             "createdAt": batch.created_at.isoformat(),
             "committedAt": batch.committed_at.isoformat() if batch.committed_at else None,
         }
@@ -476,3 +590,23 @@ class GhgInventoryQueryService:
                 for assignment in assignments
             ],
         }
+
+
+def activity_summary(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Sum saved activity quantities without adding incompatible units."""
+    totals: dict[str, Decimal] = {}
+    counts: dict[str, int] = {}
+    for row in records:
+        try:
+            amount = Decimal(str(row.get("activityAmount")))
+        except (ValueError, ArithmeticError):
+            continue
+        if not amount.is_finite():
+            continue
+        unit = str(row.get("activityUnit") or "")
+        totals[unit] = totals.get(unit, Decimal(0)) + amount
+        counts[unit] = counts.get(unit, 0) + 1
+    return [
+        {"activityUnit": unit, "activityAmount": format(value, "f"), "recordCount": counts[unit]}
+        for unit, value in sorted(totals.items())
+    ]

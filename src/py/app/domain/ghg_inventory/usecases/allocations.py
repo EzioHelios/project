@@ -47,7 +47,7 @@ class ReplaceActivityAllocations:
             msg = "温室气体活动记录不存在"
             raise ValueError(msg)
         validate_allocation_ratios(Decimal(str(item["allocation_ratio"])) for item in allocations)
-        source = await self._ensure_source(activity)
+        source = await self.ensure_source(activity)
         prepared: list[GhgActivityAllocation] = []
         for index, item in enumerate(allocations, 1):
             prepared.append(await self._prepare(activity, source, item, index))
@@ -69,7 +69,7 @@ class ReplaceActivityAllocations:
             await self.session.flush()
         return prepared
 
-    async def _ensure_source(self, activity: GhgActivityRecord) -> GhgEmissionSource:
+    async def ensure_source(self, activity: GhgActivityRecord) -> GhgEmissionSource:
         if activity.emission_source_id is not None:
             current = await self.session.get(GhgEmissionSource, activity.emission_source_id)
             if current is not None:

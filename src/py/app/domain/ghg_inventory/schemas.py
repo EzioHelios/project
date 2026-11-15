@@ -185,6 +185,15 @@ class GhgMeasurementBoundaryOptionResponse(CamelizedBaseStruct):
     meter_equipment_id: int | None
 
 
+class GhgMeterPointOptionResponse(CamelizedBaseStruct):
+    id: int
+    code: str
+    name: str
+    equipment_id: int
+    unit: str | None
+    energy_type: str | None
+
+
 class GhgCatalogResponse(CamelizedBaseStruct):
     template_version: str
     categories: list[GhgCategoryResponse]
@@ -195,6 +204,7 @@ class GhgCatalogResponse(CamelizedBaseStruct):
     areas: list[GhgAreaOptionResponse]
     equipment: list[GhgEquipmentOptionResponse]
     measurement_boundaries: list[GhgMeasurementBoundaryOptionResponse]
+    meter_points: list[GhgMeterPointOptionResponse] = msgspec.field(default_factory=list[GhgMeterPointOptionResponse])
 
 
 class GhgActivityResponse(CamelizedBaseStruct):
@@ -228,6 +238,10 @@ class GhgActivityResponse(CamelizedBaseStruct):
     allocated_area_names: list[str]
     allocated_equipment_names: list[str]
     activity_details: dict[str, Any]
+    organization_name: str | None = None
+    facility_name: str | None = None
+    source_name: str | None = None
+    batch_code: str | None = None
 
 
 class GhgActivityListResponse(CamelizedBaseStruct):
@@ -341,6 +355,9 @@ class GhgActivityGenerateRequest(CamelizedBaseStruct, kw_only=True):
     reporting_period_id: int
     organization_boundary_id: int | None = None
     source_types: list[str]
+    facility_code: str | None = None
+    iso_category_code: str | None = None
+    source_code: str | None = None
 
     def __post_init__(self) -> None:
         _bounded(self.inventory_code, "盘查任务编号", 96)
@@ -352,6 +369,12 @@ class GhgActivityGenerateRequest(CamelizedBaseStruct, kw_only=True):
             raise ValueError(msg)
 
 
+class GhgActivitySummaryResponse(CamelizedBaseStruct):
+    activity_unit: str
+    activity_amount: str
+    record_count: int
+
+
 class GhgActivityGenerateResponse(CamelizedBaseStruct):
     inventory_code: str
     created_count: int
@@ -359,6 +382,9 @@ class GhgActivityGenerateResponse(CamelizedBaseStruct):
     skipped_count: int
     failed_count: int
     messages: list[str]
+    records: list[GhgActivityResponse] = msgspec.field(default_factory=list[GhgActivityResponse])
+    summary: list[GhgActivitySummaryResponse] = msgspec.field(default_factory=list[GhgActivitySummaryResponse])
+    record_codes: list[str] = msgspec.field(default_factory=list[str])
 
 
 class GhgBoundaryPreview(CamelizedBaseStruct, kw_only=True):
@@ -396,6 +422,11 @@ class GhgAllocationPreview(CamelizedBaseStruct, kw_only=True):
 
 
 class GhgActivityPreview(CamelizedBaseStruct, kw_only=True):
+    organization_name: str | None = None
+    facility_name: str | None = None
+    source_name: str | None = None
+    area_name: str | None = None
+    equipment_name: str | None = None
     row_number: int = msgspec.field(name="_row_number")
     record_code: str | None = None
     activity_name: str | None = None
@@ -498,6 +529,10 @@ class GhgImportBatchResponse(CamelizedBaseStruct):
     preview: GhgWorkbookPreviewResponse
     created_at: str
     committed_at: str | None
+    committed_count: int = 0
+    committed_rows: list[GhgActivityResponse] = msgspec.field(default_factory=list[GhgActivityResponse])
+    summary: list[GhgActivitySummaryResponse] = msgspec.field(default_factory=list[GhgActivitySummaryResponse])
+    activity_filters: dict[str, str] = msgspec.field(default_factory=dict[str, str])
 
 
 class GhgImportBatchListResponse(CamelizedBaseStruct):

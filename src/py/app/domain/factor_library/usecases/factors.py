@@ -256,13 +256,20 @@ class CalculationFactorMaintenance:
         tenant_id = require_session_tenant_id(self.session)
         activity = await self._get_activity(inventory_code=inventory_code, record_code=record_code)
         factor = await self._get_readable_factor(factor_id)
-        resolved_parameter_code, parameter_name, method_code = await self._resolve_parameter(activity, parameter_code)
+        resolved_parameter_code, parameter_name, method_code, parameter_role = await self._resolve_parameter(
+            activity, parameter_code
+        )
+        gas_code = str((activity.source_payload or {}).get("gas_code") or "")
+        if resolved_parameter_code == "GWP":
+            _validate_gwp_factor(activity, factor, gas_code)
         parameter_set_code = activity.parameter_set_code or f"{activity.record_code}-PS1"
+        if resolved_parameter_code == "GWP" and method_code == "F02_EF" and activity.iso_category_code == "1.4":
+            await self._ensure_gas_mass_factor(activity, parameter_set_code)
         activity.parameter_set_code = parameter_set_code
         activity.source_payload = {
             **dict(activity.source_payload or {}),
             "method_code": method_code,
-            "gas_code": "CO2e",
+            "gas_code": gas_code if resolved_parameter_code == "GWP" else "CO2e",
             "factor_id": factor.id,
             "factor_source": factor.source,
             "factor_year": factor.year,
@@ -277,7 +284,7 @@ class CalculationFactorMaintenance:
             self.session.add(parameter)
         parameter.parameter_code = resolved_parameter_code
         parameter.parameter_name = parameter_name
-        parameter.parameter_role = "emission_factor"
+        parameter.parameter_role = parameter_role
         parameter.value = factor.factor_value
         parameter.unit = factor.factor_unit
         parameter.source_mode = "custom_approved" if factor.team_id == tenant_id else _source_mode(factor)
@@ -300,6 +307,40 @@ class CalculationFactorMaintenance:
             source_name=factor.source,
             factor_value=str(factor.factor_value),
             factor_unit=factor.factor_unit,
+        )
+
+    async def _ensure_gas_mass_factor(self, activity: GhgActivityRecord, parameter_set_code: str) -> None:
+        """Complete F02 for an activity already expressed as kilograms of the named gas."""
+        value_code = f"{activity.inventory_code}:{parameter_set_code}:EMISSION_FACTOR"
+        existing = list((await self.session.scalars(select(GhgParameterValue).where(GhgParameterValue.value_code == value_code))).all())
+        if existing:
+            if any(
+                row.value != Decimal(1) or row.unit != "kg/kg" or row.status != "active" or row.approval_status != "approved"
+                for row in existing
+            ):
+                raise ClientException(
+                    detail="现有排放因子不适用于气体质量直接采用GWP。请先将质量换算系数确认为1 kg/kg",
+                    status_code=400,
+                )
+            return
+        self.session.add(
+            GhgParameterValue(
+                value_code=value_code,
+                version=1,
+                parameter_code="EMISSION_FACTOR",
+                parameter_name="气体质量换算系数",
+                parameter_role="emission_factor",
+                value=Decimal(1),
+                unit="kg/kg",
+                source_mode="custom_approved",
+                source_name="同种气体质量恒等换算 kg/kg",
+                measurement_method="活动量已按该气体的千克质量填报",
+                fuel_or_material=str(activity.source_payload["gas_code"]),
+                valid_from=activity.period_start,
+                valid_to=activity.period_end,
+                approval_status="approved",
+                status="active",
+            )
         )
 
     def _read_scope_filters(self, tenant_id: UUID | None) -> list[ColumnElement[bool]]:
@@ -346,9 +387,9 @@ class CalculationFactorMaintenance:
             raise ClientException(detail="活动数据不存在", status_code=404)
         return activity
 
-    async def _resolve_parameter(self, activity: GhgActivityRecord, parameter_code: str | None) -> tuple[str, str, str]:
+    async def _resolve_parameter(self, activity: GhgActivityRecord, parameter_code: str | None) -> tuple[str, str, str, str]:
         method_code = _method_for_activity(activity)
-        requested = parameter_code or _default_parameter_code(method_code)
+        requested = parameter_code or ("GWP" if activity.iso_category_code == "1.4" else _default_parameter_code(method_code))
         method = await self.session.scalar(
             select(GhgCalculationMethodDefinition).where(
                 GhgCalculationMethodDefinition.code == method_code,
@@ -361,7 +402,8 @@ class CalculationFactorMaintenance:
         definition = await self.session.scalar(
             select(GhgMethodParameterDefinition).where(*filters).order_by(GhgMethodParameterDefinition.id.desc())
         )
-        return requested, definition.parameter_name if definition else _parameter_name(requested), method_code
+        role = "characterization" if requested == "GWP" else definition.parameter_role if definition else "emission_factor"
+        return requested, definition.parameter_name if definition else _parameter_name(requested), method_code, role
 
     def _validated_payload(self, data: CalculationFactorWriteRequest) -> dict[str, Any]:
         scope = _normalize_code(data.scope)
@@ -595,9 +637,11 @@ def _geography(factor: m.EmissionFactor) -> str:
 
 def _method_for_activity(activity: GhgActivityRecord) -> str:
     category = activity.iso_category_code
+    if category == "1.4" and (activity.source_payload or {}).get("method_code") == "F05_INVENTORY":
+        return "F05_INVENTORY"
     if category in {"2.1", "2.2"}:
         return "F08_PURCHASED_ENERGY"
-    if category == "3.1":
+    if category in {"3.1", "3.2", "3.3", "3.4"}:
         return "F09_TRANSPORT_ACTIVITY"
     return "F02_EF"
 
@@ -612,10 +656,20 @@ def _default_parameter_code(method_code: str) -> str:
 
 def _parameter_name(parameter_code: str) -> str:
     return {
+        "GWP": "全球增温潜势",
         "ENERGY_FACTOR": "购入能源排放因子",
         "TRANSPORT_FACTOR": "运输活动排放因子",
         "EMISSION_FACTOR": "排放因子",
     }.get(parameter_code, parameter_code)
+
+
+def _validate_gwp_factor(activity: GhgActivityRecord, factor: m.EmissionFactor, gas_code: str) -> None:
+    if not gas_code or gas_code.upper() == "CO2E":
+        raise ClientException(detail="选择全球增温潜势前请填写实际温室气体", status_code=400)
+    if activity.activity_unit != "kg" or factor.unit != "kg" or factor.factor_unit != "kgCO2e/kg":
+        raise ClientException(detail="全球增温潜势适用于以kg填报的气体质量。因子单位应为kgCO2e/kg", status_code=400)
+    if _normalize_code(factor.sub_category) != _normalize_code(gas_code):
+        raise ClientException(detail="所选全球增温潜势与活动中的温室气体不一致", status_code=400)
 
 
 def _suggest_factor_key(activity: GhgActivityRecord) -> tuple[str | None, str | None]:
@@ -624,7 +678,7 @@ def _suggest_factor_key(activity: GhgActivityRecord) -> tuple[str | None, str | 
     if category in {"1.1", "1.2"}:
         return "fuel", _normalize_code(payload.get("fuel_type"))
     if category == "1.4":
-        return "refrigerant", _normalize_code(payload.get("refrigerant_type"))
+        return "refrigerant", _normalize_code(payload.get("gas_code") or payload.get("refrigerant_type"))
     if category in {"2.1", "2.2"}:
         return "electricity", _normalize_code(payload.get("energy_type"))
     if category == "3.1":

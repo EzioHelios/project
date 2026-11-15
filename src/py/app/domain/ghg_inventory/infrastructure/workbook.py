@@ -7,6 +7,7 @@ from __future__ import annotations
 # ruff: noqa: RUF001 - Chinese business copy is intentional.
 import base64
 import hashlib
+import json
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
@@ -16,11 +17,13 @@ from typing import TYPE_CHECKING, Any
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.datavalidation import DataValidation
 
 from app.domain.ghg_inventory.domain.activity_fields import CATEGORY_ACTIVITY_FIELDS
 from app.domain.ghg_inventory.domain.allocation import (
     ALLOCATION_ROLES,
+    CATEGORY_ALLOCATION_POLICY_BY_CODE,
     validate_allocation,
     validate_allocation_ratios,
 )
@@ -29,7 +32,7 @@ from app.domain.ghg_inventory.domain.catalog import CATEGORY_BY_CODE, METHOD_BY_
 if TYPE_CHECKING:
     from openpyxl.worksheet.worksheet import Worksheet
 
-TEMPLATE_VERSION = "GHG-INV-2026.2"
+TEMPLATE_VERSION = "GHG-INV-2026.3"
 DATA_START_ROW = 3
 
 
@@ -130,6 +133,9 @@ class WorkbookPreview:
 
 
 COMMON_ACTIVITY_COLUMNS = (
+    ColumnSpec("source_name", "活动对象", True, 28),
+    ColumnSpec("area_name", "区域名称", width=24),
+    ColumnSpec("equipment_name", "设备名称", width=24),
     ColumnSpec("record_code", "记录编号", True),
     ColumnSpec("source_code", "排放源编号", True),
     ColumnSpec("activity_code", "活动编号", True),
@@ -140,7 +146,7 @@ COMMON_ACTIVITY_COLUMNS = (
     ColumnSpec("activity_unit", "活动量单位", True),
     ColumnSpec("data_source_type", "数据来源类型", True, choices=("measured", "ledger", "supplier", "estimated")),
     ColumnSpec("measurement_method", "获取/测量方式", True, 24),
-    ColumnSpec("parameter_set_code", "参数集编号", True),
+    ColumnSpec("parameter_set_code", "参数集编号"),
     ColumnSpec("national_source_category", "国家标准源类别", False, 24),
     ColumnSpec("boundary_status", "边界状态", True, choices=("included", "excluded", "biogenic_separate", "optional")),
     ColumnSpec("remarks", "备注", False, 24),
@@ -233,7 +239,7 @@ ALLOCATION_COLUMNS = (
 )
 
 
-def build_template_bytes(context: dict[str, Any]) -> bytes:
+def build_template_bytes(context: dict[str, Any]) -> bytes:  # noqa: PLR0915 - one workbook assembly
     """Build a restrained, category-specific workbook with stable field codes."""
     category = CATEGORY_BY_CODE.get(str(context["iso_category_code"]))
     method = METHOD_BY_CODE.get(str(context["method_code"]))
@@ -251,12 +257,8 @@ def build_template_bytes(context: dict[str, Any]) -> bytes:
     instructions.append(["ISO 二级分类", f"{category.code} {category.name}"])
     instructions.append(["计算方法", f"{method.name} / {method.code}"])
     instructions.append(["报告配置", str(context["reporting_profile_code"])])
-    instructions.append(["填报规则", "活动数据、参数与证据分别填写；示例不进入正式数据区。"])
-    instructions.append(["参数集", "04_参数与因子已列出必填参数；活动数据通过 parameter_set_code 引用同一参数集。"])
-    instructions.append(
-        ["区域设备归集", "03A_区域设备归集按活动记录填写区域、设备、归集角色和比例；同一活动比例合计必须为100%。"]
-    )
-    instructions.append(["证据", "05_证据索引登记文件及SHA-256，06_数据证据关联填写对象编号和证据角色。"])
+    instructions.append(["填报规则", "填写03_活动数据；组织、工厂及分类采用下载时所选内容。日期留空时采用所选报告期。"])
+    instructions.append(["记录维护", "新记录导入后可在活动列表查看和编辑；已有记录不会被导入文件覆盖。"])
     instructions["A1"].font = Font(size=16, bold=True, color="17324D")
     instructions.column_dimensions["A"].width = 24
     instructions.column_dimensions["B"].width = 72
@@ -271,6 +273,8 @@ def build_template_bytes(context: dict[str, Any]) -> bytes:
         "reporting_profile_code": context["reporting_profile_code"],
         "method_code": method.code,
         "generated_at": datetime.now().astimezone().isoformat(),
+        "period_start": context.get("period_start", ""),
+        "period_end": context.get("period_end", ""),
     }.items():
         metadata.append([key, str(value)])
     metadata.sheet_state = "veryHidden"
@@ -295,6 +299,7 @@ def build_template_bytes(context: dict[str, Any]) -> bytes:
         "reporting_profile_code": context["reporting_profile_code"],
         "iso_category_code": category.code,
     }
+    boundary_scaffold["boundary_method"] = context.get("boundary_method") or "pending"
     boundary_sheet.append([boundary_scaffold.get(code) for code in boundary_codes])
     _add_sheet(
         workbook,
@@ -307,21 +312,21 @@ def build_template_bytes(context: dict[str, Any]) -> bytes:
             ColumnSpec("iso_category_code", "ISO 二级分类", True),
         ),
     )
-    _add_sheet(workbook, "03_活动数据", COMMON_ACTIVITY_COLUMNS + PACKAGE_FIELDS[category.package_code])
+    entry_columns = tuple(
+        ColumnSpec(
+            column.code,
+            column.label,
+            column.required,
+            column.width,
+            tuple(row["name"] for row in context.get("areas" if column.code == "area_name" else "equipment", []))
+            if column.code in {"area_name", "equipment_name"}
+            else column.choices,
+        )
+        for column in COMMON_ACTIVITY_COLUMNS + PACKAGE_FIELDS[category.package_code]
+    )
+    _add_sheet(workbook, "03_活动数据", entry_columns)
     _add_sheet(workbook, "03A_区域设备归集", _allocation_columns(context))
-    parameter_sheet = _add_sheet(workbook, "04_参数与因子", PARAMETER_COLUMNS)
-    parameter_codes = [column.code for column in PARAMETER_COLUMNS]
-    for parameter in method.parameters:
-        if not parameter["required"]:
-            continue
-        scaffold = {
-            "parameter_set_code": "PARAMSET-01",
-            "parameter_code": parameter["code"],
-            "parameter_name": parameter["name"],
-            "parameter_role": parameter["role"],
-            "unit": parameter["units"][0],
-        }
-        parameter_sheet.append([scaffold.get(code) for code in parameter_codes])
+    _add_sheet(workbook, "04_参数与因子", PARAMETER_COLUMNS)
     _add_sheet(workbook, "05_证据索引", EVIDENCE_COLUMNS)
     _add_sheet(workbook, "06_数据证据关联", LINK_COLUMNS)
     national = _add_sheet(
@@ -368,8 +373,26 @@ def build_template_bytes(context: dict[str, Any]) -> bytes:
         dictionary.append(["iso_category", category_item.code, category_item.name])
     for method_item in METHOD_BY_CODE.values():
         dictionary.append(["method", method_item.code, method_item.name])
-    for sheet_name in ("07_国家格式对照", "08_校验结果", "09_枚举字典"):
-        workbook[sheet_name].sheet_state = "hidden"
+    # All entry uses the same canonical rows; only the business data sheet is visible.
+    for sheet in workbook.worksheets:
+        if sheet.title != "03_活动数据":
+            sheet.sheet_state = "veryHidden" if sheet.title == "_metadata" else "hidden"
+    activity_sheet = workbook["03_活动数据"]
+    hidden_fields = {
+        "record_code",
+        "source_code",
+        "activity_code",
+        "activity_name",
+        "data_source_type",
+        "measurement_method",
+        "parameter_set_code",
+        "national_source_category",
+        "boundary_status",
+    }
+    for index, cell in enumerate(activity_sheet[2], 1):
+        if cell.value in hidden_fields:
+            activity_sheet.column_dimensions[get_column_letter(index)].hidden = True
+    workbook.active = workbook.index(activity_sheet)
 
     stream = BytesIO()
     workbook.save(stream)
@@ -410,7 +433,23 @@ def _add_sheet(workbook: Workbook, name: str, columns: tuple[ColumnSpec, ...]) -
         cell.alignment = Alignment(vertical="center")
         sheet.column_dimensions[get_column_letter(index)].width = column.width
         if column.choices:
-            validation = DataValidation(type="list", formula1='"' + ",".join(column.choices) + '"')
+            labels = {value: key for key, value in ENTRY_ENUM_LABELS.items()}
+            choices = [labels.get(value, value) for value in column.choices]
+            dictionary = (
+                workbook["_choices"] if "_choices" in workbook.sheetnames else workbook.create_sheet("_choices")
+            )
+            dictionary.sheet_state = "hidden"
+            choice_column = len(workbook.defined_names) + 1
+            for choice_row, label in enumerate(choices, 1):
+                dictionary.cell(row=choice_row, column=choice_column, value=label)
+            column_letter = get_column_letter(choice_column)
+            name = f"ghg_choices_{choice_column}"
+            workbook.defined_names.add(
+                DefinedName(name, attr_text=f"'_choices'!${column_letter}$1:${column_letter}${len(choices)}")
+            )
+            validation = DataValidation(type="list", formula1=f"={name}")
+            validation.error = "请选择下拉列表中的值"
+            validation.showErrorMessage = True
             sheet.add_data_validation(validation)
             validation.add(  # pyright: ignore[reportUnknownMemberType] - openpyxl stubs omit CellRange typing
                 f"{get_column_letter(index)}3:{get_column_letter(index)}1002"
@@ -436,12 +475,160 @@ def decode_and_preview(workbook_base64: str, expected_context: dict[str, Any]) -
     preview.parameters = _read_rows(workbook, "04_参数与因子", preview.issues)
     preview.evidence = _read_rows(workbook, "05_证据索引", preview.issues)
     preview.links = _read_rows(workbook, "06_数据证据关联", preview.issues)
+    _normalize_entry_rows(preview, expected_context)
     _validate_boundary_and_sources(preview, expected_context)
     _validate_activities(preview, expected_context)
     _validate_allocations(preview, expected_context)
     _validate_parameters(preview, expected_context)
     _validate_evidence(preview)
     return preview, hashlib.sha256(raw).hexdigest()
+
+
+ENTRY_ENUM_LABELS = {
+    "电力": "electricity",
+    "外购热力": "purchased_heat",
+    "蒸汽": "steam",
+    "冷量": "cooling",
+    "地点法": "location",
+    "市场法": "market",
+    "不适用": "not_applicable",
+    "上游运输": "upstream",
+    "下游运输": "downstream",
+    "员工通勤": "commute",
+    "商务差旅": "business_travel",
+    "访客交通": "visitor",
+    "是": "yes",
+    "否": "no",
+}
+
+
+def _normalize_entry_rows(preview: WorkbookPreview, context: dict[str, Any]) -> None:
+    """Expand user-facing fields into the existing canonical workbook rows."""
+    category = CATEGORY_BY_CODE[str(context["iso_category_code"])]
+    sources = {str(row.get("source_code")): row for row in preview.sources}
+    allocated = {row.get("record_code") for row in preview.allocations}
+    for row in preview.activities:
+        number = int(row["_row_number"])
+        for key in ("period_start", "period_end"):
+            row[key] = str(row.get(key) or context.get(key) or preview.metadata.get(key) or "")[:10]
+        for column in PACKAGE_FIELDS[category.package_code]:
+            if column.choices and row.get(column.code) in ENTRY_ENUM_LABELS:
+                row[column.code] = ENTRY_ENUM_LABELS[row[column.code]]
+        existing_source = sources.get(str(row.get("source_code")), {})
+        row["source_name"] = row.get("source_name") or existing_source.get("source_name") or row.get("activity_name")
+        for key, value in {
+            "activity_name": row.get("source_name"),
+            "activity_code": category.package_code,
+            "data_source_type": "ledger",
+            "measurement_method": "企业台账",
+            "boundary_status": "included",
+        }.items():
+            row[key] = row.get(key) or value
+        identity = [
+            context.get(key) for key in ("inventory_code", "organization_code", "facility_code", "iso_category_code")
+        ]
+        source_identity = [*identity, row.get("source_name"), row.get("area_name"), row.get("equipment_name")]
+        row["source_code"] = row.get("source_code") or "SRC-" + _entry_digest(source_identity)
+        row["record_code"] = row.get("record_code") or "ACT-" + _entry_digest(
+            [
+                *source_identity,
+                row["period_start"],
+                row["period_end"],
+                row.get("activity_unit"),
+                *[
+                    row.get(key)
+                    for key in (
+                        "fuel_or_material",
+                        "gas_code",
+                        "energy_type",
+                        "transport_direction",
+                        "transport_mode",
+                        "product_or_material",
+                        "product_or_service",
+                        "waste_type",
+                        "asset_name",
+                        "land_plot",
+                    )
+                ],
+            ]
+        )
+        row["organization_name"] = context.get("organization_name")
+        row["facility_name"] = context.get("facility_name")
+        if row["source_code"] not in sources:
+            source = {
+                "_row_number": number,
+                "source_code": row["source_code"],
+                "source_name": row["source_name"],
+                "activity_type": category.package_code,
+                "facility_code": context["facility_code"],
+                "iso_category_code": category.code,
+            }
+            sources[row["source_code"]] = source
+            preview.sources.append(source)
+        area = _resolve_entry_object(row, "area", context.get("areas", []), preview)
+        equipment = _resolve_entry_object(row, "equipment", context.get("equipment", []), preview)
+        if equipment and not area:
+            area = next((item for item in context.get("areas", []) if item["id"] == equipment.get("area_id")), None)
+        if area is None and not row.get("area_name"):
+            area = next((item for item in context.get("areas", []) if item["code"] == context["facility_code"]), None)
+        if equipment and area and equipment.get("area_id") != area["id"]:
+            preview.issues.append(
+                WorkbookIssue(
+                    "error",
+                    "03_活动数据",
+                    number,
+                    "equipment_name",
+                    "EQUIPMENT_AREA_MISMATCH",
+                    "所选设备不属于所选区域",
+                )
+            )
+        if area and row["record_code"] not in allocated:
+            row["area_name"] = area["name"]
+            row["equipment_name"] = equipment["name"] if equipment else None
+            preview.allocations.append(
+                {
+                    "_row_number": number,
+                    "allocation_code": f"{row['record_code']}-A01",
+                    "record_code": row["record_code"],
+                    "source_code": row["source_code"],
+                    "area_code": area["code"],
+                    "equipment_code": equipment["code"] if equipment else None,
+                    "allocation_role": CATEGORY_ALLOCATION_POLICY_BY_CODE[category.code].default_role,
+                    "allocation_ratio": "1",
+                    "source_kind": "manual",
+                }
+            )
+
+
+def _entry_digest(values: list[Any]) -> str:
+    return hashlib.sha256(json.dumps(values, ensure_ascii=False, default=str).encode()).hexdigest()[:24].upper()
+
+
+def _resolve_entry_object(
+    row: dict[str, Any],
+    kind: str,
+    options: list[dict[str, Any]],
+    preview: WorkbookPreview,
+) -> dict[str, Any] | None:
+    value = row.get(f"{kind}_name")
+    if not value:
+        return None
+    matches = [item for item in options if value in (item["name"], item["code"])]
+    if len(matches) == 1:
+        return matches[0]
+    label = "区域" if kind == "area" else "设备"
+    preview.issues.append(
+        WorkbookIssue(
+            "error",
+            "03_活动数据",
+            int(row["_row_number"]),
+            f"{kind}_name",
+            "OBJECT_NOT_FOUND" if not matches else "OBJECT_AMBIGUOUS",
+            f"{label}名称不存在或不唯一，请选择已有对象",
+            str(value),
+        )
+    )
+    return None
 
 
 def _read_metadata(workbook: Workbook) -> dict[str, str]:
@@ -543,6 +730,19 @@ def _validate_activities(preview: WorkbookPreview, context: dict[str, Any]) -> N
             "03_活动数据",
             preview.issues,
         )
+        for column in COMMON_ACTIVITY_COLUMNS + PACKAGE_FIELDS[category.package_code]:
+            if column.choices and row.get(column.code) not in (None, "", *column.choices):
+                preview.issues.append(
+                    WorkbookIssue(
+                        "error",
+                        "03_活动数据",
+                        int(row["_row_number"]),
+                        column.code,
+                        "INVALID_CHOICE",
+                        f"{column.label}不在允许范围内",
+                        str(row.get(column.code)),
+                    )
+                )
         record_code = str(row.get("record_code") or "")
         if record_code in seen:
             preview.issues.append(
@@ -561,7 +761,7 @@ def _validate_activities(preview: WorkbookPreview, context: dict[str, Any]) -> N
             amount = Decimal(str(row.get("activity_amount")))
         except (InvalidOperation, TypeError):
             amount = Decimal(-1)
-        if amount < 0:
+        if not amount.is_finite() or amount < 0:
             preview.issues.append(
                 WorkbookIssue(
                     "error",
@@ -581,6 +781,12 @@ def _validate_activities(preview: WorkbookPreview, context: dict[str, Any]) -> N
             invalid_period = True
         else:
             invalid_period = period_start > period_end
+            if context.get("period_start") and context.get("period_end"):
+                invalid_period = (
+                    invalid_period
+                    or period_start < date.fromisoformat(context["period_start"])
+                    or period_end > date.fromisoformat(context["period_end"])
+                )
         if invalid_period:
             preview.issues.append(
                 WorkbookIssue(
@@ -593,7 +799,7 @@ def _validate_activities(preview: WorkbookPreview, context: dict[str, Any]) -> N
                 )
             )
         parameter_set = str(row.get("parameter_set_code") or "")
-        if parameter_set not in parameter_sets:
+        if parameter_set and parameter_set not in parameter_sets:
             preview.issues.append(
                 WorkbookIssue(
                     "error",
@@ -724,16 +930,6 @@ def _validate_allocations(preview: WorkbookPreview, context: dict[str, Any]) -> 
         str(row.get("record_code") or ""): str(row.get("source_code") or "") for row in preview.activities
     }
     if not preview.allocations:
-        preview.issues.append(
-            WorkbookIssue(
-                "error",
-                "03A_区域设备归集",
-                None,
-                None,
-                "ALLOCATION_REQUIRED",
-                "每条活动数据必须完成区域归集",
-            )
-        )
         return
     grouped: dict[str, list[Decimal]] = {}
     seen_codes: set[str] = set()
@@ -938,7 +1134,9 @@ def _validate_parameters(preview: WorkbookPreview, context: dict[str, Any]) -> N
                     "实测参数必须填写检测方法、机构和证据编号",
                 )
             )
-    for parameter_set in {str(row.get("parameter_set_code") or "") for row in preview.activities}:
+    for parameter_set in {
+        str(row["parameter_set_code"]) for row in preview.activities if row.get("parameter_set_code")
+    }:
         for missing_code in sorted(required_codes - grouped.get(parameter_set, set())):
             preview.issues.append(
                 WorkbookIssue(
@@ -950,7 +1148,7 @@ def _validate_parameters(preview: WorkbookPreview, context: dict[str, Any]) -> N
                     f"参数集 {parameter_set} 缺少必需参数 {missing_code}",
                 )
             )
-    if not method.executable:
+    if preview.parameters and not method.executable:
         preview.issues.append(
             WorkbookIssue(
                 "error",
@@ -1079,21 +1277,6 @@ def _validate_evidence(preview: WorkbookPreview) -> None:
                         str(row.get("coverage_ratio")),
                     )
                 )
-    for row in preview.activities:
-        record_code = str(row.get("record_code") or "")
-        if record_code not in linked_activities:
-            preview.issues.append(
-                WorkbookIssue(
-                    "warning",
-                    "06_数据证据关联",
-                    int(row["_row_number"]),
-                    "record_code",
-                    "ACTIVITY_EVIDENCE_MISSING",
-                    "活动记录尚未关联证据",
-                    record_code,
-                    "在证据索引中登记文件并建立活动关联",
-                )
-            )
 
 
 def _validate_evidence_target(

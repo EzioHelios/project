@@ -11,7 +11,13 @@ from litestar.response import Response
 from sqlalchemy import select
 
 from app.domain.accounts.guards import requires_permission
-from app.domain.carbon.models import MonitorEquipment, MonitorSector, ReportingOrganization, ReportingPeriod
+from app.domain.carbon.models import (
+    DevicePoint,
+    MonitorEquipment,
+    MonitorSector,
+    ReportingOrganization,
+    ReportingPeriod,
+)
 from app.domain.ghg_inventory.domain.catalog import (
     CATEGORIES,
     METHODS,
@@ -45,7 +51,11 @@ from app.domain.ghg_inventory.schemas import (
 )
 from app.domain.ghg_inventory.usecases.allocations import ReplaceActivityAllocations
 from app.domain.ghg_inventory.usecases.calculation import RunInventoryCalculation
-from app.domain.ghg_inventory.usecases.import_workbook import CommitCategoryWorkbook, PreviewCategoryWorkbook
+from app.domain.ghg_inventory.usecases.import_workbook import (
+    CommitCategoryWorkbook,
+    PreviewCategoryWorkbook,
+    workbook_context,
+)
 from app.domain.ghg_inventory.usecases.maintenance import GhgInventoryMaintenance
 from app.domain.metering.models import MeasurementBoundary
 
@@ -85,6 +95,16 @@ class GhgInventoryController(Controller):
         )
         measurement_boundaries = list(
             (await db_session.scalars(select(MeasurementBoundary).order_by(MeasurementBoundary.code))).all()
+        )
+        meter_points = list(
+            (
+                await db_session.execute(
+                    select(DevicePoint, MonitorEquipment)
+                    .join(MonitorEquipment, MonitorEquipment.id == DevicePoint.device_id)
+                    .where(DevicePoint.is_enabled.is_(True), MonitorEquipment.is_enable.is_(True))
+                    .order_by(MonitorEquipment.code, DevicePoint.point_code)
+                )
+            ).all()
         )
         area_by_id = {row.id: row for row in areas}
         return msgspec.convert(
@@ -131,6 +151,17 @@ class GhgInventoryController(Controller):
                     }
                     for row in equipment
                 ],
+                "meterPoints": [
+                    {
+                        "id": point.id,
+                        "code": f"{device.code}:{point.point_code}",
+                        "name": f"{device.name or device.code} / {point.point_name}",
+                        "equipmentId": device.id,
+                        "unit": point.unit,
+                        "energyType": device.energy_type,
+                    }
+                    for point, device in meter_points
+                ],
                 "measurementBoundaries": [
                     {
                         "id": row.id,
@@ -154,6 +185,8 @@ class GhgInventoryController(Controller):
         inventory_code: str | None = None,
         category_code: str | None = None,
         quality_status: str | None = None,
+        batch_code: str | None = None,
+        status: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> GhgActivityListResponse:
@@ -161,6 +194,8 @@ class GhgInventoryController(Controller):
             inventory_code=inventory_code,
             category_code=category_code,
             quality_status=quality_status,
+            batch_code=batch_code,
+            status=status,
             limit=min(max(limit, 1), 500),
             offset=max(offset, 0),
         )
@@ -379,6 +414,9 @@ class GhgInventoryController(Controller):
                 reporting_period_id=data.reporting_period_id,
                 organization_boundary_id=data.organization_boundary_id,
                 source_types=data.source_types,
+                facility_code=data.facility_code,
+                iso_category_code=data.iso_category_code,
+                source_code=data.source_code,
             )
         except ValueError as exc:
             raise ClientException(status_code=422, detail=str(exc)) from exc
@@ -398,14 +436,11 @@ class GhgInventoryController(Controller):
         iso_category_code: str,
         reporting_profile_code: str,
         method_code: str,
+        reporting_period_id: int | None = None,
     ) -> Response[bytes]:
         try:
-            areas = list((await db_session.scalars(select(MonitorSector).order_by(MonitorSector.code))).all())
-            equipment = list((await db_session.scalars(select(MonitorEquipment).order_by(MonitorEquipment.code))).all())
-            measurement_boundaries = list(
-                (await db_session.scalars(select(MeasurementBoundary).order_by(MeasurementBoundary.code))).all()
-            )
-            content = build_template_bytes(
+            context = await workbook_context(
+                db_session,
                 {
                     "inventory_code": inventory_code,
                     "organization_code": organization_code,
@@ -413,11 +448,10 @@ class GhgInventoryController(Controller):
                     "iso_category_code": iso_category_code,
                     "reporting_profile_code": reporting_profile_code,
                     "method_code": method_code,
-                    "area_codes": [row.code for row in areas],
-                    "equipment_codes": [row.code for row in equipment],
-                    "measurement_boundary_codes": [row.code for row in measurement_boundaries],
-                }
+                    "reporting_period_id": reporting_period_id,
+                },
             )
+            content = build_template_bytes(context)
         except (KeyError, ValueError) as exc:
             raise ClientException(status_code=422, detail=str(exc)) from exc
         file_name = f"ghg-{iso_category_code.replace('.', '-')}-{TEMPLATE_VERSION}.xlsx"
@@ -501,7 +535,9 @@ class GhgInventoryController(Controller):
             batch = await PreviewCategoryWorkbook(db_session).execute(data.to_dict())
         except ValueError as exc:
             raise ClientException(status_code=422, detail=str(exc)) from exc
-        return msgspec.convert(GhgInventoryQueryService.import_batch_payload(batch), type=GhgImportBatchResponse)
+        return msgspec.convert(
+            await GhgInventoryQueryService(db_session).import_result_payload(batch), type=GhgImportBatchResponse
+        )
 
     @post(
         "/import/commit",
@@ -517,7 +553,9 @@ class GhgInventoryController(Controller):
             )
         except ValueError as exc:
             raise ClientException(status_code=422, detail=str(exc)) from exc
-        return msgspec.convert(GhgInventoryQueryService.import_batch_payload(batch), type=GhgImportBatchResponse)
+        return msgspec.convert(
+            await GhgInventoryQueryService(db_session).import_result_payload(batch), type=GhgImportBatchResponse
+        )
 
     @get(
         "/import/batches",
