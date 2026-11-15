@@ -223,11 +223,23 @@ async function loadCatalog() {
   const matchingPeriods = (catalog.periods ?? []).filter((item) => item.code === caseProfile.inventoryCode)
   if (matchingPeriods.length !== 1) throw new Error(`盘查任务${caseProfile.inventoryCode}应唯一对应报告期，实际匹配${matchingPeriods.length}项`)
   period = matchingPeriods[0]
-  area = catalog.areas?.[0]
   equipment = catalog.equipment?.find((item) => item.code === "PCC-METER-01") ?? catalog.equipment?.find((item) => item.areaId) ?? catalog.equipment?.[0]
+  area = catalog.areas?.find((item) => item.id === equipment?.areaId)
   meterPoint = catalog.meterPoints?.find((item) => item.equipmentId === equipment.id && item.unit === "kWh")
   if (!meterPoint) throw new Error("厂区电表缺少已启用的电量测点（kWh）")
   if (!period?.code || !area?.code) throw new Error("组织碳维护验证需要报告期和区域主数据")
+  if (["crud", "import", "full"].includes(phase)) {
+    const { boundary } = await resolveCalculationContext()
+    const response = await fetchJson(`/api/carbon/organization-boundary/facilities?boundary_id=${boundary.id}&limit=200`)
+    if (!response.ok) throw new Error("无法读取所选报告期的边界设施")
+    const facilities = response.data.data ?? response.data
+    if (facilities.total > facilities.items.length) throw new Error("边界设施未完整读取，不能判断归集范围")
+    const ancestors = new Set()
+    for (let current = area; current && !ancestors.has(current.id); current = catalog.areas.find((item) => item.id === current.parentId)) ancestors.add(current.id)
+    const allowed = facilities.items.find((item) => item.included && (Number(item.equipmentId ?? item.equipment_id) === equipment.id || ancestors.has(Number(item.areaId ?? item.area_id))))
+    if (!allowed) throw new Error("购电设备及所属区域不在所选报告期已发布边界内，不能进行归集验收")
+    checks.push({ name: "allocation-boundary-context", status: "passed", reportingPeriodId: period.id, boundaryId: boundary.id, facilityId: allowed.id, areaId: area.id, equipmentId: equipment.id })
+  }
   checks.push({ name: "catalog", status: "passed", period: period.name, area: area.name, equipment: equipment?.name ?? "" })
 }
 
@@ -370,11 +382,14 @@ async function openActivityDetailAndSaveAllocation() {
   const dialog = page.getByRole("dialog").filter({ hasText: "活动数据详情" })
   await dialog.waitFor({ state: "visible" })
   await expectVisible("分类字段")
+  await selectOption(dialog, "区域", area.name)
+  await selectOption(dialog, "设备", equipment.name)
   const allocationResponse = page.waitForResponse((response) => response.url().includes("/allocations") && response.request().method() === "PUT")
   await dialog.getByRole("button", { name: "保存归集" }).click()
   await assertUiResponse(await allocationResponse)
   const allocationQuery = await fetchJson(`/api/ghg-inventory/activities/${encodeURIComponent(recordCode)}/allocations?inventory_code=${encodeURIComponent(period.code)}`)
   if (!allocationQuery.ok || !allocationQuery.data.items?.length) throw new Error("归集保存后回查为空")
+  if (!allocationQuery.data.items.some((item) => item.areaId === area.id && item.equipmentId === equipment.id && Number(item.allocationRatio) === 1)) throw new Error("归集回查与所选区域、设备或比例不一致")
   await capture("activityDetail", "活动数据详情中维护区域、设备、计量边界和归集比例，保存后形成活动数据归集关系。")
   await page.keyboard.press("Escape")
   checks.push({ name: "allocation-save", status: "passed", recordCode })

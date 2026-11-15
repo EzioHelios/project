@@ -172,6 +172,7 @@ async function ensureAuthenticated() {
   if (!profile.ok || !profile.data?.id) throw new Error(`登录态验证失败：/api/me 返回 ${profile.status}`)
   activeUser = profile.data
   assert.equal(activeUser.isSuperuser, false, "最终验收必须使用非 superuser 账号")
+  assert.equal(activeUser.email.toLowerCase(), username.toLowerCase(), "登录用户必须与验证账号一致")
   authPhase = "authenticated"
   checks.push({ name: "authentication", status: "passed", isSuperuser: activeUser.isSuperuser, expectedProbe401Count: expectedAuthProbes.length })
 }
@@ -205,10 +206,10 @@ async function selectTenant() {
 }
 
 async function gotoEnergyPage() {
-  await page.goto(`${baseURL}/data/energy-consumption`, { waitUntil: "domcontentloaded" })
+  await captureResponse("GET", "/api/energy/interval-facts", () => page.goto(`${baseURL}/data/energy-consumption`, { waitUntil: "domcontentloaded" }))
   await injectScreenshotCss()
   await expect(page.getByRole("button", { name: "新增能源数据", exact: true })).toBeEnabled()
-  await expectVisible("沃衡")
+  await assertTenantContext()
   await page.getByLabel("筛选月份", { exact: true }).fill(testMonth)
   await page.getByRole("button", { name: "查询", exact: true }).click()
   await waitForPageReady()
@@ -490,13 +491,22 @@ async function assertBusinessPage(requiredTexts = []) {
   if (page.url().includes("/login")) throw new Error("页面仍停留在登录页")
   const failures = apiFailures.filter((item) => item.status === 401 || item.status === 403 || item.status >= 500)
   if (failures.length > 0) throw new Error(`关键接口失败：${failures[0].method} ${failures[0].url} HTTP ${failures[0].status}`)
-  await expectVisible("沃衡")
+  await assertTenantContext()
   for (const forbiddenText of forbiddenBrandTexts) {
     if (await hasVisibleText(forbiddenText)) throw new Error(`品牌串扰：页面出现 ${forbiddenText}`)
   }
   const loading = await visibleLoadingArtifacts()
   if (loading.length > 0) throw new Error(`页面仍存在加载态：${loading.join(", ")}`)
   for (const text of requiredTexts) await expectVisible(text)
+}
+
+async function assertTenantContext() {
+  const state = await page.evaluate(() => JSON.parse(localStorage.getItem("auth-storage") || "{}").state)
+  assert.equal(state?.isAuthenticated, true, "页面必须处于登录状态")
+  assert.equal(state?.user?.id, activeUser.id, "页面用户必须与服务端 profile 一致")
+  assert.equal(state?.user?.isSuperuser, false, "页面必须使用普通租户账号")
+  assert.equal(state?.currentTeam?.id, activeTeamId, "页面当前租户 ID 不得改变")
+  assert.equal(state?.currentTeam?.slug, tenantSlug, "页面当前租户必须与指定基地一致")
 }
 
 async function waitForPageReady() {
