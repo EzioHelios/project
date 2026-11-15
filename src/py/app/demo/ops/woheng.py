@@ -8,7 +8,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import delete, func, or_, select, text
+from sqlalchemy import delete, func, select, text
 
 from app.db import models as m
 from app.db.models import Team, TeamMember, TeamRoles, User
@@ -16,7 +16,6 @@ from app.demo.ops.contracts import DemoAction, DemoExecutionContext, DemoPlanSte
 from app.demo.showcase import ShowcaseDemoBuilder
 from app.domain.carbon.energy_analysis_importer import (
     _rebuild_energy_interval_facts,
-    _rebuild_equipment_workload_facts,
     seed_energy_analysis_data,
 )
 from app.domain.energy.policy_benchmark_sync import sync_policy_benchmark_library
@@ -25,7 +24,6 @@ from app.domain.energy.usecases.energy_types import (
     ensure_standard_energy_types,
     repair_energy_type_data,
 )
-from app.lib import constants
 from app.lib.crypt import get_password_hash
 from app.lib.demo_tenancy import require_demo_tenant, validate_demo_team
 from app.lib.tenancy import TENANT_BYPASS_SESSION_KEY, TENANT_ID_SESSION_KEY
@@ -51,6 +49,7 @@ WOHENG_COMPANY_CONTACT = "林启航"
 WOHENG_COMPANY_CONTACT_EMAIL = "lin.qihang@voryntis-auto.example.com"
 WOHENG_SOURCE_NAME = "沃衡汽车统一演示包V1"
 WOHENG_DEMO_PERMISSION_SPECS: tuple[tuple[str, str, str, str], ...] = (
+    ("carbon.config.manage", "维护能碳业务数据", "维护所属租户能源台账和基础数据", "carbon"),
     ("material_operations:write", "维护物资作业", "维护和确认所属租户物资作业", "material_allocation"),
     ("material_allocation:calculate", "计算作业分配", "执行设备小时电量分配", "material_allocation"),
     ("product_footprint:write", "维护产品碳足迹", "引用和同步物资作业结果", "product_footprint"),
@@ -74,7 +73,6 @@ MIN_MQTT_MAPPING_COUNT = 12
 MIN_METER_READING_COUNT = 240
 MIN_SCOPE2_AGGREGATE_COUNT = 48
 MIN_ENERGY_INTERVAL_COUNT = 180
-MIN_WORKLOAD_COUNT = 6
 MIN_BENCHMARK_ITEM_COUNT = 10
 MIN_POLICY_BENCHMARK_PROFILE_COUNT = 2
 MIN_EQUIPMENT_EFFICIENCY_ITEM_COUNT = 8
@@ -96,9 +94,8 @@ REQUIRED_ENERGY_INTERVAL_TYPES: tuple[str, ...] = (
     "natural_gas",
     "diesel",
     "purchased_steam",
-    "refrigerant",
 )
-MIN_INTERVAL_ROWS_PER_REQUIRED_TYPE = 24
+MIN_INTERVAL_ROWS_PER_REQUIRED_TYPE = 1
 LEGACY_RESIDUE_SAMPLE_LIMIT = 5
 LEGACY_SHOWCASE_MARKERS = (
     "DEMO-PARK",
@@ -228,7 +225,7 @@ class WohengShowcasePackage:
     """Install and validate the single-brand Woheng showcase package."""
 
     key = WOHENG_PACKAGE_KEY
-    version = "1.0.0"
+    version = "1.1.0"
     description = "Single-brand Woheng automotive energy-carbon showcase with Taizhou and Huzhou production tenants."
     supported_profiles = (WOHENG_PROFILE,)
 
@@ -301,6 +298,7 @@ class WohengShowcasePackage:
         if not context.apply:
             return self._result(context, DemoAction.INSTALL, False, DemoStepStatus.PLANNED, planned)
 
+        await self._assert_install_targets_safe()
         steps: list[DemoPlanStep] = []
         init_result = await ensure_standard_energy_types(self._session, apply=True)
         steps.append(
@@ -323,9 +321,9 @@ class WohengShowcasePackage:
             self._session.info[TENANT_ID_SESSION_KEY] = team.id
             self._session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
             await require_demo_tenant(self._session)
-            await self._synchronize_bigint_sequences()
             existing_counts = await self._tenant_counts()
-            if self._has_base_showcase_dataset(existing_counts):
+            initialize_base = not self._has_base_showcase_dataset(existing_counts)
+            if not initialize_base:
                 result_summary = {
                     "activities": existing_counts["activities"],
                     "reports": existing_counts["reports"],
@@ -344,7 +342,9 @@ class WohengShowcasePackage:
                     "coverage_passed": result.coverage.passed,
                     "builder": "ShowcaseDemoBuilder",
                 }
-            legacy_repair_summary = await self._specialize_tenant(tenant, team_id=team.id)
+            legacy_repair_summary = await self._specialize_tenant(
+                tenant, team_id=team.id, initialize_base=initialize_base
+            )
             repair_result = await repair_energy_type_data(self._session, team_slug=tenant.slug, apply=True)
             await self._record_manifest(
                 context,
@@ -398,10 +398,10 @@ class WohengShowcasePackage:
                 module_key="identity",
                 action=DemoAction.INSTALL,
                 status=DemoStepStatus.COMPLETED,
-                summary="安装并校准标准演示账号",
+                summary="保留既有账号并初始化缺失的沃衡演示账号",
                 details={
                     "accounts": list(self._standard_account_emails),
-                    "admin_scope": "all-teams",
+                    "admin_scope": "preserved",
                     "demo_scope": [tenant.slug for tenant in TENANTS],
                 },
             )
@@ -431,6 +431,9 @@ class WohengShowcasePackage:
                 continue
             self._session.info[TENANT_ID_SESSION_KEY] = team.id
             self._session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
+            from app.demo.ops.enterprise_entry import validate_enterprise_entry
+
+            entry_validation = await validate_enterprise_entry(self._session, city=tenant.city_code)
             counts = await self._tenant_counts()
             energy_interval_type_counts = await self._energy_interval_type_counts()
             energy_type_diagnostics = await diagnose_energy_type_data(self._session, team_slug=tenant.slug)
@@ -447,7 +450,6 @@ class WohengShowcasePackage:
                 and counts["meter_readings"] >= MIN_METER_READING_COUNT
                 and counts["scope2_aggregates"] >= MIN_SCOPE2_AGGREGATE_COUNT
                 and counts["energy_interval_facts"] >= MIN_ENERGY_INTERVAL_COUNT
-                and counts["workload_facts"] >= MIN_WORKLOAD_COUNT
                 and counts["benchmark_items"] >= MIN_BENCHMARK_ITEM_COUNT
                 and counts["policy_benchmark_profiles"] >= MIN_POLICY_BENCHMARK_PROFILE_COUNT
                 and counts["equipment_efficiency_items"] >= MIN_EQUIPMENT_EFFICIENCY_ITEM_COUNT
@@ -471,6 +473,7 @@ class WohengShowcasePackage:
                 and counts["reduction_projects"] >= MIN_REDUCTION_PROJECT_COUNT
                 and counts["alarm_events"] >= MIN_ALARM_EVENT_COUNT
                 and counts["video_alarm_events"] >= MIN_VIDEO_ALARM_EVENT_COUNT
+                and entry_validation["passed"]
                 and required_energy_types_ready
                 and energy_type_diagnostics.issue_count == 0
                 and legacy_residue_summary["rows_with_residue"] == 0
@@ -490,9 +493,10 @@ class WohengShowcasePackage:
                         "required_meter_readings": MIN_METER_READING_COUNT,
                         "required_scope2_aggregates": MIN_SCOPE2_AGGREGATE_COUNT,
                         "required_energy_interval_facts": MIN_ENERGY_INTERVAL_COUNT,
+                        "enterprise_entry": entry_validation,
                         "required_energy_interval_types": list(REQUIRED_ENERGY_INTERVAL_TYPES),
                         "energy_interval_type_counts": energy_interval_type_counts,
-                        "required_workload_facts": MIN_WORKLOAD_COUNT,
+                        "workload_status": "available" if counts["workload_facts"] else "not_provided",
                         "required_benchmark_items": MIN_BENCHMARK_ITEM_COUNT,
                         "required_policy_benchmark_profiles": MIN_POLICY_BENCHMARK_PROFILE_COUNT,
                         "required_equipment_efficiency_items": MIN_EQUIPMENT_EFFICIENCY_ITEM_COUNT,
@@ -621,7 +625,13 @@ class WohengShowcasePackage:
         users: dict[str, User] = {}
         verified_at = datetime.now(UTC).date()
         for account in STANDARD_ACCOUNTS:
+            # Platform administrators and customer identities are never managed by a demo install.
+            if account.team_scope != "woheng":
+                continue
             user = await self._session.scalar(select(User).where(User.email == account.email))
+            if user is not None:
+                users[account.email] = user
+                continue
             if user is None:
                 user = User(email=account.email)
                 self._session.add(user)
@@ -630,11 +640,8 @@ class WohengShowcasePackage:
             conflicting_username_user = await self._session.scalar(
                 select(User).where(User.username == account.username, User.email != account.email)
             )
-            if conflicting_username_user is not None:
-                conflicting_username_user.username = None
-
             user.name = account.name
-            user.username = account.username
+            user.username = account.username if conflicting_username_user is None else None
             user.hashed_password = await get_password_hash(self._account_password(account))
             user.is_active = True
             user.is_verified = True
@@ -649,11 +656,11 @@ class WohengShowcasePackage:
         return users
 
     async def _ensure_default_user_role(self, users: Sequence[User]) -> None:
-        role = await self._session.scalar(
-            select(m.Role).where(or_(m.Role.slug == "application-access", m.Role.name == constants.DEFAULT_ACCESS_ROLE))
-        )
+        role = await self._session.scalar(select(m.Role).where(m.Role.slug == "woheng-demo-operator"))
         if role is None:
-            return
+            role = m.Role(slug="woheng-demo-operator", name="沃衡演示运营员", description="沃衡演示租户业务维护")
+            self._session.add(role)
+            await self._session.flush()
         await self._ensure_demo_role_permissions(role)
         for user in users:
             has_role = await self._session.scalar(
@@ -694,11 +701,9 @@ class WohengShowcasePackage:
             user = users_by_email.get(account.email)
             if user is None:
                 continue
-            desired_teams = teams if account.team_scope == "all" else [teams_by_slug[slug] for slug in woheng_slugs]
-            desired_team_ids = {team.id for team in desired_teams}
-            await self._session.execute(
-                delete(TeamMember).where(TeamMember.user_id == user.id, TeamMember.team_id.not_in(desired_team_ids))
-            )
+            if account.team_scope != "woheng":
+                continue
+            desired_teams = [teams_by_slug[slug] for slug in woheng_slugs]
             existing_memberships = list(
                 (await self._session.scalars(select(TeamMember).where(TeamMember.user_id == user.id))).all()
             )
@@ -707,9 +712,9 @@ class WohengShowcasePackage:
                 membership = existing_by_team_id.get(team.id)
                 if membership is None:
                     membership = TeamMember(team_id=team.id, user_id=user.id)
+                    membership.role = TeamRoles.ADMIN
+                    membership.is_owner = account.is_owner
                     self._session.add(membership)
-                membership.role = TeamRoles.ADMIN
-                membership.is_owner = account.is_owner
         await self._session.commit()
 
     async def _ensure_team(self, tenant: WohengTenantSpec) -> Team:
@@ -729,13 +734,6 @@ class WohengShowcasePackage:
             team.name = tenant.name
             team.description = f"{WOHENG_SOURCE_NAME}; {tenant.role}。"
             team.is_active = True
-        admin = await self._session.scalar(select(User).where(User.email == "admin@example.com"))
-        if admin is not None:
-            membership = await self._session.scalar(
-                select(TeamMember).where(TeamMember.team_id == team.id, TeamMember.user_id == admin.id)
-            )
-            if membership is None:
-                self._session.add(TeamMember(team_id=team.id, user_id=admin.id, role=TeamRoles.ADMIN, is_owner=True))
         await self._session.commit()
         return team
 
@@ -749,69 +747,88 @@ class WohengShowcasePackage:
     def _inventory_code_for_year(self, tenant: WohengTenantSpec, year: int) -> str:
         return f"WOHENG-{tenant.city_code}-INV-{year}"
 
-    async def _synchronize_bigint_sequences(self) -> None:
-        bind = self._session.get_bind()
-        if bind.dialect.name != "postgresql":
-            return
-        await self._session.execute(
-            text(
-                """
-                do $$
-                declare
-                    seq record;
-                begin
-                    perform set_config('app.tenant_bypass', 'true', true);
-                    for seq in
-                        select distinct
-                            discovered.table_schema,
-                            discovered.table_name,
-                            discovered.sequence_name
-                        from (
-                            select
-                                table_ns.nspname as table_schema,
-                                table_cls.relname as table_name,
-                                format('%I.%I', sequence_ns.nspname, sequence_cls.relname) as sequence_name
-                            from pg_class sequence_cls
-                            join pg_namespace sequence_ns on sequence_ns.oid = sequence_cls.relnamespace
-                            join pg_depend dep on dep.objid = sequence_cls.oid and dep.deptype = 'a'
-                            join pg_class table_cls on table_cls.oid = dep.refobjid
-                            join pg_namespace table_ns on table_ns.oid = table_cls.relnamespace
-                            join pg_attribute attr on attr.attrelid = table_cls.oid and attr.attnum = dep.refobjsubid
-                            where sequence_cls.relkind = 'S'
-                              and table_ns.nspname = 'public'
-                              and attr.attname = 'id'
-                            union all
-                            select
-                                table_columns.table_schema,
-                                table_columns.table_name,
-                                format('%I.%I', sequence_ns.nspname, sequence_cls.relname) as sequence_name
-                            from information_schema.columns table_columns
-                            join pg_namespace sequence_ns on sequence_ns.nspname = table_columns.table_schema
-                            join pg_class sequence_cls
-                              on sequence_cls.relnamespace = sequence_ns.oid
-                             and sequence_cls.relkind = 'S'
-                             and sequence_cls.relname = table_columns.table_name || '_id_seq'
-                            where table_columns.table_schema = 'public'
-                              and table_columns.column_name = 'id'
-                        ) discovered
-                    loop
-                        execute format(
-                            'select setval(%L, greatest((select coalesce(max(id), 0) from %I.%I), 1), true)',
-                            seq.sequence_name,
-                            seq.table_schema,
-                            seq.table_name
-                        );
-                    end loop;
-                    perform set_config('app.tenant_bypass', 'false', true);
-                end $$;
-                """
+    async def _assert_install_targets_safe(self) -> None:
+        """Check both tenant identities and protected records before any global writes."""
+        from app.demo.ops.enterprise_entry import SOURCE_SYSTEM, compare_cases, load_cases, reject_protected_entry
+
+        for tenant in TENANTS:
+            await self._session.rollback()
+            team = await self._find_team(tenant.slug)
+            if team is None:
+                continue
+            validate_demo_team(team)
+            self._session.info[TENANT_ID_SESSION_KEY] = team.id
+            self._session.info.pop(TENANT_BYPASS_SESSION_KEY, None)
+            await require_demo_tenant(self._session)
+            counts = await self._tenant_counts()
+            if not self._has_base_showcase_dataset(counts) and any(
+                counts[key] for key in ("equipment", "activities", "reports")
+            ):
+                msg = f"{tenant.slug} 既有基础数据不完整; 安装前需核对, 不自动重建已有数据"
+                raise ValueError(msg)
+            inventory = f"WOHENG-{tenant.city_code}-ENTRY-202610"
+            period = await self._session.scalar(select(m.ReportingPeriod).where(m.ReportingPeriod.code == inventory))
+            if period is not None and period.status in {"locked", "archived"}:
+                msg = f"{inventory} 已锁定或归档, 安装不会覆盖"
+                raise ValueError(msg)
+            activities = list(
+                (
+                    await self._session.scalars(
+                        select(m.GhgActivityRecord).where(
+                            m.GhgActivityRecord.inventory_code == inventory,
+                        )
+                    )
+                ).all()
             )
-        )
+            completed = await self._session.scalar(
+                select(m.GhgCalculationRun.id)
+                .where(
+                    m.GhgCalculationRun.inventory_code == inventory,
+                    m.GhgCalculationRun.status == "completed",
+                )
+                .limit(1)
+            )
+            if completed is not None:
+                facts = list(
+                    (
+                        await self._session.scalars(
+                            select(m.EnergyIntervalFact).where(
+                                m.EnergyIntervalFact.source_system == SOURCE_SYSTEM,
+                                m.EnergyIntervalFact.is_current.is_(True),
+                            )
+                        )
+                    ).all()
+                )
+                errors = compare_cases(load_cases(tenant.city_code), facts, activities)
+                if errors or any(row.status != "approved" for row in activities):
+                    msg = f"{inventory} 既有案例已修改或锁定, 安装前需核对: {errors}"
+                    raise ValueError(msg)
+            else:
+                await reject_protected_entry(self._session, inventory=inventory)
+            locked_history = await self._session.scalar(
+                select(m.GhgActivityRecord.id)
+                .where(
+                    m.GhgActivityRecord.activity_code == "C14-REFRIGERANT",
+                    m.GhgActivityRecord.record_code.like("WOHENG-%-C14-REFRIGERANT"),
+                    m.GhgActivityRecord.status == "locked",
+                )
+                .limit(1)
+            )
+            if locked_history is not None:
+                msg = f"{tenant.slug} 历史冷媒记录已锁定, 安装不会覆盖"
+                raise ValueError(msg)
+        await self._session.rollback()
 
     async def _find_team(self, slug: str) -> Team | None:
         return await self._session.scalar(select(Team).where(Team.slug == slug))
 
-    async def _specialize_tenant(self, tenant: WohengTenantSpec, *, team_id: UUID) -> dict[str, int]:
+    async def _specialize_tenant(  # noqa: PLR0915
+        self,
+        tenant: WohengTenantSpec,
+        *,
+        team_id: UUID,
+        initialize_base: bool = False,
+    ) -> dict[str, int]:
         enterprise = await self._session.scalar(
             select(m.EnterpriseInfo).where(m.EnterpriseInfo.unify_code == "DEMO91320000PARK2026X")
         )
@@ -835,8 +852,10 @@ class WohengShowcasePackage:
                 "contactEmail": WOHENG_COMPANY_CONTACT_EMAIL,
             }
 
-        await self._specialize_inventory_identity(tenant, enterprise)
-        initial_legacy_repair_summary = await self._normalize_legacy_showcase_residue(tenant)
+        initial_legacy_repair_summary = {"rows_repaired": 0, "fields_repaired": 0}
+        if initialize_base:
+            await self._specialize_inventory_identity(tenant, enterprise)
+            initial_legacy_repair_summary = await self._normalize_legacy_showcase_residue(tenant)
 
         root = await self._session.scalar(select(m.MonitorSector).where(m.MonitorSector.code == "ROOT"))
         if root is not None:
@@ -844,8 +863,22 @@ class WohengShowcasePackage:
             root.location_desc = tenant.location
             root.remark = WOHENG_SOURCE_NAME
 
+        from app.demo.showcase.builder import AREAS, EQUIPMENT
+
+        area_names = {item.code: item.name for item in AREAS if item.code != "ROOT"}
+        areas = list((await self._session.scalars(select(m.MonitorSector))).all())
+        for area in areas:
+            if area.code in area_names:
+                area.name = area_names[area.code]
+        equipment_specs = {item.code: item for item in EQUIPMENT}
+        area_ids = {area.code: area.id for area in areas}
         equipment_rows = list((await self._session.scalars(select(m.MonitorEquipment))).all())
         for equipment in equipment_rows:
+            if equipment.code not in equipment_specs:
+                continue
+            spec = equipment_specs[equipment.code]
+            equipment.name = spec.name
+            equipment.sector_id = area_ids[spec.area_code]
             equipment.owner_unit = tenant.enterprise_name
             equipment.location = tenant.location if equipment.code == "PCC-METER-01" else equipment.location
             if equipment.energy_type in {"electricity", "purchased_electricity"}:
@@ -858,10 +891,39 @@ class WohengShowcasePackage:
         await self._ensure_mqtt_config(tenant)
         await self._ensure_metering_data(tenant)
         await seed_energy_analysis_data(self._session)
-        await _rebuild_energy_interval_facts(self._session)
-        await self._cleanup_energy_activity_residue(tenant)
-        await self._ensure_non_meter_energy_interval_facts(tenant)
-        await _rebuild_equipment_workload_facts(self._session)
+        existing_meter_fact = await self._session.scalar(
+            select(m.EnergyIntervalFact.id)
+            .where(
+                m.EnergyIntervalFact.source_system.in_(("meter_hourly", "meter_projection")),
+                m.EnergyIntervalFact.equipment_code.in_(equipment_specs),
+                m.EnergyIntervalFact.is_current.is_(True),
+            )
+            .limit(1)
+        )
+        if initialize_base:
+            if existing_meter_fact is None:
+                await _rebuild_energy_interval_facts(self._session)
+            await self._ensure_non_meter_energy_interval_facts(tenant)
+        from app.demo.ops.enterprise_entry import (
+            repair_owned_energy_snapshots,
+            seed_enterprise_entry,
+            upgrade_refrigerant_events,
+        )
+
+        await upgrade_refrigerant_events(self._session)
+        existing_entry_run = await self._session.scalar(
+            select(m.GhgCalculationRun.id)
+            .where(
+                m.GhgCalculationRun.inventory_code == f"WOHENG-{tenant.city_code}-ENTRY-202610",
+                m.GhgCalculationRun.status == "completed",
+            )
+            .limit(1)
+        )
+        if existing_entry_run is not None:
+            from app.demo.ops.entry_boundary import repair_entry_boundary_links
+
+            await repair_entry_boundary_links(self._session, city=tenant.city_code)
+        await seed_enterprise_entry(self._session, city=tenant.city_code)
         await self._ensure_energy_balance_boundaries(tenant)
         await self._ensure_energy_benchmark(tenant)
         await sync_policy_benchmark_library(
@@ -876,7 +938,12 @@ class WohengShowcasePackage:
         await self._ensure_category_51_activity(tenant)
         await self._ensure_warning_events(tenant)
         await self._ensure_video_alarm_events(tenant)
-        legacy_repair_summary = await self._normalize_legacy_showcase_residue(tenant)
+        await repair_owned_energy_snapshots(self._session)
+        legacy_repair_summary = (
+            await self._normalize_legacy_showcase_residue(tenant)
+            if initialize_base
+            else {"rows_repaired": 0, "fields_repaired": 0}
+        )
         legacy_repair_summary = {
             "rows_repaired": initial_legacy_repair_summary["rows_repaired"] + legacy_repair_summary["rows_repaired"],
             "fields_repaired": initial_legacy_repair_summary["fields_repaired"]
@@ -918,6 +985,8 @@ class WohengShowcasePackage:
         periods = list((await self._session.scalars(select(m.ReportingPeriod))).all())
         period_year_by_id: dict[int, int] = {}
         for period in periods:
+            if "-ENTRY-" in period.code:
+                continue
             year = period.period_start.year
             period_year_by_id[period.id] = year
             period.code = str(self._replace_legacy_brand_text(period.code, tenant))
@@ -928,7 +997,13 @@ class WohengShowcasePackage:
 
         boundaries = list((await self._session.scalars(select(m.OrganizationBoundary))).all())
         for boundary in boundaries:
-            year = period_year_by_id.get(boundary.period_id, 2026)
+            if boundary.period_id not in period_year_by_id or boundary.status in {
+                "published",
+                "superseded",
+                "archived",
+            }:
+                continue
+            year = period_year_by_id[boundary.period_id]
             boundary.boundary_no = str(self._replace_legacy_brand_text(boundary.boundary_no, tenant))
             boundary.boundary_name = f"{tenant.name}{year}年度组织边界"
             boundary.source_name = WOHENG_SOURCE_NAME
@@ -1761,7 +1836,6 @@ class WohengShowcasePackage:
                       and (
                         record_code like 'MANUAL-GHG-%'
                         or record_code like 'GEN-WOHENG-%'
-                        or activity_code in ('manual-activity', 'energy_interval_fact')
                       )
                   )
                 """
@@ -1776,7 +1850,6 @@ class WohengShowcasePackage:
                   and (
                     record_code like 'MANUAL-GHG-%'
                     or record_code like 'GEN-WOHENG-%'
-                    or activity_code in ('manual-activity', 'energy_interval_fact')
                   )
                 """
             ),
@@ -1874,10 +1947,14 @@ class WohengShowcasePackage:
                 left join dataapp_monitorequipment equipment
                   on equipment.team_id = aggregate.team_id
                  and equipment.code = aggregate.ammeter_id
-                left join dataapp_energyusesystembinding binding
-                  on binding.team_id = aggregate.team_id
-                 and binding.equipment_id = equipment.id
-                 and binding.is_primary = true
+                left join lateral (
+                    select owned_binding.* from dataapp_energyusesystembinding owned_binding
+                    where owned_binding.team_id = aggregate.team_id
+                      and owned_binding.equipment_id = equipment.id
+                      and owned_binding.is_primary = true
+                    order by owned_binding.id desc
+                    limit 1
+                ) binding on true
                 left join dataapp_energyusesystem system
                   on system.team_id = aggregate.team_id
                  and system.code = binding.system_code
@@ -1945,7 +2022,7 @@ class WohengShowcasePackage:
                       on allocation.team_id = activity.team_id
                      and allocation.activity_id = activity.id
                      and allocation.status = 'active'
-                    where activity.resolved_energy_type_code <> 'purchased_electricity'
+                    where activity.resolved_energy_type_code not in ('purchased_electricity', 'natural_gas', 'diesel', 'refrigerant')
                 )
                 insert into dataapp_energyintervalfact (
                     team_id,

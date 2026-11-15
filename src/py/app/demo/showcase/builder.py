@@ -132,20 +132,20 @@ class CarbonAssetLotSpec:
 
 
 AREAS = (
-    AreaSpec("ROOT", "综合能源示范园区", None, "park", "园区总经理", "园区管理中心"),
-    AreaSpec("LOGISTICS", "智慧仓储物流中心", "ROOT", "facility", "运营经理", "仓储运营部"),
-    AreaSpec("ENERGY", "综合能源站", "ROOT", "facility", "能源经理", "能源动力部"),
-    AreaSpec("AUTO_WH", "自动化立体仓库", "LOGISTICS", "operation", "仓储主管", "仓储运营部"),
-    AreaSpec("COLD_WH", "冷链仓库", "LOGISTICS", "operation", "冷链主管", "冷链运营部"),
-    AreaSpec("SORTING", "分拣包装中心", "LOGISTICS", "operation", "分拣主管", "物流运营部"),
+    AreaSpec("ROOT", "汽车生产基地", None, "park", "工厂负责人", "工厂管理部"),
+    AreaSpec("LOGISTICS", "生产制造中心", "ROOT", "facility", "生产经理", "生产管理部"),
+    AreaSpec("ENERGY", "能源中心", "ROOT", "facility", "能源经理", "能源动力部"),
+    AreaSpec("AUTO_WH", "总装车间", "LOGISTICS", "operation", "总装主管", "总装生产部"),
+    AreaSpec("COLD_WH", "涂装车间", "LOGISTICS", "operation", "涂装主管", "涂装生产部"),
+    AreaSpec("SORTING", "零部件装配车间", "LOGISTICS", "operation", "分拣主管", "物流运营部"),
     AreaSpec("OFFICE", "办公研发中心", "ROOT", "building", "行政经理", "行政管理部"),
-    AreaSpec("UTILITY", "动力与制冷站房", "ENERGY", "utility", "设备经理", "能源动力部"),
-    AreaSpec("CHARGING", "充电与停车区", "ENERGY", "operation", "车队经理", "物流运营部"),
+    AreaSpec("UTILITY", "动力站", "ENERGY", "utility", "设备经理", "能源动力部"),
+    AreaSpec("CHARGING", "厂内物流区", "ENERGY", "operation", "车队经理", "物流运营部"),
     AreaSpec("WASTE", "环保与固废站", "ROOT", "utility", "环保经理", "安全环保部"),
 )
 
 EQUIPMENT = (
-    EquipmentSpec("PCC-METER-01", "园区PCC关口电表", "ENERGY", "electricity", 0, None, "modbus"),
+    EquipmentSpec("PCC-METER-01", "厂区购电关口表", "ENERGY", "electricity", 0, None, "modbus"),
     EquipmentSpec("PV-INVERTER-01", "屋顶光伏逆变器一号", "ENERGY", "electricity", 1, 300, "modbus"),
     EquipmentSpec("PV-INVERTER-02", "屋顶光伏逆变器二号", "ENERGY", "electricity", 1, 300, "modbus"),
     EquipmentSpec("BESS-PCS-01", "储能变流器", "ENERGY", "electricity", None, 500, "modbus"),
@@ -153,18 +153,27 @@ EQUIPMENT = (
     EquipmentSpec("GAS-METER-01", "天然气计量表", "UTILITY", "natural_gas", None, None, "modbus"),
     EquipmentSpec("BOILER-01", "燃气热水锅炉", "UTILITY", "natural_gas", None, 420, "modbus"),
     EquipmentSpec("GENSET-01", "柴油备用发电机", "UTILITY", "diesel", None, 500, "manual"),
-    EquipmentSpec("CHILLER-01", "冷链制冷机组一号", "COLD_WH", "electricity", None, 280, "modbus"),
-    EquipmentSpec("CHILLER-02", "冷链制冷机组二号", "COLD_WH", "electricity", None, 280, "modbus"),
-    EquipmentSpec("REFRIGERANT-01", "制冷剂维护台账设备", "COLD_WH", None, None, None, "manual"),
-    EquipmentSpec("CONVEYOR-01", "自动输送分拣线", "SORTING", "electricity", None, 320, "modbus"),
-    EquipmentSpec("ASRS-01", "堆垛机与立库系统", "AUTO_WH", "electricity", None, 360, "modbus"),
-    EquipmentSpec("LIGHTING-01", "仓储智能照明配电柜", "AUTO_WH", "electricity", 0, 120, "modbus"),
+    EquipmentSpec("CHILLER-01", "动力站制冷机组一号", "COLD_WH", "electricity", None, 280, "modbus"),
+    EquipmentSpec("CHILLER-02", "动力站制冷机组二号", "COLD_WH", "electricity", None, 280, "modbus"),
+    EquipmentSpec("REFRIGERANT-01", "办公楼多联式空调", "OFFICE", None, None, None, "manual"),
+    EquipmentSpec("CONVEYOR-01", "零部件装配输送线", "SORTING", "electricity", None, 320, "modbus"),
+    EquipmentSpec("ASRS-01", "总装车间输送系统", "AUTO_WH", "electricity", None, 360, "modbus"),
+    EquipmentSpec("LIGHTING-01", "总装车间照明配电柜", "AUTO_WH", "electricity", 0, 120, "modbus"),
     EquipmentSpec("HVAC-01", "办公暖通系统", "OFFICE", "electricity", None, 180, "bacnet"),
     EquipmentSpec("AIR-COMPRESSOR-01", "空气压缩机", "UTILITY", "electricity", None, 160, "modbus"),
     EquipmentSpec("EVSE-GROUP-01", "新能源车辆充电桩群", "CHARGING", "electricity", None, 360, "ocpp"),
-    EquipmentSpec("FORKLIFT-FLEET-01", "叉车车队燃料台账", "CHARGING", "diesel", None, None, "manual"),
+    EquipmentSpec("FORKLIFT-FLEET-01", "厂内柴油叉车班组", "CHARGING", "diesel", None, None, "manual"),
     EquipmentSpec("WASTE-SCALE-01", "固废称重终端", "WASTE", None, None, None, "http"),
 )
+
+# Explicit synthetic maintenance events; no monthly interpolation.
+REFRIGERANT_EVENTS = {
+    (2024, 6): (date(2024, 6, 12), Decimal("4.2")),
+    (2024, 12): (date(2024, 12, 10), Decimal("2.8")),
+    (2025, 5): (date(2025, 5, 16), Decimal("3.6")),
+    (2025, 11): (date(2025, 11, 8), Decimal("2.1")),
+    (2026, 6): (date(2026, 6, 18), Decimal("3.2")),
+}
 
 ACTIVITY_SERIES = (
     ActivitySeriesSpec(
@@ -207,7 +216,7 @@ ACTIVITY_SERIES = (
         Decimal(2088),
         "kgCO2e/kg",
         "COLD_WH",
-        "REFRIGERANT-01",
+        "CHILLER-01",
     ),
     ActivitySeriesSpec(
         "C21-ELECTRICITY",
@@ -697,6 +706,8 @@ class ShowcaseDemoBuilder:
                     self.session.add(source)
                     await self.session.flush()
                 for month in range(1, months + 1):
+                    if spec.code == "C14-REFRIGERANT" and (year, month) not in REFRIGERANT_EVENTS:
+                        continue
                     record_code = f"DEMO-PARK-{year}{month:02d}-{spec.code}"
                     source_payload = {
                         "method_code": spec.method_code,
@@ -705,6 +716,15 @@ class ShowcaseDemoBuilder:
                         "demoPackage": SHOWCASE_PACKAGE_CODE,
                         "isYtd": year == 2026,
                     }
+                    if spec.code == "C14-REFRIGERANT":
+                        source_payload.update(
+                            gas_code="R410A",
+                            facility_or_device="动力站制冷机组一号",
+                            charges=str(REFRIGERANT_EVENTS[(year, month)][1]),
+                            recovery="0",
+                            confidence_level="demo",
+                            standard_code="DEMO-ASSUMPTION-20261115",
+                        )
                     energy_type_code = canonicalize_energy_type_code(spec.code)
                     if energy_type_code is not None and spec.scope in {"scope1", "scope2"}:
                         source_payload["energy_type_code"] = energy_type_code
@@ -727,8 +747,12 @@ class ShowcaseDemoBuilder:
                             source_code=spec.code,
                             activity_code=spec.code,
                             activity_name=spec.name,
-                            period_start=date(year, month, 1),
-                            period_end=date(year, month, monthrange(year, month)[1]),
+                            period_start=REFRIGERANT_EVENTS[(year, month)][0]
+                            if spec.code == "C14-REFRIGERANT"
+                            else date(year, month, 1),
+                            period_end=REFRIGERANT_EVENTS[(year, month)][0]
+                            if spec.code == "C14-REFRIGERANT"
+                            else date(year, month, monthrange(year, month)[1]),
                             iso_category_code=spec.iso_category,
                             ghg_scope=spec.scope,
                             scope3_category=spec.scope3_category,
@@ -739,7 +763,11 @@ class ShowcaseDemoBuilder:
                             activity_amount=amount,
                             activity_unit=spec.unit,
                             data_source_type="metered" if spec.origin_kind == "internal" else "supplier_ledger",
-                            measurement_method="计量系统月结" if spec.origin_kind == "internal" else "经复核的业务台账",
+                            measurement_method="制冷机组维修补充工单"
+                            if spec.code == "C14-REFRIGERANT"
+                            else "计量系统月结"
+                            if spec.origin_kind == "internal"
+                            else "经复核的业务台账",
                             quality_status="warning"
                             if year == 2026 and month == 8 and spec.code in {"C33-COMMUTE", "C61-CLOUD"}
                             else "pass",
@@ -760,6 +788,27 @@ class ShowcaseDemoBuilder:
         return activities
 
     async def _parameter(self, *, activity: GhgActivityRecord, spec: ActivitySeriesSpec, year: int) -> None:
+        if spec.code == "C14-REFRIGERANT":
+            from app.demo.ops.enterprise_entry import EntryCase, apply_demo_factor
+
+            await self.session.flush()
+            await apply_demo_factor(
+                self.session,
+                activity=activity,
+                case=EntryCase(
+                    record_code=activity.record_code,
+                    name=activity.activity_name,
+                    area_code=activity.facility_code,
+                    equipment_code=spec.equipment_code,
+                    start=activity.period_start,
+                    end=activity.period_end,
+                    category="1.4",
+                    amount=activity.activity_amount,
+                    unit="kg",
+                    payload=dict(activity.source_payload),
+                ),
+            )
+            return
         value_code = f"{activity.inventory_code}:{activity.parameter_set_code}:{spec.parameter_code}"
         value = await self.session.scalar(
             select(GhgParameterValue).where(GhgParameterValue.value_code == value_code, GhgParameterValue.version == 1)
@@ -1150,6 +1199,7 @@ class ShowcaseDemoBuilder:
         await seed_energy_analysis_data(self.session)
         factor = await self.session.scalar(
             select(m.EmissionFactor).where(
+                m.EmissionFactor.team_id == require_session_tenant_id(self.session),
                 m.EmissionFactor.sub_category == "grid_electricity_jiangsu",
                 m.EmissionFactor.year == 2023,
                 m.EmissionFactor.is_active.is_(True),
@@ -1157,6 +1207,7 @@ class ShowcaseDemoBuilder:
         )
         if factor is None:
             factor = m.EmissionFactor(
+                team_id=require_session_tenant_id(self.session),
                 scope="scope2",
                 category="purchased_energy",
                 sub_category="grid_electricity_jiangsu",
@@ -1164,7 +1215,7 @@ class ShowcaseDemoBuilder:
                 factor_value=Decimal("0.5827"),
                 factor_unit="kgCO2e/kWh",
                 year=2023,
-                source="生态环境部2023年全国电力平均二氧化碳排放因子",
+                source="沃衡微电网购电演示假设",
                 is_active=True,
                 note="综合能碳标准演示数据包冻结值",
                 source_system="showcase_demo",
@@ -2921,9 +2972,12 @@ class ShowcaseDemoBuilder:
 
     @staticmethod
     def _monthly_amount(spec: ActivitySeriesSpec, *, year: int, month: int) -> Decimal:
+        if spec.code == "C14-REFRIGERANT":
+            event = REFRIGERANT_EVENTS.get((year, month))
+            return event[1] if event else Decimal(0)
         trend = {2024: Decimal("1.00"), 2025: Decimal("1.045"), 2026: Decimal("1.075")}[year]
         seasonal = Decimal(str(1 + 0.12 * sin(2 * pi * (month - 1) / 12)))
-        if spec.code in {"C14-REFRIGERANT", "C21-ELECTRICITY", "C22-STEAM", "C54-LEASED"}:
+        if spec.code in {"C21-ELECTRICITY", "C22-STEAM", "C54-LEASED"}:
             seasonal *= Decimal(str(1 + 0.16 * abs(sin(2 * pi * (month - 2) / 12))))
         deterministic = Decimal(1) + Decimal(((year + month + sum(map(ord, spec.code))) % 7) - 3) / Decimal(100)
         return (spec.base_amount * trend * seasonal * deterministic).quantize(Decimal("0.001"))
