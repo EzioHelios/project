@@ -88,20 +88,20 @@ page.on("response", (response) => {
 })
 
 try {
-  console.log("[ManualVerify] Preflight 100% | Auth 0% | Harness 0% | Navigate 0/2 | Interact 0/11 | Evidence 0/11 | Writeback 0/1")
+  console.log("[ManualVerify] 开始验证能效标杆维护页面")
   await ensureAuthenticated()
   await selectTenant()
   await cleanupCreatedRecords()
   apiFailures.length = 0
   consoleErrors.length = 0
-  console.log("[ManualVerify] Preflight 100% | Auth 100% | Harness 100% | Navigate 0/2 | Interact 0/11 | Evidence 0/11 | Writeback 0/1")
+  console.log("[ManualVerify] 登录、租户和验证环境检查通过")
 
   await verifyBenchmarkSettingsCrud()
   await verifyAnalysisEntry()
   await cleanupCreatedRecords()
   checks.push({ name: "cleanup", status: "passed", profileName })
   await writeVerification("passed")
-  console.log("[ManualVerify] Preflight 100% | Auth 100% | Harness 100% | Navigate 2/2 | Interact 11/11 | Evidence 11/11 | Writeback 1/1")
+  console.log(`[ManualVerify] 验证通过：${checks.length} 项检查，${artifacts.length} 张截图；结果写入 ${verificationPath}`)
 } catch (error) {
   await writeVerification("failed", error)
   console.error(error)
@@ -111,16 +111,17 @@ try {
 }
 
 async function verifyBenchmarkSettingsCrud() {
-  await gotoPage("/data/energy-benchmark", ["能效标准与标杆库", "政策资料", "标准方案", "标杆指标", "模板导入", "历史基准"])
-  await capture("profileList", "政策资料页展示资料来源、标准编号、来源网页、附件和已同步政策库。")
+  await gotoPage("/data/energy-benchmark", ["能效标准与标杆库", "企业标杆", "政策标准", "模板导入", "标准方案列表", "标杆指标列表"])
+  await capture("profileList", "企业标杆页展示标准方案、指标列表和维护入口。")
   checks.push({ name: "policy-and-profile-list", status: "passed" })
 
+  await page.getByRole("tab", { name: "政策标准" }).click()
   await page.getByRole("button", { name: "同步政策库" }).click()
   await expectVisible("政策资料已同步")
   await waitForPageReady()
   checks.push({ name: "policy-sync", status: "passed" })
 
-  await page.getByRole("tab", { name: "标准方案" }).click()
+  await page.getByRole("tab", { name: "企业标杆" }).click()
   await waitForPageReady()
   await page.getByRole("button", { name: "新增方案" }).last().click()
   await expectVisible("新增标准方案")
@@ -156,9 +157,7 @@ async function verifyBenchmarkSettingsCrud() {
   await expectVisible(profileNameEdited)
   checks.push({ name: "profile-edit", status: "passed", profileId: createdProfileId })
 
-  await page.getByRole("tab", { name: "标杆指标" }).click()
-  await waitForPageReady()
-  await chooseSelect("选择标杆方案", profileNameEdited)
+  await chooseSelect("选择标准方案", profileNameEdited)
   await page.getByRole("button", { name: "新增指标" }).click()
   await expectVisible("新增标杆指标")
   await chooseSelect("对象层级", "设备类型")
@@ -206,22 +205,14 @@ async function verifyBenchmarkSettingsCrud() {
   await page.getByRole("tab", { name: "模板导入" }).click()
   await waitForPageReady()
   await chooseSelect("选择导入目标方案", profileNameEdited)
+  await page.locator("textarea").fill("对象类型,对象编码,对象名称,指标编码,指标名称,标杆值,单位\ndevice_type,air_compressor,空气压缩机,energy_efficiency_level,设备能效等级,2,级")
   await page.getByRole("button", { name: "预检" }).click()
   await expectVisible("可导入")
   checks.push({ name: "import-preview", status: "passed", profileId: createdProfileId })
 
-  await page.getByRole("tab", { name: "历史基准" }).click()
+  await page.getByRole("tab", { name: "企业标杆" }).click()
   await waitForPageReady()
-  await expectVisible("内部基准生成")
-  await fillField("方案名称", `${profileName}-历史基准`)
-  await page.getByRole("button", { name: "生成基准" }).click()
-  await expectVisible("已生成")
-  await capture("baselineGenerate", "历史基准生成结果态提示内部基准已按历史能源和分母数据生成。")
-  checks.push({ name: "baseline-generate", status: "passed" })
-
-  await page.getByRole("tab", { name: "标杆指标" }).click()
-  await waitForPageReady()
-  await chooseSelect("选择标杆方案", profileNameEdited)
+  await chooseSelect("选择标准方案", profileNameEdited)
   await clickIconOnlyDeleteInRow("空气压缩机")
   await waitForPageReady()
   await expectVisible("标杆指标已删除")
@@ -229,8 +220,6 @@ async function verifyBenchmarkSettingsCrud() {
   checks.push({ name: "item-delete", status: "passed", itemId: createdItemId })
   createdItemId = null
 
-  await page.getByRole("tab", { name: "标准方案" }).click()
-  await waitForPageReady()
   await clickIconOnlyDeleteInRow(profileNameEdited)
   await waitForPageReady()
   await expectVisible("标准方案已删除")

@@ -93,22 +93,19 @@ page.on("response", (response) => {
 })
 
 try {
-  console.log("[PriorityVerify] Auth 0% | Benchmark 0/7 | Budget 0/6 | Writeback 0/1")
+  console.log("[BudgetVerify] Auth 0% | Budget 0/6 | Writeback 0/1")
   await ensureAuthenticated()
   await selectTenant()
-  selectedDeviceName = await resolveDeviceName()
-  await cleanupBenchmarkProfiles()
   await cleanupBudgetPlans()
-  console.log("[PriorityVerify] Auth 100% | Benchmark 0/7 | Budget 0/6 | Writeback 0/1")
+  console.log("[BudgetVerify] Auth 100% | Budget 0/6 | Writeback 0/1")
 
-  await verifyBenchmarkMaintenance()
   await verifyBudgetMaintenance()
 
-  await cleanupBenchmarkProfiles()
   await cleanupBudgetPlans()
   await writeVerification("passed")
-  console.log("[PriorityVerify] Auth 100% | Benchmark 7/7 | Budget 6/6 | Writeback 1/1")
+  console.log("[BudgetVerify] Auth 100% | Budget 6/6 | Writeback 1/1")
 } catch (error) {
+  await cleanupBudgetPlans().catch(() => null)
   await writeVerification("failed", error)
   console.error(error)
   process.exitCode = 1

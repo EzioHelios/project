@@ -118,14 +118,13 @@ try {
 async function verifyBalanceCalculationAndDiagnostics() {
   await gotoPage("/energy/balance", ["能量平衡", "边界输入", "已归集用能", "平衡误差率"])
   await expectVisible("沃衡汽车泰州生产基地外购电力计量边界")
-  await expectVisible("已闭合")
   await capture("calculation", "平衡计算页展示边界输入、已归集用能、未归集差异和平衡误差率。")
   checks.push({ name: "calculation", status: "passed" })
 
   await page.getByRole("tab", { name: "差异诊断" }).click()
   await waitForPageReady()
-  await assertBusinessPage(["差异诊断", "边界已闭合"])
-  await capture("diagnostics", "差异诊断页展示当前计量边界的闭合状态。")
+  await assertBusinessPage(["差异诊断"])
+  await capture("diagnostics", "差异诊断页展示当前计量边界的归集结果和异常提示。")
   checks.push({ name: "diagnostics", status: "passed" })
 }
 

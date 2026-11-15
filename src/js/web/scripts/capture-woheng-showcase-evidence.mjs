@@ -63,10 +63,9 @@ const tenants = {
 
 const evidenceDefinitions = [
   shot("EV-WH-001", "首页工作台与功能入口", "/home", "huzhou", ["工作台", "能源运营", "碳排放管理", "态势大屏"], "A", "平台开场"),
-  shot("EV-WH-002", "生产基地介绍大屏", "/bigscreen/intro", "huzhou", ["企业图集", "企业信息摘要", "运营项目轮播"], "C", "大屏展示"),
-  shot("EV-WH-003", "能碳态势总览大屏", "/bigscreen/overview", "huzhou", ["能耗主指标", "碳排主指标", "月度经营趋势", "区域能耗速览"], "A", "大屏展示"),
-  shot("EV-WH-004", "碳排专题大屏", "/bigscreen/carbon", "huzhou", ["碳排指标", "范围对比", "贡献构成", "碳排预警滚动榜"], "A", "大屏展示"),
-  shot("EV-WH-005", "电力专题大屏", "/bigscreen/power", "huzhou", ["运行指标", "区域电量流图", "账期电量趋势", "用电排行"], "B", "大屏展示", { allowPartial: true }),
+  shot("EV-WH-003", "能碳态势总览大屏", "/bigscreen/overview", "huzhou", ["仓库概况", "区域用电排行 Top 7", "用电变化趋势", "组织碳核算"], "A", "大屏展示"),
+  shot("EV-WH-004", "碳排专题大屏", "/bigscreen/carbon", "huzhou", ["核算结果", "核算活动构成", "组织边界至区域设备碳流", "排放源清单"], "A", "大屏展示"),
+  shot("EV-WH-005", "电力专题大屏", "/bigscreen/power", "huzhou", ["期间用电概览", "区域用电排行 Top 7", "电量归集流图", "用电变化趋势"], "B", "大屏展示"),
 
   shot("EV-WH-006", "泰州设备主数据与采集协议配置", "/data/terminals", "taizhou", ["编辑设备", "采集标识", "采集协议", "在线状态"], "A", "数据维护与治理", {
     action: openFirstDeviceEditor,

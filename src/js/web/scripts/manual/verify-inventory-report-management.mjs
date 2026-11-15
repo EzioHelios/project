@@ -153,6 +153,8 @@ async function resolveReport() {
   if (!response.ok) throw new Error(`盘查报告列表读取失败：HTTP ${response.status}`)
   const reports = response.data?.items ?? []
   report =
+    reports.find((item) => item.status === "draft") ??
+    reports.find((item) => item.status === "rejected") ??
     reports.find((item) => item.status === "published") ??
     reports.find((item) => item.status === "approved") ??
     reports.find((item) => item.status === "submitted") ??
@@ -181,9 +183,13 @@ async function captureReportDetail() {
 
 async function captureReportExport() {
   apiFailures.length = 0
-  const downloadPromise = page.waitForEvent("download", { timeout: 30_000 })
+  const responsePromise = page.waitForResponse((response) => response.url().includes(`/reports/${encodeURIComponent(report.reportCode)}/${report.version}/export`), { timeout: 30_000 })
+  const downloadPromise = page.waitForEvent("download", { timeout: 30_000 }).catch((error) => error)
   await page.getByRole("button", { name: "导出 Word" }).first().click()
+  const response = await responsePromise
+  if (!response.ok()) throw new Error(`Word 报告导出接口返回 HTTP ${response.status()}：${(await response.text()).slice(0, 500)}`)
   const download = await downloadPromise
+  if (download instanceof Error) throw download
   const filename = download.suggestedFilename()
   const savePath = path.join(verificationDir, filename)
   await download.saveAs(savePath)

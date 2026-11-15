@@ -102,6 +102,10 @@ try {
   console.error(error)
   process.exitCode = 1
 } finally {
+  if (activeTeamId) {
+    await cleanupVerificationActivity()
+    await cleanupFactors()
+  }
   await browser.close()
 }
 
@@ -281,7 +285,7 @@ async function ensureTargetActivity() {
 }
 
 async function applyFactorToActivity() {
-  await page.goto(`${baseURL}/carbon-mgmt/activities?category=2.1`, { waitUntil: "domcontentloaded" })
+  await page.goto(`${baseURL}/carbon-mgmt/category/2.1`, { waitUntil: "domcontentloaded" })
   await waitForPageReady()
   await searchActivities(targetActivity.recordCode)
   await rowFor(targetActivity.recordCode).click()

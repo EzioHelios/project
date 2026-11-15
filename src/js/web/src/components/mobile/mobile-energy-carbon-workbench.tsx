@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Save,
   Send,
-  Settings,
   ShieldCheck,
   TrendingUp,
   Upload,
@@ -796,12 +795,7 @@ function ProfileDetailPanel({
             <ActionButton icon={LockKeyhole} text="修改密码" onClick={() => undefined} />
           </>
         ) : null}
-        {panel === "help" ? (
-          <>
-            <ProfileLink icon={FileText} title="平台操作手册" text="能碳、设备、告警、工单移动操作说明" href="/help/woheng-showcase/index.html" />
-            <ProfileLink icon={Settings} title="演示材料" text="沃衡汽车综合能碳管理平台建设能力介绍" href="/help/woheng-showcase/index.html" />
-          </>
-        ) : null}
+        {panel === "help" ? <ProfileLink icon={FileText} title="平台操作手册" text="查看平台业务操作步骤" href="https://docs.nexlca.com/energy-carbon/woheng" /> : null}
       </Card>
       <button
         className="flex h-10 w-full items-center justify-center rounded-full border border-[#e2e7eb] bg-white text-[12px] font-semibold text-[#b3432f]"

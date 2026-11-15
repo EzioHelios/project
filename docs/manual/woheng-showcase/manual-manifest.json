@@ -8,6 +8,12 @@
     "company": "沃衡汽车有限公司"
   },
   "sourceEvidencePlan": "outputs/woheng-showcase-woheng-full-evidence/screenshot-plan.json",
+  "excludedEvidenceIds": [
+    "EV-WH-002",
+    "EV-WH-013",
+    "EV-WH-014",
+    "EV-WH-150"
+  ],
   "defaultScreenshotRoot": "outputs/woheng-showcase-woheng-full-evidence/screenshots",
   "pagesRoot": "docs/manual/woheng-showcase/pages",
   "htmlOutput": "src/js/web/public/help/woheng-showcase/index.html",
@@ -19,18 +25,13 @@
       "source": "00-overview.md"
     },
     {
-      "pageId": "green-factory-score-items",
-      "title": "平台功能索引",
-      "source": "01-green-factory-score-items.md"
-    },
-    {
       "pageId": "access-and-tenant",
       "title": "登录、首页与租户切换",
       "source": "01-access-and-tenant.md"
     },
     {
       "pageId": "energy-overview",
-      "title": "能源运营总览",
+      "title": "能源运营操作顺序",
       "source": "02-energy-navigation-map.md"
     },
     {
@@ -80,7 +81,7 @@
     },
     {
       "pageId": "energy-balance",
-      "title": "能源运营：能量平衡",
+      "title": "能源运营：能效平衡",
       "source": "11-energy-balance.md"
     },
     {
@@ -100,7 +101,7 @@
     },
     {
       "pageId": "activity-ledgers-import",
-      "title": "经营活动台账与非电数据导入",
+      "title": "企业数据来源与组织碳活动数据导入",
       "source": "04-activity-ledgers-import.md"
     },
     {
@@ -152,16 +153,6 @@
       "pageId": "product-supply-chain-carbon",
       "title": "碳足迹与供应链碳管理",
       "source": "08-product-supply-chain-carbon.md"
-    },
-    {
-      "pageId": "demo-script",
-      "title": "现场演示脚本",
-      "source": "11-demo-script.md"
-    },
-    {
-      "pageId": "screenshot-index",
-      "title": "功能页面与截图索引",
-      "source": "12-screenshot-index.md"
     }
   ],
   "sections": [
@@ -193,59 +184,12 @@
       ]
     },
     {
-      "sectionId": "energy-overview",
-      "title": "能源运营总览",
-      "summary": "用于说明能源运营功能在首页工作台、数据管理入口页和左侧侧边栏中的模块关系。",
-      "steps": [
-        {
-          "stepNumber": "2.1",
-          "title": "首页工作台能源运营入口",
-          "route": "/home",
-          "action": "进入首页工作台，查看能源运营区域中的能耗查询、能耗强度、用能分析、能效对标、能流分析和能量平衡入口。",
-          "expectedState": "首页工作台展示能源运营 6 个核心分析入口。",
-          "evidenceId": "EV-WH-117",
-          "screenshot": "EV-WH-117-首页工作台能源运营入口.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "2.2",
-          "title": "数据管理平台能源入口",
-          "route": "/platform",
-          "action": "进入数据管理平台入口页，查看能源运营、监测与告警、平台配置分组中的能源相关入口。",
-          "expectedState": "页面展示能源种类、单位换算、能源数据维护、能耗查询、设备台账、电表电量和预警规则入口。",
-          "evidenceId": "EV-WH-118",
-          "screenshot": "EV-WH-118-数据管理平台能源入口.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "2.3",
-          "title": "侧边栏能源运营菜单",
-          "route": "/energy/consumption",
-          "action": "展开侧边栏能源运营一级菜单，查看能源种类、单位换算、能源数据维护、能耗查询、能耗强度、用能分析、能效对标、能流分析和能量平衡。",
-          "expectedState": "侧边栏展示能源运营一级菜单和完整二级菜单。",
-          "evidenceId": "EV-WH-119",
-          "screenshot": "EV-WH-119-侧边栏能源运营菜单.png",
-          "verificationStatus": "verified"
-        }
-      ]
-    },
-    {
       "sectionId": "bigscreen",
       "title": "态势大屏展示",
       "summary": "用于展示能耗、碳排、区域运行和电力专题的综合态势。",
       "steps": [
         {
           "stepNumber": "3.1",
-          "title": "查看生产基地介绍大屏",
-          "route": "/bigscreen/intro",
-          "action": "进入介绍大屏，查看企业信息、运营项目和基地概况。",
-          "expectedState": "页面显示企业信息摘要和运营项目展示。",
-          "evidenceId": "EV-WH-002",
-          "screenshot": "EV-WH-002-生产基地介绍大屏.png",
-          "verificationStatus": "planned"
-        },
-        {
-          "stepNumber": "3.2",
           "title": "查看能碳态势总览",
           "route": "/bigscreen/overview",
           "action": "进入态势总览大屏，查看能耗主指标、碳排主指标、月度经营趋势和区域能耗速览。",
@@ -255,13 +199,23 @@
           "verificationStatus": "planned"
         },
         {
-          "stepNumber": "3.3",
+          "stepNumber": "3.2",
           "title": "查看碳排专题大屏",
           "route": "/bigscreen/carbon",
           "action": "进入碳排专题，查看范围对比、贡献构成和碳排预警滚动榜。",
           "expectedState": "页面展示组织碳专题图表和预警信息。",
           "evidenceId": "EV-WH-004",
           "screenshot": "EV-WH-004-碳排专题大屏.png",
+          "verificationStatus": "planned"
+        },
+        {
+          "stepNumber": "3.3",
+          "title": "查看电量监控大屏",
+          "route": "/bigscreen/power",
+          "action": "进入电量监控，查看当前租户的电量指标和用电趋势。",
+          "expectedState": "页面显示当前租户的电量指标和趋势。",
+          "evidenceId": "EV-WH-005",
+          "screenshot": "EV-WH-005-电力专题大屏.png",
           "verificationStatus": "planned"
         }
       ]
@@ -1051,7 +1005,7 @@
     },
     {
       "sectionId": "energy-balance",
-      "title": "能量平衡",
+      "title": "能效平衡",
       "summary": "用于说明计量边界、边界成员、平衡计算和差异诊断。",
       "steps": [
         {
@@ -1400,13 +1354,13 @@
           "expectedState": "新增活动数据表单按 ISO 分类显示动态字段。",
           "evidenceId": "EV-WH-147",
           "screenshot": "EV-WH-147-活动数据新增表单.png",
-          "verificationStatus": "verified"
+          "verificationStatus": "partial"
         },
         {
           "stepNumber": "17.5",
           "title": "维护活动数据归集",
-          "route": "/carbon-mgmt/activities",
-          "action": "打开活动数据详情，在详情中维护区域、设备、计量边界和归集比例。",
+          "route": "/carbon-mgmt/category/2.1",
+          "action": "在分类页面打开活动数据详情，维护区域、设备、计量边界和归集比例。",
           "expectedState": "活动数据详情显示分类字段和区域设备归集编辑区。",
           "evidenceId": "EV-WH-148",
           "screenshot": "EV-WH-148-活动数据详情与归集.png",
@@ -1415,21 +1369,11 @@
         {
           "stepNumber": "17.6",
           "title": "编辑活动数据",
-          "route": "/carbon-mgmt/activities",
-          "action": "在活动台账中编辑活动量、来源、分类字段、测量方法或备注。",
+          "route": "/carbon-mgmt/category/2.1",
+          "action": "在分类页面编辑活动量、来源、分类字段、测量方法或备注。",
           "expectedState": "保存后活动台账回显新的活动量、质量状态和归集状态。",
           "evidenceId": "EV-WH-149",
           "screenshot": "EV-WH-149-活动数据编辑结果.png",
-          "verificationStatus": "verified"
-        },
-        {
-          "stepNumber": "17.7",
-          "title": "生成活动数据",
-          "route": "/carbon-mgmt/activities",
-          "action": "从能源事实和经营活动台账按报告期生成组织碳活动数据，生成后进入总账或分类填报页面核对新增、更新、跳过和失败结果。",
-          "expectedState": "生成完成后活动数据进入统一台账，重复执行更新同一批记录。",
-          "evidenceId": "EV-WH-150",
-          "screenshot": "EV-WH-150-组织碳活动数据生成结果.png",
           "verificationStatus": "verified"
         },
         {
@@ -1520,11 +1464,11 @@
           "stepNumber": "19.1",
           "title": "进入组织碳核算页面",
           "route": "/carbon/organization/records",
-          "action": "进入组织碳核算页面，选择报告组织、报告期、核算边界、Scope 2 口径和统计粒度。",
+          "action": "进入组织碳核算页面，选择报告组织、报告期、核算边界和 Scope 2 总量口径。",
           "expectedState": "页面显示核算准备状态、核算运行记录和结果列表。",
           "evidenceId": "EV-WH-030",
           "screenshot": "EV-WH-030-排放清单与报告台账.png",
-          "verificationStatus": "planned"
+          "verificationStatus": "verified"
         },
         {
           "stepNumber": "19.2",
@@ -1534,7 +1478,7 @@
           "expectedState": "页面显示非空排放结果明细和核算状态。",
           "evidenceId": "EV-WH-031",
           "screenshot": "EV-WH-031-排放结果明细与核算公式.png",
-          "verificationStatus": "planned"
+          "verificationStatus": "verified"
         },
         {
           "stepNumber": "19.3",
@@ -1544,7 +1488,7 @@
           "expectedState": "详情中显示活动数据、因子参数和归集关系。",
           "evidenceId": "EV-WH-032",
           "screenshot": "EV-WH-032-排放明细详情-活动与因子.png",
-          "verificationStatus": "planned"
+          "verificationStatus": "verified"
         }
       ]
     },
@@ -1609,15 +1553,6 @@
           "evidenceId": "EV-WH-033",
           "screenshot": "EV-WH-033-组织碳流向与结构分析.png",
           "verificationStatus": "planned"
-        },
-        {
-          "stepNumber": "21.3",
-          "title": "按 ISO 14064 分类查看活动数据",
-          "route": "/carbon-mgmt/activities",
-          "action": "进入活动数据台账，通过 ISO 二级分类筛选固定燃烧、购入电力、员工通勤、采购商品、售出产品和其他间接排放记录。",
-          "expectedState": "活动数据台账按分类展示对应记录和归集状态。",
-          "screenshot": "[Image]",
-          "verificationStatus": "verified"
         }
       ]
     },
@@ -1722,5 +1657,16 @@
         }
       ]
     }
-  ]
+  ],
+  "canonicalDocsBaseUrl": "https://docs.nexlca.com/energy-carbon/woheng",
+  "canonicalExtraPageIds": [
+    "energy-to-carbon",
+    "refrigerant-data",
+    "transport-commute-data"
+  ],
+  "legacyPageRedirects": {
+    "green-factory-score-items": "overview",
+    "demo-script": "overview",
+    "screenshot-index": "overview"
+  }
 }

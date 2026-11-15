@@ -36,6 +36,7 @@ const screenshots = {
   flowLosses: "EV-WH-115-能流损耗诊断.png",
   flowReport: "EV-WH-116-能流分析报告.png",
 }
+const selectedModules = new Set((process.env.MANUAL_ENERGY_MODULES ?? "navigation,consumption,intensity,analysis,flow").split(",").map((item) => item.trim()))
 const forbiddenBrandTexts = ["中汽信科", "奇瑞", "Chery", "安方", "祥泰", "华东绿色仓储"]
 const screenshotCss = `
   .tsqd-parent-container,
@@ -90,20 +91,20 @@ page.on("response", (response) => {
 })
 
 try {
-  console.log("[ManualVerify] Preflight 100% | Auth 0% | Harness 100% | Navigate 0/7 | Interact 0/19 | Evidence 0/19 | Writeback 0/1")
+  console.log("[ManualVerify] 开始验证能源运营手册页面")
   await ensureAuthenticated()
   await selectTenant()
   await validateEnergyApis()
-  console.log("[ManualVerify] Preflight 100% | Auth 100% | Harness 100% | Navigate 0/7 | Interact 0/19 | Evidence 0/19 | Writeback 0/1")
+  console.log(`[ManualVerify] 登录与租户校验通过；本次模块：${[...selectedModules].join(", ")}`)
 
-  await verifyNavigationPages()
-  await verifyConsumptionPage()
-  await verifyIntensityPage()
-  await verifyAnalysisPage()
-  await verifyFlowPage()
+  if (selectedModules.has("navigation")) await verifyNavigationPages()
+  if (selectedModules.has("consumption")) await verifyConsumptionPage()
+  if (selectedModules.has("intensity")) await verifyIntensityPage()
+  if (selectedModules.has("analysis")) await verifyAnalysisPage()
+  if (selectedModules.has("flow")) await verifyFlowPage()
 
   await writeVerification("passed")
-  console.log("[ManualVerify] Preflight 100% | Auth 100% | Harness 100% | Navigate 7/7 | Interact 19/19 | Evidence 19/19 | Writeback 1/1")
+  console.log(`[ManualVerify] 验证通过：${checks.length} 项检查，${artifacts.length} 张截图；结果写入 ${verificationPath}`)
 } catch (error) {
   await writeVerification("failed", error)
   console.error(error)
@@ -159,19 +160,20 @@ async function selectTenant() {
 
 async function validateEnergyApis() {
   const endpoints = [
-    ["/api/energy/consumption/summary", (data) => data?.data?.totals?.record_count > 0],
-    ["/api/energy/consumption/facts?limit=10", (data) => Array.isArray(data?.items) && data.items.length > 0],
-    ["/api/energy/intensity/summary", (data) => data?.data?.totals?.record_count > 0 && data?.data?.by_energy_type?.length > 0],
-    ["/api/energy/intensity/trend?granularity=month", (data) => Array.isArray(data?.data?.series) && data.data.series.length > 0],
-    ["/api/energy/analysis/summary?granularity=month", (data) => data?.data?.totals?.record_count > 0 && data?.data?.by_system?.length > 0],
-    ["/api/energy/analysis/anomalies?granularity=month", (data) => Array.isArray(data?.data?.items)],
-    ["/api/energy/analysis/strategies?granularity=month", (data) => Array.isArray(data?.data?.items) && data.data.items.length > 0],
-    ["/api/energy/flow/graph?granularity=month", (data) => data?.data?.nodes?.length > 0 && data?.data?.links?.length > 0],
-    ["/api/energy/flow/balance?granularity=month", (data) => data?.data?.table?.length > 0],
-    ["/api/energy/flow/losses?granularity=month", (data) => Array.isArray(data?.data?.items)],
-    ["/api/energy/flow/report?granularity=month", (data) => Array.isArray(data?.data?.items) && data.data.items.length > 0],
+    ["consumption", "/api/energy/consumption/summary", (data) => data?.data?.totals?.record_count > 0],
+    ["consumption", "/api/energy/consumption/facts?limit=10", (data) => Array.isArray(data?.items) && data.items.length > 0],
+    ["intensity", "/api/energy/intensity/summary", (data) => data?.data?.totals?.record_count > 0 && data?.data?.by_energy_type?.length > 0],
+    ["intensity", "/api/energy/intensity/trend?granularity=month", (data) => Array.isArray(data?.data?.series) && data.data.series.length > 0],
+    ["analysis", "/api/energy/analysis/summary?granularity=month", (data) => data?.data?.totals?.record_count > 0 && data?.data?.by_system?.length > 0],
+    ["analysis", "/api/energy/analysis/anomalies?granularity=month", (data) => Array.isArray(data?.data?.items)],
+    ["analysis", "/api/energy/analysis/strategies?granularity=month", (data) => Array.isArray(data?.data?.items) && data.data.items.length > 0],
+    ["flow", "/api/energy/flow/graph?granularity=day&energy_type_code=purchased_electricity", (data) => data?.data?.nodes?.length > 0 && data?.data?.links?.length > 0],
+    ["flow", "/api/energy/flow/balance?granularity=day&energy_type_code=purchased_electricity", (data) => data?.data?.table?.length > 0],
+    ["flow", "/api/energy/flow/losses?granularity=day&energy_type_code=purchased_electricity", (data) => Array.isArray(data?.data?.items)],
+    ["flow", "/api/energy/flow/report?granularity=day&energy_type_code=purchased_electricity", (data) => Array.isArray(data?.data?.items) && data.data.items.length > 0],
   ]
-  for (const [endpoint, assertData] of endpoints) {
+  for (const [moduleName, endpoint, assertData] of endpoints) {
+    if (!selectedModules.has(moduleName)) continue
     const result = await fetchJson(endpoint)
     if (!result.ok) throw new Error(`能源运营接口失败：${endpoint} HTTP ${result.status}`)
     if (!assertData(result.data)) throw new Error(`能源运营接口无有效数据：${endpoint}`)
@@ -414,6 +416,7 @@ async function writeVerification(status, error = null) {
         finishedAt: new Date().toISOString(),
         baseURL,
         tenantSlug,
+        selectedModules: [...selectedModules],
         viewport: `${viewport.width}x${viewport.height}`,
         exportFile,
         checks,

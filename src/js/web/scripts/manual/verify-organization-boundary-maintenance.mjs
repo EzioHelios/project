@@ -23,7 +23,7 @@ const organizationCode = `WH-OP-ORG-${suffix}`
 const organizationName = `沃衡汽车泰州生产基地盘查主体-${displaySuffix}`
 const organizationNameEdited = `${organizationName}-更新`
 const periodCode = `WH-OP-RP-${suffix}`
-const periodName = `2026年9月组织温室气体盘查期-${displaySuffix}`
+const periodName = `2026年度组织温室气体盘查期-${displaySuffix}`
 const periodNameEdited = `${periodName}-更新`
 const boundaryNo = `WH-OP-BND-${suffix}`
 const boundaryName = `泰州生产基地组织边界-${displaySuffix}`
@@ -132,6 +132,7 @@ try {
   console.error(error)
   process.exitCode = 1
 } finally {
+  if (activeTeamId) await cleanupVerificationData()
   await browser.close()
 }
 
@@ -179,11 +180,13 @@ async function createPeriod() {
   await selectOption(dialog, "报告主体", organizationNameEdited)
   await fillInput(dialog, "报告期编号", periodCode)
   await fillInput(dialog, "报告期名称", periodName)
-  await fillInput(dialog, "开始日期", "2026-09-01")
-  await fillInput(dialog, "结束日期", "2026-09-30")
+  await fillInput(dialog, "开始日期", "2026-01-01")
+  await fillInput(dialog, "结束日期", "2026-12-31")
   await capture("periodCreate", "新增报告期表单填写态，报告期挂接到已维护的报告主体。")
+  const responsePromise = page.waitForResponse((response) => response.url().includes("/api/carbon/organization-boundary/periods") && response.request().method() === "POST")
   await dialog.getByRole("button", { name: "保存" }).click()
-  await expectVisible("报告期已创建")
+  const response = await responsePromise
+  if (!response.ok()) throw new Error(`新增报告期失败 HTTP ${response.status()}：${(await response.text()).slice(0, 800)}`)
   await waitForPageReady()
   await expectVisible(periodName)
   const period = await findPeriod()
@@ -426,11 +429,26 @@ async function fillInput(scope, label, value) {
 }
 
 async function selectDate(control, value) {
-  const match = /^\d{4}-\d{2}-(\d{2})$/.exec(value)
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
   if (!match) throw new Error(`日期值格式无效：${value}`)
   await control.click()
-  const day = String(Number(match[1]))
-  await page.locator(".rounded-lg.border.border-border.bg-popover").last().getByRole("button", { name: day, exact: true }).first().click()
+  const calendar = page.locator(".rounded-lg.border.border-border.bg-popover").last()
+  const targetYear = Number(match[1])
+  const targetMonth = Number(match[2])
+  const targetLabel = `${targetYear}年${targetMonth}月`
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const label = await calendar.locator("div.font-medium.text-sm").first().textContent()
+    if (label === targetLabel) break
+    const current = /^(\d{4})年(\d{1,2})月$/.exec(label ?? "")
+    if (!current) throw new Error(`无法识别日历月份：${label}`)
+    const offset = targetYear * 12 + targetMonth - (Number(current[1]) * 12 + Number(current[2]))
+    await calendar.getByRole("button", { name: offset < 0 ? "上个月" : "下个月" }).click()
+  }
+  if ((await calendar.locator("div.font-medium.text-sm").first().textContent()) !== targetLabel) throw new Error(`日期选择器未进入 ${targetLabel}`)
+  const day = String(Number(match[3]))
+  await calendar.locator('div.grid.grid-cols-7.gap-1 > button:not([class*="text-muted-foreground/55"])').filter({ hasText: new RegExp(`^${day}$`) }).click()
+  const actual = await control.inputValue()
+  if (actual !== `${targetYear}年${match[2]}月${match[3]}日`) throw new Error(`选择日期回显错误：预期 ${value}，实际 ${actual}`)
 }
 
 async function selectOption(scope, label, option) {

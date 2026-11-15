@@ -1,185 +1,204 @@
 {
   "title": "沃衡汽车能碳管理平台操作手册",
+  "mode": "canonical-redirect",
   "pages": [
     {
       "pageId": "overview",
-      "title": "平台概览",
-      "source": "00-overview.md",
-      "href": "index.html"
-    },
-    {
-      "pageId": "green-factory-score-items",
-      "title": "平台功能索引",
-      "source": "01-green-factory-score-items.md",
-      "href": "pages/green-factory-score-items.html"
+      "href": "index.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng",
+      "kind": "canonical-page"
     },
     {
       "pageId": "access-and-tenant",
-      "title": "登录、首页与租户切换",
-      "source": "01-access-and-tenant.md",
-      "href": "pages/access-and-tenant.html"
+      "href": "pages/access-and-tenant.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/access-and-tenant",
+      "kind": "canonical-page"
     },
     {
       "pageId": "energy-overview",
-      "title": "能源运营总览",
-      "source": "02-energy-navigation-map.md",
-      "href": "pages/energy-overview.html"
+      "href": "pages/energy-overview.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-overview",
+      "kind": "canonical-page"
     },
     {
       "pageId": "data-maintenance-mqtt",
-      "title": "能源运营：区域、设备与 MQTT 电表接入",
-      "source": "03-data-maintenance-mqtt.md",
-      "href": "pages/data-maintenance-mqtt.html"
+      "href": "pages/data-maintenance-mqtt.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/data-maintenance-mqtt",
+      "kind": "canonical-page"
     },
     {
       "pageId": "energy-master-data",
-      "title": "能源运营：能源主数据维护",
-      "source": "04-energy-master-data.md",
-      "href": "pages/energy-master-data.html"
+      "href": "pages/energy-master-data.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-master-data",
+      "kind": "canonical-page"
     },
     {
       "pageId": "energy-data-maintenance",
-      "title": "能源运营：能源事实数据维护",
-      "source": "03-energy-data-maintenance.md",
-      "href": "pages/energy-data-maintenance.html"
+      "href": "pages/energy-data-maintenance.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-data-maintenance",
+      "kind": "canonical-page"
     },
     {
       "pageId": "energy-consumption-query",
-      "title": "能源运营：能耗查询",
-      "source": "06-energy-consumption-query.md",
-      "href": "pages/energy-consumption-query.html"
+      "href": "pages/energy-consumption-query.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-consumption-query",
+      "kind": "canonical-page"
     },
     {
       "pageId": "energy-intensity",
-      "title": "能源运营：能耗强度",
-      "source": "07-energy-intensity.md",
-      "href": "pages/energy-intensity.html"
+      "href": "pages/energy-intensity.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-intensity",
+      "kind": "canonical-page"
     },
     {
       "pageId": "energy-use-analysis",
-      "title": "能源运营：用能分析",
-      "source": "08-energy-use-analysis.md",
-      "href": "pages/energy-use-analysis.html"
+      "href": "pages/energy-use-analysis.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-use-analysis",
+      "kind": "canonical-page"
     },
     {
       "pageId": "energy-flow-analysis",
-      "title": "能源运营：能流分析",
-      "source": "09-energy-flow-analysis.md",
-      "href": "pages/energy-flow-analysis.html"
+      "href": "pages/energy-flow-analysis.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-flow-analysis",
+      "kind": "canonical-page"
     },
     {
       "pageId": "energy-benchmark-settings",
-      "title": "能源运营：能效对标配置",
-      "source": "10a-energy-benchmark-settings.md",
-      "href": "pages/energy-benchmark-settings.html"
+      "href": "pages/energy-benchmark-settings.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-benchmark-settings",
+      "kind": "canonical-page"
     },
     {
       "pageId": "energy-benchmark",
-      "title": "能源运营：能效对标",
-      "source": "10-energy-benchmark.md",
-      "href": "pages/energy-benchmark.html"
+      "href": "pages/energy-benchmark.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-benchmark",
+      "kind": "canonical-page"
     },
     {
       "pageId": "energy-balance",
-      "title": "能源运营：能量平衡",
-      "source": "11-energy-balance.md",
-      "href": "pages/energy-balance.html"
+      "href": "pages/energy-balance.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-balance",
+      "kind": "canonical-page"
     },
     {
       "pageId": "energy-budget-settings",
-      "title": "能源运营：能碳预算维护",
-      "source": "12a-energy-budget-settings.md",
-      "href": "pages/energy-budget-settings.html"
+      "href": "pages/energy-budget-settings.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-budget-settings",
+      "kind": "canonical-page"
     },
     {
       "pageId": "energy-budget",
-      "title": "能源运营：能碳预算",
-      "source": "12-energy-budget.md",
-      "href": "pages/energy-budget.html"
+      "href": "pages/energy-budget.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-budget",
+      "kind": "canonical-page"
     },
     {
       "pageId": "bigscreen",
-      "title": "态势大屏",
-      "source": "02-bigscreen.md",
-      "href": "pages/bigscreen.html"
+      "href": "pages/bigscreen.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/bigscreen",
+      "kind": "canonical-page"
     },
     {
       "pageId": "activity-ledgers-import",
-      "title": "经营活动台账与非电数据导入",
-      "source": "04-activity-ledgers-import.md",
-      "href": "pages/activity-ledgers-import.html"
+      "href": "pages/activity-ledgers-import.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/activity-ledgers-import",
+      "kind": "canonical-page"
     },
     {
       "pageId": "organization-boundary-settings",
-      "title": "组织碳核算：组织边界与核算边界维护",
-      "source": "06-organization-boundary-settings.md",
-      "href": "pages/organization-boundary-settings.html"
+      "href": "pages/organization-boundary-settings.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/organization-boundary-settings",
+      "kind": "canonical-page"
     },
     {
       "pageId": "ghg-maintenance",
-      "title": "组织碳核算：排放源与活动数据维护",
-      "source": "06a-ghg-maintenance.md",
-      "href": "pages/ghg-maintenance.html"
+      "href": "pages/ghg-maintenance.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/ghg-maintenance",
+      "kind": "canonical-page"
     },
     {
       "pageId": "factors-calculation",
-      "title": "组织碳核算：排放因子库与企业计算因子",
-      "source": "05-factors-calculation.md",
-      "href": "pages/factors-calculation.html"
+      "href": "pages/factors-calculation.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/factors-calculation",
+      "kind": "canonical-page"
     },
     {
       "pageId": "organization-carbon-calculation",
-      "title": "组织碳核算：核算执行与结果明细",
-      "source": "07a-organization-carbon-calculation.md",
-      "href": "pages/organization-carbon-calculation.html"
+      "href": "pages/organization-carbon-calculation.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/organization-carbon-calculation",
+      "kind": "canonical-page"
     },
     {
       "pageId": "inventory-report-management",
-      "title": "组织碳核算：盘查报告管理与导出",
-      "source": "07b-inventory-report-management.md",
-      "href": "pages/inventory-report-management.html"
+      "href": "pages/inventory-report-management.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/inventory-report-management",
+      "kind": "canonical-page"
     },
     {
       "pageId": "organization-carbon-iso14064",
-      "title": "组织碳总览与结构分析",
-      "source": "07-organization-carbon-iso14064.md",
-      "href": "pages/organization-carbon-iso14064.html"
+      "href": "pages/organization-carbon-iso14064.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/organization-carbon-iso14064",
+      "kind": "canonical-page"
     },
     {
       "pageId": "monitoring-alerts",
-      "title": "监测告警与处理留痕",
-      "source": "08-monitoring-alerts.md",
-      "href": "pages/monitoring-alerts.html"
+      "href": "pages/monitoring-alerts.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/monitoring-alerts",
+      "kind": "canonical-page"
     },
     {
       "pageId": "verification-report-export",
-      "title": "核查材料引用",
-      "source": "09-verification-report-export.md",
-      "href": "pages/verification-report-export.html"
+      "href": "pages/verification-report-export.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/verification-report-export",
+      "kind": "canonical-page"
     },
     {
       "pageId": "reduction-carbon-asset",
-      "title": "减排绩效与公开碳价模拟",
-      "source": "10-reduction-carbon-asset.md",
-      "href": "pages/reduction-carbon-asset.html"
+      "href": "pages/reduction-carbon-asset.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/reduction-carbon-asset",
+      "kind": "canonical-page"
     },
     {
       "pageId": "product-supply-chain-carbon",
-      "title": "碳足迹与供应链碳管理",
-      "source": "08-product-supply-chain-carbon.md",
-      "href": "pages/product-supply-chain-carbon.html"
+      "href": "pages/product-supply-chain-carbon.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/product-supply-chain-carbon",
+      "kind": "canonical-page"
+    },
+    {
+      "pageId": "energy-to-carbon",
+      "href": "pages/energy-to-carbon.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/energy-to-carbon",
+      "kind": "canonical-page"
+    },
+    {
+      "pageId": "refrigerant-data",
+      "href": "pages/refrigerant-data.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/refrigerant-data",
+      "kind": "canonical-page"
+    },
+    {
+      "pageId": "transport-commute-data",
+      "href": "pages/transport-commute-data.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng/transport-commute-data",
+      "kind": "canonical-page"
+    },
+    {
+      "pageId": "green-factory-score-items",
+      "href": "pages/green-factory-score-items.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng",
+      "kind": "retired-page-alias"
     },
     {
       "pageId": "demo-script",
-      "title": "现场演示脚本",
-      "source": "11-demo-script.md",
-      "href": "pages/demo-script.html"
+      "href": "pages/demo-script.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng",
+      "kind": "retired-page-alias"
     },
     {
       "pageId": "screenshot-index",
-      "title": "功能页面与截图索引",
-      "source": "12-screenshot-index.md",
-      "href": "pages/screenshot-index.html"
+      "href": "pages/screenshot-index.html",
+      "target": "https://docs.nexlca.com/energy-carbon/woheng",
+      "kind": "retired-page-alias"
     }
   ]
 }
