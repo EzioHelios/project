@@ -55,6 +55,13 @@ const energyFunctions = [
     promise: "核对供入、有效利用和损失，找出平衡缺口。",
     action: "核对平衡",
   },
+  {
+    title: "能碳预算",
+    to: "/energy/budget",
+    icon: TrendingUp,
+    promise: "按年度目标跟踪能耗、碳排、偏差和调整记录。",
+    action: "管理预算",
+  },
 ] as const
 
 const carbonFunctions = [
@@ -93,19 +100,14 @@ const carbonFunctions = [
     promise: "管理配额、碳信用、履约清缴和缺口预测。",
     action: "查看资产",
   },
-  {
-    title: "能碳预算",
-    to: "/energy/budget",
-    icon: TrendingUp,
-    promise: "按年度目标跟踪能耗、碳排、偏差和调整记录。",
-    action: "管理预算",
-  },
 ] as const
 
 function HomePage() {
   const access = useAuthStore((state) => state.access)
-  const energy = [...energyFunctions, carbonFunctions[5]].filter((item) => canAccessPath(access, item.to))
-  const carbon = carbonFunctions.slice(0, 5).filter((item) => canAccessPath(access, item.to))
+  const functions = [
+    ...energyFunctions.map((item) => ({ ...item, domain: "energy" as const, category: "能源运营" })),
+    ...carbonFunctions.map((item) => ({ ...item, domain: "carbon" as const, category: "碳排放管理" })),
+  ].filter((item) => canAccessPath(access, item.to))
   return (
     <PageContainer className="flex-1 space-y-4" maxWidth="4xl">
       <AdminPageHeader
@@ -119,30 +121,22 @@ function HomePage() {
         }
       />
       <PageSection delay={0.05}>
-        <div className="space-y-6">
-          {energy.length > 0 && <FunctionGroup title="能源运营" count={`${energy.length} 项`} items={energy} domain="energy" />}
-          {carbon.length > 0 && <FunctionGroup title="碳排放管理" count={`${carbon.length} 项`} items={carbon} domain="carbon" />}
-        </div>
+        <FunctionGrid items={functions} />
       </PageSection>
     </PageContainer>
   )
 }
 
-type FunctionItem = (typeof energyFunctions)[number] | (typeof carbonFunctions)[number]
+type FunctionItem = ((typeof energyFunctions)[number] | (typeof carbonFunctions)[number]) & { domain: DesignDomain; category: string }
 
-function FunctionGroup({ title, count, items, domain }: { title: string; count: string; items: readonly FunctionItem[]; domain: DesignDomain }) {
+function FunctionGrid({ items }: { items: readonly FunctionItem[] }) {
   return (
-    <section className="space-y-2.5" data-design-domain={domain}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="font-semibold text-base leading-6">{title}</h2>
-        </div>
-        <span className="shrink-0 rounded-md border border-border/70 bg-background px-2 py-1 text-muted-foreground text-xs">{count}</span>
-      </div>
-      <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
+    <section className="@container" aria-label="业务功能">
+      <div className="grid grid-cols-1 gap-2.5 @min-[32rem]:grid-cols-2 @min-[48rem]:grid-cols-3 @min-[64rem]:grid-cols-4">
         {items.map((item) => (
           <Link
             key={item.to}
+            data-design-domain={item.domain}
             to={item.to}
             className="group flex min-h-24 flex-col rounded-md border border-border/70 bg-background p-3 transition-colors hover:border-primary/25 hover:bg-accent/30"
           >
@@ -157,6 +151,7 @@ function FunctionGroup({ title, count, items, domain }: { title: string; count: 
                 </span>
               </span>
             </div>
+            <span className="mt-2 text-muted-foreground text-xs">{item.category}</span>
             <p className="mt-2 line-clamp-2 flex-1 text-muted-foreground text-xs leading-5">{item.promise}</p>
             <span className="mt-2 font-medium text-primary text-xs leading-5">{item.action}</span>
           </Link>

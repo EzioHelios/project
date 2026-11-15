@@ -173,3 +173,36 @@ async def test_install_guard_binds_postgres_context_before_each_tenant_read(sess
     monkeypatch.setattr(package, "_tenant_counts", checked_counts)
     await package._assert_install_targets_safe()
     assert observed == expected_ids
+
+
+async def test_demo_role_repairs_verification_grants_without_changing_other_roles(session):
+    role = m.Role(slug="woheng-demo-operator", name="沃衡演示运营员")
+    other = m.Role(slug="unrelated-viewer", name="其他查看者")
+    permission = m.Permission(code="carbon.verification.view", name="查看核查", module="carbon")
+    session.add_all([role, other, permission])
+    await session.flush()
+    session.add(m.RolePermission(role_id=role.id, permission_id=permission.id))
+    await session.commit()
+    package = WohengShowcasePackage(session)
+    for _ in range(2):
+        await package._ensure_demo_role_permissions(role)
+        await session.commit()
+    codes = list(
+        (
+            await session.scalars(
+                select(m.Permission.code)
+                .join(m.RolePermission, m.RolePermission.permission_id == m.Permission.id)
+                .where(m.RolePermission.role_id == role.id)
+            )
+        ).all()
+    )
+    assert len(codes) == len(set(codes))
+    assert {
+        "carbon.verification.view",
+        "carbon.verification.manage",
+        "carbon.verification.export",
+        "carbon.verification.evidence.manage",
+    } <= set(codes)
+    assert "system.tasks.view" not in codes
+    assert "energy.dictionary.manage" not in codes
+    assert not list((await session.scalars(select(m.RolePermission).where(m.RolePermission.role_id == other.id))).all())
