@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { useEffect, useState } from "react"
 
+import { GhgTypedField, GhgValueSelect, ghgUnitOptions } from "@/components/carbon/ghg-entry-selectors"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import type { GhgActivity, GhgActivityWrite, GhgCatalog, GhgEmissionSource, GhgEmissionSourceWrite } from "@/lib/api/hooks/ghg-inventory"
+import { useGhgEntryOptions } from "@/lib/api/hooks/ghg-inventory"
 import type { GhgActivityAllocationResponse } from "@/lib/generated/api"
 
 type FieldProps = { label: string; children: ReactNode }
@@ -23,7 +25,7 @@ export function CarbonFormField({ label, children }: FieldProps) {
 
 export function categoryLabel(catalog: GhgCatalog | undefined, code: string) {
   const category = catalog?.categories.find((item) => item.code === code)
-  return category ? `${category.code} ${category.name}` : code
+  return category?.name ?? code
 }
 
 export function statusLabel(status: string) {
@@ -50,10 +52,22 @@ export function scopeLabel(scope: string) {
 export function sourceLabel(source: string) {
   return (
     (
-      { measured: "实测", metered: "计量系统", ledger: "台账", manual: "人工台账", xlsx_import: "表格导入", supplier: "供应商", estimated: "估算", erp: "ERP" } as Record<
-        string,
-        string
-      >
+      {
+        measured: "实测",
+        metered: "计量系统",
+        ledger: "台账",
+        manual: "人工台账",
+        xlsx_import: "表格导入",
+        supplier: "供应商",
+        supplier_ledger: "供应商台账",
+        generated: "系统生成",
+        energy_electricity: "用电台账",
+        energy_natural_gas: "天然气台账",
+        energy_diesel: "柴油台账",
+        employee_commute: "员工通勤台账",
+        estimated: "估算",
+        erp: "ERP",
+      } as Record<string, string>
     )[source] ?? source
   )
 }
@@ -108,7 +122,13 @@ export function sourceDefaults(catalog: GhgCatalog | undefined, categoryCode = "
 
 export function activityPayloadDefaults(catalog: GhgCatalog | undefined, categoryCode?: string, existing?: Record<string, unknown> | null) {
   const category = catalog?.categories.find((item) => item.code === categoryCode) ?? catalog?.categories.find((item) => item.code === "2.1") ?? catalog?.categories[0]
-  return Object.fromEntries((category?.activityFields ?? []).map((field) => [field.code, existing?.[field.code] ?? field.choices[0] ?? ""]))
+  const direction: Record<string, string> = { "3.1": "upstream", "3.2": "downstream", "3.3": "commute", "3.4": "business_travel", "3.5": "visitor" }
+  return Object.fromEntries(
+    (category?.activityFields ?? []).map((field) => [
+      field.code,
+      existing?.[field.code] ?? (field.code === "transport_direction" ? direction[category?.code ?? ""] : undefined) ?? field.choices[0] ?? "",
+    ]),
+  )
 }
 
 export function activityUnitDefault(categoryCode?: string) {
@@ -174,7 +194,13 @@ export function SourceForm({
     >
       <div className="grid gap-4 md:grid-cols-2">
         <CarbonFormField label="盘查任务">
-          <Select value={form.inventoryCode} onValueChange={(inventoryCode) => setForm((current) => ({ ...current, inventoryCode }))}>
+          <Select
+            value={form.inventoryCode}
+            onValueChange={(inventoryCode) => {
+              const period = catalog?.periods.find((item) => item.code === inventoryCode)
+              setForm((current) => ({ ...current, inventoryCode, reportingPeriodId: period?.id, organizationCode: period?.organizationCode ?? current.organizationCode }))
+            }}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -212,13 +238,11 @@ export function SourceForm({
             </SelectContent>
           </Select>
         </CarbonFormField>
-        <CarbonFormField label="排放源编号">
-          <Input value={form.sourceCode} onChange={(event) => setForm((current) => ({ ...current, sourceCode: event.target.value }))} required />
-        </CarbonFormField>
+
         <CarbonFormField label="排放源名称">
           <Input value={form.sourceName} onChange={(event) => setForm((current) => ({ ...current, sourceName: event.target.value }))} required />
         </CarbonFormField>
-        <CarbonFormField label="组织编号">
+        <CarbonFormField label="组织">
           <Select value={form.organizationCode} onValueChange={(organizationCode) => setForm((current) => ({ ...current, organizationCode }))}>
             <SelectTrigger>
               <SelectValue />
@@ -286,7 +310,7 @@ export function SourceForm({
         </CarbonFormField>
       </div>
       <div className="rounded-md border border-border/70 bg-muted/20 p-3 text-muted-foreground text-xs">
-        {category ? `${scopeLabel(category.ghgScope)} · ${category.isoCategory} · ${category.sourceMechanism}` : "请选择分类"}
+        {category ? `${scopeLabel(category.ghgScope)} · ${category.isoCategory}` : "请选择分类"}
       </div>
       <div className="flex justify-end gap-2">
         <Button disabled={pending} type="submit">
@@ -315,6 +339,7 @@ export function ActivityForm({
   onSubmit: (value: GhgActivityWrite) => void
 }) {
   const [form, setForm] = useState<GhgActivityWrite>(initial)
+  const entryOptions = useGhgEntryOptions()
   useEffect(() => {
     setForm(
       lockedCategoryCode
@@ -332,7 +357,12 @@ export function ActivityForm({
   const source = categorySources.find((item) => item.sourceCode === form.sourceCode && item.inventoryCode === form.inventoryCode)
   const sourceOptionValue = (item: GhgEmissionSource) => `${item.inventoryCode}::${item.sourceCode}`
   const fields = category?.activityFields ?? []
-  const updatePayload = (key: string, value: string) => setForm((current) => ({ ...current, sourcePayload: { ...(current.sourcePayload ?? {}), [key]: value } }))
+  const updatePayload = (key: string, value: string) =>
+    setForm((current) => {
+      const energyCode = value === "electricity" ? "purchased_electricity" : value
+      const energy = ["fuel_or_material", "energy_type"].includes(key) ? entryOptions.data?.energy.find((item) => item.code === energyCode) : undefined
+      return { ...current, activityUnit: energy?.original_unit || current.activityUnit, sourcePayload: { ...(current.sourcePayload ?? {}), [key]: value } }
+    })
   const selectCategory = (isoCategoryCode: string) => {
     setForm((current) => ({
       ...current,
@@ -347,6 +377,7 @@ export function ActivityForm({
       className="space-y-5"
       onSubmit={(event) => {
         event.preventDefault()
+        if (form.periodEnd < form.periodStart || fields.some((field) => field.required && !String(form.sourcePayload?.[field.code] ?? "").trim())) return
         onSubmit(form)
       }}
     >
@@ -381,6 +412,7 @@ export function ActivityForm({
                 organizationBoundaryId: selected?.organizationBoundaryId ?? current.organizationBoundaryId,
                 facilityCode: selected?.facilityCode ?? current.facilityCode,
                 sourceCode: selected?.sourceCode ?? current.sourceCode,
+                reportingPeriodId: selected?.reportingPeriodId ?? current.reportingPeriodId,
                 isoCategoryCode: selected?.isoCategoryCode ?? current.isoCategoryCode,
                 activityUnit: current.activityUnit || activityUnitDefault(selected?.isoCategoryCode),
                 sourcePayload: activityPayloadDefaults(catalog, selected?.isoCategoryCode ?? current.isoCategoryCode, current.sourcePayload),
@@ -403,9 +435,7 @@ export function ActivityForm({
             </SelectContent>
           </Select>
         </CarbonFormField>
-        <CarbonFormField label="记录编号">
-          <Input value={form.recordCode} onChange={(event) => setForm((current) => ({ ...current, recordCode: event.target.value }))} required />
-        </CarbonFormField>
+
         <CarbonFormField label="活动名称">
           <Input value={form.activityName} onChange={(event) => setForm((current) => ({ ...current, activityName: event.target.value }))} required />
         </CarbonFormField>
@@ -413,13 +443,33 @@ export function ActivityForm({
           <Input type="date" value={form.periodStart} onChange={(event) => setForm((current) => ({ ...current, periodStart: event.target.value }))} required />
         </CarbonFormField>
         <CarbonFormField label="结束日期">
-          <Input type="date" value={form.periodEnd} onChange={(event) => setForm((current) => ({ ...current, periodEnd: event.target.value }))} required />
+          <Input type="date" min={form.periodStart} value={form.periodEnd} onChange={(event) => setForm((current) => ({ ...current, periodEnd: event.target.value }))} required />
         </CarbonFormField>
         <CarbonFormField label="活动量">
-          <Input value={form.activityAmount} onChange={(event) => setForm((current) => ({ ...current, activityAmount: event.target.value }))} required />
+          <Input
+            aria-label="活动量"
+            type="number"
+            step="any"
+            min="0"
+            value={form.activityAmount}
+            onChange={(event) => setForm((current) => ({ ...current, activityAmount: event.target.value }))}
+            required
+          />
         </CarbonFormField>
         <CarbonFormField label="单位">
-          <Input value={form.activityUnit} onChange={(event) => setForm((current) => ({ ...current, activityUnit: event.target.value }))} required />
+          <GhgValueSelect
+            label="单位"
+            value={form.activityUnit}
+            options={ghgUnitOptions(
+              form.isoCategoryCode,
+              String(form.sourcePayload?.fuel_or_material ?? form.sourcePayload?.energy_type ?? ""),
+              entryOptions.data?.energy ?? [],
+              entryOptions.data?.units ?? [],
+              form.activityUnit,
+            )}
+            onChange={(activityUnit) => setForm((current) => ({ ...current, activityUnit }))}
+            required
+          />
         </CarbonFormField>
         <CarbonFormField label="数据来源">
           <Select value={form.dataSourceType} onValueChange={(dataSourceType) => setForm((current) => ({ ...current, dataSourceType }))}>
@@ -432,6 +482,8 @@ export function ActivityForm({
               <SelectItem value="manual">人工台账</SelectItem>
               <SelectItem value="xlsx_import">表格导入</SelectItem>
               <SelectItem value="supplier">供应商</SelectItem>
+              <SelectItem value="supplier_ledger">供应商台账</SelectItem>
+              <SelectItem value="metered">计量系统</SelectItem>
               <SelectItem value="estimated">估算</SelectItem>
             </SelectContent>
           </Select>
@@ -450,6 +502,14 @@ export function ActivityForm({
         </CarbonFormField>
       </div>
       <Separator />
+      {entryOptions.isError && (
+        <div role="alert" className="text-destructive text-sm">
+          燃料和单位选项加载失败。
+          <Button type="button" variant="link" onClick={() => void entryOptions.refetch()}>
+            重新加载
+          </Button>
+        </div>
+      )}
       <div className="grid gap-4 md:grid-cols-2">
         {fields.map((field) => (
           <CarbonFormField key={field.code} label={`${field.label}${field.required ? " *" : ""}`}>
@@ -468,7 +528,13 @@ export function ActivityForm({
                 </SelectContent>
               </Select>
             ) : (
-              <Input value={String(form.sourcePayload?.[field.code] ?? "")} onChange={(event) => updatePayload(field.code, event.target.value)} required={field.required} />
+              <GhgTypedField
+                field={field}
+                value={String(form.sourcePayload?.[field.code] ?? "")}
+                catalog={catalog}
+                energy={entryOptions.data?.energy ?? []}
+                onChange={(value) => updatePayload(field.code, value)}
+              />
             )}
           </CarbonFormField>
         ))}
@@ -488,7 +554,8 @@ export function ActivityForm({
         <div className="rounded-md border border-border/70 bg-muted/20 p-3 text-muted-foreground text-xs">当前分类暂无启用排放源，请先维护该分类的排放源后再录入活动数据。</div>
       )}
       <div className="flex justify-end gap-2">
-        <Button disabled={pending || !form.sourceCode} type="submit">
+        <div className="mr-auto text-muted-foreground text-xs">系统记录编号：{form.recordCode}</div>
+        <Button disabled={pending || !form.sourceCode || fields.some((field) => field.required && !String(form.sourcePayload?.[field.code] ?? "").trim())} type="submit">
           {submitLabel}
         </Button>
       </div>

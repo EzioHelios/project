@@ -21,6 +21,7 @@ import { PageSection } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs"
+import { energyQuantityMetric } from "@/lib/energy-quantity-metric"
 
 const tariffLabel: Record<string, string> = { peak: "峰段", flat: "平段", valley: "谷段", none: "未分时" }
 
@@ -238,6 +239,7 @@ type EnergyTypeRow = {
 }
 
 type EnergySummaryItem = {
+  groups?: { dimension: string; key: string | null }[]
   group_key: string
   group_label: string
   record_count: number
@@ -485,6 +487,7 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
   })
   const summary = summaryQuery.data?.data
   const facts = factsQuery.data?.items ?? []
+  const originalQuantity = energyQuantityMetric(summary?.totals.original_amount, summary?.totals.record_count ?? 0, facts, summary?.items)
   const exportUrl = `/api/energy/consumption/export?${queryParams.toString()}`
 
   function applyFilters() {
@@ -533,7 +536,7 @@ export function EnergyConsumptionPanel({ header }: { header?: ReactNode }) {
         <TabsContent value="summary" className="space-y-4">
           <MetricStrip className="md:grid-cols-4 xl:grid-cols-4">
             <MetricTile label="记录数" value={summary?.totals.record_count ?? 0} />
-            <MetricTile label="原始消费量" value={formatNumber(summary?.totals.original_amount)} />
+            <MetricTile label="原始消费量" value={originalQuantity.value} unit={originalQuantity.unit} />
             <MetricTile label="折标煤" value={formatNumber(summary?.totals.tce_amount)} unit="tce" />
             <MetricTile label="CO2e" value={formatNumber(summary?.totals.co2e_amount, 2)} unit="kg" />
           </MetricStrip>
@@ -1512,8 +1515,9 @@ export function EnergyAnalysisPanel({ header }: { header?: ReactNode }) {
 }
 
 export function EnergyFlowPanel({ header }: { header?: ReactNode }) {
-  const [filters, setFilters] = useState<EnergyAnalysisFilterState>(defaultEnergyAnalysisFilters)
-  const [appliedFilters, setAppliedFilters] = useState<EnergyAnalysisFilterState>(defaultEnergyAnalysisFilters)
+  const initialFilters = { ...defaultEnergyAnalysisFilters, energyTypeCode: "purchased_electricity" }
+  const [filters, setFilters] = useState<EnergyAnalysisFilterState>(initialFilters)
+  const [appliedFilters, setAppliedFilters] = useState<EnergyAnalysisFilterState>(initialFilters)
   const queryString = useMemo(() => buildEnergyFlowQuery(appliedFilters), [appliedFilters])
   const flowQuery = useQuery<ApiEnvelope<FlowData>>({
     queryKey: ["energy", "flow", "graph", queryString],
@@ -1551,8 +1555,8 @@ export function EnergyFlowPanel({ header }: { header?: ReactNode }) {
             onFiltersChange={setFilters}
             onApply={() => setAppliedFilters(filters)}
             onReset={() => {
-              setFilters(defaultEnergyAnalysisFilters)
-              setAppliedFilters(defaultEnergyAnalysisFilters)
+              setFilters(initialFilters)
+              setAppliedFilters(initialFilters)
             }}
             fields={["periodPreset", "period", "granularity", "energyType", "area", "device", "useSystem", "areaKeyword", "lossThreshold"]}
             defaultVisibleCount={9}

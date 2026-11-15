@@ -3,7 +3,7 @@ import { Edit, Plus, RefreshCw, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { AdminDataTable, AdminFilterBar, AdminPageScaffold, AdminTableStateRow, MetricStrip, MetricTile, StatusBadge } from "@/components/admin-ui"
-import { CarbonFormField, categoryLabel, SourceForm, sourceDefaults, statusLabel } from "@/components/carbon/ghg-maintenance"
+import { CarbonFormField, categoryLabel, SourceForm, sourceDefaults, sourceLabel, statusLabel } from "@/components/carbon/ghg-maintenance"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PageContainer } from "@/components/ui/page-layout"
@@ -21,6 +21,7 @@ function GhgEmissionSourcePage() {
   const [categoryCode, setCategoryCode] = useState("all")
   const [status, setStatus] = useState("active")
   const [keyword, setKeyword] = useState("")
+  const [saved, setSaved] = useState<GhgEmissionSource | null>(null)
   const [editing, setEditing] = useState<GhgEmissionSource | "new" | null>(null)
   const sources = useGhgEmissionSources({
     inventoryCode: inventoryCode || undefined,
@@ -60,12 +61,20 @@ function GhgEmissionSourcePage() {
     return sourceDefaults(catalog.data, categoryCode === "all" ? "2.1" : categoryCode)
   }, [catalog.data, categoryCode, editing])
 
+  const locate = (row: GhgEmissionSource) => {
+    setEditing(null)
+    setSaved(row)
+    setInventoryCode(row.inventoryCode)
+    setCategoryCode("all")
+    setStatus("all")
+    setKeyword(row.sourceCode)
+  }
   const save = (body: GhgEmissionSourceWrite) => {
     if (editing && editing !== "new") {
-      actions.updateSource.mutate({ sourceCode: editing.sourceCode, body }, { onSuccess: () => setEditing(null) })
+      actions.updateSource.mutate({ sourceCode: editing.sourceCode, body }, { onSuccess: locate })
       return
     }
-    actions.createSource.mutate(body, { onSuccess: () => setEditing(null) })
+    actions.createSource.mutate(body, { onSuccess: locate })
   }
 
   return (
@@ -164,6 +173,11 @@ function GhgEmissionSourcePage() {
           </MetricStrip>
         }
       >
+        {saved && (
+          <output className="border-b pb-3 text-sm">
+            已保存：{saved.sourceName} · {categoryLabel(catalog.data, saved.isoCategoryCode)} · {statusLabel(saved.status)}
+          </output>
+        )}
         <AdminDataTable>
           <Table>
             <TableHeader>
@@ -193,20 +207,28 @@ function GhgEmissionSourcePage() {
                   </TableCell>
                   <TableCell>{categoryLabel(catalog.data, row.isoCategoryCode)}</TableCell>
                   <TableCell>
-                    <div>{row.organizationCode}</div>
-                    <div className="text-muted-foreground text-xs">{row.facilityCode}</div>
+                    <div>{catalog.data?.organizations.find((organization) => organization.code === row.organizationCode)?.name || "未匹配组织"}</div>
+                    <div className="text-muted-foreground text-xs">{catalog.data?.areas.find((area) => area.code === row.facilityCode)?.name || "未匹配区域"}</div>
                   </TableCell>
-                  <TableCell>{row.sourceSystem}</TableCell>
+                  <TableCell>{sourceLabel(row.sourceSystem)}</TableCell>
                   <TableCell className="text-right font-mono tabular-nums">{row.activityCount}</TableCell>
                   <TableCell>
                     <StatusBadge status={row.status === "active" ? "approved" : "draft"} label={statusLabel(row.status)} />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => setEditing(row)}>
+                      <Button size="sm" variant="ghost" aria-label={`编辑${row.sourceName}`} onClick={() => setEditing(row)}>
                         <Edit />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => actions.deleteSource.mutate({ inventoryCode: row.inventoryCode, sourceCode: row.sourceCode })}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label={`删除${row.sourceName}`}
+                        onClick={() => {
+                          if (window.confirm(`确认删除排放源“${row.sourceName}”？`))
+                            actions.deleteSource.mutate({ inventoryCode: row.inventoryCode, sourceCode: row.sourceCode }, { onSuccess: () => setSaved(null) })
+                        }}
+                      >
                         <Trash2 />
                       </Button>
                     </div>

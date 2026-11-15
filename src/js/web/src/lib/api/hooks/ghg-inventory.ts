@@ -1,9 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { z } from "zod"
 
 import {
+  apiEnergyTypesListEnergyTypes,
+  apiEnergyUnitConversionsListEnergyUnitConversions,
   type BoundaryDiffResponse,
   type BoundarySelectionResponse,
+  type GhgActivityGenerateRequest,
   type GhgActivityResponse,
   type GhgActivityWriteRequest,
   type GhgAnalyticsFlowResponse,
@@ -112,7 +116,33 @@ export function useGhgCatalog() {
   })
 }
 
-export function useGhgActivities(filters: { inventoryCode?: string; categoryCode?: string; qualityStatus?: string }) {
+const energyEntrySchema = z.object({
+  code: z.string(),
+  name: z.string(),
+  category: z.string(),
+  original_unit: z.string().nullable().optional(),
+})
+const unitEntrySchema = z.object({ energy_type_code: z.string(), from_unit: z.string(), to_unit: z.string() })
+export type GhgEnergyOption = z.infer<typeof energyEntrySchema>
+export type GhgUnitOption = z.infer<typeof unitEntrySchema>
+
+export function useGhgEntryOptions() {
+  return useQuery({
+    queryKey: ["ghg-inventory", "entry-options"],
+    queryFn: async () => {
+      const [energy, units] = await Promise.all([
+        apiEnergyTypesListEnergyTypes({ query: { limit: 500 }, throwOnError: true }),
+        apiEnergyUnitConversionsListEnergyUnitConversions({ query: { limit: 500 }, throwOnError: true }),
+      ])
+      return {
+        energy: z.object({ data: z.object({ items: z.array(energyEntrySchema) }) }).parse(energy.data).data.items,
+        units: z.object({ data: z.object({ items: z.array(unitEntrySchema) }) }).parse(units.data).data.items,
+      }
+    },
+  })
+}
+
+export function useGhgActivities(filters: { inventoryCode?: string; categoryCode?: string; qualityStatus?: string; status?: string; batchCode?: string; offset?: number }) {
   return useQuery({
     queryKey: ["ghg-inventory", "activities", filters],
     queryFn: async () =>
@@ -122,6 +152,9 @@ export function useGhgActivities(filters: { inventoryCode?: string; categoryCode
             inventory_code: filters.inventoryCode || undefined,
             category_code: filters.categoryCode || undefined,
             quality_status: filters.qualityStatus || undefined,
+            status: filters.status || undefined,
+            batch_code: filters.batchCode || undefined,
+            offset: filters.offset ?? 0,
             limit: 200,
           },
           throwOnError: true,
@@ -147,9 +180,10 @@ export function useGhgActivity(filters: { inventoryCode?: string; recordCode?: s
   })
 }
 
-export function useGhgEmissionSources(filters: { inventoryCode?: string; categoryCode?: string; status?: string; keyword?: string }) {
+export function useGhgEmissionSources(filters: { inventoryCode?: string; categoryCode?: string; status?: string; keyword?: string }, enabled = true) {
   return useQuery({
     queryKey: ["ghg-inventory", "emission-sources", filters],
+    enabled,
     queryFn: async () =>
       (
         await ghgInventoryListEmissionSources({
@@ -483,9 +517,9 @@ export function useGhgInventoryActions() {
 
   const createActivity = useMutation({
     mutationFn: async (body: GhgActivityWrite) => (await ghgInventoryCreateActivity({ body, throwOnError: true })).data,
-    onSuccess: async () => {
+    onSuccess: async (data) => {
       await invalidate()
-      toast.success("活动数据已保存")
+      toast.success("活动数据已保存", { description: `${data.activityName}：${data.activityAmount} ${data.activityUnit}` })
     },
     onError: (error: Error) => toast.error("活动数据保存失败", { description: error.message }),
   })
@@ -493,9 +527,9 @@ export function useGhgInventoryActions() {
   const updateActivity = useMutation({
     mutationFn: async ({ recordCode, body }: { recordCode: string; body: GhgActivityWrite }) =>
       (await ghgInventoryUpdateActivity({ path: { record_code: recordCode }, body, throwOnError: true })).data,
-    onSuccess: async () => {
+    onSuccess: async (data) => {
       await invalidate()
-      toast.success("活动数据已更新")
+      toast.success("活动数据已更新", { description: `${data.activityName}：${data.activityAmount} ${data.activityUnit}` })
     },
     onError: (error: Error) => toast.error("活动数据更新失败", { description: error.message }),
   })
@@ -511,11 +545,18 @@ export function useGhgInventoryActions() {
   })
 
   const generateActivities = useMutation({
-    mutationFn: async (body: { inventoryCode: string; reportingPeriodId: number; organizationBoundaryId?: number; sourceTypes: string[] }) =>
-      (await ghgInventoryGenerateActivities({ body, throwOnError: true })).data,
+    mutationFn: async (body: GhgActivityGenerateRequest) => (await ghgInventoryGenerateActivities({ body, throwOnError: true })).data,
     onSuccess: async (data) => {
       await invalidate()
-      toast.success("活动数据生成完成", { description: `新增 ${data.createdCount} 条，更新 ${data.updatedCount} 条，跳过 ${data.skippedCount} 条` })
+      const description = `新增 ${data.createdCount} 条，更新 ${data.updatedCount} 条，跳过 ${data.skippedCount} 条，失败 ${data.failedCount} 条`
+      if (data.failedCount > 0) {
+        if (data.createdCount + data.updatedCount > 0 || (data.records?.length ?? 0) > 0) toast.warning("部分活动生成失败", { description })
+        else toast.error("活动数据生成失败", { description })
+      } else if (data.createdCount + data.updatedCount === 0) {
+        toast.info("本次未新增或更新活动", { description })
+      } else {
+        toast.success("活动数据生成完成", { description })
+      }
     },
     onError: (error: Error) => toast.error("活动数据生成失败", { description: error.message }),
   })
@@ -559,6 +600,7 @@ export function useGhgInventoryActions() {
       const response = await ghgInventoryDownloadTemplate({
         query: {
           inventory_code: context.inventoryCode,
+          reporting_period_id: context.reportingPeriodId,
           organization_code: context.organizationCode,
           facility_code: context.facilityCode,
           iso_category_code: context.isoCategoryCode,

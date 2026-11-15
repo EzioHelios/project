@@ -1,10 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { Calculator, Download, FileCheck2, FileUp, ListChecks } from "lucide-react"
+import { Download, FileCheck2, FileUp, ListChecks } from "lucide-react"
 import type { ReactNode } from "react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { z } from "zod"
 
 import { AdminEmptyState, AdminFilterBar, AdminPageScaffold, AdminPanel, AdminTableStateRow, MetricStrip, MetricTile, StatusBadge } from "@/components/admin-ui"
+import { sourceLabel } from "@/components/carbon/ghg-maintenance"
+import { GhgAmountSummary, GhgRecordResults } from "@/components/carbon/ghg-record-results"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +15,7 @@ import { PageContainer } from "@/components/ui/page-layout"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import type { GhgCatalog } from "@/lib/api/hooks/ghg-inventory"
 import { type GhgImportBatch, type GhgImportContext, useGhgCatalog, useGhgInventoryActions } from "@/lib/api/hooks/ghg-inventory"
 import { normalizeGhgCategoryCode } from "@/lib/ghg-categories"
 
@@ -36,6 +39,7 @@ function GhgInventoryImportPage() {
     methodCode: "",
   })
   const [file, setFile] = useState<File>()
+  const fileInput = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<GhgImportBatch>()
   const [acknowledgeWarnings, setAcknowledgeWarnings] = useState(false)
   const [warningAcknowledgement, setWarningAcknowledgement] = useState("")
@@ -68,6 +72,13 @@ function GhgInventoryImportPage() {
     setFile(undefined)
   }, [catalog.data, context.isoCategoryCode, lockedCategoryCode])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: A context change invalidates the uploaded file preview.
+  useEffect(() => {
+    setPreview(undefined)
+    setAcknowledgeWarnings(false)
+    setWarningAcknowledgement("")
+  }, [context])
+
   const selectedCategory = catalog.data?.categories.find((item) => item.code === context.isoCategoryCode)
   const availableMethods = useMemo(
     () => (catalog.data?.methods ?? []).filter((method) => selectedCategory?.defaultMethods.includes(method.code) && method.executable),
@@ -90,7 +101,7 @@ function GhgInventoryImportPage() {
   return (
     <PageContainer className="flex-1" maxWidth="4xl">
       <AdminPageScaffold
-        title={lockedCategoryCode && selectedCategory ? `${selectedCategory.code} ${selectedCategory.name}数据导入` : "活动数据导入"}
+        title={lockedCategoryCode && selectedCategory ? `${selectedCategory.name}数据导入` : "活动数据导入"}
         status={
           preview ? (
             <StatusBadge
@@ -114,170 +125,165 @@ function GhgInventoryImportPage() {
           </div>
         }
         filters={
-          <AdminFilterBar
-            defaultVisibleCount={4}
-            fields={[
-              {
-                key: "period",
-                node: (
-                  <FilterField label="盘查期">
-                    <Select
-                      value={context.reportingPeriodId ? String(context.reportingPeriodId) : "custom"}
-                      onValueChange={(value) => {
-                        const period = catalog.data?.periods.find((item) => String(item.id) === value)
-                        setContext((current) => ({
-                          ...current,
-                          reportingPeriodId: period?.id,
-                          inventoryCode: period?.code ?? current.inventoryCode,
-                          organizationCode: period?.organizationCode ?? current.organizationCode,
-                        }))
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(catalog.data?.periods ?? []).map((period) => (
-                          <SelectItem key={period.id} value={String(period.id)}>
-                            {period.name}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value="custom">自定义盘查任务</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FilterField>
-                ),
-              },
-              {
-                key: "organization",
-                node: (
-                  <FilterField label="组织">
-                    <Select value={context.organizationCode} onValueChange={(organizationCode) => setContext((current) => ({ ...current, organizationCode }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(catalog.data?.organizations ?? []).map((organization) => (
-                          <SelectItem key={organization.code} value={organization.code}>
-                            {organization.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FilterField>
-                ),
-              },
-              {
-                key: "facility",
-                node: (
-                  <FilterField label="归集区域">
-                    <Select value={context.facilityCode} onValueChange={(facilityCode) => setContext((current) => ({ ...current, facilityCode }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(catalog.data?.areas ?? []).map((area) => (
-                          <SelectItem key={area.code} value={area.code}>
-                            {area.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FilterField>
-                ),
-              },
-              {
-                key: "category",
-                node: (
-                  <FilterField label="活动分类">
-                    {lockedCategoryCode ? (
-                      <Input value={selectedCategory ? `${selectedCategory.code} ${selectedCategory.name}` : lockedCategoryCode} readOnly />
-                    ) : (
-                      <Select value={context.isoCategoryCode} onValueChange={updateCategory}>
+          <fieldset disabled={actions.preview.isPending || actions.commit.isPending}>
+            <AdminFilterBar
+              defaultVisibleCount={4}
+              fields={[
+                {
+                  key: "period",
+                  node: (
+                    <FilterField label="盘查期">
+                      <Select
+                        value={context.reportingPeriodId ? String(context.reportingPeriodId) : "custom"}
+                        onValueChange={(value) => {
+                          const period = catalog.data?.periods.find((item) => String(item.id) === value)
+                          setContext((current) => ({
+                            ...current,
+                            reportingPeriodId: period?.id,
+                            inventoryCode: period?.code ?? current.inventoryCode,
+                            organizationCode: period?.organizationCode ?? current.organizationCode,
+                          }))
+                        }}
+                      >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {(catalog.data?.categories ?? []).map((category) => {
-                            const executable = category.defaultMethods.some((code) => catalog.data?.methods.find((item) => item.code === code)?.executable)
-                            return (
-                              <SelectItem key={category.code} value={category.code} disabled={!executable}>
-                                {category.code} {category.name}
-                              </SelectItem>
-                            )
-                          })}
+                          {(catalog.data?.periods ?? []).map((period) => (
+                            <SelectItem key={period.id} value={String(period.id)}>
+                              {period.name}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="custom">自定义盘查任务</SelectItem>
                         </SelectContent>
                       </Select>
-                    )}
-                  </FilterField>
-                ),
-              },
-              {
-                key: "profile",
-                node: (
-                  <FilterField label="报告配置">
-                    <Select value={context.reportingProfileCode} onValueChange={(reportingProfileCode) => setContext((current) => ({ ...current, reportingProfileCode }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(catalog.data?.reportingProfiles ?? []).map((profile) => (
-                          <SelectItem key={profile.code} value={profile.code}>
-                            {profile.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FilterField>
-                ),
-              },
-              {
-                key: "method",
-                node: (
-                  <FilterField label="计算方法">
-                    <Select value={context.methodCode} onValueChange={(methodCode) => setContext((current) => ({ ...current, methodCode }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableMethods.map((method) => (
-                          <SelectItem key={method.code} value={method.code}>
-                            {method.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FilterField>
-                ),
-              },
-            ]}
-          />
+                    </FilterField>
+                  ),
+                },
+                {
+                  key: "organization",
+                  node: (
+                    <FilterField label="组织">
+                      <Select value={context.organizationCode} onValueChange={(organizationCode) => setContext((current) => ({ ...current, organizationCode }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(catalog.data?.organizations ?? []).map((organization) => (
+                            <SelectItem key={organization.code} value={organization.code}>
+                              {organization.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FilterField>
+                  ),
+                },
+                {
+                  key: "facility",
+                  node: (
+                    <FilterField label="归集区域">
+                      <Select value={context.facilityCode} onValueChange={(facilityCode) => setContext((current) => ({ ...current, facilityCode }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(catalog.data?.areas ?? []).map((area) => (
+                            <SelectItem key={area.code} value={area.code}>
+                              {area.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FilterField>
+                  ),
+                },
+                {
+                  key: "category",
+                  node: (
+                    <FilterField label="活动分类">
+                      {lockedCategoryCode ? (
+                        <Input value={selectedCategory ? `${selectedCategory.code} ${selectedCategory.name}` : lockedCategoryCode} readOnly />
+                      ) : (
+                        <Select value={context.isoCategoryCode} onValueChange={updateCategory}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(catalog.data?.categories ?? []).map((category) => {
+                              const executable = category.defaultMethods.some((code) => catalog.data?.methods.find((item) => item.code === code)?.executable)
+                              return (
+                                <SelectItem key={category.code} value={category.code} disabled={!executable}>
+                                  {category.code} {category.name}
+                                </SelectItem>
+                              )
+                            })}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </FilterField>
+                  ),
+                },
+                {
+                  key: "profile",
+                  node: (
+                    <FilterField label="报告配置">
+                      <Select value={context.reportingProfileCode} onValueChange={(reportingProfileCode) => setContext((current) => ({ ...current, reportingProfileCode }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(catalog.data?.reportingProfiles ?? []).map((profile) => (
+                            <SelectItem key={profile.code} value={profile.code}>
+                              {profile.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FilterField>
+                  ),
+                },
+                {
+                  key: "method",
+                  node: (
+                    <FilterField label="计算方法">
+                      <Select value={context.methodCode} onValueChange={(methodCode) => setContext((current) => ({ ...current, methodCode }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableMethods.map((method) => (
+                            <SelectItem key={method.code} value={method.code}>
+                              {method.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FilterField>
+                  ),
+                },
+              ]}
+            />
+          </fieldset>
         }
         metrics={
-          <MetricStrip className="xl:grid-cols-5">
+          <MetricStrip>
             <MetricTile label="活动记录" value={metrics.rowCount} unit="条" />
             <MetricTile label="有效记录" value={metrics.validCount} unit="条" tone={metrics.validCount ? "success" : "default"} />
             <MetricTile label="警告" value={metrics.warningCount} unit="项" tone={metrics.warningCount ? "warning" : "default"} />
             <MetricTile label="阻断错误" value={metrics.errorCount} unit="项" tone={metrics.errorCount ? "danger" : "default"} />
-            <MetricTile label="缺少证据" value={metrics.missingEvidenceCount} unit="条" tone={metrics.missingEvidenceCount ? "warning" : "default"} />
           </MetricStrip>
         }
       >
-        <AdminPanel
-          title="上传与预检"
-          actions={
-            selectedMethod ? (
-              <Badge variant="outline">
-                {selectedMethod.name} · {selectedMethod.code}
-              </Badge>
-            ) : undefined
-          }
-        >
+        <AdminPanel title="上传与预检" actions={selectedMethod ? <Badge variant="outline">{selectedMethod.name}</Badge> : undefined}>
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-72 flex-1 space-y-1.5">
               <Label htmlFor="ghg-workbook">分类工作簿</Label>
-              <Input
+              <input
+                ref={fileInput}
+                className="sr-only"
                 id="ghg-workbook"
+                disabled={actions.preview.isPending || actions.commit.isPending}
                 type="file"
                 accept=".xlsx"
                 onChange={(event) => {
@@ -287,9 +293,15 @@ function GhgInventoryImportPage() {
                   setWarningAcknowledgement("")
                 }}
               />
+              <div className="flex items-center gap-3">
+                <Button type="button" variant="outline" disabled={actions.preview.isPending || actions.commit.isPending} onClick={() => fileInput.current?.click()}>
+                  选择文件
+                </Button>
+                <span className="text-muted-foreground text-sm">{file?.name || "未选择文件"}</span>
+              </div>
             </div>
             <Button
-              disabled={!ready || !file || actions.preview.isPending}
+              disabled={!ready || !file || actions.preview.isPending || actions.commit.isPending}
               onClick={() => file && actions.preview.mutate({ context, file }, { onSuccess: (data) => setPreview(data) })}
             >
               <FileCheck2 />
@@ -298,22 +310,48 @@ function GhgInventoryImportPage() {
           </div>
         </AdminPanel>
 
-        {!preview ? (
+        {preview?.status === "committed" ? (
+          <AdminPanel
+            title="本次导入结果"
+            actions={
+              <Button asChild size="sm" variant="outline">
+                <Link
+                  to="/carbon-mgmt/category/$categoryCode"
+                  params={{ categoryCode: preview.isoCategoryCode }}
+                  search={{ inventory: preview.inventoryCode, batch: preview.batchCode }}
+                >
+                  查看本批数据
+                </Link>
+              </Button>
+            }
+          >
+            <div className="space-y-4">
+              <output className="font-medium text-sm">
+                已入库 {preview.committedCount ?? 0} 条 · {preview.fileName}
+              </output>
+              <GhgAmountSummary summary={preview.summary ?? []} />
+              <GhgRecordResults records={preview.committedRows ?? []} catalog={catalog.data} />
+            </div>
+          </AdminPanel>
+        ) : !preview ? (
           <AdminEmptyState title="等待工作簿预检" description="选择盘查上下文并上传对应分类模板。" />
         ) : (
           <Tabs defaultValue="activities">
             <TabsList>
               <TabsTrigger value="activities">活动数据</TabsTrigger>
               <TabsTrigger value="allocations">区域设备归集</TabsTrigger>
-              <TabsTrigger value="parameters">方法与参数</TabsTrigger>
-              <TabsTrigger value="evidence">证据覆盖</TabsTrigger>
+              {preview.preview.parameters.length > 0 && <TabsTrigger value="parameters">方法与参数</TabsTrigger>}
+              {preview.preview.evidence.length > 0 && <TabsTrigger value="evidence">证据覆盖</TabsTrigger>}
               <TabsTrigger value="issues">校验问题 {preview.errorCount + preview.warningCount ? `(${preview.errorCount + preview.warningCount})` : ""}</TabsTrigger>
             </TabsList>
             <TabsContent value="activities">
-              <ActivityPreviewTable preview={preview} />
+              <div className="space-y-3">
+                <GhgAmountSummary summary={preview.summary ?? []} />
+                <ActivityPreviewTable preview={preview} catalog={catalog.data} />
+              </div>
             </TabsContent>
             <TabsContent value="allocations">
-              <AllocationPreviewTable preview={preview} />
+              <AllocationPreviewTable preview={preview} catalog={catalog.data} />
             </TabsContent>
             <TabsContent value="parameters">
               <ParameterPreviewTable preview={preview} methodFormula={selectedMethod?.formula} />
@@ -325,6 +363,7 @@ function GhgInventoryImportPage() {
               <IssueTable preview={preview} />
             </TabsContent>
             <div className="flex flex-wrap items-center justify-end gap-3 border-border/70 border-t pt-4">
+              <span className="mr-auto text-muted-foreground text-sm">仅新增；冲突记录不覆盖，已有记录请在分类台账中编辑。</span>
               {preview.warningCount > 0 && preview.errorCount === 0 && (
                 <div className="flex flex-wrap items-center gap-2">
                   <label className="flex items-center gap-2 text-sm">
@@ -335,33 +374,12 @@ function GhgInventoryImportPage() {
                 </div>
               )}
               <Button
-                disabled={
-                  preview.status === "committed" ||
-                  preview.errorCount > 0 ||
-                  (preview.warningCount > 0 && (!acknowledgeWarnings || !warningAcknowledgement.trim())) ||
-                  actions.commit.isPending
-                }
+                disabled={preview.errorCount > 0 || (preview.warningCount > 0 && (!acknowledgeWarnings || !warningAcknowledgement.trim())) || actions.commit.isPending}
                 onClick={() => actions.commit.mutate({ batchCode: preview.batchCode, acknowledgeWarnings, warningAcknowledgement }, { onSuccess: setPreview })}
               >
                 <FileUp />
-                {preview.status === "committed" ? "已完成导入" : "确认导入"}
+                {actions.commit.isPending ? "正在导入" : "确认导入"}
               </Button>
-              {preview.status === "committed" && (
-                <Button
-                  variant="outline"
-                  disabled={actions.calculate.isPending}
-                  onClick={() =>
-                    actions.calculate.mutate({
-                      inventoryCode: preview.inventoryCode,
-                      reportingProfileCode: preview.reportingProfileCode,
-                      reportingPeriodId: context.reportingPeriodId,
-                    })
-                  }
-                >
-                  <Calculator />
-                  执行核算
-                </Button>
-              )}
             </div>
           </Tabs>
         )}
@@ -370,7 +388,7 @@ function GhgInventoryImportPage() {
   )
 }
 
-function AllocationPreviewTable({ preview }: { preview: GhgImportBatch }) {
+function AllocationPreviewTable({ preview, catalog }: { preview: GhgImportBatch; catalog?: GhgCatalog }) {
   return (
     <AdminPanel title="区域设备归集" contentClassName="p-0">
       <Table>
@@ -389,13 +407,14 @@ function AllocationPreviewTable({ preview }: { preview: GhgImportBatch }) {
             preview.preview.allocations.map((row) => (
               <TableRow key={`${row._row_number}-${row.allocationCode}`}>
                 <TableCell>
-                  <div className="font-medium">{row.recordCode}</div>
-                  <div className="text-muted-foreground text-xs">{row.sourceCode}</div>
+                  <div className="font-medium">{preview.preview.activities.find((activity) => activity.recordCode === row.recordCode)?.activityName || "活动记录"}</div>
                 </TableCell>
-                <TableCell>{row.areaCode}</TableCell>
+                <TableCell>{catalog?.areas.find((area) => area.code === row.areaCode)?.name || "未匹配区域"}</TableCell>
                 <TableCell>
-                  <div>{row.equipmentCode ?? "区域级归集"}</div>
-                  <div className="text-muted-foreground text-xs">{row.measurementBoundaryCode ?? "-"}</div>
+                  <div>{catalog?.equipment.find((equipment) => equipment.code === row.equipmentCode)?.name || (row.equipmentCode ? "未匹配设备" : "区域级归集")}</div>
+                  <div className="text-muted-foreground text-xs">
+                    {catalog?.measurementBoundaries.find((boundary) => boundary.code === row.measurementBoundaryCode)?.name || "-"}
+                  </div>
                 </TableCell>
                 <TableCell>{allocationRoleLabel(row.allocationRole ?? "")}</TableCell>
                 <TableCell className="text-right font-mono tabular-nums">{formatAllocationRatio(row.allocationRatio)}</TableCell>
@@ -420,19 +439,19 @@ function FilterField({ label, children }: { label: string; children: ReactNode }
   )
 }
 
-function ActivityPreviewTable({ preview }: { preview: GhgImportBatch }) {
+function ActivityPreviewTable({ preview, catalog }: { preview: GhgImportBatch; catalog?: GhgCatalog }) {
   return (
     <AdminPanel title="活动数据预览" contentClassName="p-0">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>行号 / 记录</TableHead>
+            <TableHead>行号</TableHead>
             <TableHead>活动</TableHead>
             <TableHead>组织 / 设施</TableHead>
             <TableHead>期间</TableHead>
             <TableHead className="text-right">活动量</TableHead>
             <TableHead>数据来源</TableHead>
-            <TableHead>证据</TableHead>
+            <TableHead>区域 / 设备</TableHead>
             <TableHead>状态</TableHead>
           </TableRow>
         </TableHeader>
@@ -445,21 +464,22 @@ function ActivityPreviewTable({ preview }: { preview: GhgImportBatch }) {
             const parameterIssues = preview.preview.issues.filter(
               (issue) => issue.sheetName === "04_参数与因子" && typeof issue.rowNumber === "number" && parameterRows.has(issue.rowNumber),
             )
-            const evidenceCount = preview.preview.links.filter((link) => link.recordType === "activity" && link.recordCode === row.recordCode).length
             const hasError =
               [...rowIssues, ...parameterIssues].some((issue) => issue.severity === "error") ||
               preview.preview.issues.some((issue) => issue.severity === "error" && issue.rowNumber === null)
-            const hasWarning = evidenceCount === 0 || [...rowIssues, ...parameterIssues].some((issue) => issue.severity === "warning")
+            const hasWarning = [...rowIssues, ...parameterIssues].some((issue) => issue.severity === "warning")
             return (
               <TableRow key={`${row._row_number}-${row.recordCode}`}>
                 <TableCell>
-                  <div className="font-medium">{row.recordCode}</div>
                   <div className="text-muted-foreground text-xs">第 {row._row_number} 行</div>
                 </TableCell>
-                <TableCell>{row.activityName}</TableCell>
                 <TableCell>
-                  <div>{row.organizationCode}</div>
-                  <div className="text-muted-foreground text-xs">{row.facilityCode}</div>
+                  <div className="font-medium">{row.activityName}</div>
+                  <div className="text-muted-foreground text-xs">{row.sourceName}</div>
+                </TableCell>
+                <TableCell>
+                  <div>{row.organizationName || catalog?.organizations.find((item) => item.code === row.organizationCode)?.name || "未匹配组织"}</div>
+                  <div className="text-muted-foreground text-xs">{row.facilityName || catalog?.areas.find((item) => item.code === row.facilityCode)?.name || "未匹配工厂"}</div>
                 </TableCell>
                 <TableCell>
                   {row.periodStart} 至 {row.periodEnd}
@@ -468,9 +488,12 @@ function ActivityPreviewTable({ preview }: { preview: GhgImportBatch }) {
                   {row.activityAmount} {row.activityUnit}
                 </TableCell>
                 <TableCell>{sourceModeLabel(row.dataSourceType ?? "")}</TableCell>
-                <TableCell>{evidenceCount ? `${evidenceCount} 份` : "未关联"}</TableCell>
                 <TableCell>
-                  <StatusBadge status={hasError ? "rejected" : hasWarning ? "pending" : "approved"} label={hasError ? "错误" : hasWarning ? "警告" : "有效"} />
+                  <div>{row.areaName || "未指定区域"}</div>
+                  <div className="text-muted-foreground text-xs">{row.equipmentName || "区域级归集"}</div>
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={hasError ? "rejected" : hasWarning ? "pending" : "approved"} label={hasError ? "冲突或错误" : hasWarning ? "待确认" : "将新增"} />
                 </TableCell>
               </TableRow>
             )
@@ -666,7 +689,7 @@ function sourceModeLabel(value: string) {
         custom_approved: "企业批准",
         migration: "历史数据迁移",
       } as Record<string, string>
-    )[value] ?? value
+    )[value] ?? sourceLabel(value)
   )
 }
 

@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { GhgActivityLedger } from "@/routes/_app/carbon-mgmt/activities"
+import { GhgActivityLedger, ghgLedgerSearchSchema } from "@/routes/_app/carbon-mgmt/activities"
 
 export const Route = createFileRoute("/_app/carbon-mgmt/category/$categoryCode")({
+  validateSearch: (search) => ghgLedgerSearchSchema.parse(search),
   component: GhgCategoryActivityPage,
 })
 
 function GhgCategoryActivityPage() {
   const { categoryCode } = Route.useParams()
-  return <GhgActivityLedger fixedCategoryCode={categoryCode} />
+  const { inventory, batch, record } = Route.useSearch()
+  return <GhgActivityLedger key={categoryCode} fixedCategoryCode={categoryCode} initialInventoryCode={inventory} initialBatchCode={batch} initialRecordCode={record} />
 }
